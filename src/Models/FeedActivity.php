@@ -52,7 +52,7 @@ class FeedActivity extends Model implements Storyable
     public static function booted()
     {
         static::creating(function ($model) {
-            if (!$model->actor) {
+            if (! $model->actor) {
                 $model->actor()->associate(Auth::user());
             }
         });
@@ -62,7 +62,7 @@ class FeedActivity extends Model implements Storyable
         });
 
         static::saving(function ($model) {
-            if (!$model->published_at) {
+            if (! $model->published_at) {
                 $model->published_at = now();
             }
         });
@@ -98,7 +98,6 @@ class FeedActivity extends Model implements Storyable
     {
         return $this->morphTo();
     }
-
 
     public function setGroupings(): void
     {
@@ -163,7 +162,7 @@ class FeedActivity extends Model implements Storyable
             $message = data_get($objectMap, $this->type);
         }
 
-        if (!$message) {
+        if (! $message) {
             return null;
         }
 

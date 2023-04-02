@@ -17,7 +17,7 @@ class TestCase extends Orchestra
         parent::setUp();
 
         Factory::guessFactoryNamesUsing(
-            fn (string $modelName) => 'Storyfeed\\Database\\Factories\\' . class_basename($modelName) . 'Factory'
+            fn (string $modelName) => 'Storyfeed\\Database\\Factories\\'.class_basename($modelName).'Factory'
         );
     }
 
@@ -33,9 +33,9 @@ class TestCase extends Orchestra
         config()->set('database.default', 'testing');
 
         $migrations = [
-            __DIR__ . '/../database/migrations/create_users_table.php.stub',
-            __DIR__ . '/../database/migrations/create_testing_tables.php.stub',
-            __DIR__ . '/../database/migrations/create_storyfeed_tables.php.stub',
+            __DIR__.'/../database/migrations/create_users_table.php.stub',
+            __DIR__.'/../database/migrations/create_testing_tables.php.stub',
+            __DIR__.'/../database/migrations/create_storyfeed_tables.php.stub',
         ];
 
         foreach ($migrations as $migration) {
