@@ -1,0 +1,49 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up()
+    {
+        Schema::create('feed_activities', function (Blueprint $table) {
+            $table->id();
+            $table->string('type')->index();
+            $table->nullableMorphs('actor');
+            $table->nullableMorphs('object');
+            $table->nullableMorphs('target');
+            $table->nullableMorphs('result');
+            $table->json('data')->nullable();
+            $table->timestamp('published_at')->nullable();
+            $table->timestamps();
+            $table->softDeletes();
+        });
+
+        Schema::create('feed_groups', function (Blueprint $table) {
+            $table->id();
+            $table->unsignedBigInteger('feed_activity_id')->index();
+            $table->string('signature')->index();
+            $table->string('context')->nullable()->index();
+            $table->timestamps();
+
+            $table->unique(['feed_activity_id', 'context', 'signature']);
+
+            $table->foreign('feed_activity_id')
+                ->references('id')
+                ->on('feed_activities')
+                ->onDelete('cascade');
+        });
+
+        Schema::create('feed_entities', function (Blueprint $table) {
+            $table->id();
+            $table->string('type')->index();
+            $table->string('label');
+            $table->json('data')->nullable();
+            $table->timestamps();
+
+            $table->unique('type');
+        });
+    }
+};
