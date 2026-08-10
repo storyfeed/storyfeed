@@ -19,6 +19,14 @@ class StoryfeedManager
     }
 
     /**
+     * Begin composing a feed query.
+     */
+    public function feed(): FeedBuilder
+    {
+        return new FeedBuilder;
+    }
+
+    /**
      * Override how the default actor is resolved at publish time.
      */
     public function resolveActorUsing(Closure $resolver): void

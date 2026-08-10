@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Storyfeed\Actions\SnapshotEntity;
+use Storyfeed\Actions\WriteGroupings;
 use Storyfeed\Contracts\Feedable;
 use Storyfeed\Models\Activity;
 
@@ -137,6 +138,8 @@ class PendingActivity
 
             $this->activity->save();
 
+            $this->writeGroupings();
+
             if ($this->replace && $this->activity->object_id !== null) {
                 $this->activity->newQuery()
                     ->whereKeyNot($this->activity->getKey())
@@ -158,6 +161,15 @@ class PendingActivity
         }
 
         return $this;
+    }
+
+    /**
+     * Write one candidate grouping hash per axis, for curation to select
+     * among at read time.
+     */
+    protected function writeGroupings(): void
+    {
+        (new WriteGroupings)($this->activity);
     }
 
     /**

@@ -7,6 +7,7 @@ use Storyfeed\StoryfeedManager;
 
 /**
  * @method static \Storyfeed\PendingActivity activity(...$args)
+ * @method static \Storyfeed\FeedBuilder feed()
  * @method static void resolveActorUsing(\Closure $resolver)
  * @method static \Illuminate\Database\Eloquent\Model|null resolveActor()
  *

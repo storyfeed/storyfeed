@@ -42,6 +42,7 @@ use Storyfeed\StoryfeedManager;
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property Carbon|null $deleted_at
+ * @property string|null $group_hash read-time alias selected by FeedBuilder's grouping join
  */
 class Activity extends Model
 {
@@ -112,23 +113,31 @@ class Activity extends Model
         return $this->morphTo();
     }
 
+    /** @return BelongsTo<Snapshot, $this> */
     public function cachedActor(): BelongsTo
     {
+        /** @var BelongsTo<Snapshot, $this> */
         return $this->belongsTo($this->snapshotModel(), 'cached_actor_id');
     }
 
+    /** @return BelongsTo<Snapshot, $this> */
     public function cachedObject(): BelongsTo
     {
+        /** @var BelongsTo<Snapshot, $this> */
         return $this->belongsTo($this->snapshotModel(), 'cached_object_id');
     }
 
+    /** @return BelongsTo<Snapshot, $this> */
     public function cachedTarget(): BelongsTo
     {
+        /** @var BelongsTo<Snapshot, $this> */
         return $this->belongsTo($this->snapshotModel(), 'cached_target_id');
     }
 
+    /** @return BelongsTo<Snapshot, $this> */
     public function cachedContext(): BelongsTo
     {
+        /** @var BelongsTo<Snapshot, $this> */
         return $this->belongsTo($this->snapshotModel(), 'cached_context_id');
     }
 

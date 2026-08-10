@@ -9,6 +9,13 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
  * The denormalized read-model snapshot of a Feedable entity: its label,
  * renderer component hint, and cacheable data. One row per entity, refreshed
  * on save; links are regenerated live from `data` at read time.
+ *
+ * @property int $id
+ * @property string $model_type
+ * @property int|string $model_id
+ * @property string|null $label
+ * @property string|null $component
+ * @property array<array-key, mixed>|null $data
  */
 class Snapshot extends Model
 {

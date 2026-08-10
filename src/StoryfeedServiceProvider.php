@@ -17,6 +17,10 @@ class StoryfeedServiceProvider extends PackageServiceProvider
                 'create_feed_activities_table',
                 'create_feed_snapshots_table',
                 'create_feed_groupings_table',
+            ])
+            ->hasCommands([
+                Console\RebuildCommand::class,
+                Console\TrickleCommand::class,
             ]);
     }
 

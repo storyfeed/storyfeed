@@ -1,5 +1,6 @@
 <?php
 
+use Storyfeed\Grouping\MultiAxisStrategy;
 use Storyfeed\Models\Activity;
 use Storyfeed\Models\Grouping;
 use Storyfeed\Models\Snapshot;
@@ -49,6 +50,20 @@ return [
     */
 
     'morph_map' => [],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Grouping
+    |--------------------------------------------------------------------------
+    |
+    | The strategy computing candidate grouping hashes at publish time.
+    | Use NullStrategy to disable grouping entirely.
+    |
+    */
+
+    'grouping' => [
+        'strategy' => MultiAxisStrategy::class,
+    ],
 
     /*
     |--------------------------------------------------------------------------
