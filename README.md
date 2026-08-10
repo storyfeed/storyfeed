@@ -1,60 +1,65 @@
-# Activity streams for Laravel
+# Storyfeed — Activity streams for Laravel
 
 [![Latest Version on Packagist](https://img.shields.io/packagist/v/storyfeed/storyfeed.svg?style=flat-square)](https://packagist.org/packages/storyfeed/storyfeed)
-[![GitHub Tests Action Status](https://github.com/spatie/package-storyfeed-laravel/actions/workflows/run-tests.yml/badge.svg)](https://github.com/storyfeed/storyfeed/actions?query=workflow%3Arun-tests+branch%3Amain)
-[![GitHub Code Style Action Status](https://github.com/spatie/package-storyfeed-laravel/actions/workflows/fix-php-code-style-issues.yml/badge.svg)](https://github.com/storyfeed/storyfeed/actions?query=workflow%3A"Fix+PHP+code+style+issues"+branch%3Amain)
+[![GitHub Tests Action Status](https://github.com/storyfeed/storyfeed/actions/workflows/run-tests.yml/badge.svg)](https://github.com/storyfeed/storyfeed/actions?query=workflow%3Arun-tests+branch%3Amain)
 [![Total Downloads](https://img.shields.io/packagist/dt/storyfeed/storyfeed.svg?style=flat-square)](https://packagist.org/packages/storyfeed/storyfeed)
 
-This is where your description should go. Limit it to a paragraph or two. Consider adding a small example.
+> **Status: under active development.** See the [roadmap](ROADMAP.md) for what's in
+> progress. APIs below reflect the working design spec and may shift until v1.0.
 
-## Support us
+Storyfeed is an implementation of the activity stream pattern — the feed of meaningful
+events at the heart of products like GitHub's dashboard:
 
-[<img src="https://github-ads.s3.eu-central-1.amazonaws.com/storyfeed.jpg?t=1" width="419px" />](https://spatie.be/github-ad-click/storyfeed)
+> *Sally confirmed Delivery #1042 for Acme Co.*
+> *Bob, Sally, and 3 others uploaded files to Project X.*
 
-We invest a lot of resources into creating [best in class open source packages](https://spatie.be/open-source). You can support us by [buying one of our paid products](https://spatie.be/open-source/support-us).
+It follows the [W3C Activity Streams 2.0](https://www.w3.org/TR/activitystreams-core/)
+specification under the hood, adapted for practical usage and great developer
+experience within Laravel applications.
 
-We highly appreciate you sending us a postcard from your hometown, mentioning which of our package(s) you are using. You'll find our address on [our contact page](https://spatie.be/about-us). We publish all received postcards on [our virtual postcard wall](https://spatie.be/open-source/postcards).
+```php
+Storyfeed::activity()
+    ->actor($user)
+    ->confirm($delivery)
+    ->for($customer)
+    ->publish();
+
+Storyfeed::feed()->context($project)->get();
+```
+
+## What it does
+
+- **Curated recording** — a fluent builder (and, coming, declarative `Story` classes)
+  for publishing meaningful activities from your domain events or observers. Not an
+  audit log: you choose what makes the feed.
+- **Fast, self-describing reads** — entity snapshots kill polymorphic N+1s; every feed
+  item ships fully described (headline template, icon, linked entities) so renderers
+  need zero domain knowledge.
+- **Smart grouping** — activities aggregate the way social feeds do
+  (*"…and 3 others"*), via a behind-the-scenes curation process.
+- **Activity Streams 2.0** — spec-conformant JSON-LD serialization
+  (`Activity`, `OrderedCollection`), with ActivityPub federation on the long-range
+  roadmap.
+- **Headless by design** — the core emits a stable, versioned payload contract.
+  Bring your own UI, or use **`storyfeed/ui`** (coming) — polished pre-built
+  components by Tey Labs.
 
 ## Installation
 
-You can install the package via composer:
-
 ```bash
 composer require storyfeed/storyfeed
-```
 
-You can publish and run the migrations with:
-
-```bash
 php artisan vendor:publish --tag="storyfeed-migrations"
 php artisan migrate
-```
-
-You can publish the config file with:
-
-```bash
 php artisan vendor:publish --tag="storyfeed-config"
 ```
 
-This is the contents of the published config file:
+## Documentation
 
-```php
-return [
-];
-```
-
-Optionally, you can publish the views using
-
-```bash
-php artisan vendor:publish --tag="storyfeed-views"
-```
-
-## Usage
-
-```php
-$storyfeed = new Storyfeed\Storyfeed();
-echo $storyfeed->echoPhrase('Hello, Storyfeed!');
-```
+Full documentation ships alongside the v0.x milestones — see the
+[roadmap](ROADMAP.md) for what's in progress. The design-spec documents (payload
+contract, Activity Streams 2.0 conformance, the Story authoring layer, feed curation)
+will be published as each area stabilizes.
 
 ## Testing
 
@@ -66,17 +71,9 @@ composer test
 
 Please see [CHANGELOG](CHANGELOG.md) for more information on what has changed recently.
 
-## Contributing
-
-Please see [CONTRIBUTING](CONTRIBUTING.md) for details.
-
-## Security Vulnerabilities
-
-Please review [our security policy](../../security/policy) on how to report security vulnerabilities.
-
 ## Credits
 
-- [Jasper Tey](https://github.com/jaspertey)
+- [Jasper Tey](https://github.com/jaspertey) / [Tey Labs](https://teylabs.com)
 - [All Contributors](../../contributors)
 
 ## License

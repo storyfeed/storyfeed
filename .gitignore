@@ -30,3 +30,6 @@ phpstan.neon
 testbench.yaml
 /docs
 /coverage
+
+# Internal planning spec — remove from here when taking the spec public
+/SPEC.md
