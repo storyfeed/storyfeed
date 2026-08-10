@@ -1,10 +1,13 @@
 <?php
 
-namespace Storyfeed\Storyfeed\Tests;
+namespace Storyfeed\Tests;
 
-use Illuminate\Database\Eloquent\Factories\Factory;
+use Illuminate\Database\Eloquent\Relations\Relation;
 use Orchestra\Testbench\TestCase as Orchestra;
-use Storyfeed\Storyfeed\StoryfeedServiceProvider;
+use Storyfeed\StoryfeedServiceProvider;
+use Workbench\App\Models\Customer;
+use Workbench\App\Models\Delivery;
+use Workbench\App\Models\User;
 
 class TestCase extends Orchestra
 {
@@ -12,9 +15,11 @@ class TestCase extends Orchestra
     {
         parent::setUp();
 
-        Factory::guessFactoryNamesUsing(
-            fn (string $modelName) => 'Storyfeed\\Storyfeed\\Database\\Factories\\'.class_basename($modelName).'Factory'
-        );
+        Relation::enforceMorphMap([
+            'user' => User::class,
+            'customer' => Customer::class,
+            'delivery' => Delivery::class,
+        ]);
     }
 
     protected function getPackageProviders($app)
@@ -27,11 +32,16 @@ class TestCase extends Orchestra
     public function getEnvironmentSetUp($app)
     {
         config()->set('database.default', 'testing');
+    }
 
-        /*
-         foreach (\Illuminate\Support\Facades\File::allFiles(__DIR__ . '/../database/migrations') as $migration) {
-            (include $migration->getRealPath())->up();
-         }
-         */
+    protected function defineDatabaseMigrations(): void
+    {
+        foreach (glob(__DIR__.'/../database/migrations/*.stub') as $stub) {
+            (include $stub)->up();
+        }
+
+        foreach (glob(__DIR__.'/../workbench/database/migrations/*.php') as $migration) {
+            (include $migration)->up();
+        }
     }
 }

@@ -25,22 +25,22 @@
         "nunomaduro/collision": "^8.8",
         "larastan/larastan": "^3.0",
         "orchestra/testbench": "^11.0.0||^10.0.0||^9.0.0",
-        "pestphp/pest": "^4.0",
-        "pestphp/pest-plugin-arch": "^4.0",
-        "pestphp/pest-plugin-laravel": "^4.0",
+        "pestphp/pest": "^5.0",
+        "pestphp/pest-plugin-arch": "^5.0",
+        "pestphp/pest-plugin-laravel": "^5.0",
         "phpstan/extension-installer": "^1.4",
         "phpstan/phpstan-deprecation-rules": "^2.0",
         "phpstan/phpstan-phpunit": "^2.0"
     },
     "autoload": {
         "psr-4": {
-            "Storyfeed\\Storyfeed\\": "src/",
-            "Storyfeed\\Storyfeed\\Database\\Factories\\": "database/factories/"
+            "Storyfeed\\": "src/",
+            "Storyfeed\\Database\\Factories\\": "database/factories/"
         }
     },
     "autoload-dev": {
         "psr-4": {
-            "Storyfeed\\Storyfeed\\Tests\\": "tests/",
+            "Storyfeed\\Tests\\": "tests/",
             "Workbench\\App\\": "workbench/app/"
         }
     },
@@ -62,10 +62,10 @@
     "extra": {
         "laravel": {
             "providers": [
-                "Storyfeed\\Storyfeed\\StoryfeedServiceProvider"
+                "Storyfeed\\StoryfeedServiceProvider"
             ],
             "aliases": {
-                "Storyfeed": "Storyfeed\\Storyfeed\\Facades\\Storyfeed"
+                "Storyfeed": "Storyfeed\\Facades\\Storyfeed"
             }
         }
     },

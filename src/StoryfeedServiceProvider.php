@@ -1,25 +1,33 @@
 <?php
 
-namespace Storyfeed\Storyfeed;
+namespace Storyfeed;
 
+use Illuminate\Database\Eloquent\Relations\Relation;
 use Spatie\LaravelPackageTools\Package;
 use Spatie\LaravelPackageTools\PackageServiceProvider;
-use Storyfeed\Storyfeed\Commands\StoryfeedCommand;
 
 class StoryfeedServiceProvider extends PackageServiceProvider
 {
     public function configurePackage(Package $package): void
     {
-        /*
-         * This class is a Package Service Provider
-         *
-         * More info: https://github.com/spatie/laravel-package-tools
-         */
         $package
             ->name('storyfeed')
             ->hasConfigFile()
-            ->hasViews()
-            ->hasMigration('create_storyfeed_table')
-            ->hasCommand(StoryfeedCommand::class);
+            ->hasMigrations([
+                'create_feed_activities_table',
+                'create_feed_snapshots_table',
+                'create_feed_groupings_table',
+            ]);
+    }
+
+    public function packageRegistered(): void
+    {
+        $this->app->singleton(StoryfeedManager::class);
+        $this->app->alias(StoryfeedManager::class, 'storyfeed');
+    }
+
+    public function packageBooted(): void
+    {
+        Relation::morphMap(config('storyfeed.morph_map', []));
     }
 }
