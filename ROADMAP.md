@@ -31,8 +31,11 @@ high-level plan; detailed design documents will be published as the milestones l
 
 ## Beyond 1.0
 
-- Smarter feed curation — dynamic, social-style activity grouping that improves
-  behind the stable payload contract.
+- Smarter feed curation — dynamic, social-style activity grouping ("Bob, Sally and 3
+  others uploaded files to Project X") that improves behind the stable payload
+  contract. Landing as an **experimental opt-in** (`->curated()`): feeds group on plain
+  repetition by default, and the curation policy is free to keep evolving after 1.0
+  because it was never part of the contract.
 - Full-history scale — feeds that stay fast at millions of activities without
   pruning (time-partitioned storage, warm/cold tiering behind the opaque cursor).
 - Story auto-discovery.

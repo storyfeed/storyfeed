@@ -26,6 +26,9 @@ use Storyfeed\Payload\NodePresenter;
  *   Storyfeed::feed()->context($project)->get();
  *   Storyfeed::feed()->actor($user)->limit(15)->get();
  *
+ * Grouping is plain repetition by default; ->curated() opts into the
+ * experimental multi-axis curated grouping (docs/grouping.md).
+ *
  * READ STRATEGY (docs/grouping.md). The page is selected in two phases:
  *
  *  1. Select `limit` FEED ITEMS — not raw rows. Two ordered streams are
@@ -60,6 +63,9 @@ class FeedBuilder
 
     /** A named filter was requested but matched no party. */
     protected bool $unresolvable = false;
+
+    /** Opt in to multi-axis curated grouping (EXPERIMENTAL). */
+    protected bool $curated = false;
 
     /** Ordering rank of each stream, applied at identical timestamps. */
     protected const RANK_GROUP = 0;
@@ -114,6 +120,26 @@ class FeedBuilder
     public function limit(int $limit): static
     {
         $this->limit = $limit;
+
+        return $this;
+    }
+
+    /**
+     * Group on the curated winning axis rather than plain repetition —
+     * "Bob, Sally and 3 others uploaded files to Concur".
+     *
+     * EXPERIMENTAL. Opt-in per feed, because the axis a feed should collapse
+     * is a property of the view, not of the data: a global "what happened
+     * today" feed wants social aggregation; ClientA's history reads better
+     * as plain repeat groups. The consumer knows which; the server would
+     * only be guessing.
+     *
+     * Cursors are view-specific: do not replay one from a curated feed into
+     * an uncurated one (or the reverse).
+     */
+    public function curated(bool $curated = true): static
+    {
+        $this->curated = $curated;
 
         return $this;
     }
@@ -310,18 +336,26 @@ class FeedBuilder
     }
 
     /**
-     * The winning-grouping predicate, applied wherever the groupings table
-     * is in play.
+     * The grouping predicate, applied wherever the groupings table is in
+     * play.
      *
-     * `winner = true` is the curated answer; a row with NO winner stamped
-     * anywhere for its activity falls back to the `repeat` axis. That
-     * per-activity fallback is what lets an adopter upgrade into the winner
-     * column without a backfill cliff — an uncurated feed reads exactly as
-     * it did before, and `storyfeed:curate` settles it incrementally.
+     * Default: the `repeat` axis — the same grouping the pre-package apps
+     * shipped ("Sally uploaded 12 photos"), and the reason curation can be
+     * experimental without holding anything back.
+     *
+     * curated(): `winner = true` is the curated answer, and a row with NO
+     * winner stamped anywhere for its activity falls back to `repeat`. That
+     * per-activity fallback is what lets an adopter turn curation on without
+     * a backfill cliff — uncurated rows read exactly as they did before, and
+     * `storyfeed:curate` settles them incrementally.
      */
     protected function winning(): Closure
     {
         $groupings = $this->groupingModel()->getTable();
+
+        if (! $this->curated) {
+            return fn ($query) => $query->where("{$groupings}.bucket", 'repeat');
+        }
 
         return function ($query) use ($groupings) {
             $query->where("{$groupings}.winner", true)
