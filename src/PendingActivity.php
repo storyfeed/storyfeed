@@ -16,6 +16,7 @@ use Storyfeed\Events\ActivityPublished;
 use Storyfeed\Exceptions\IncompleteActivity;
 use Storyfeed\Exceptions\UnknownVerb;
 use Storyfeed\Models\Activity;
+use Storyfeed\Models\Party;
 
 /**
  * Fluent builder for publishing activities.
@@ -41,7 +42,7 @@ class PendingActivity
     /** @var array<string, Model> */
     protected array $entities = [];
 
-    public function __construct(string|FeedVerb|BackedEnum|null $verb = null, ?Model $object = null)
+    public function __construct(string|FeedVerb|BackedEnum|null $verb = null, Model|string|null $object = null)
     {
         $model = config('storyfeed.models.activity', Activity::class);
 
@@ -52,12 +53,12 @@ class PendingActivity
         }
     }
 
-    public static function make(string|FeedVerb|BackedEnum|null $verb = null, ?Model $object = null): static
+    public static function make(string|FeedVerb|BackedEnum|null $verb = null, Model|string|null $object = null): static
     {
         return new static($verb, $object);
     }
 
-    public function verb(string|FeedVerb|BackedEnum $verb, ?Model $object = null): static
+    public function verb(string|FeedVerb|BackedEnum $verb, Model|string|null $object = null): static
     {
         $this->activity->verb = $this->normalizeVerb($verb);
 
@@ -68,42 +69,42 @@ class PendingActivity
         return $this;
     }
 
-    public function actor(?Model $model = null): static
+    public function actor(Model|string|null $model = null): static
     {
         return $this->associate('actor', $model);
     }
 
-    public function object(?Model $model = null): static
+    public function object(Model|string|null $model = null): static
     {
         return $this->associate('object', $model);
     }
 
-    public function target(?Model $model = null): static
+    public function target(Model|string|null $model = null): static
     {
         return $this->associate('target', $model);
     }
 
-    public function context(?Model $model = null): static
+    public function context(Model|string|null $model = null): static
     {
         return $this->associate('context', $model);
     }
 
-    public function in(?Model $model = null): static
+    public function in(Model|string|null $model = null): static
     {
         return $this->target($model);
     }
 
-    public function to(?Model $model = null): static
+    public function to(Model|string|null $model = null): static
     {
         return $this->target($model);
     }
 
-    public function for(?Model $model = null): static
+    public function for(Model|string|null $model = null): static
     {
         return $this->target($model);
     }
 
-    public function from(?Model $model = null): static
+    public function from(Model|string|null $model = null): static
     {
         return $this->target($model);
     }
@@ -141,6 +142,8 @@ class PendingActivity
         if (blank($this->activity->verb)) {
             throw IncompleteActivity::missingVerb();
         }
+
+        $this->resolveDefaultActor();
 
         $activity = DB::transaction(function () {
             $this->snapshotEntities();
@@ -191,6 +194,23 @@ class PendingActivity
     }
 
     /**
+     * Resolve the default actor here rather than in the model's `creating`
+     * hook, so it lands in $entities and is snapshotted synchronously with
+     * every other role. The model hook remains as a fallback for activities
+     * created directly, bypassing this builder.
+     */
+    private function resolveDefaultActor(): void
+    {
+        if ($this->activity->actor_type !== null || $this->activity->actor_id !== null) {
+            return;
+        }
+
+        if ($actor = app(StoryfeedManager::class)->resolveActor()) {
+            $this->actor($actor);
+        }
+    }
+
+    /**
      * Strict verbs are a development-time assertion. Unset means "strict
      * where mistakes are cheap to fix" — never in production.
      */
@@ -201,14 +221,34 @@ class PendingActivity
         return $strict ?? app()->environment('local', 'testing');
     }
 
-    private function associate(string $role, ?Model $model): static
+    /**
+     * A string names a Party — a participant that lives only in the feed.
+     */
+    private function associate(string $role, Model|string|null $participant): static
     {
+        $model = is_string($participant)
+            ? $this->party($participant)
+            : $participant;
+
         if ($model instanceof Model) {
             $this->activity->{$role}()->associate($model);
             $this->entities[$role] = $model;
         }
 
         return $this;
+    }
+
+    private function party(string $name): ?Party
+    {
+        $name = trim($name);
+
+        if ($name === '') {
+            return null;
+        }
+
+        $model = config('storyfeed.models.party', Party::class);
+
+        return $model::make($name);
     }
 
     /**

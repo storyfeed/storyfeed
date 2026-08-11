@@ -6,7 +6,6 @@ use BackedEnum;
 use Closure;
 use DateTimeInterface;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\Facades\Auth;
 use Storyfeed\ActivityStreams\ActivityType;
 use Storyfeed\ActivityStreams\CoreType;
@@ -14,6 +13,8 @@ use Storyfeed\ActivityStreams\ObjectType;
 use Storyfeed\Contracts\FeedVerb;
 use Storyfeed\Contracts\HasActivityStreamsType;
 use Storyfeed\Models\Activity;
+use Storyfeed\Models\Party;
+use Storyfeed\Support\MorphResolver;
 use Throwable;
 
 class StoryfeedManager
@@ -74,7 +75,7 @@ class StoryfeedManager
     /**
      * Begin composing an activity.
      */
-    public function activity(string|FeedVerb|BackedEnum|null $verb = null, ?Model $object = null): PendingActivity
+    public function activity(string|FeedVerb|BackedEnum|null $verb = null, Model|string|null $object = null): PendingActivity
     {
         return PendingActivity::make($verb, $object);
     }
@@ -84,10 +85,10 @@ class StoryfeedManager
      */
     public function record(
         string|FeedVerb|BackedEnum $verb,
-        ?Model $object = null,
-        ?Model $actor = null,
-        ?Model $target = null,
-        ?Model $context = null,
+        Model|string|null $object = null,
+        Model|string|null $actor = null,
+        Model|string|null $target = null,
+        Model|string|null $context = null,
         array $data = [],
         DateTimeInterface|string|null $publishedAt = null,
         bool $replace = false,
@@ -100,6 +101,43 @@ class StoryfeedManager
             ->when($publishedAt !== null, fn (PendingActivity $a) => $a->publishedAt($publishedAt))
             ->replace($replace)
             ->publish();
+    }
+
+    /**
+     * Attribute activities to an actor.
+     *
+     * With a callback, everything published inside it is attributed to that
+     * actor — the scoped counterpart to `parties.fallback`, and what you
+     * want inside a job or console command:
+     *
+     *   Storyfeed::as('System', function () {
+     *       Storyfeed::record('sync', object: $invoice);
+     *   });
+     *
+     * Without one, it seeds a builder: Storyfeed::as('System')->verb('sync').
+     *
+     * An explicit ->actor() still wins inside the scope, and the previous
+     * resolver is always restored — including when the callback throws.
+     *
+     * @return ($callback is null ? PendingActivity : mixed)
+     */
+    public function as(Model|string $actor, ?callable $callback = null): mixed
+    {
+        $resolved = is_string($actor) ? $this->party($actor) : $actor;
+
+        if ($callback === null) {
+            return $this->activity()->actor($resolved);
+        }
+
+        $previous = $this->actorResolver;
+
+        $this->actorResolver = fn () => $resolved;
+
+        try {
+            return $callback();
+        } finally {
+            $this->actorResolver = $previous;
+        }
     }
 
     /**
@@ -299,25 +337,50 @@ class StoryfeedManager
 
     /**
      * Resolve the default actor for activities published without one.
-     * Returns null for anonymous/system activities.
+     *
+     * Precedence: runtime closure → configured resolver → authenticated user
+     * → configured fallback party (for jobs and console commands) → null.
+     * Null means genuinely anonymous: the actor is unknown, not a system.
      */
     public function resolveActor(): ?Model
     {
         if ($this->actorResolver) {
-            return ($this->actorResolver)();
+            return ($this->actorResolver)() ?? $this->fallbackParty();
         }
 
         if ($resolver = config('storyfeed.actor_resolver')) {
-            return app($resolver)();
+            return app($resolver)() ?? $this->fallbackParty();
         }
 
-        return Auth::user();
+        return Auth::user() ?? $this->fallbackParty();
+    }
+
+    /**
+     * The configured fallback party, e.g. 'System'. Opt-in: null by default,
+     * which leaves unattributable activities anonymous.
+     */
+    protected function fallbackParty(): ?Party
+    {
+        $name = config('storyfeed.parties.fallback');
+
+        if (! is_string($name) || trim($name) === '') {
+            return null;
+        }
+
+        return $this->party($name);
+    }
+
+    protected function party(string $name): Party
+    {
+        $model = config('storyfeed.models.party', Party::class);
+
+        return $model::make($name);
     }
 
     protected function objectTypeFromModel(string $alias): ObjectType|string|null
     {
         try {
-            $class = Relation::getMorphedModel($alias) ?? (class_exists($alias) ? $alias : null);
+            $class = MorphResolver::classFor($alias);
 
             if ($class === null || ! is_a($class, HasActivityStreamsType::class, true)) {
                 return null;

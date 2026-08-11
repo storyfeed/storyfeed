@@ -3,9 +3,9 @@
 namespace Storyfeed\Actions;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\Relation;
 use Storyfeed\Contracts\Feedable;
 use Storyfeed\Models\Activity;
+use Storyfeed\Support\MorphResolver;
 
 /**
  * Full snapshot pass: iterates every DISTINCT entity referenced by any
@@ -59,14 +59,7 @@ class RebuildSnapshots
      */
     protected function resolve(string $type, int|string $id): ?Model
     {
-        $class = Relation::getMorphedModel($type) ?? (class_exists($type) ? $type : null);
-
-        if ($class === null || ! is_a($class, Model::class, true) || ! is_a($class, Feedable::class, true)) {
-            return null;
-        }
-
-        /** @var (Model&Feedable)|null guarded by the is_a checks above */
-        return $class::query()->find($id);
+        return MorphResolver::feedable($type, $id);
     }
 
     protected function activityQuery()

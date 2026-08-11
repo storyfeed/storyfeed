@@ -3,13 +3,13 @@
 namespace Storyfeed\Payload;
 
 use Closure;
-use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\Collection;
 use Storyfeed\Contracts\Feedable;
 use Storyfeed\FeedLink;
 use Storyfeed\Models\Activity;
 use Storyfeed\Models\Snapshot;
 use Storyfeed\StoryfeedManager;
+use Storyfeed\Support\MorphResolver;
 use Throwable;
 
 /**
@@ -144,7 +144,7 @@ class NodePresenter
 
     protected function resolveLink(string $type, array $data): ?FeedLink
     {
-        $class = Relation::getMorphedModel($type) ?? (class_exists($type) ? $type : null);
+        $class = MorphResolver::classFor($type);
 
         if ($class === null || ! is_a($class, Feedable::class, true)) {
             return null;

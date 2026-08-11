@@ -15,7 +15,7 @@ if (! function_exists('storyfeed')) {
      *
      * @return ($verb is null ? StoryfeedManager : PendingActivity)
      */
-    function storyfeed(string|FeedVerb|BackedEnum|null $verb = null, ?Model $object = null): StoryfeedManager|PendingActivity
+    function storyfeed(string|FeedVerb|BackedEnum|null $verb = null, Model|string|null $object = null): StoryfeedManager|PendingActivity
     {
         $manager = app(StoryfeedManager::class);
 

@@ -6,6 +6,7 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Schema;
 use Storyfeed\ActivityStreams\ActivityType;
 use Storyfeed\Models\Activity;
+use Storyfeed\Models\Party;
 use Storyfeed\StoryfeedManager;
 
 /**
@@ -25,6 +26,7 @@ class DoctorCommand extends Command
         $issues += $this->checkTables();
         $issues += $this->checkCoverage($storyfeed);
         $issues += $this->checkBacklog();
+        $issues += $this->checkParties();
 
         if ($issues === 0) {
             $this->info('Storyfeed looks healthy.');
@@ -121,6 +123,51 @@ class DoctorCommand extends Command
         }
 
         return 0;
+    }
+
+    /**
+     * Parties are created implicitly from strings, so a typo silently mints
+     * a new one. Surfacing unused parties is how that gets caught.
+     */
+    protected function checkParties(): int
+    {
+        $table = config('storyfeed.tables.parties', 'feed_parties');
+
+        if (! Schema::hasTable($table)) {
+            return 0;
+        }
+
+        $party = config('storyfeed.models.party', Party::class);
+
+        $parties = $party::query()->get();
+
+        if ($parties->isEmpty()) {
+            return 0;
+        }
+
+        $alias = (new $party)->getMorphClass();
+        $issues = 0;
+
+        foreach ($parties as $row) {
+            $count = $this->activityQuery()
+                ->where(function ($query) use ($alias, $row) {
+                    foreach (['actor', 'object', 'target', 'context'] as $role) {
+                        $query->orWhere(function ($q) use ($role, $alias, $row) {
+                            $q->where("{$role}_type", $alias)->where("{$role}_id", $row->getKey());
+                        });
+                    }
+                })
+                ->count();
+
+            if ($count === 0) {
+                $this->warn("Party `{$row->name}` ({$row->key}) has no activities — likely a typo'd name.");
+                $issues++;
+            } else {
+                $this->line("Party `{$row->name}` ({$row->key}): {$count} activities.");
+            }
+        }
+
+        return $issues;
     }
 
     protected function activityQuery()

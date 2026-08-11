@@ -48,16 +48,16 @@ trait AsFeedVerb
 
     // ── Entry points ─────────────────────────────────────────────────────
 
-    public function activity(?Model $object = null): PendingActivity
+    public function activity(Model|string|null $object = null): PendingActivity
     {
         return PendingActivity::make($this, $object);
     }
 
     public function record(
-        ?Model $object = null,
-        ?Model $actor = null,
-        ?Model $target = null,
-        ?Model $context = null,
+        Model|string|null $object = null,
+        Model|string|null $actor = null,
+        Model|string|null $target = null,
+        Model|string|null $context = null,
         array $data = [],
         DateTimeInterface|string|null $publishedAt = null,
         bool $replace = false,
@@ -76,42 +76,42 @@ trait AsFeedVerb
 
     // ── Forwarded chainables ─────────────────────────────────────────────
 
-    public function actor(?Model $model = null): PendingActivity
+    public function actor(Model|string|null $model = null): PendingActivity
     {
         return $this->activity()->actor($model);
     }
 
-    public function object(?Model $model = null): PendingActivity
+    public function object(Model|string|null $model = null): PendingActivity
     {
         return $this->activity()->object($model);
     }
 
-    public function target(?Model $model = null): PendingActivity
+    public function target(Model|string|null $model = null): PendingActivity
     {
         return $this->activity()->target($model);
     }
 
-    public function context(?Model $model = null): PendingActivity
+    public function context(Model|string|null $model = null): PendingActivity
     {
         return $this->activity()->context($model);
     }
 
-    public function in(?Model $model = null): PendingActivity
+    public function in(Model|string|null $model = null): PendingActivity
     {
         return $this->activity()->in($model);
     }
 
-    public function to(?Model $model = null): PendingActivity
+    public function to(Model|string|null $model = null): PendingActivity
     {
         return $this->activity()->to($model);
     }
 
-    public function for(?Model $model = null): PendingActivity
+    public function for(Model|string|null $model = null): PendingActivity
     {
         return $this->activity()->for($model);
     }
 
-    public function from(?Model $model = null): PendingActivity
+    public function from(Model|string|null $model = null): PendingActivity
     {
         return $this->activity()->from($model);
     }
@@ -133,12 +133,12 @@ trait AsFeedVerb
 
     // ── Terminals ────────────────────────────────────────────────────────
 
-    public function publish(?Model $object = null): Activity
+    public function publish(Model|string|null $object = null): Activity
     {
         return $this->activity($object)->publish();
     }
 
-    public function publishAndReplace(?Model $object = null): Activity
+    public function publishAndReplace(Model|string|null $object = null): Activity
     {
         return $this->activity($object)->publishAndReplace();
     }

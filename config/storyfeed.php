@@ -3,6 +3,7 @@
 use Storyfeed\Grouping\MultiAxisStrategy;
 use Storyfeed\Models\Activity;
 use Storyfeed\Models\Grouping;
+use Storyfeed\Models\Party;
 use Storyfeed\Models\Snapshot;
 
 return [
@@ -21,6 +22,7 @@ return [
         'activities' => 'feed_activities',
         'snapshots' => 'feed_snapshots',
         'groupings' => 'feed_groupings',
+        'parties' => 'feed_parties',
     ],
 
     /*
@@ -36,6 +38,34 @@ return [
         'activity' => Activity::class,
         'snapshot' => Snapshot::class,
         'grouping' => Grouping::class,
+        'party' => Party::class,
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Party Morph Alias
+    |--------------------------------------------------------------------------
+    |
+    | The morph alias stored for feed parties. Resolved independently of the
+    | application's morph map, so enforceMorphMap() cannot break it.
+    |
+    */
+
+    'morph_alias' => 'storyfeed.party',
+
+    /*
+    |--------------------------------------------------------------------------
+    | Parties
+    |--------------------------------------------------------------------------
+    |
+    | A fallback party name used when no actor can otherwise be resolved —
+    | typically for activities published from queued jobs or console
+    | commands. Null keeps those activities anonymous.
+    |
+    */
+
+    'parties' => [
+        'fallback' => null,
     ],
 
     /*

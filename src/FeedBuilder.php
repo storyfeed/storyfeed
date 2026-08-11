@@ -9,6 +9,7 @@ use Storyfeed\Grouping\NullStrategy;
 use Storyfeed\Models\Activity;
 use Storyfeed\Models\Builders\ActivityBuilder;
 use Storyfeed\Models\Grouping;
+use Storyfeed\Models\Party;
 use Storyfeed\Payload\FeedPage;
 use Storyfeed\Payload\NodePresenter;
 
@@ -43,30 +44,33 @@ class FeedBuilder
 
     protected ?string $cursor = null;
 
-    public function actor(Model $model): static
+    /** A named filter was requested but matched no party. */
+    protected bool $unresolvable = false;
+
+    public function actor(Model|string $model): static
     {
-        $this->actor = $model;
+        $this->actor = $this->resolve($model);
 
         return $this;
     }
 
-    public function object(Model $model): static
+    public function object(Model|string $model): static
     {
-        $this->object = $model;
+        $this->object = $this->resolve($model);
 
         return $this;
     }
 
-    public function target(Model $model): static
+    public function target(Model|string $model): static
     {
-        $this->target = $model;
+        $this->target = $this->resolve($model);
 
         return $this;
     }
 
-    public function context(Model $model): static
+    public function context(Model|string $model): static
     {
-        $this->context = $model;
+        $this->context = $this->resolve($model);
 
         return $this;
     }
@@ -74,9 +78,9 @@ class FeedBuilder
     /**
      * Activities involving the model in any role.
      */
-    public function for(Model $model): static
+    public function for(Model|string $model): static
     {
-        $this->involving = $model;
+        $this->involving = $this->resolve($model);
 
         return $this;
     }
@@ -112,6 +116,27 @@ class FeedBuilder
             : $this->paginateFlat();
 
         return new FeedPage($paginator, app(NodePresenter::class));
+    }
+
+    /**
+     * A string names a Party. On the read path this LOOKS UP only — a query
+     * must never create rows — so an unknown name matches nothing.
+     */
+    protected function resolve(Model|string $model): ?Model
+    {
+        if (! is_string($model)) {
+            return $model;
+        }
+
+        $party = config('storyfeed.models.party', Party::class);
+
+        $resolved = $party::find($model);
+
+        // Filtering by a name nobody has used must match nothing — not
+        // silently drop the filter and return the whole feed.
+        $this->unresolvable = $this->unresolvable || $resolved === null;
+
+        return $resolved;
     }
 
     protected function grouped(): bool
@@ -172,6 +197,7 @@ class FeedBuilder
     {
         return $this->activityModel()->newQuery()
             ->published()
+            ->when($this->unresolvable, fn (ActivityBuilder $q) => $q->whereRaw('1 = 0'))
             ->when($this->actor, fn (ActivityBuilder $q, Model $m) => $q->actor($m))
             ->when($this->object, fn (ActivityBuilder $q, Model $m) => $q->object($m))
             ->when($this->target, fn (ActivityBuilder $q, Model $m) => $q->target($m))

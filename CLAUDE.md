@@ -10,6 +10,7 @@ will consume it. Activity Streams 2.0 at the serialization boundary.
 - `docs/payload.md` — the Payload v1 contract (freezes at v0.3)
 - `docs/stories.md`, `docs/grouping.md` — the two R&D tracks (explicitly unsettled)
 - `docs/verbs.md` — the verb ladder (strings → FeedVerb enum → Story classes)
+- `docs/parties.md` — named participants with no app model (any role)
 - `docs/roadmap.md` — phasing (v0.1–v0.4 ✅ → v0.5 DX/Newsroom → v0.6 AS2.0 → …)
 - `ROADMAP.md` — the slim public roadmap (tracked); keep it in sync at milestones
 
@@ -33,6 +34,11 @@ Write it while it's fresh; never reconstruct after the fact. See
 - Activities are never hidden by the read path — degrade gracefully.
 - **No magic methods.** `__call` verb magic was removed at v0.4 on DX grounds
   (see journal 006); unknown methods must be errors, not features.
+- **Anonymous ≠ system.** A null actor means the actor is genuinely unknown;
+  a named non-model participant is a `Party` (any role). Never conflate them.
+- Package-owned morph aliases must resolve via `Support\MorphResolver`,
+  independently of the app's morph map — the trickle deletes activities whose
+  role alias won't resolve.
 - Verbs stay free-form strings in storage. Enums are an authoring convenience;
   AS2.0 enums are pure vocabulary transcriptions that never throw and never
   gate validation. Unknown/extension types are preserved verbatim, never dropped.
