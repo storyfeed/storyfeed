@@ -6,6 +6,7 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Schema;
 use Storyfeed\ActivityStreams\ActivityType;
 use Storyfeed\Models\Activity;
+use Storyfeed\Models\Grouping;
 use Storyfeed\Models\Party;
 use Storyfeed\StoryfeedManager;
 
@@ -26,6 +27,7 @@ class DoctorCommand extends Command
         $issues += $this->checkTables();
         $issues += $this->checkCoverage($storyfeed);
         $issues += $this->checkAggregateCoverage($storyfeed);
+        $issues += $this->checkHashLengths();
         $issues += $this->checkBacklog();
         $issues += $this->checkParties();
 
@@ -99,6 +101,46 @@ class DoctorCommand extends Command
         }
 
         return $issues;
+    }
+
+    /**
+     * A grouping hash at the column limit has probably been truncated —
+     * and truncated hashes OVER-group: unrelated activities collapse into
+     * one node. (Learned the hard way: a legacy app stored hashes in
+     * VARCHAR(50) with no guard.)
+     */
+    protected function checkHashLengths(): int
+    {
+        $groupings = config('storyfeed.tables.groupings', 'feed_groupings');
+
+        if (! Schema::hasTable($groupings)) {
+            return 0;
+        }
+
+        $grouping = config('storyfeed.models.grouping', Grouping::class);
+
+        $suspect = $grouping::query()
+            ->whereRaw($this->lengthExpression('hash').' >= 255')
+            ->count();
+
+        if ($suspect > 0) {
+            $this->warn(
+                "{$suspect} grouping hash(es) are at the 255-character column limit — likely truncated, which "
+                .'silently over-groups unrelated activities. Shorten the strategy output (e.g. digest long parts).'
+            );
+
+            return 1;
+        }
+
+        return 0;
+    }
+
+    protected function lengthExpression(string $column): string
+    {
+        return match (Schema::getConnection()->getDriverName()) {
+            'sqlsrv' => "len({$column})",
+            default => "length({$column})",
+        };
     }
 
     /**

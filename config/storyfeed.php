@@ -2,6 +2,7 @@
 
 use Storyfeed\Grouping\MultiAxisStrategy;
 use Storyfeed\Models\Activity;
+use Storyfeed\Models\Batch;
 use Storyfeed\Models\Grouping;
 use Storyfeed\Models\Party;
 use Storyfeed\Models\Snapshot;
@@ -23,6 +24,7 @@ return [
         'snapshots' => 'feed_snapshots',
         'groupings' => 'feed_groupings',
         'parties' => 'feed_parties',
+        'batches' => 'feed_batches',
     ],
 
     /*
@@ -39,6 +41,7 @@ return [
         'snapshot' => Snapshot::class,
         'grouping' => Grouping::class,
         'party' => Party::class,
+        'batch' => Batch::class,
     ],
 
     /*
@@ -131,6 +134,20 @@ return [
             'min_actors' => 3,
             'min_targets' => 2,
             'min_target_members' => 3,
+        ],
+
+        /*
+        | Batches: bursts of activity by one actor, inferred by a sliding
+        | quiet window — recorded automatically, invisible to the recording
+        | code. Infrastructure only: batches are queryable and BatchClosed
+        | is the digest hook, but they do not (yet) participate in feed
+        | grouping — see docs/grouping.md, "the composite-activity open
+        | problem". Stale batches close lazily at the actor's next publish;
+        | schedule storyfeed:close-batches for prompt BatchClosed delivery.
+        */
+        'batch' => [
+            'enabled' => true,
+            'quiet_minutes' => 10,
         ],
     ],
 

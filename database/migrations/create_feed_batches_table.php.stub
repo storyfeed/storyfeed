@@ -1,0 +1,33 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create(config('storyfeed.tables.batches', 'feed_batches'), function (Blueprint $table) {
+            $table->id();
+            $table->ulid('uid')->unique();
+            $table->nullableMorphs('actor');
+            $table->timestamp('opened_at');
+            // Null = open. Lifecycle is expressed by timestamps, not a
+            // status enum.
+            $table->timestamp('closed_at')->nullable();
+            $table->unsignedInteger('activities_count')->default(0);
+            $table->timestamp('last_activity_at')->nullable();
+            $table->json('meta')->nullable();
+            $table->timestamps();
+
+            $table->index(['actor_type', 'actor_id', 'closed_at'], 'feed_batches_open_actor_index');
+            $table->index('closed_at');
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists(config('storyfeed.tables.batches', 'feed_batches'));
+    }
+};

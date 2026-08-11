@@ -30,8 +30,12 @@ class WriteGroupings
 
         // An activity edited to drop a role stops emitting that axis; without
         // this its old bucket would linger and keep grouping it forever.
+        // The batch bucket is exempt: batch membership is written by the
+        // publish path, not the strategy, so it is never in $hashes — the
+        // delete would otherwise destroy it on every re-run (trickle!).
         $grouping::query()
             ->where('activity_id', $activity->getKey())
+            ->where('bucket', '!=', 'batch')
             ->when($hashes !== [], fn ($query) => $query->whereNotIn('bucket', array_keys($hashes)))
             ->delete();
     }

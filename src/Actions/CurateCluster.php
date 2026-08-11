@@ -98,9 +98,11 @@ class CurateCluster
 
         DB::transaction(function () use ($activityId, $winner) {
             // Cleared first, so there is never a moment with two winners.
+            // Batch rows stay winner = null — they are outside curation.
             $this->groupings()
                 ->where('activity_id', $activityId)
                 ->where('bucket', '!=', $winner)
+                ->where('bucket', '!=', 'batch')
                 ->update(['winner' => false]);
 
             $this->groupings()
@@ -214,12 +216,17 @@ class CurateCluster
     }
 
     /**
+     * The activity's candidate hashes. Batch rows are NOT candidates:
+     * batches are infrastructure with no feed effect yet (docs/grouping.md),
+     * so curation must neither pick nor stamp them.
+     *
      * @return array<string, string> bucket => hash
      */
     protected function hashes(int|string $activityId): array
     {
         return $this->groupings()
             ->where('activity_id', $activityId)
+            ->where('bucket', '!=', 'batch')
             ->pluck('hash', 'bucket')
             ->all();
     }

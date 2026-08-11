@@ -22,6 +22,7 @@ class StoryfeedServiceProvider extends PackageServiceProvider
                 'create_feed_snapshots_table',
                 'create_feed_groupings_table',
                 'create_feed_parties_table',
+                'create_feed_batches_table',
                 'add_winner_to_feed_groupings_table',
             ])
             ->hasCommands([
@@ -29,6 +30,7 @@ class StoryfeedServiceProvider extends PackageServiceProvider
                 Console\TrickleCommand::class,
                 Console\PruneCommand::class,
                 Console\CurateCommand::class,
+                Console\CloseBatchesCommand::class,
                 Console\DoctorCommand::class,
                 Console\VerbsCommand::class,
             ]);

@@ -2,6 +2,7 @@
 
 use Storyfeed\Facades\Storyfeed;
 use Storyfeed\Models\Activity;
+use Storyfeed\Models\Grouping;
 use Workbench\App\Models\Customer;
 use Workbench\App\Models\Delivery;
 use Workbench\App\Models\User;
@@ -63,5 +64,18 @@ it('reports missing aggregate grammar for axes actually in use', function () {
 
     $this->artisan('storyfeed:doctor')
         ->doesntExpectOutputToContain('No aggregate grammar resolves for `actors.upload`')
+        ->assertSuccessful();
+});
+
+it('warns about grouping hashes at the column length limit', function () {
+    $activity = Storyfeed::activity('confirm', Delivery::create(['tracking_number' => 'TN-1']))->publish();
+
+    Grouping::query()
+        ->where('activity_id', $activity->id)
+        ->where('bucket', 'repeat')
+        ->update(['hash' => str_repeat('x', 255)]);
+
+    $this->artisan('storyfeed:doctor')
+        ->expectsOutputToContain('255-character column limit')
         ->assertSuccessful();
 });

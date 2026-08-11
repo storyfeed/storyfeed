@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Traits\Conditionable;
+use Storyfeed\Actions\AssignToBatch;
 use Storyfeed\Actions\CurateCluster;
 use Storyfeed\Actions\SnapshotEntity;
 use Storyfeed\Actions\WriteGroupings;
@@ -264,6 +265,11 @@ class PendingActivity
     private function writeGroupings(): void
     {
         (new WriteGroupings)($this->activity);
+
+        // Batching is invisible to the recording code: the activity joins
+        // (or opens) its actor's current batch here, in the same
+        // transaction. Infrastructure only — no feed effect.
+        (new AssignToBatch)($this->activity);
 
         // Curation is a policy, not a process: it is pure, idempotent and
         // touches only the <= 3 clusters this activity emits, so it runs
