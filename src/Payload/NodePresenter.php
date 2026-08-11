@@ -3,12 +3,10 @@
 namespace Storyfeed\Payload;
 
 use Closure;
-use Storyfeed\Contracts\Feedable;
-use Storyfeed\FeedLink;
 use Storyfeed\Models\Activity;
 use Storyfeed\Models\Snapshot;
 use Storyfeed\StoryfeedManager;
-use Storyfeed\Support\MorphResolver;
+use Storyfeed\Support\LinkResolver;
 use Throwable;
 
 /**
@@ -158,7 +156,7 @@ class NodePresenter
 
         $data = $snapshot->data ?? [];
 
-        $link = $this->resolveLink($type, $data);
+        $link = LinkResolver::resolve($type, $data);
 
         return [
             'type' => $type,
@@ -170,22 +168,5 @@ class NodePresenter
             'component' => $snapshot?->component,
             'data' => $data,
         ];
-    }
-
-    protected function resolveLink(string $type, array $data): ?FeedLink
-    {
-        $class = MorphResolver::classFor($type);
-
-        if ($class === null || ! is_a($class, Feedable::class, true)) {
-            return null;
-        }
-
-        try {
-            return $class::toFeedLink($data);
-        } catch (Throwable $e) {
-            report($e);
-
-            return null;
-        }
     }
 }

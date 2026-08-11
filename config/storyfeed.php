@@ -153,6 +153,28 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | AS2.0 Routes
+    |--------------------------------------------------------------------------
+    |
+    | Opt-in, read-only Activity Streams 2.0 endpoints:
+    |
+    |   GET /{prefix}/activities/{uid}   single Activity document
+    |   GET /{prefix}/feed               OrderedCollection (cursor param)
+    |
+    | Off by default — exposing a feed is an app decision. Add auth or
+    | throttling via the middleware array. The prefix also mints activity
+    | IRIs, so changing it changes document ids.
+    |
+    */
+
+    'routes' => [
+        'enabled' => false,
+        'prefix' => 'storyfeed',
+        'middleware' => [],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Actor Resolver
     |--------------------------------------------------------------------------
     |

@@ -4,6 +4,7 @@ namespace Storyfeed;
 
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Route;
 use Spatie\LaravelPackageTools\Package;
 use Spatie\LaravelPackageTools\PackageServiceProvider;
 use Storyfeed\Actions\CurateCluster;
@@ -53,6 +54,20 @@ class StoryfeedServiceProvider extends PackageServiceProvider
         ]);
 
         Relation::morphMap(config('storyfeed.morph_map', []));
+
+        // Opt-in, read-only AS2.0 endpoints (docs/activity-streams.md).
+        // Off by default: exposing a feed is an app decision, not a
+        // package side effect.
+        if (config('storyfeed.routes.enabled', false)) {
+            $prefix = trim((string) config('storyfeed.routes.prefix', 'storyfeed'), '/');
+
+            Route::middleware(config('storyfeed.routes.middleware', []))
+                ->prefix($prefix)
+                ->group(function () {
+                    Route::get('activities/{uid}', [Http\ActivityStreamsController::class, 'activity']);
+                    Route::get('feed', [Http\ActivityStreamsController::class, 'feed']);
+                });
+        }
 
         // Deleting is the one thing that shrinks a cluster, so it is the one
         // thing that can invalidate a winner. Everything else is monotone.
