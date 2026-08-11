@@ -2,6 +2,7 @@
 
 namespace Storyfeed;
 
+use Closure;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Query\Builder as QueryBuilder;
@@ -173,24 +174,24 @@ class FeedBuilder
 
         $next = $more ? $this->encodeCursor($candidates->last()) : null;
 
-        $hashes = $candidates
-            ->map(fn (FeedCandidate $candidate) => $candidate->hash)
-            ->filter()
-            ->values()
-            ->all();
+        $groups = $candidates->filter(fn (FeedCandidate $candidate) => $candidate->isGroup())->values();
 
-        $members = $this->fetchMembers($now, $hashes);
+        $members = $this->fetchMembers($now, $groups);
+        $actorCounts = $this->countDistinctActors($now, $groups);
 
-        $slices = $candidates->map(function (FeedCandidate $candidate) use ($members): GroupSlice {
+        $slices = $candidates->map(function (FeedCandidate $candidate) use ($members, $actorCounts): GroupSlice {
             if ($candidate->activity !== null) {
                 return GroupSlice::solo($candidate->activity);
             }
 
+            $key = $this->groupKey($candidate);
+
             return GroupSlice::group(
-                'repeat',
+                (string) $candidate->axis,
                 (string) $candidate->hash,
                 $candidate->count,
-                $members->get((string) $candidate->hash) ?? $this->activityModel()->newCollection(),
+                $members->get($key) ?? $this->activityModel()->newCollection(),
+                $actorCounts[$key] ?? null,
             );
         });
 
@@ -241,11 +242,16 @@ class FeedBuilder
     /**
      * Only ever called for candidates of the same stream — the rank
      * comparison has already separated the two.
+     *
+     * Groups compare on (axis, hash), matching the SQL tuple comparison in
+     * the cursor predicate exactly. Comparing on hash alone would assume no
+     * two axes can ever produce the same hash string — true in practice,
+     * but nothing enforces it.
      */
     protected function compareTiebreak(FeedCandidate $a, FeedCandidate $b): int
     {
         if ($a->hash !== null && $b->hash !== null) {
-            return strcmp($a->hash, $b->hash);
+            return strcmp((string) $a->axis, (string) $b->axis) ?: strcmp($a->hash, $b->hash);
         }
 
         if ($a->activity !== null && $b->activity !== null) {
@@ -256,7 +262,7 @@ class FeedBuilder
     }
 
     /**
-     * @param  array{latest: string, rank: int, hash: string|null, id: int|string|null}|null  $cursor
+     * @param  array{latest: string, rank: int, axis: string|null, hash: string|null, id: int|string|null}|null  $cursor
      * @return Collection<int, FeedCandidate>
      */
     protected function groupStream(Carbon $now, ?array $cursor): Collection
@@ -265,6 +271,7 @@ class FeedBuilder
         $groupings = $this->groupingModel()->getTable();
 
         $grammar = $this->groupingModel()->getConnection()->getQueryGrammar();
+        $bucketColumn = $grammar->wrapTable($groupings).'.'.$grammar->wrap('bucket');
         $hashColumn = $grammar->wrapTable($groupings).'.'.$grammar->wrap('hash');
         $latest = 'max(fa.fa_published)';
 
@@ -272,13 +279,14 @@ class FeedBuilder
             ->select(["{$activities}.id as fa_id", "{$activities}.published_at as fa_published"]);
 
         $query = $this->groupingModel()->newQuery()
-            ->where("{$groupings}.bucket", 'repeat')
+            ->where($this->winning())
             ->joinSub($filtered, 'fa', fn (JoinClause $join) => $join->on('fa.fa_id', '=', "{$groupings}.activity_id"))
-            ->groupBy("{$groupings}.hash")
-            ->select("{$groupings}.hash")
+            ->groupBy("{$groupings}.bucket", "{$groupings}.hash")
+            ->select(["{$groupings}.bucket", "{$groupings}.hash"])
             ->selectRaw("{$latest} as latest")
             ->selectRaw('count(*) as members')
             ->orderByRaw("{$latest} desc")
+            ->orderBy("{$groupings}.bucket")
             ->orderBy("{$groupings}.hash")
             ->limit($this->limit + 1);
 
@@ -286,8 +294,8 @@ class FeedBuilder
         // cursor has already consumed every group in that tie.
         if ($cursor !== null && $cursor['rank'] === self::RANK_GROUP) {
             $query->havingRaw(
-                "({$latest} < ? or ({$latest} = ? and {$hashColumn} > ?))",
-                [$cursor['latest'], $cursor['latest'], $cursor['hash']],
+                "({$latest} < ? or ({$latest} = ? and ({$bucketColumn} > ? or ({$bucketColumn} = ? and {$hashColumn} > ?))))",
+                [$cursor['latest'], $cursor['latest'], $cursor['axis'], $cursor['axis'], $cursor['hash']],
             );
         } elseif ($cursor !== null) {
             $query->havingRaw("{$latest} < ?", [$cursor['latest']]);
@@ -295,17 +303,44 @@ class FeedBuilder
 
         return $query->get()->map(fn (Grouping $row) => FeedCandidate::group(
             $this->normalizeTimestamp($row->getAttribute('latest')),
+            (string) $row->getAttribute('bucket'),
             (string) $row->getAttribute('hash'),
             (int) $row->getAttribute('members'),
         ));
     }
 
     /**
-     * Activities carrying no `repeat` grouping row (legacy, imported, or
-     * awaiting the trickle). Their presence here is what keeps graceful
+     * The winning-grouping predicate, applied wherever the groupings table
+     * is in play.
+     *
+     * `winner = true` is the curated answer; a row with NO winner stamped
+     * anywhere for its activity falls back to the `repeat` axis. That
+     * per-activity fallback is what lets an adopter upgrade into the winner
+     * column without a backfill cliff — an uncurated feed reads exactly as
+     * it did before, and `storyfeed:curate` settles it incrementally.
+     */
+    protected function winning(): Closure
+    {
+        $groupings = $this->groupingModel()->getTable();
+
+        return function ($query) use ($groupings) {
+            $query->where("{$groupings}.winner", true)
+                ->orWhere(fn ($fallback) => $fallback
+                    ->where("{$groupings}.bucket", 'repeat')
+                    ->whereNotExists(fn (QueryBuilder $sub) => $sub
+                        ->selectRaw('1')
+                        ->from("{$groupings} as w")
+                        ->whereColumn('w.activity_id', "{$groupings}.activity_id")
+                        ->where('w.winner', true)));
+        };
+    }
+
+    /**
+     * Activities carrying no winning grouping row at all (legacy, imported,
+     * or awaiting the trickle). Their presence here is what keeps graceful
      * degradation true: the read path never hides an activity.
      *
-     * @param  array{latest: string, rank: int, hash: string|null, id: int|string|null}|null  $cursor
+     * @param  array{latest: string, rank: int, axis: string|null, hash: string|null, id: int|string|null}|null  $cursor
      * @return Collection<int, FeedCandidate>
      */
     protected function soloStream(Carbon $now, ?array $cursor): Collection
@@ -315,10 +350,10 @@ class FeedBuilder
 
         $query = $this->filteredActivities($now)
             ->whereNotExists(fn (QueryBuilder $sub) => $sub
+                ->selectRaw('1')
                 ->from($groupings)
                 ->whereColumn("{$groupings}.activity_id", "{$activities}.id")
-                ->where("{$groupings}.bucket", 'repeat')
-                ->selectRaw('1'))
+                ->where($this->winning()))
             ->with(['cachedActor', 'cachedObject', 'cachedTarget', 'cachedContext'])
             ->orderBy("{$activities}.published_at", 'desc')
             ->orderBy("{$activities}.id")
@@ -345,12 +380,12 @@ class FeedBuilder
      * Phase 2 — members of the selected groups, newest first, capped per
      * group by ROW_NUMBER() so one 10k-member group cannot swamp a page.
      *
-     * @param  array<int, string>  $hashes
+     * @param  Collection<int, FeedCandidate>  $groups
      * @return Collection<array-key, EloquentCollection<int, Activity>>
      */
-    protected function fetchMembers(Carbon $now, array $hashes): Collection
+    protected function fetchMembers(Carbon $now, Collection $groups): Collection
     {
-        if ($hashes === []) {
+        if ($groups->isEmpty()) {
             return Collection::make();
         }
 
@@ -359,18 +394,19 @@ class FeedBuilder
 
         $grammar = $this->activityModel()->getConnection()->getQueryGrammar();
         $partition = sprintf(
-            'row_number() over (partition by %s order by %s desc, %s desc) as member_rank',
+            'row_number() over (partition by %s, %s order by %s desc, %s desc) as member_rank',
+            $grammar->wrapTable($groupings).'.'.$grammar->wrap('bucket'),
             $grammar->wrapTable($groupings).'.'.$grammar->wrap('hash'),
             $grammar->wrapTable($activities).'.'.$grammar->wrap('published_at'),
             $grammar->wrapTable($activities).'.'.$grammar->wrap('id'),
         );
 
-        $ranked = $this->filteredActivities($now)
-            ->join($groupings, fn (JoinClause $join) => $join
-                ->on("{$groupings}.activity_id", '=', "{$activities}.id")
-                ->where("{$groupings}.bucket", 'repeat'))
-            ->whereIn("{$groupings}.hash", $hashes)
-            ->select(["{$activities}.*", "{$groupings}.hash as group_hash"])
+        $ranked = $this->selectedGroupMembers($now, $groups)
+            ->select([
+                "{$activities}.*",
+                "{$groupings}.bucket as group_bucket",
+                "{$groupings}.hash as group_hash",
+            ])
             ->selectRaw($partition);
 
         $rows = $this->activityModel()->getConnection()->query()
@@ -384,7 +420,77 @@ class FeedBuilder
 
         $members->load(['cachedActor', 'cachedObject', 'cachedTarget', 'cachedContext']);
 
-        return $members->groupBy(fn (Activity $activity) => (string) $activity->group_hash);
+        return $members->groupBy(fn (Activity $activity) => $activity->group_bucket."\x1f".$activity->group_hash);
+    }
+
+    /**
+     * Distinct actors per selected group — the source of truth for
+     * `others_count`. It cannot be derived from `children`, which is capped:
+     * a 200-actor group would otherwise report "and 22 others".
+     *
+     * Counted through a subquery of distinct (group, actor) rows, because
+     * multi-column COUNT(DISTINCT …) is not portable.
+     *
+     * @param  Collection<int, FeedCandidate>  $groups
+     * @return array<string, int>
+     */
+    protected function countDistinctActors(Carbon $now, Collection $groups): array
+    {
+        if ($groups->isEmpty()) {
+            return [];
+        }
+
+        $activities = $this->activityModel()->getTable();
+        $groupings = $this->groupingModel()->getTable();
+
+        $distinct = $this->selectedGroupMembers($now, $groups)
+            ->whereNotNull("{$activities}.actor_type")
+            ->select([
+                "{$groupings}.bucket as group_bucket",
+                "{$groupings}.hash as group_hash",
+                "{$activities}.actor_type",
+                "{$activities}.actor_id",
+            ])
+            ->distinct()
+            ->toBase();
+
+        return $this->activityModel()->getConnection()->query()
+            ->fromSub($distinct, 'd')
+            ->groupBy('group_bucket', 'group_hash')
+            ->select(['group_bucket', 'group_hash'])
+            ->selectRaw('count(*) as actors')
+            ->get()
+            ->mapWithKeys(fn ($row) => [$row->group_bucket."\x1f".$row->group_hash => (int) $row->actors])
+            ->all();
+    }
+
+    /**
+     * The filtered activities belonging to the selected groups, joined to
+     * their winning grouping row.
+     *
+     * @param  Collection<int, FeedCandidate>  $groups
+     */
+    protected function selectedGroupMembers(Carbon $now, Collection $groups): ActivityBuilder
+    {
+        $activities = $this->activityModel()->getTable();
+        $groupings = $this->groupingModel()->getTable();
+
+        return $this->filteredActivities($now)
+            ->join($groupings, fn (JoinClause $join) => $join
+                ->on("{$groupings}.activity_id", '=', "{$activities}.id"))
+            ->where($this->winning())
+            ->where(function ($query) use ($groupings, $groups) {
+                foreach ($groups as $group) {
+                    $query->orWhere(fn ($pair) => $pair
+                        ->where("{$groupings}.bucket", $group->axis)
+                        ->where("{$groupings}.hash", $group->hash));
+                }
+            });
+    }
+
+    protected function groupKey(FeedCandidate $candidate): string
+    {
+        return $candidate->axis."\x1f".$candidate->hash;
     }
 
     protected function childrenLimit(): int
@@ -409,7 +515,7 @@ class FeedBuilder
      * Cursor internals are NOT contract (docs/payload.md) — they encode the
      * position in the merged item stream, not a row offset.
      *
-     * @return array{latest: string, rank: int, hash: string|null, id: int|string|null}|null
+     * @return array{latest: string, rank: int, axis: string|null, hash: string|null, id: int|string|null}|null
      */
     protected function cursorState(): ?array
     {
@@ -428,6 +534,7 @@ class FeedBuilder
         return [
             'latest' => (string) $parameters['latest'],
             'rank' => (int) $parameters['rank'],
+            'axis' => $parameters['axis'] ?? null,
             'hash' => $parameters['hash'] ?? null,
             'id' => $parameters['id'] ?? null,
         ];
@@ -442,6 +549,7 @@ class FeedBuilder
         return (new Cursor([
             'latest' => $candidate->latest,
             'rank' => $this->rank($candidate),
+            'axis' => $candidate->axis,
             'hash' => $candidate->hash,
             'id' => $candidate->activity?->getKey(),
         ]))->encode();

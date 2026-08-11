@@ -116,6 +116,22 @@ return [
     'grouping' => [
         'strategy' => MultiAxisStrategy::class,
         'children_limit' => 25,
+
+        /*
+        | Curation selects ONE winning axis per activity, inline with the
+        | publish transaction. The policy is distinct cardinality on the
+        | dimension each axis collapses — never "largest cluster wins",
+        | which is a coin flip between repeat and targets. Ties break by
+        | axis priority (actors > targets > repeat), then hash.
+        |
+        | Policy is not payload contract: change it freely (docs/payload.md).
+        */
+        'curate' => true,
+        'policy' => [
+            'min_actors' => 3,
+            'min_targets' => 2,
+            'min_target_members' => 3,
+        ],
     ],
 
     /*

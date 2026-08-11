@@ -103,6 +103,49 @@ class GrammarCoverage
     }
 
     /**
+     * Assert aggregate grammar for every axis actually in use — the
+     * (axis, verb) pairs curation has stamped as winners.
+     *
+     * Fails when nothing is grouped on an aggregate axis, rather than
+     * passing over an empty set: a green assertion there proves nothing.
+     */
+    public static function assertCoversAggregates(bool $allowWildcard = false): void
+    {
+        $storyfeed = app(StoryfeedManager::class);
+
+        $groupings = config('storyfeed.tables.groupings', 'feed_groupings');
+        $activities = config('storyfeed.tables.activities', 'feed_activities');
+        $model = config('storyfeed.models.activity', Activity::class);
+
+        $pairs = $model::query()
+            ->join($groupings, "{$groupings}.activity_id", '=', "{$activities}.id")
+            ->where("{$groupings}.winner", true)
+            ->whereIn("{$groupings}.bucket", ['actors', 'targets'])
+            ->distinct()
+            ->get(["{$groupings}.bucket as axis", "{$activities}.verb"]);
+
+        Assert::assertNotEmpty(
+            $pairs,
+            'No activities are grouped on an aggregate axis, so aggregate grammar coverage proves nothing.',
+        );
+
+        $missing = [];
+
+        foreach ($pairs as $pair) {
+            if (! self::covered($storyfeed->aggregateTemplateKey($pair->axis, $pair->verb), $allowWildcard)) {
+                $missing[] = "{$pair->axis}.{$pair->verb} (no aggregate headline)";
+            }
+        }
+
+        Assert::assertSame(
+            [],
+            $missing,
+            "Storyfeed aggregate grammar coverage is incomplete:\n  - ".implode("\n  - ", $missing)
+            ."\n\nRegister the missing entries with Storyfeed::aggregateGrammar().",
+        );
+    }
+
+    /**
      * A `*.*` catch-all resolves for everything, which would make coverage
      * vacuous — so it only counts when explicitly allowed.
      */

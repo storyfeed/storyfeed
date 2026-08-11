@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Traits\Conditionable;
+use Storyfeed\Actions\CurateCluster;
 use Storyfeed\Actions\SnapshotEntity;
 use Storyfeed\Actions\WriteGroupings;
 use Storyfeed\Contracts\Feedable;
@@ -263,6 +264,14 @@ class PendingActivity
     private function writeGroupings(): void
     {
         (new WriteGroupings)($this->activity);
+
+        // Curation is a policy, not a process: it is pure, idempotent and
+        // touches only the <= 3 clusters this activity emits, so it runs
+        // inline. Async is a write-latency optimization to reach for when a
+        // real number demands it — not a correctness requirement.
+        if (config('storyfeed.grouping.curate', true)) {
+            (new CurateCluster)($this->activity);
+        }
     }
 
     /**

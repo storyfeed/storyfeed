@@ -76,6 +76,38 @@ class NodePresenter
         return [$entry, null];
     }
 
+    /**
+     * Resolve [headline_template, headline] for a group.
+     *
+     * Aggregate grammar is keyed "axis.verb" and adds the :actors / :count /
+     * :others tokens. Without an entry the group falls back to the singular
+     * grammar of its head member — the honest degradation, and what makes an
+     * actors-axis group read "Sally uploaded a file" until it is authored.
+     * `storyfeed:doctor` and GrammarCoverage surface exactly that gap.
+     *
+     * @return array{0: string|null, 1: string|null}
+     */
+    protected function aggregateHeadline(GroupSlice $slice): array
+    {
+        $entry = $this->storyfeed->aggregateTemplate($slice->axis, (string) $slice->members->first()?->verb);
+
+        if ($entry === null) {
+            return $this->headline($slice->members->first());
+        }
+
+        if ($entry instanceof Closure) {
+            try {
+                return [null, (string) $entry($slice)];
+            } catch (Throwable $e) {
+                report($e);
+
+                return [null, null];
+            }
+        }
+
+        return [$entry, null];
+    }
+
     public function groupNode(GroupSlice $slice): array
     {
         $members = $slice->members;
@@ -91,7 +123,7 @@ class NodePresenter
             ->map(fn (Activity $a) => $this->entity($a->actor_type, $a->actor_id, $a->cachedActor))
             ->all();
 
-        [$template, $headline] = $this->headline($first);
+        [$template, $headline] = $this->aggregateHeadline($slice);
 
         $children = $members->map(fn (Activity $a) => $this->activityNode($a))->values()->all();
 
@@ -112,7 +144,7 @@ class NodePresenter
                 'target' => $this->entity($first->target_type, $first->target_id, $first->cachedTarget),
                 'context' => $this->entity($first->context_type, $first->context_id, $first->cachedContext),
             ],
-            'others_count' => max(0, $actorEntities->count() - count($exemplars)),
+            'others_count' => max(0, ($slice->actorCount ?? $actorEntities->count()) - count($exemplars)),
             'children' => $children,
             'children_truncated' => $slice->count > count($children),
         ];

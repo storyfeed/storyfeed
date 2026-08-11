@@ -43,6 +43,7 @@ use Storyfeed\StoryfeedManager;
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property Carbon|null $deleted_at
+ * @property string|null $group_bucket read-time alias selected by FeedBuilder's grouping join
  * @property string|null $group_hash read-time alias selected by FeedBuilder's grouping join
  */
 class Activity extends Model

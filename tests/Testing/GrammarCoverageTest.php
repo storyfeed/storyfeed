@@ -3,7 +3,9 @@
 use PHPUnit\Framework\AssertionFailedError;
 use Storyfeed\Facades\Storyfeed;
 use Storyfeed\Testing\GrammarCoverage;
+use Workbench\App\Models\Customer;
 use Workbench\App\Models\Delivery;
+use Workbench\App\Models\User;
 
 it('passes when every pair has a headline and an icon', function () {
     Storyfeed::grammar(['delivery.confirm' => ':actor confirmed :object'])
@@ -87,4 +89,33 @@ it('asserts coverage against persisted activities', function () {
     Storyfeed::activity('confirm', Delivery::create(['tracking_number' => 'TN-1']))->publish();
 
     GrammarCoverage::assertCoversPublished();
+});
+
+it('asserts aggregate grammar for the axes curation actually selected', function () {
+    $project = Customer::create(['name' => 'Concur']);
+
+    foreach (['Bob', 'Sally', 'Ann'] as $name) {
+        $user = User::create(['name' => $name, 'email' => strtolower($name).'@example.com']);
+
+        Storyfeed::activity()
+            ->actor($user)
+            ->verb('upload', Delivery::create(['tracking_number' => $name]))
+            ->for($project)
+            ->publish();
+    }
+
+    expect(fn () => GrammarCoverage::assertCoversAggregates())
+        ->toThrow(AssertionFailedError::class, 'actors.upload (no aggregate headline)');
+
+    Storyfeed::aggregateGrammar(['actors.upload' => ':actors uploaded :count files to :target']);
+
+    GrammarCoverage::assertCoversAggregates();
+});
+
+it('fails aggregate coverage when nothing is grouped on an aggregate axis', function () {
+    Storyfeed::activity('confirm', Delivery::create(['tracking_number' => 'TN-1']))->publish();
+
+    // Passing over an empty set would prove nothing.
+    expect(fn () => GrammarCoverage::assertCoversAggregates())
+        ->toThrow(AssertionFailedError::class, 'proves nothing');
 });

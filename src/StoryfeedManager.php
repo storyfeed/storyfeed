@@ -24,6 +24,9 @@ class StoryfeedManager
     /** @var array<string, string|Closure> */
     protected array $grammar = [];
 
+    /** @var array<string, string|Closure> */
+    protected array $aggregateGrammar = [];
+
     /** @var array<string, string> */
     protected array $icons = [];
 
@@ -164,6 +167,29 @@ class StoryfeedManager
     }
 
     /**
+     * Register aggregate headline grammar for GROUP nodes. Keys are
+     * "axis.verb" (wildcards allowed: "actors.*", "*.upload", "*.*"):
+     *
+     *   Storyfeed::aggregateGrammar([
+     *       'actors.upload' => ':actors uploaded :count files to :target',
+     *       'targets.comment' => ':actor commented on :count projects',
+     *   ]);
+     *
+     * Templates add the aggregate tokens :actors, :count and :others to the
+     * standard role tokens (docs/payload.md). Without an entry a group falls
+     * back to the singular grammar of its head member — which is why a
+     * multi-actor group reads "Sally uploaded a file" until this is authored.
+     *
+     * @param  array<string, string|Closure>  $grammar
+     */
+    public function aggregateGrammar(array $grammar, bool $merge = true): static
+    {
+        $this->aggregateGrammar = $merge ? [...$this->aggregateGrammar, ...$grammar] : $grammar;
+
+        return $this;
+    }
+
+    /**
      * Register icons, keyed like grammar ("type.verb", wildcards allowed).
      *
      * @param  array<string, string>  $icons
@@ -259,6 +285,15 @@ class StoryfeedManager
     }
 
     /**
+     * Resolve the aggregate grammar entry for a group's axis + verb.
+     * Resolution order: axis.verb → axis.* → *.verb → *.*
+     */
+    public function aggregateTemplate(?string $axis, string $verb): string|Closure|null
+    {
+        return $this->resolve($this->aggregateGrammar, $axis, $verb);
+    }
+
+    /**
      * Resolve the icon for an object type + verb (same order as grammar).
      */
     public function icon(?string $type, string $verb): ?string
@@ -313,6 +348,12 @@ class StoryfeedManager
     public function registeredGrammar(): array
     {
         return $this->grammar;
+    }
+
+    /** @return array<string, string|Closure> */
+    public function registeredAggregateGrammar(): array
+    {
+        return $this->aggregateGrammar;
     }
 
     /** @return array<string, string> */
@@ -430,6 +471,11 @@ class StoryfeedManager
     public function iconKey(?string $type, string $verb): ?string
     {
         return $this->resolveKey($this->icons, $type, $verb);
+    }
+
+    public function aggregateTemplateKey(?string $axis, string $verb): ?string
+    {
+        return $this->resolveKey($this->aggregateGrammar, $axis, $verb);
     }
 
     /**

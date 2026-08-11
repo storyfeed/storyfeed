@@ -25,6 +25,7 @@ class DoctorCommand extends Command
 
         $issues += $this->checkTables();
         $issues += $this->checkCoverage($storyfeed);
+        $issues += $this->checkAggregateCoverage($storyfeed);
         $issues += $this->checkBacklog();
         $issues += $this->checkParties();
 
@@ -92,6 +93,42 @@ class DoctorCommand extends Command
                     "Verb `{$pair->verb}` maps to intransitive type {$type->value} but {$count} activities carry "
                     .'an object — these serialize as base `Activity`. Map the verb to a transitive type, or stop '
                     .'setting an object.'
+                );
+                $issues++;
+            }
+        }
+
+        return $issues;
+    }
+
+    /**
+     * A group on an aggregate axis without aggregate grammar renders the
+     * singular headline of its head member — "Sally uploaded a file" over a
+     * node that carries three actors. Silent, and wrong.
+     */
+    protected function checkAggregateCoverage(StoryfeedManager $storyfeed): int
+    {
+        $groupings = config('storyfeed.tables.groupings', 'feed_groupings');
+        $activities = config('storyfeed.tables.activities', 'feed_activities');
+
+        if (! Schema::hasTable($groupings) || ! Schema::hasTable($activities)) {
+            return 0;
+        }
+
+        $issues = 0;
+
+        $pairs = $this->activityQuery()
+            ->join($groupings, "{$groupings}.activity_id", '=', "{$activities}.id")
+            ->where("{$groupings}.winner", true)
+            ->whereIn("{$groupings}.bucket", ['actors', 'targets'])
+            ->distinct()
+            ->get(["{$groupings}.bucket as axis", "{$activities}.verb"]);
+
+        foreach ($pairs as $pair) {
+            if ($storyfeed->aggregateTemplate($pair->axis, $pair->verb) === null) {
+                $this->warn(
+                    "No aggregate grammar resolves for `{$pair->axis}.{$pair->verb}` — those group nodes fall back "
+                    .'to the singular headline. Register one with Storyfeed::aggregateGrammar().'
                 );
                 $issues++;
             }

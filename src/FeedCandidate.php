@@ -13,19 +13,20 @@ final class FeedCandidate
 {
     private function __construct(
         public readonly string $latest,
+        public readonly ?string $axis,
         public readonly ?string $hash,
         public readonly int $count,
         public readonly ?Activity $activity,
     ) {}
 
-    public static function group(string $latest, string $hash, int $count): self
+    public static function group(string $latest, string $axis, string $hash, int $count): self
     {
-        return new self($latest, $hash, $count, null);
+        return new self($latest, $axis, $hash, $count, null);
     }
 
     public static function solo(string $latest, Activity $activity): self
     {
-        return new self($latest, null, 1, $activity);
+        return new self($latest, null, null, 1, $activity);
     }
 
     public function isGroup(): bool
