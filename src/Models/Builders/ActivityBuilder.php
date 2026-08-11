@@ -2,6 +2,7 @@
 
 namespace Storyfeed\Models\Builders;
 
+use DateTimeInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 
@@ -12,10 +13,14 @@ use Illuminate\Database\Eloquent\Model;
  */
 class ActivityBuilder extends Builder
 {
-    public function published(): static
+    /**
+     * Activities visible to readers. The reader passes its own $now so the
+     * gate cannot shift between the phases of one read.
+     */
+    public function published(?DateTimeInterface $now = null): static
     {
         $this->whereNotNull('published_at')
-            ->where('published_at', '<=', now());
+            ->where('published_at', '<=', $now ?? now());
 
         return $this;
     }

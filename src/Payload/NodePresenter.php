@@ -3,7 +3,6 @@
 namespace Storyfeed\Payload;
 
 use Closure;
-use Illuminate\Support\Collection;
 use Storyfeed\Contracts\Feedable;
 use Storyfeed\FeedLink;
 use Storyfeed\Models\Activity;
@@ -26,14 +25,11 @@ class NodePresenter
         protected StoryfeedManager $storyfeed,
     ) {}
 
-    /**
-     * @param  Collection<int, Activity>  $members  same-group activities, newest first
-     */
-    public function node(Collection $members): array
+    public function node(GroupSlice $slice): array
     {
-        return $members->count() === 1
-            ? $this->activityNode($members->first())
-            : $this->groupNode($members);
+        return $slice->isGroup()
+            ? $this->groupNode($slice)
+            : $this->activityNode($slice->members->first());
     }
 
     public function activityNode(Activity $activity): array
@@ -80,11 +76,9 @@ class NodePresenter
         return [$entry, null];
     }
 
-    /**
-     * @param  Collection<int, Activity>  $members
-     */
-    public function groupNode(Collection $members): array
+    public function groupNode(GroupSlice $slice): array
     {
+        $members = $slice->members;
         $first = $members->first();
 
         $actorEntities = $members
@@ -99,11 +93,15 @@ class NodePresenter
 
         [$template, $headline] = $this->headline($first);
 
+        $children = $members->map(fn (Activity $a) => $this->activityNode($a))->values()->all();
+
         return [
             'kind' => 'group',
-            'id' => 'grp_'.sha1((string) $first->group_hash),
-            'axis' => 'repeat',
-            'count' => $members->count(),
+            // Namespaced and versioned: the digest must not collide across
+            // axes once a group can win on more than `repeat`.
+            'id' => 'grp_'.sha1("v1\x1f{$slice->axis}\x1f{$slice->hash}"),
+            'axis' => $slice->axis,
+            'count' => $slice->count,
             'verb' => $first->verb,
             'published_at' => $first->published_at?->toISOString(),
             'headline_template' => $template,
@@ -115,8 +113,8 @@ class NodePresenter
                 'context' => $this->entity($first->context_type, $first->context_id, $first->cachedContext),
             ],
             'others_count' => max(0, $actorEntities->count() - count($exemplars)),
-            'children' => $members->map(fn (Activity $a) => $this->activityNode($a))->values()->all(),
-            'children_truncated' => false,
+            'children' => $children,
+            'children_truncated' => $slice->count > count($children),
         ];
     }
 

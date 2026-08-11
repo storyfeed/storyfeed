@@ -28,6 +28,7 @@ return new class extends Migration
             $table->index(['published_at', 'id']);
             $table->index(['actor_type', 'actor_id', 'published_at', 'id'], 'feed_activities_actor_published_index');
             $table->index(['object_type', 'object_id', 'published_at', 'id'], 'feed_activities_object_published_index');
+            $table->index(['target_type', 'target_id', 'published_at', 'id'], 'feed_activities_target_published_index');
             $table->index(['context_type', 'context_id', 'published_at', 'id'], 'feed_activities_context_published_index');
         });
     }

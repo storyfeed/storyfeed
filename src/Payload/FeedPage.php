@@ -4,10 +4,8 @@ namespace Storyfeed\Payload;
 
 use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Contracts\Support\Responsable;
-use Illuminate\Pagination\CursorPaginator;
 use Illuminate\Support\Collection;
 use JsonSerializable;
-use Storyfeed\Models\Activity;
 
 /**
  * One page of the feed, emitting the Payload v1 envelope
@@ -17,8 +15,12 @@ use Storyfeed\Models\Activity;
  */
 final class FeedPage implements Arrayable, JsonSerializable, Responsable
 {
+    /**
+     * @param  Collection<int, GroupSlice>  $slices  page items, already ordered
+     */
     public function __construct(
-        protected CursorPaginator $paginator,
+        protected Collection $slices,
+        protected ?string $nextCursor,
         protected NodePresenter $presenter,
     ) {}
 
@@ -27,19 +29,15 @@ final class FeedPage implements Arrayable, JsonSerializable, Responsable
      */
     public function items(): array
     {
-        /** @var Collection<int, Activity> $rows */
-        $rows = Collection::make($this->paginator->items());
-
-        return $rows
-            ->groupBy(fn (Activity $activity) => $activity->group_hash ?? 'solo:'.$activity->getKey())
-            ->map(fn (Collection $members) => $this->presenter->node($members))
+        return $this->slices
+            ->map(fn (GroupSlice $slice) => $this->presenter->node($slice))
             ->values()
             ->all();
     }
 
     public function nextCursor(): ?string
     {
-        return $this->paginator->nextCursor()?->encode();
+        return $this->nextCursor;
     }
 
     public function toArray(): array

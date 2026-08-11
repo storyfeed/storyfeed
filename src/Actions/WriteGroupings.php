@@ -19,11 +19,20 @@ class WriteGroupings
 
         $grouping = config('storyfeed.models.grouping', Grouping::class);
 
-        foreach ($strategy->hashes($activity) as $axis => $hash) {
+        $hashes = $strategy->hashes($activity);
+
+        foreach ($hashes as $axis => $hash) {
             $grouping::query()->updateOrCreate(
                 ['activity_id' => $activity->getKey(), 'bucket' => $axis],
                 ['hash' => $hash],
             );
         }
+
+        // An activity edited to drop a role stops emitting that axis; without
+        // this its old bucket would linger and keep grouping it forever.
+        $grouping::query()
+            ->where('activity_id', $activity->getKey())
+            ->when($hashes !== [], fn ($query) => $query->whereNotIn('bucket', array_keys($hashes)))
+            ->delete();
     }
 }

@@ -1,5 +1,6 @@
 <?php
 
+use Storyfeed\Actions\WriteGroupings;
 use Storyfeed\Facades\Storyfeed;
 use Storyfeed\Grouping\NullStrategy;
 use Storyfeed\Models\Grouping;
@@ -42,6 +43,27 @@ it('produces identical repeat hashes for same actor, verb, object type, and day'
     $hashB = Grouping::query()->where('activity_id', $b->id)->where('bucket', 'repeat')->value('hash');
 
     expect($hashA)->toBe($hashB);
+});
+
+it('drops buckets an activity no longer emits', function () {
+    $user = User::create(['name' => 'Sally', 'email' => 'sally@example.com']);
+    $customer = Customer::create(['name' => 'Acme Co.']);
+    $delivery = Delivery::create(['tracking_number' => 'TN-1']);
+
+    $activity = Storyfeed::activity()->actor($user)->verb('confirm', $delivery)->for($customer)->publish();
+
+    expect(Grouping::query()->where('activity_id', $activity->id)->pluck('bucket')->all())
+        ->toContain('actors');
+
+    // The target is dropped, so the actors axis no longer applies: its row
+    // must go, not linger and keep grouping the activity forever.
+    $activity->forceFill(['target_type' => null, 'target_id' => null])->save();
+    (new WriteGroupings)($activity);
+
+    expect(Grouping::query()->where('activity_id', $activity->id)->pluck('bucket')->all())
+        ->not->toContain('actors')
+        ->and(Grouping::query()->where('activity_id', $activity->id)->pluck('bucket')->all())
+        ->toContain('repeat', 'targets');
 });
 
 it('writes no hashes with the null strategy', function () {

@@ -107,10 +107,15 @@ return [
     | The strategy computing candidate grouping hashes at publish time.
     | Use NullStrategy to disable grouping entirely.
     |
+    | children_limit caps the member activities nested in one group node.
+    | The node's `count` stays the true total; `children_truncated` tells
+    | the renderer when it is looking at a capped list.
+    |
     */
 
     'grouping' => [
         'strategy' => MultiAxisStrategy::class,
+        'children_limit' => 25,
     ],
 
     /*
