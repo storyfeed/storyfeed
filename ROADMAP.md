@@ -5,17 +5,19 @@ high-level plan; detailed design documents will be published as the milestones l
 
 ## Toward 1.0
 
-- [ ] **v0.1 — Foundation.** Schema (activities, entity snapshots, groupings), the
+- [x] **v0.1 — Foundation.** Schema (activities, entity snapshots, groupings), the
       fluent recording API (`Storyfeed::activity()->actor($user)->confirm($delivery)->publish()`),
       snapshot-backed entities, workbench + test suite.
-- [ ] **v0.2 — Read model.** Feed query builder, scoped feeds, cursor pagination,
+- [x] **v0.2 — Read model.** Feed query builder, scoped feeds, cursor pagination,
       the self-describing JSON payload (headline templates, icons, linked entities —
       renderers need zero domain knowledge).
-- [ ] **v0.3 — Payload contract.** The feed payload shape is documented and frozen as
-      a versioned contract, including grouped-activity nodes
-      ("Bob, Sally, and 3 others uploaded files to Project X").
+- [x] **v0.3 — Payload contract.** Headline grammar + icon registries, feed events,
+      retention (`storyfeed:prune`) and health checks (`storyfeed:doctor`); the feed
+      payload shape documented as a versioned freeze-candidate contract, including
+      grouped-activity nodes ("Bob, Sally, and 3 others uploaded files to Project X").
 - [ ] **v0.4 — DX & tooling.** Test fakes, grammar-coverage assertions,
-      `storyfeed:doctor`, documentation, first production adoption.
+      documentation, first production adoption — and **the Newsroom**: a deployed,
+      living showcase app with simulated activity you can watch and poke.
 - [ ] **v0.5 — Activity Streams 2.0.** Spec-conformant JSON-LD serialization
       (`Activity`, `OrderedCollection`) validated against the W3C test documents;
       declarative `Story` classes (experimental).
@@ -26,9 +28,12 @@ high-level plan; detailed design documents will be published as the milestones l
 
 - Smarter feed curation — dynamic, social-style activity grouping that improves
   behind the stable payload contract.
+- Full-history scale — feeds that stay fast at millions of activities without
+  pruning (time-partitioned storage, warm/cold tiering behind the opaque cursor).
 - Story auto-discovery.
 - **`storyfeed/ui`** — a companion package of polished, pre-built feed components
-  for those who'd rather not build their own renderer.
+  for those who'd rather not build their own renderer. Vue/Inertia first; more
+  adapters (Livewire, Blade, Filament, React) to follow.
 - Long-range: ActivityPub (the architecture already mints stable IRIs and speaks
   AS2.0 for this reason).
 

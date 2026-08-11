@@ -111,7 +111,7 @@ class FeedBuilder
             ? $this->paginateGrouped()
             : $this->paginateFlat();
 
-        return new FeedPage($paginator, new NodePresenter);
+        return new FeedPage($paginator, app(NodePresenter::class));
     }
 
     protected function grouped(): bool

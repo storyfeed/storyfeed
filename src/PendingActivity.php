@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\DB;
 use Storyfeed\Actions\SnapshotEntity;
 use Storyfeed\Actions\WriteGroupings;
 use Storyfeed\Contracts\Feedable;
+use Storyfeed\Events\ActivityPublished;
 use Storyfeed\Models\Activity;
 
 /**
@@ -133,7 +134,7 @@ class PendingActivity
 
     public function publish(): Activity
     {
-        return DB::transaction(function () {
+        $activity = DB::transaction(function () {
             $this->snapshotEntities();
 
             $this->activity->save();
@@ -151,6 +152,10 @@ class PendingActivity
 
             return $this->activity;
         });
+
+        ActivityPublished::dispatch($activity);
+
+        return $activity;
     }
 
     protected function associate(string $role, ?Model $model): static

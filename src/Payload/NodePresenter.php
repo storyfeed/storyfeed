@@ -2,12 +2,14 @@
 
 namespace Storyfeed\Payload;
 
+use Closure;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\Collection;
 use Storyfeed\Contracts\Feedable;
 use Storyfeed\FeedLink;
 use Storyfeed\Models\Activity;
 use Storyfeed\Models\Snapshot;
+use Storyfeed\StoryfeedManager;
 use Throwable;
 
 /**
@@ -20,6 +22,10 @@ use Throwable;
  */
 class NodePresenter
 {
+    public function __construct(
+        protected StoryfeedManager $storyfeed,
+    ) {}
+
     /**
      * @param  Collection<int, Activity>  $members  same-group activities, newest first
      */
@@ -32,20 +38,46 @@ class NodePresenter
 
     public function activityNode(Activity $activity): array
     {
+        [$template, $headline] = $this->headline($activity);
+
         return [
             'kind' => 'activity',
             'id' => $activity->uid,
             'verb' => $activity->verb,
             'published_at' => $activity->published_at?->toISOString(),
-            'headline_template' => null, // grammar registries land in v0.3
-            'headline' => null,
-            'icon' => null,
+            'headline_template' => $template,
+            'headline' => $headline,
+            'icon' => $this->storyfeed->icon($activity->object_type, $activity->verb),
             'actor' => $this->entity($activity->actor_type, $activity->actor_id, $activity->cachedActor),
             'object' => $this->entity($activity->object_type, $activity->object_id, $activity->cachedObject),
             'target' => $this->entity($activity->target_type, $activity->target_id, $activity->cachedTarget),
             'context' => $this->entity($activity->context_type, $activity->context_id, $activity->cachedContext),
             'data' => $activity->data,
         ];
+    }
+
+    /**
+     * Resolve [headline_template, headline] for an activity. String grammar
+     * entries are frontend-tokenizable templates; closure entries pre-render
+     * a headline server-side (template stays null, by design).
+     *
+     * @return array{0: string|null, 1: string|null}
+     */
+    protected function headline(Activity $activity): array
+    {
+        $entry = $this->storyfeed->template($activity->object_type, $activity->verb);
+
+        if ($entry instanceof Closure) {
+            try {
+                return [null, (string) $entry($activity)];
+            } catch (Throwable $e) {
+                report($e);
+
+                return [null, null];
+            }
+        }
+
+        return [$entry, null];
     }
 
     /**
@@ -65,6 +97,8 @@ class NodePresenter
             ->map(fn (Activity $a) => $this->entity($a->actor_type, $a->actor_id, $a->cachedActor))
             ->all();
 
+        [$template, $headline] = $this->headline($first);
+
         return [
             'kind' => 'group',
             'id' => 'grp_'.sha1((string) $first->group_hash),
@@ -72,8 +106,9 @@ class NodePresenter
             'count' => $members->count(),
             'verb' => $first->verb,
             'published_at' => $first->published_at?->toISOString(),
-            'headline_template' => null,
-            'icon' => null,
+            'headline_template' => $template,
+            'headline' => $headline,
+            'icon' => $this->storyfeed->icon($first->object_type, $first->verb),
             'exemplars' => [
                 'actors' => $exemplars,
                 'target' => $this->entity($first->target_type, $first->target_id, $first->cachedTarget),

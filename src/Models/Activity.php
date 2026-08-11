@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Carbon;
+use Storyfeed\Events\ActivityDeleted;
 use Storyfeed\Models\Builders\ActivityBuilder;
 use Storyfeed\StoryfeedManager;
 
@@ -81,6 +82,10 @@ class Activity extends Model
             if ($activity->published_at === null) {
                 $activity->published_at = now();
             }
+        });
+
+        static::deleted(function (self $activity) {
+            ActivityDeleted::dispatch($activity);
         });
     }
 
