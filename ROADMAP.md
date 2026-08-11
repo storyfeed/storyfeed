@@ -21,6 +21,8 @@ high-level plan; detailed design documents will be published as the milestones l
 - [ ] **v0.5 — DX & tooling.** Test fakes, grammar-coverage assertions,
       documentation, first production adoption — and **the Newsroom**: a deployed,
       living showcase app with simulated activity you can watch and poke.
+      Possibly `Storyfeed::capture([Post::class])`: register a few models and get
+      a working feed with no recording calls, then eject the real code.
 - [ ] **v0.5 — Activity Streams 2.0.** Spec-conformant JSON-LD serialization
       (`Activity`, `OrderedCollection`) validated against the W3C test documents;
       declarative `Story` classes (experimental).

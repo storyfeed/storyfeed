@@ -17,6 +17,7 @@ use Storyfeed\Exceptions\IncompleteActivity;
 use Storyfeed\Exceptions\UnknownVerb;
 use Storyfeed\Models\Activity;
 use Storyfeed\Models\Party;
+use Storyfeed\Testing\StoryfeedFake;
 
 /**
  * Fluent builder for publishing activities.
@@ -143,7 +144,13 @@ class PendingActivity
             throw IncompleteActivity::missingVerb();
         }
 
-        $this->resolveDefaultActor();
+        $manager = app(StoryfeedManager::class);
+
+        $this->resolveDefaultActor($manager);
+
+        if ($manager instanceof StoryfeedFake) {
+            return $manager->capture($this->activity);
+        }
 
         $activity = DB::transaction(function () {
             $this->snapshotEntities();
@@ -199,13 +206,13 @@ class PendingActivity
      * every other role. The model hook remains as a fallback for activities
      * created directly, bypassing this builder.
      */
-    private function resolveDefaultActor(): void
+    private function resolveDefaultActor(StoryfeedManager $manager): void
     {
         if ($this->activity->actor_type !== null || $this->activity->actor_id !== null) {
             return;
         }
 
-        if ($actor = app(StoryfeedManager::class)->resolveActor()) {
+        if ($actor = $manager->resolveActor()) {
             $this->actor($actor);
         }
     }
@@ -246,9 +253,7 @@ class PendingActivity
             return null;
         }
 
-        $model = config('storyfeed.models.party', Party::class);
-
-        return $model::make($name);
+        return app(StoryfeedManager::class)->party($name);
     }
 
     /**

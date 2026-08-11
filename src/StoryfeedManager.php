@@ -370,7 +370,11 @@ class StoryfeedManager
         return $this->party($name);
     }
 
-    protected function party(string $name): Party
+    /**
+     * Resolve or create the party with this name. Overridden by the fake to
+     * stub one in memory.
+     */
+    public function party(string $name): Party
     {
         $model = config('storyfeed.models.party', Party::class);
 
@@ -414,6 +418,47 @@ class StoryfeedManager
     }
 
     /**
+     * The registry key that resolves for a type + verb, in specificity
+     * order. Exposed so coverage tooling can tell a deliberate entry from a
+     * `*.*` catch-all.
+     */
+    public function templateKey(?string $type, string $verb): ?string
+    {
+        return $this->resolveKey($this->grammar, $type, $verb);
+    }
+
+    public function iconKey(?string $type, string $verb): ?string
+    {
+        return $this->resolveKey($this->icons, $type, $verb);
+    }
+
+    /**
+     * Candidate registry keys, most specific first.
+     *
+     * @return array<int, string>
+     */
+    protected function keysFor(?string $type, string $verb): array
+    {
+        return $type === null
+            ? ["*.{$verb}", '*.*']
+            : ["{$type}.{$verb}", "{$type}.*", "*.{$verb}", '*.*'];
+    }
+
+    /**
+     * @param  array<string, mixed>  $registry
+     */
+    protected function resolveKey(array $registry, ?string $type, string $verb): ?string
+    {
+        foreach ($this->keysFor($type, $verb) as $key) {
+            if (array_key_exists($key, $registry)) {
+                return $key;
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * @template TValue
      *
      * @param  array<string, TValue>  $registry
@@ -421,16 +466,8 @@ class StoryfeedManager
      */
     protected function resolve(array $registry, ?string $type, string $verb)
     {
-        $keys = $type === null
-            ? ["*.{$verb}", '*.*']
-            : ["{$type}.{$verb}", "{$type}.*", "*.{$verb}", '*.*'];
+        $key = $this->resolveKey($registry, $type, $verb);
 
-        foreach ($keys as $key) {
-            if (array_key_exists($key, $registry)) {
-                return $registry[$key];
-            }
-        }
-
-        return null;
+        return $key === null ? null : $registry[$key];
     }
 }

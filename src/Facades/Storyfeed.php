@@ -4,11 +4,17 @@ namespace Storyfeed\Facades;
 
 use Illuminate\Support\Facades\Facade;
 use Storyfeed\StoryfeedManager;
+use Storyfeed\Testing\StoryfeedFake;
 
 /**
  * @method static \Storyfeed\PendingActivity activity(string|\Storyfeed\Contracts\FeedVerb|\BackedEnum|null $verb = null, \Illuminate\Database\Eloquent\Model|string|null $object = null)
  * @method static \Storyfeed\Models\Activity record(string|\Storyfeed\Contracts\FeedVerb|\BackedEnum $verb, \Illuminate\Database\Eloquent\Model|string|null $object = null, \Illuminate\Database\Eloquent\Model|string|null $actor = null, \Illuminate\Database\Eloquent\Model|string|null $target = null, \Illuminate\Database\Eloquent\Model|string|null $context = null, array $data = [], \DateTimeInterface|string|null $publishedAt = null, bool $replace = false)
  * @method static mixed as(\Illuminate\Database\Eloquent\Model|string $actor, ?callable $callback = null)
+ * @method static void assertPublished(string|\Storyfeed\Contracts\FeedVerb|\BackedEnum|\Closure $verb, ?\Illuminate\Database\Eloquent\Model $object = null)
+ * @method static void assertNotPublished(string|\Storyfeed\Contracts\FeedVerb|\BackedEnum|\Closure $verb, ?\Illuminate\Database\Eloquent\Model $object = null)
+ * @method static void assertPublishedCount(int $count, string|\Storyfeed\Contracts\FeedVerb|\BackedEnum|\Closure|null $verb = null)
+ * @method static void assertNothingPublished()
+ * @method static \Illuminate\Support\Collection published(string|\Storyfeed\Contracts\FeedVerb|\BackedEnum|\Closure|null $verb = null)
  * @method static \Storyfeed\FeedBuilder feed()
  * @method static \Storyfeed\StoryfeedManager grammar(array $grammar, bool $merge = true)
  * @method static \Storyfeed\StoryfeedManager icons(array $icons, bool $merge = true)
@@ -30,6 +36,26 @@ use Storyfeed\StoryfeedManager;
  */
 class Storyfeed extends Facade
 {
+    /**
+     * Record activities in memory instead of persisting them.
+     *
+     *   Storyfeed::fake();
+     *   // ... exercise the code under test
+     *   Storyfeed::assertPublished('confirm', $delivery);
+     *
+     * Lives on the facade rather than the manager because the facade caches
+     * its resolved root — swapping only the container binding would leave
+     * the cached instance in place.
+     */
+    public static function fake(): StoryfeedFake
+    {
+        $fake = (new StoryfeedFake)->inheritFrom(static::getFacadeRoot());
+
+        static::swap($fake);
+
+        return $fake;
+    }
+
     protected static function getFacadeAccessor(): string
     {
         return StoryfeedManager::class;
