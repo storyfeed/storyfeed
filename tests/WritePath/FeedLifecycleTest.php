@@ -9,7 +9,7 @@ it('soft-deletes activities involving a deleted model', function () {
     $customer = Customer::create(['name' => 'Acme Co.']);
     $delivery = Delivery::create(['customer_id' => $customer->id, 'tracking_number' => 'TN-1']);
 
-    Storyfeed::activity()->confirm($delivery)->for($customer)->publish();
+    Storyfeed::activity('confirm', $delivery)->for($customer)->publish();
     Storyfeed::activity()->verb('ping')->publish();
 
     $delivery->delete();
@@ -21,7 +21,7 @@ it('soft-deletes activities involving a deleted model', function () {
 it('force-deletes activities when the model is force-deleted', function () {
     $delivery = Delivery::create(['tracking_number' => 'TN-1']);
 
-    Storyfeed::activity()->confirm($delivery)->publish();
+    Storyfeed::activity('confirm', $delivery)->publish();
 
     $delivery->forceDelete();
 
@@ -31,7 +31,7 @@ it('force-deletes activities when the model is force-deleted', function () {
 it('force-deletes even activities that were already soft-deleted', function () {
     $delivery = Delivery::create(['tracking_number' => 'TN-1']);
 
-    Storyfeed::activity()->confirm($delivery)->publish();
+    Storyfeed::activity('confirm', $delivery)->publish();
 
     $delivery->delete();      // soft: activities soft-deleted
     $delivery->forceDelete(); // hard: trashed activities purged

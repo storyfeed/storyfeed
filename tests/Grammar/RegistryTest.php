@@ -1,6 +1,9 @@
 <?php
 
+use Storyfeed\ActivityStreams\ActivityType;
+use Storyfeed\ActivityStreams\ObjectType;
 use Storyfeed\Facades\Storyfeed;
+use Workbench\App\Enums\ActivityVerb;
 use Workbench\App\Models\Delivery;
 
 it('resolves grammar in specificity order', function () {
@@ -33,27 +36,63 @@ it('resolves icons with the same wildcard order', function () {
 });
 
 it('maps verbs to AS2.0 activity types with overridable defaults', function () {
-    expect(Storyfeed::activityType('create'))->toBe('Create')
-        ->and(Storyfeed::activityType('share'))->toBe('Announce')
+    expect(Storyfeed::activityType('create'))->toBe(ActivityType::Create)
+        ->and(Storyfeed::activityType('share'))->toBe(ActivityType::Announce)
         ->and(Storyfeed::activityType('confirm'))->toBeNull();
 
     Storyfeed::verbs(['confirm' => 'Update']);
 
-    expect(Storyfeed::activityType('confirm'))->toBe('Update');
+    expect(Storyfeed::activityType('confirm'))->toBe(ActivityType::Update);
 });
 
 it('maps morph aliases to AS2.0 object types', function () {
     Storyfeed::objectTypes(['user' => 'Person', 'delivery' => 'Document']);
 
-    expect(Storyfeed::objectType('user'))->toBe('Person')
+    expect(Storyfeed::objectType('user'))->toBe(ObjectType::Person)
         ->and(Storyfeed::objectType('unknown'))->toBeNull();
+});
+
+it('always yields a wire value, falling back for unmapped terms', function () {
+    expect(Storyfeed::activityTypeValue('create'))->toBe('Create')
+        ->and(Storyfeed::activityTypeValue('nonesuch'))->toBe('Activity')
+        ->and(Storyfeed::objectTypeValue('nonesuch'))->toBe('Object');
+});
+
+it('preserves unrecognized extension types verbatim', function () {
+    Storyfeed::verbs(['frobnicate' => 'sf:Frobnicate']);
+    Storyfeed::objectTypes(['widget' => 'ext:Widget']);
+
+    // tryFrom-then-discard is the data-loss bug that breaks federation.
+    expect(Storyfeed::activityType('frobnicate'))->toBe('sf:Frobnicate')
+        ->and(Storyfeed::activityTypeValue('frobnicate'))->toBe('sf:Frobnicate')
+        ->and(Storyfeed::objectType('widget'))->toBe('ext:Widget');
+});
+
+it('accepts loose spellings when registering types', function () {
+    Storyfeed::verbs([
+        'a' => 'create',
+        'b' => 'as:Update',
+        'c' => 'https://www.w3.org/ns/activitystreams#Announce',
+    ]);
+
+    expect(Storyfeed::activityType('a'))->toBe(ActivityType::Create)
+        ->and(Storyfeed::activityType('b'))->toBe(ActivityType::Update)
+        ->and(Storyfeed::activityType('c'))->toBe(ActivityType::Announce);
+});
+
+it('registers a whole vocabulary from a FeedVerb enum', function () {
+    Storyfeed::verbs(ActivityVerb::class);
+
+    expect(Storyfeed::activityType('confirm'))->toBe(ActivityType::Update)
+        ->and(Storyfeed::activityType('upload'))->toBe(ActivityType::Add)
+        ->and(Storyfeed::activityType('comment'))->toBe(ActivityType::Create);
 });
 
 it('emits headline templates and icons in the payload', function () {
     Storyfeed::grammar(['delivery.confirm' => ':actor confirmed :object']);
     Storyfeed::icons(['delivery.confirm' => 'bi-truck']);
 
-    Storyfeed::activity()->confirm(Delivery::create(['tracking_number' => 'TN-1']))->publish();
+    Storyfeed::activity('confirm', Delivery::create(['tracking_number' => 'TN-1']))->publish();
 
     $item = Storyfeed::feed()->get()->toArray()['items'][0];
 
@@ -68,7 +107,7 @@ it('pre-renders closure grammar as headline with a null template', function () {
     ]);
 
     $delivery = Delivery::create(['tracking_number' => 'TN-1']);
-    Storyfeed::activity()->confirm($delivery)->publish();
+    Storyfeed::activity('confirm', $delivery)->publish();
 
     $item = Storyfeed::feed()->get()->toArray()['items'][0];
 
@@ -80,7 +119,7 @@ it('resolves grammar for group nodes too', function () {
     Storyfeed::grammar(['delivery.upload' => ':actor uploaded deliveries']);
 
     foreach (range(1, 2) as $i) {
-        Storyfeed::activity()->upload(Delivery::create(['tracking_number' => "TN-{$i}"]))->publish();
+        Storyfeed::activity('upload', Delivery::create(['tracking_number' => "TN-{$i}"]))->publish();
     }
 
     $item = Storyfeed::feed()->get()->toArray()['items'][0];

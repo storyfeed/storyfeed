@@ -32,6 +32,10 @@ class TestCase extends Orchestra
     public function getEnvironmentSetUp($app)
     {
         config()->set('database.default', 'testing');
+
+        // Free-form verbs are a guarantee of the package; the suite exercises
+        // them deliberately. StrictVerbTest opts in explicitly.
+        config()->set('storyfeed.verbs.strict', false);
     }
 
     protected function defineDatabaseMigrations(): void

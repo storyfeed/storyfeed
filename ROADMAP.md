@@ -15,7 +15,10 @@ high-level plan; detailed design documents will be published as the milestones l
       retention (`storyfeed:prune`) and health checks (`storyfeed:doctor`); the feed
       payload shape documented as a versioned freeze-candidate contract, including
       grouped-activity nodes ("Bob, Sally, and 3 others uploaded files to Project X").
-- [ ] **v0.4 — DX & tooling.** Test fakes, grammar-coverage assertions,
+- [x] **v0.4 — Typed recording API.** An autocomplete-friendly write API (no magic
+      methods), verbs declarable as enums, and the Activity Streams 2.0 vocabulary
+      shipped as PHP enums verified against the W3C spec.
+- [ ] **v0.5 — DX & tooling.** Test fakes, grammar-coverage assertions,
       documentation, first production adoption — and **the Newsroom**: a deployed,
       living showcase app with simulated activity you can watch and poke.
 - [ ] **v0.5 — Activity Streams 2.0.** Spec-conformant JSON-LD serialization
@@ -34,6 +37,8 @@ high-level plan; detailed design documents will be published as the milestones l
 - **`storyfeed/ui`** — a companion package of polished, pre-built feed components
   for those who'd rather not build their own renderer. Vue/Inertia first; more
   adapters (Livewire, Blade, Filament, React) to follow.
+- A public demo API, so any frontend — Nuxt, Next, SvelteKit, mobile — can be
+  pointed at a live Storyfeed and render it however it likes.
 - Long-range: ActivityPub (the architecture already mints stable IRIs and speaks
   AS2.0 for this reason).
 

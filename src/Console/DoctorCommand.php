@@ -4,6 +4,7 @@ namespace Storyfeed\Console;
 
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Schema;
+use Storyfeed\ActivityStreams\ActivityType;
 use Storyfeed\Models\Activity;
 use Storyfeed\StoryfeedManager;
 
@@ -73,8 +74,24 @@ class DoctorCommand extends Command
                 $issues++;
             }
 
-            if ($storyfeed->activityType($pair->verb) === null) {
+            $type = $storyfeed->activityType($pair->verb);
+
+            if ($type === null) {
                 $this->line("Note: verb `{$pair->verb}` has no AS2.0 mapping — will serialize as base `Activity`.");
+            }
+
+            if ($type instanceof ActivityType && $type->isIntransitive() && $pair->type !== null) {
+                $count = $this->activityQuery()
+                    ->where('verb', $pair->verb)
+                    ->where('object_type', $pair->type)
+                    ->count();
+
+                $this->warn(
+                    "Verb `{$pair->verb}` maps to intransitive type {$type->value} but {$count} activities carry "
+                    .'an object — these serialize as base `Activity`. Map the verb to a transitive type, or stop '
+                    .'setting an object.'
+                );
+                $issues++;
             }
         }
 

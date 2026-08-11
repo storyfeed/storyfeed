@@ -23,6 +23,7 @@ class StoryfeedServiceProvider extends PackageServiceProvider
                 Console\TrickleCommand::class,
                 Console\PruneCommand::class,
                 Console\DoctorCommand::class,
+                Console\VerbsCommand::class,
             ]);
     }
 

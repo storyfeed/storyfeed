@@ -2,9 +2,19 @@
 
 namespace Storyfeed;
 
+use BackedEnum;
 use Closure;
+use DateTimeInterface;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\Facades\Auth;
+use Storyfeed\ActivityStreams\ActivityType;
+use Storyfeed\ActivityStreams\CoreType;
+use Storyfeed\ActivityStreams\ObjectType;
+use Storyfeed\Contracts\FeedVerb;
+use Storyfeed\Contracts\HasActivityStreamsType;
+use Storyfeed\Models\Activity;
+use Throwable;
 
 class StoryfeedManager
 {
@@ -16,54 +26,80 @@ class StoryfeedManager
     /** @var array<string, string> */
     protected array $icons = [];
 
-    /** @var array<string, string> */
+    /** @var array<string, ActivityType|string> */
     protected array $verbs = self::DEFAULT_VERBS;
 
-    /** @var array<string, string> */
+    /** @var array<string, ObjectType|string> */
     protected array $objectTypes = [];
 
+    /** @var array<string, ObjectType|string|null> */
+    protected array $resolvedObjectTypes = [];
+
     /**
-     * Built-in verb → Activity Streams 2.0 activity type mappings.
-     * Unmapped verbs serialize as the base type `Activity` (spec-legal).
+     * Built-in verb → AS2.0 activity type mappings. Unmapped verbs
+     * serialize as the base type `Activity` (spec-legal).
      */
     public const DEFAULT_VERBS = [
-        'accept' => 'Accept',
-        'add' => 'Add',
-        'announce' => 'Announce',
-        'arrive' => 'Arrive',
-        'block' => 'Block',
-        'create' => 'Create',
-        'delete' => 'Delete',
-        'dislike' => 'Dislike',
-        'flag' => 'Flag',
-        'follow' => 'Follow',
-        'ignore' => 'Ignore',
-        'invite' => 'Invite',
-        'join' => 'Join',
-        'leave' => 'Leave',
-        'like' => 'Like',
-        'listen' => 'Listen',
-        'move' => 'Move',
-        'offer' => 'Offer',
-        'question' => 'Question',
-        'read' => 'Read',
-        'reject' => 'Reject',
-        'remove' => 'Remove',
-        'share' => 'Announce',
-        'tentativeAccept' => 'TentativeAccept',
-        'tentativeReject' => 'TentativeReject',
-        'travel' => 'Travel',
-        'undo' => 'Undo',
-        'update' => 'Update',
-        'view' => 'View',
+        'accept' => ActivityType::Accept,
+        'add' => ActivityType::Add,
+        'announce' => ActivityType::Announce,
+        'arrive' => ActivityType::Arrive,
+        'block' => ActivityType::Block,
+        'create' => ActivityType::Create,
+        'delete' => ActivityType::Delete,
+        'dislike' => ActivityType::Dislike,
+        'flag' => ActivityType::Flag,
+        'follow' => ActivityType::Follow,
+        'ignore' => ActivityType::Ignore,
+        'invite' => ActivityType::Invite,
+        'join' => ActivityType::Join,
+        'leave' => ActivityType::Leave,
+        'like' => ActivityType::Like,
+        'listen' => ActivityType::Listen,
+        'move' => ActivityType::Move,
+        'offer' => ActivityType::Offer,
+        'question' => ActivityType::Question,
+        'read' => ActivityType::Read,
+        'reject' => ActivityType::Reject,
+        'remove' => ActivityType::Remove,
+        'share' => ActivityType::Announce,
+        'tentativeAccept' => ActivityType::TentativeAccept,
+        'tentativeReject' => ActivityType::TentativeReject,
+        'travel' => ActivityType::Travel,
+        'undo' => ActivityType::Undo,
+        'update' => ActivityType::Update,
+        'view' => ActivityType::View,
     ];
 
     /**
      * Begin composing an activity.
      */
-    public function activity(...$args): PendingActivity
+    public function activity(string|FeedVerb|BackedEnum|null $verb = null, ?Model $object = null): PendingActivity
     {
-        return PendingActivity::make(...$args);
+        return PendingActivity::make($verb, $object);
+    }
+
+    /**
+     * Compose and publish an activity in one call.
+     */
+    public function record(
+        string|FeedVerb|BackedEnum $verb,
+        ?Model $object = null,
+        ?Model $actor = null,
+        ?Model $target = null,
+        ?Model $context = null,
+        array $data = [],
+        DateTimeInterface|string|null $publishedAt = null,
+        bool $replace = false,
+    ): Activity {
+        return $this->activity($verb, $object)
+            ->actor($actor)
+            ->target($target)
+            ->context($context)
+            ->when($data !== [], fn (PendingActivity $a) => $a->data($data))
+            ->when($publishedAt !== null, fn (PendingActivity $a) => $a->publishedAt($publishedAt))
+            ->replace($replace)
+            ->publish();
     }
 
     /**
@@ -102,13 +138,30 @@ class StoryfeedManager
     }
 
     /**
-     * Register verb → AS2.0 activity type mappings (merged over defaults).
+     * Register verb → AS2.0 activity type mappings.
      *
-     * @param  array<string, string>  $verbs
+     * Accepts either a map, or the class-string of a backed enum
+     * implementing FeedVerb — in which case its cases are expanded:
+     *
+     *   Storyfeed::verbs(ActivityVerb::class);
+     *   Storyfeed::verbs(['confirm' => ActivityType::Update]);
+     *
+     * Unrecognized type strings are preserved verbatim (extension types
+     * must survive round-tripping).
+     *
+     * @param  array<string, ActivityType|string>|class-string  $verbs
      */
-    public function verbs(array $verbs, bool $merge = true): static
+    public function verbs(array|string $verbs, bool $merge = true): static
     {
-        $this->verbs = $merge ? [...$this->verbs, ...$verbs] : $verbs;
+        $resolved = is_string($verbs) ? $this->expandVerbEnum($verbs) : $verbs;
+
+        $normalized = [];
+
+        foreach ($resolved as $verb => $type) {
+            $normalized[$verb] = $this->normalizeTerm($type, ActivityType::class);
+        }
+
+        $this->verbs = $merge ? [...$this->verbs, ...$normalized] : $normalized;
 
         return $this;
     }
@@ -116,13 +169,46 @@ class StoryfeedManager
     /**
      * Register morph alias → AS2.0 object type mappings.
      *
-     * @param  array<string, string>  $objectTypes
+     * @param  array<string, ObjectType|string>  $objectTypes
      */
     public function objectTypes(array $objectTypes, bool $merge = true): static
     {
-        $this->objectTypes = $merge ? [...$this->objectTypes, ...$objectTypes] : $objectTypes;
+        $normalized = [];
+
+        foreach ($objectTypes as $alias => $type) {
+            $normalized[$alias] = $this->normalizeTerm($type, ObjectType::class);
+        }
+
+        $this->objectTypes = $merge ? [...$this->objectTypes, ...$normalized] : $normalized;
+
+        $this->resolvedObjectTypes = [];
 
         return $this;
+    }
+
+    /**
+     * Register the verb vocabulary from one or more FeedVerb enums.
+     *
+     * @return array<string, ActivityType|string>
+     */
+    protected function expandVerbEnum(string $enum): array
+    {
+        if (! is_a($enum, FeedVerb::class, true) || ! is_a($enum, BackedEnum::class, true)) {
+            return [];
+        }
+
+        $map = [];
+
+        foreach ($enum::cases() as $case) {
+            /** @var FeedVerb $case */
+            if (($type = $case->activityType()) !== null) {
+                $map[$case->verb()] = $type;
+            } else {
+                $map[$case->verb()] = self::DEFAULT_VERBS[$case->verb()] ?? CoreType::Activity->value;
+            }
+        }
+
+        return $map;
     }
 
     /**
@@ -143,19 +229,46 @@ class StoryfeedManager
     }
 
     /**
-     * The AS2.0 activity type for a verb; null when unmapped.
+     * The AS2.0 activity type for a verb: an enum when known, a raw string
+     * for extension types, null when unmapped.
      */
-    public function activityType(string $verb): ?string
+    public function activityType(string $verb): ActivityType|string|null
     {
         return $this->verbs[$verb] ?? null;
     }
 
     /**
-     * The AS2.0 object type for a morph alias; null when unmapped.
+     * The wire value for a verb's AS2.0 type. Always returns something —
+     * unmapped verbs fall back to the base `Activity` type.
      */
-    public function objectType(string $alias): ?string
+    public function activityTypeValue(string $verb): string
     {
-        return $this->objectTypes[$alias] ?? null;
+        $type = $this->activityType($verb);
+
+        return $type instanceof ActivityType ? $type->value : ($type ?? CoreType::Activity->value);
+    }
+
+    /**
+     * The AS2.0 object type for a morph alias. The registry wins; a model
+     * may declare its own via HasActivityStreamsType.
+     */
+    public function objectType(string $alias): ObjectType|string|null
+    {
+        if (isset($this->objectTypes[$alias])) {
+            return $this->objectTypes[$alias];
+        }
+
+        return $this->resolvedObjectTypes[$alias] ??= $this->objectTypeFromModel($alias);
+    }
+
+    /**
+     * The wire value for an entity's AS2.0 type, falling back to `Object`.
+     */
+    public function objectTypeValue(string $alias): string
+    {
+        $type = $this->objectType($alias);
+
+        return $type instanceof ObjectType ? $type->value : ($type ?? ObjectType::Object->value);
     }
 
     /** @return array<string, string|Closure> */
@@ -168,6 +281,12 @@ class StoryfeedManager
     public function registeredIcons(): array
     {
         return $this->icons;
+    }
+
+    /** @return array<string, ActivityType|string> */
+    public function registeredVerbs(): array
+    {
+        return $this->verbs;
     }
 
     /**
@@ -193,6 +312,42 @@ class StoryfeedManager
         }
 
         return Auth::user();
+    }
+
+    protected function objectTypeFromModel(string $alias): ObjectType|string|null
+    {
+        try {
+            $class = Relation::getMorphedModel($alias) ?? (class_exists($alias) ? $alias : null);
+
+            if ($class === null || ! is_a($class, HasActivityStreamsType::class, true)) {
+                return null;
+            }
+
+            return $this->normalizeTerm($class::activityStreamsType(), ObjectType::class);
+        } catch (Throwable $e) {
+            report($e);
+
+            return null;
+        }
+    }
+
+    /**
+     * Coerce a registered term to its enum when recognized; preserve the
+     * raw string otherwise. Never drop — extension types must round-trip.
+     *
+     * @param  class-string  $enum
+     */
+    protected function normalizeTerm(mixed $type, string $enum): mixed
+    {
+        if ($type instanceof $enum) {
+            return $type;
+        }
+
+        if (is_string($type)) {
+            return $enum::tryFromLoose($type) ?? $type;
+        }
+
+        return $type;
     }
 
     /**

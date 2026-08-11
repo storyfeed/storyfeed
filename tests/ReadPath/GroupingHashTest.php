@@ -12,7 +12,7 @@ it('writes candidate hashes for every applicable axis at publish', function () {
     $customer = Customer::create(['name' => 'Acme Co.']);
     $delivery = Delivery::create(['tracking_number' => 'TN-1']);
 
-    $activity = Storyfeed::activity()->actor($user)->confirm($delivery)->for($customer)->publish();
+    $activity = Storyfeed::activity()->actor($user)->verb('confirm', $delivery)->for($customer)->publish();
 
     $buckets = Grouping::query()
         ->where('activity_id', $activity->id)
@@ -25,7 +25,7 @@ it('omits the actors axis when there is no target', function () {
     $user = User::create(['name' => 'Sally', 'email' => 'sally@example.com']);
     $delivery = Delivery::create(['tracking_number' => 'TN-1']);
 
-    $activity = Storyfeed::activity()->actor($user)->confirm($delivery)->publish();
+    $activity = Storyfeed::activity()->actor($user)->verb('confirm', $delivery)->publish();
 
     $buckets = Grouping::query()->where('activity_id', $activity->id)->pluck('bucket');
 
@@ -35,8 +35,8 @@ it('omits the actors axis when there is no target', function () {
 
 it('produces identical repeat hashes for same actor, verb, object type, and day', function () {
     $user = User::create(['name' => 'Sally', 'email' => 'sally@example.com']);
-    $a = Storyfeed::activity()->actor($user)->upload(Delivery::create(['tracking_number' => 'A']))->publish();
-    $b = Storyfeed::activity()->actor($user)->upload(Delivery::create(['tracking_number' => 'B']))->publish();
+    $a = Storyfeed::activity()->actor($user)->verb('upload', Delivery::create(['tracking_number' => 'A']))->publish();
+    $b = Storyfeed::activity()->actor($user)->verb('upload', Delivery::create(['tracking_number' => 'B']))->publish();
 
     $hashA = Grouping::query()->where('activity_id', $a->id)->where('bucket', 'repeat')->value('hash');
     $hashB = Grouping::query()->where('activity_id', $b->id)->where('bucket', 'repeat')->value('hash');

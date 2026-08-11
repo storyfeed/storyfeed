@@ -8,7 +8,7 @@ use Workbench\App\Models\User;
 it('returns newest-first payload items', function () {
     $delivery = Delivery::create(['tracking_number' => 'TN-1']);
 
-    Storyfeed::activity()->create($delivery)->publishedAt(now()->subHour())->publish();
+    Storyfeed::activity('create', $delivery)->publishedAt(now()->subHour())->publish();
     Storyfeed::activity()->verb('ping')->publish();
 
     $payload = Storyfeed::feed()->get()->toArray();
@@ -22,7 +22,7 @@ it('nests same-repeat-hash activities into a group node', function () {
     $user = User::create(['name' => 'Sally', 'email' => 'sally@example.com']);
 
     foreach (range(1, 3) as $i) {
-        Storyfeed::activity()->actor($user)->upload(Delivery::create(['tracking_number' => "TN-{$i}"]))->publish();
+        Storyfeed::activity()->actor($user)->verb('upload', Delivery::create(['tracking_number' => "TN-{$i}"]))->publish();
     }
 
     $items = Storyfeed::feed()->get()->toArray()['items'];
@@ -38,7 +38,7 @@ it('nests same-repeat-hash activities into a group node', function () {
 it('keeps singletons as activity nodes', function () {
     $delivery = Delivery::create(['tracking_number' => 'TN-1']);
 
-    Storyfeed::activity()->confirm($delivery)->publish();
+    Storyfeed::activity('confirm', $delivery)->publish();
 
     $items = Storyfeed::feed()->get()->toArray()['items'];
 

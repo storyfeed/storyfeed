@@ -2,33 +2,38 @@
 
 namespace Storyfeed;
 
+use BackedEnum;
 use DateTimeInterface;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Traits\Conditionable;
 use Storyfeed\Actions\SnapshotEntity;
 use Storyfeed\Actions\WriteGroupings;
 use Storyfeed\Contracts\Feedable;
+use Storyfeed\Contracts\FeedVerb;
 use Storyfeed\Events\ActivityPublished;
+use Storyfeed\Exceptions\IncompleteActivity;
+use Storyfeed\Exceptions\UnknownVerb;
 use Storyfeed\Models\Activity;
 
 /**
  * Fluent builder for publishing activities.
  *
- *   Storyfeed::activity()->actor($user)->verb('create')->object($project)->publish();
- *   Storyfeed::activity()->actor($user)->confirm($delivery)->for($customer)->publish();
+ *   Storyfeed::activity(ActivityVerb::Confirm, $delivery)
+ *       ->actor($user)
+ *       ->for($customer)
+ *       ->publish();
  *
- * `__call` maps any unknown method to verb(), so ->confirm($obj) works.
- * publishAndReplace() collapses "latest wins" verbs (e.g. repeated saves).
- *
- * @method self create(?Model $object = null)
- * @method self update(?Model $object = null)
- * @method self delete(?Model $object = null)
+ * Verbs are free-form strings; a FeedVerb enum (or any backed enum) is an
+ * authoring convenience that resolves to the same string.
  *
  * @phpstan-consistent-constructor
  */
 class PendingActivity
 {
+    use Conditionable;
+
     public Activity $activity;
 
     protected bool $replace = false;
@@ -36,26 +41,25 @@ class PendingActivity
     /** @var array<string, Model> */
     protected array $entities = [];
 
-    public function __construct(...$args)
+    public function __construct(string|FeedVerb|BackedEnum|null $verb = null, ?Model $object = null)
     {
         $model = config('storyfeed.models.activity', Activity::class);
 
-        $this->activity = new $model(...$args);
+        $this->activity = new $model;
+
+        if ($verb !== null) {
+            $this->verb($verb, $object);
+        }
     }
 
-    public static function make(...$args): static
+    public static function make(string|FeedVerb|BackedEnum|null $verb = null, ?Model $object = null): static
     {
-        return new static(...$args);
+        return new static($verb, $object);
     }
 
-    public function __call(string $name, array $args): static
+    public function verb(string|FeedVerb|BackedEnum $verb, ?Model $object = null): static
     {
-        return $this->verb($name, ...$args);
-    }
-
-    public function verb(string $verb, ?Model $object = null): static
-    {
-        $this->activity->verb = $verb;
+        $this->activity->verb = $this->normalizeVerb($verb);
 
         if ($object) {
             $this->object($object);
@@ -134,6 +138,10 @@ class PendingActivity
 
     public function publish(): Activity
     {
+        if (blank($this->activity->verb)) {
+            throw IncompleteActivity::missingVerb();
+        }
+
         $activity = DB::transaction(function () {
             $this->snapshotEntities();
 
@@ -158,7 +166,42 @@ class PendingActivity
         return $activity;
     }
 
-    protected function associate(string $role, ?Model $model): static
+    /**
+     * Verbs are stored verbatim apart from trimming — no case folding, since
+     * camelCase verbs like `updateStatus` are valid and folding would break
+     * grammar keys and grouping hashes.
+     */
+    protected function normalizeVerb(string|FeedVerb|BackedEnum $verb): string
+    {
+        $resolved = match (true) {
+            $verb instanceof FeedVerb => $verb->verb(),
+            $verb instanceof BackedEnum => (string) $verb->value,
+            default => trim($verb),
+        };
+
+        if ($resolved === '') {
+            throw IncompleteActivity::missingVerb();
+        }
+
+        if ($this->strictVerbs() && app(StoryfeedManager::class)->activityType($resolved) === null) {
+            throw UnknownVerb::make($resolved);
+        }
+
+        return $resolved;
+    }
+
+    /**
+     * Strict verbs are a development-time assertion. Unset means "strict
+     * where mistakes are cheap to fix" — never in production.
+     */
+    private function strictVerbs(): bool
+    {
+        $strict = config('storyfeed.verbs.strict');
+
+        return $strict ?? app()->environment('local', 'testing');
+    }
+
+    private function associate(string $role, ?Model $model): static
     {
         if ($model instanceof Model) {
             $this->activity->{$role}()->associate($model);
@@ -172,7 +215,7 @@ class PendingActivity
      * Write one candidate grouping hash per axis, for curation to select
      * among at read time.
      */
-    protected function writeGroupings(): void
+    private function writeGroupings(): void
     {
         (new WriteGroupings)($this->activity);
     }
@@ -181,7 +224,7 @@ class PendingActivity
      * Snapshot every Feedable entity synchronously, inside the publish
      * transaction, so a new activity is never invisible or degraded.
      */
-    protected function snapshotEntities(): void
+    private function snapshotEntities(): void
     {
         foreach ($this->entities as $role => $model) {
             if ($model instanceof Feedable) {

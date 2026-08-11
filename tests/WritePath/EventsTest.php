@@ -21,7 +21,7 @@ it('dispatches ActivityDeleted when an activity is deleted', function () {
     Event::fake([ActivityDeleted::class]);
 
     $delivery = Delivery::create(['tracking_number' => 'TN-1']);
-    $activity = Storyfeed::activity()->confirm($delivery)->publish();
+    $activity = Storyfeed::activity('confirm', $delivery)->publish();
 
     $activity->delete();
 

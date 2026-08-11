@@ -53,6 +53,24 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Verbs
+    |--------------------------------------------------------------------------
+    |
+    | Verbs are free-form strings. Strict mode is a development-time
+    | assertion, not a storage constraint: when enabled, recording a verb
+    | that resolves to no registry entry throws instead of silently
+    | creating a typo'd activity.
+    |
+    */
+
+    'verbs' => [
+        // null: strict in local/testing, permissive everywhere else.
+        // Set true/false to decide explicitly.
+        'strict' => null,
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Grouping
     |--------------------------------------------------------------------------
     |

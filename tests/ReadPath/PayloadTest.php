@@ -11,7 +11,7 @@ it('emits fully self-describing entities with fresh links', function () {
     $customer = Customer::create(['name' => 'Acme Co.']);
     $delivery = Delivery::create(['customer_id' => $customer->id, 'tracking_number' => 'TN-1042', 'status' => 'confirmed']);
 
-    Storyfeed::activity()->actor($user)->confirm($delivery)->for($customer)->publish();
+    Storyfeed::activity()->actor($user)->verb('confirm', $delivery)->for($customer)->publish();
 
     $item = Storyfeed::feed()->get()->toArray()['items'][0];
 
@@ -48,7 +48,7 @@ it('degrades gracefully instead of hiding activities with missing snapshots', fu
 it('regenerates links from cached data at read time', function () {
     $delivery = Delivery::create(['tracking_number' => 'TN-1', 'status' => 'draft']);
 
-    Storyfeed::activity()->confirm($delivery)->publish();
+    Storyfeed::activity('confirm', $delivery)->publish();
 
     $item = Storyfeed::feed()->get()->toArray()['items'][0];
 

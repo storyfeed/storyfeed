@@ -1,5 +1,6 @@
 <?php
 
+use Storyfeed\Exceptions\IncompleteActivity;
 use Storyfeed\Facades\Storyfeed;
 use Storyfeed\Models\Activity;
 use Workbench\App\Models\Customer;
@@ -13,7 +14,7 @@ it('publishes an activity with the fluent builder', function () {
 
     $activity = Storyfeed::activity()
         ->actor($user)
-        ->confirm($delivery)
+        ->verb('confirm', $delivery)
         ->for($customer)
         ->publish();
 
@@ -36,13 +37,29 @@ it('assigns a public ulid uid on publish', function () {
         ->and($activity->id)->toBeInt();
 });
 
-it('maps unknown builder methods to the verb', function () {
+it('rejects undefined builder methods instead of treating them as verbs', function () {
     $delivery = Delivery::create(['tracking_number' => 'TN-1']);
+    $builder = Storyfeed::activity();
 
-    $activity = Storyfeed::activity()->dispatch($delivery)->publish();
+    // Invoked dynamically: the whole point is that this no longer resolves.
+    expect(fn () => $builder->{'confirm'}($delivery))->toThrow(Error::class);
 
-    expect($activity->verb)->toBe('dispatch')
-        ->and($activity->object_type)->toBe('delivery');
+    expect(Activity::query()->count())->toBe(0);
+});
+
+it('does not let inaccessible builder methods record activities', function () {
+    $delivery = Delivery::create(['tracking_number' => 'TN-1']);
+    $builder = Storyfeed::activity();
+
+    // Previously __call intercepted this and recorded a bogus `associate` verb.
+    expect(fn () => $builder->{'associate'}('object', $delivery))->toThrow(Error::class);
+
+    expect(Activity::query()->count())->toBe(0);
+});
+
+it('refuses to publish without a verb', function () {
+    expect(fn () => Storyfeed::activity()->publish())
+        ->toThrow(IncompleteActivity::class);
 });
 
 it('records the context role', function () {

@@ -18,20 +18,20 @@ specification under the hood, adapted for practical usage and great developer
 experience within Laravel applications.
 
 ```php
-Storyfeed::activity()
-    ->actor($user)
-    ->confirm($delivery)
-    ->for($customer)
-    ->publish();
+Storyfeed::record(ActivityVerb::Confirm, object: $delivery, actor: $user, target: $customer);
+
+// or fluently, when you need to build conditionally
+Storyfeed::activity(ActivityVerb::Confirm, $delivery)->actor($user)->for($customer)->publish();
 
 Storyfeed::feed()->context($project)->get();
 ```
 
 ## What it does
 
-- **Curated recording** — a fluent builder (and, coming, declarative `Story` classes)
-  for publishing meaningful activities from your domain events or observers. Not an
-  audit log: you choose what makes the feed.
+- **Curated recording** — a typed, autocomplete-friendly API for publishing
+  meaningful activities from your domain events or observers. Keep your verbs in
+  an enum and they become IDE-discoverable and typo-proof. Not an audit log: you
+  choose what makes the feed.
 - **Fast, self-describing reads** — entity snapshots kill polymorphic N+1s; every feed
   item ships fully described (headline template, icon, linked entities) so renderers
   need zero domain knowledge.

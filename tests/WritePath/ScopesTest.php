@@ -11,7 +11,7 @@ beforeEach(function () {
     $this->customer = Customer::create(['name' => 'Acme Co.']);
     $this->delivery = Delivery::create(['customer_id' => $this->customer->id, 'tracking_number' => 'TN-1']);
 
-    Storyfeed::activity()->actor($this->user)->confirm($this->delivery)->for($this->customer)->publish();
+    Storyfeed::activity()->actor($this->user)->verb('confirm', $this->delivery)->for($this->customer)->publish();
     Storyfeed::activity()->verb('noise')->publish();
 });
 

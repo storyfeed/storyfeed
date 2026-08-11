@@ -13,7 +13,7 @@ it('snapshots every feedable entity synchronously on publish', function () {
 
     $activity = Storyfeed::activity()
         ->actor($user)
-        ->confirm($delivery)
+        ->verb('confirm', $delivery)
         ->for($customer)
         ->publish();
 
@@ -31,8 +31,8 @@ it('snapshots every feedable entity synchronously on publish', function () {
 it('keeps one snapshot row per entity', function () {
     $delivery = Delivery::create(['tracking_number' => 'TN-1']);
 
-    Storyfeed::activity()->create($delivery)->publish();
-    Storyfeed::activity()->save($delivery)->publish();
+    Storyfeed::activity('create', $delivery)->publish();
+    Storyfeed::activity('save', $delivery)->publish();
 
     expect(Snapshot::query()->where('model_type', 'delivery')->count())->toBe(1);
 });
@@ -40,7 +40,7 @@ it('keeps one snapshot row per entity', function () {
 it('refreshes the snapshot when the model is saved', function () {
     $delivery = Delivery::create(['tracking_number' => 'TN-1', 'status' => 'draft']);
 
-    Storyfeed::activity()->create($delivery)->publish();
+    Storyfeed::activity('create', $delivery)->publish();
 
     $delivery->update(['status' => 'shipped']);
 

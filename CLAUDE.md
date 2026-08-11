@@ -9,7 +9,8 @@ will consume it. Activity Streams 2.0 at the serialization boundary.
 - `SPEC.md` — the design spec; settled decisions live here
 - `docs/payload.md` — the Payload v1 contract (freezes at v0.3)
 - `docs/stories.md`, `docs/grouping.md` — the two R&D tracks (explicitly unsettled)
-- `docs/roadmap.md` — phasing (v0.1 ✅ → v0.2 ✅ → v0.3 contract freeze → …)
+- `docs/verbs.md` — the verb ladder (strings → FeedVerb enum → Story classes)
+- `docs/roadmap.md` — phasing (v0.1–v0.4 ✅ → v0.5 DX/Newsroom → v0.6 AS2.0 → …)
 - `ROADMAP.md` — the slim public roadmap (tracked); keep it in sync at milestones
 
 ## The journal (maintain this!)
@@ -30,6 +31,11 @@ Write it while it's fresh; never reconstruct after the fact. See
   "basic component" energy to a plain Blade example in docs, never into src/.
 - Morph aliases everywhere: compare with `getMorphClass()`, never `get_class()`.
 - Activities are never hidden by the read path — degrade gracefully.
+- **No magic methods.** `__call` verb magic was removed at v0.4 on DX grounds
+  (see journal 006); unknown methods must be errors, not features.
+- Verbs stay free-form strings in storage. Enums are an authoring convenience;
+  AS2.0 enums are pure vocabulary transcriptions that never throw and never
+  gate validation. Unknown/extension types are preserved verbatim, never dropped.
 - Support policy: rolling current + previous Laravel major; PHP ^8.4 only,
   lean into 8.4 idioms. Dev tooling may dual-constrain (Pest ^4||^5) where the
   older Laravel lane's harness requires it.
