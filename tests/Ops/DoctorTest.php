@@ -146,3 +146,43 @@ it('does not flag fallback verbs that only ever appear as singletons', function 
         ->doesntExpectOutputToContain('No aggregate grammar resolves for `repeat.confirm`')
         ->assertSuccessful();
 });
+
+it('can produce a coverage finding for EVERY registered axis', function () {
+    // A coverage tool silently skipping a category is indistinguishable
+    // from a healthy system (the fallback axis was invisible for four
+    // versions). So: prove each axis is AUDITABLE — a deliberately
+    // ungrammared cluster on every registered axis must yield a finding.
+    $project = Customer::create(['name' => 'Concur']);
+
+    // actors: three actors, one verb+target.
+    foreach (['A1', 'A2', 'A3'] as $name) {
+        $u = User::create(['name' => $name, 'email' => "{$name}@example.com"]);
+        Storyfeed::activity()->actor($u)->verb('alpha', Delivery::create(['tracking_number' => "al-{$name}"]))->for($project)->publish();
+    }
+
+    // targets: one actor, one verb, three distinct targets.
+    $t = User::create(['name' => 'T', 'email' => 't@example.com']);
+    foreach (range(1, 3) as $i) {
+        Storyfeed::activity()->actor($t)->verb('beta', Delivery::create(['tracking_number' => "be-{$i}"]))
+            ->for(Customer::create(['name' => "Target-{$i}"]))->publish();
+    }
+
+    // object: one actor, one object, twice.
+    $o = User::create(['name' => 'O', 'email' => 'o@example.com']);
+    $doc = Delivery::create(['tracking_number' => 'ga-1']);
+    Storyfeed::activity()->actor($o)->verb('gamma', $doc)->publish();
+    Storyfeed::activity()->actor($o)->verb('gamma', $doc)->publish();
+
+    // repeat (the fallback): one actor, distinct objects, no target.
+    $r = User::create(['name' => 'R', 'email' => 'r@example.com']);
+    foreach (range(1, 3) as $i) {
+        Storyfeed::activity()->actor($r)->verb('delta', Delivery::create(['tracking_number' => "de-{$i}"]))->publish();
+    }
+
+    $this->artisan('storyfeed:doctor')
+        ->expectsOutputToContain('No aggregate grammar resolves for `actors.alpha`')
+        ->expectsOutputToContain('No aggregate grammar resolves for `targets.beta`')
+        ->expectsOutputToContain('No aggregate grammar resolves for `object.gamma`')
+        ->expectsOutputToContain('No aggregate grammar resolves for `repeat.delta`')
+        ->assertSuccessful();
+});
