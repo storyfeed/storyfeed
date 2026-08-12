@@ -218,7 +218,8 @@ class DoctorCommand extends Command
             if ($storyfeed->aggregateTemplate($pair->axis, $pair->verb) === null) {
                 $this->warn(
                     "No aggregate grammar resolves for `{$pair->axis}.{$pair->verb}` — those group nodes fall back "
-                    .'to the singular headline. Register one with Storyfeed::aggregateGrammar().'
+                    .'to the singular headline only when its tokens are safe for the axis, and otherwise render '
+                    .'with NO headline at all. Register one with Storyfeed::aggregateGrammar().'
                 );
                 $issues++;
             }

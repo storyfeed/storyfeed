@@ -7,6 +7,7 @@ use Closure;
 use DateTimeInterface;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Auth;
+use InvalidArgumentException;
 use Storyfeed\ActivityStreams\ActivityType;
 use Storyfeed\ActivityStreams\CoreType;
 use Storyfeed\ActivityStreams\ObjectType;
@@ -199,14 +200,49 @@ class StoryfeedManager
      * The four built-ins (actors, targets, object, repeat-as-fallback) are
      * seeded lazily; their thresholds read `grouping.policy` config.
      *
+     * Registration order is priority; `before:` inserts new axes ahead of a
+     * named axis, so a custom axis can outrank a built-in without the
+     * consumer re-declaring the whole registry:
+     *
+     *   Storyfeed::axes([$scene], before: 'targets');
+     *
+     * Same-name replacement keeps the existing position (unless `before:`
+     * moves it explicitly).
+     *
      * @param  array<int, Axis>  $axes
      */
-    public function axes(array $axes, bool $merge = true): static
+    public function axes(array $axes, bool $merge = true, ?string $before = null): static
     {
         $registry = $merge ? $this->registeredAxes() : [];
 
+        if ($before !== null && ! isset($registry[$before])) {
+            throw new InvalidArgumentException(
+                "Cannot register axes before unknown axis [{$before}]. Registered: ".implode(', ', array_keys($registry)).'.',
+            );
+        }
+
         foreach ($axes as $axis) {
-            $registry[$axis->name] = $axis;
+            if ($before === null && array_key_exists($axis->name, $registry)) {
+                $registry[$axis->name] = $axis; // replace in place
+
+                continue;
+            }
+
+            unset($registry[$axis->name]);
+
+            if ($before === null) {
+                $registry[$axis->name] = $axis;
+
+                continue;
+            }
+
+            $position = array_search($before, array_keys($registry), true);
+
+            $registry = [
+                ...array_slice($registry, 0, (int) $position, preserve_keys: true),
+                $axis->name => $axis,
+                ...array_slice($registry, (int) $position, preserve_keys: true),
+            ];
         }
 
         $this->axes = $registry;

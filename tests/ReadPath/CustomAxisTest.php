@@ -84,3 +84,17 @@ it('treats registration order as curation priority', function () {
 
     expect($axes)->toContain('object');
 });
+
+it('inserts custom axes at an explicit priority with before:', function () {
+    Storyfeed::axes([
+        Axis::make('scene')->key('v:ca!:cid!:d')->eligibleWhenDistinct('actor', min: 2),
+    ], before: 'actors');
+
+    // No registry re-declaration needed — the built-ins keep their config
+    // thresholds; the custom axis simply outranks them.
+    expect(array_keys(Storyfeed::registeredAxes()))
+        ->toBe(['scene', 'actors', 'targets', 'object', 'repeat']);
+
+    expect(fn () => Storyfeed::axes([Axis::make('x')->key('v:d')], before: 'nope'))
+        ->toThrow(InvalidArgumentException::class, 'nope');
+});

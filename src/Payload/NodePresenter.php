@@ -78,10 +78,14 @@ class NodePresenter
      * Resolve [headline_template, headline] for a group.
      *
      * Aggregate grammar is keyed "axis.verb" and adds the :actors / :count /
-     * :others tokens. Without an entry the group falls back to the singular
-     * grammar of its head member — the honest degradation, and what makes an
-     * actors-axis group read "Sally uploaded a file" until it is authored.
-     * `storyfeed:doctor` and GrammarCoverage surface exactly that gap.
+     * :others tokens. Without an entry the group falls back to the head
+     * member's SINGULAR template — but only when that template's tokens are
+     * all pinned by the axis. An unchecked singular fallback is the lie
+     * class arriving through the back door: "Bob Callahan uploaded — to
+     * Analytics Dashboard" rendered over ten uploads by two people (found
+     * live by the Newsroom). Unsafe fallbacks yield a null template — the
+     * renderer's generic group treatment beats a wrong sentence.
+     * `storyfeed:doctor` and GrammarCoverage surface the missing entry.
      *
      * @return array{0: string|null, 1: string|null}
      */
@@ -90,7 +94,7 @@ class NodePresenter
         $entry = $this->storyfeed->aggregateTemplate($slice->axis, (string) $slice->members->first()?->verb);
 
         if ($entry === null) {
-            return $this->headline($slice->members->first());
+            return $this->safeSingularFallback($slice);
         }
 
         if ($entry instanceof Closure) {
@@ -101,6 +105,35 @@ class NodePresenter
 
                 return [null, null];
             }
+        }
+
+        return [$entry, null];
+    }
+
+    /**
+     * The head member's singular template, admitted only when every token
+     * it uses is homogeneous across the group (pinned by the axis).
+     * Closure entries pre-render from ONE member and cannot be inspected,
+     * so they are never safe for a group.
+     *
+     * @return array{0: string|null, 1: string|null}
+     */
+    protected function safeSingularFallback(GroupSlice $slice): array
+    {
+        $first = $slice->members->first();
+
+        $entry = $this->storyfeed->template($first->object_type, $first->verb);
+
+        if (! is_string($entry)) {
+            return [null, null];
+        }
+
+        $pinned = $this->storyfeed->aggregateTokens((string) $slice->axis) ?? [];
+
+        preg_match_all('/:[a-z]+/', $entry, $matches);
+
+        if (array_diff(array_unique($matches[0]), $pinned) !== []) {
+            return [null, null];
         }
 
         return [$entry, null];

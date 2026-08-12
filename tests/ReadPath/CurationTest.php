@@ -203,7 +203,7 @@ it('renders an aggregate headline for the winning axis', function () {
     expect($item['headline_template'])->toBe(':actors uploaded :count files to :target');
 });
 
-it('falls back to the singular headline when no aggregate grammar is registered', function () {
+it('suppresses a singular fallback whose tokens would lie about the group', function () {
     Storyfeed::grammar(['delivery.upload' => ':actor uploaded :object']);
 
     $project = Customer::create(['name' => 'Concur']);
@@ -214,8 +214,50 @@ it('falls back to the singular headline when no aggregate grammar is registered'
 
     $item = Storyfeed::feed()->get()->toArray()['items'][0];
 
+    // Three actors, one head member: ":actor uploaded :object" would credit
+    // the whole group to one person over one file — the lie class arriving
+    // through the fallback door (found live by the Newsroom). No headline
+    // beats a wrong one; the renderer's generic group treatment takes over.
     expect($item['axis'])->toBe('actors')
-        ->and($item['headline_template'])->toBe(':actor uploaded :object');
+        ->and($item['headline_template'])->toBeNull()
+        ->and($item['headline'])->toBeNull();
+});
+
+it('admits a singular fallback whose tokens are all pinned by the axis', function () {
+    Storyfeed::grammar(['delivery.revise' => ':actor revised :object']);
+
+    $bob = User::create(['name' => 'Bob', 'email' => 'bob@example.com']);
+    $doc = Delivery::create(['tracking_number' => 'Aut Beatae.docx']);
+
+    foreach (range(1, 3) as $i) {
+        Storyfeed::activity()->actor($bob)->verb('revise', $doc)->publish();
+    }
+
+    $item = Storyfeed::feed()->get()->toArray()['items'][0];
+
+    // The object axis pins :actor AND :object, so the singular template is
+    // homogeneous across members — an honest fallback, admitted.
+    expect($item['axis'])->toBe('object')
+        ->and($item['headline_template'])->toBe(':actor revised :object');
+});
+
+it('never uses a closure singular fallback for a group', function () {
+    Storyfeed::grammar(['delivery.revise' => fn ($activity) => "Somebody revised {$activity->object_id}"]);
+
+    $bob = User::create(['name' => 'Bob', 'email' => 'bob@example.com']);
+    $doc = Delivery::create(['tracking_number' => 'Aut Beatae.docx']);
+
+    foreach (range(1, 3) as $i) {
+        Storyfeed::activity()->actor($bob)->verb('revise', $doc)->publish();
+    }
+
+    $item = Storyfeed::feed()->get()->toArray()['items'][0];
+
+    // A closure pre-renders from ONE member and cannot be token-inspected;
+    // even on a fully-pinned axis it is not admitted for groups.
+    expect($item['kind'])->toBe('group')
+        ->and($item['headline_template'])->toBeNull()
+        ->and($item['headline'])->toBeNull();
 });
 
 it('returns a flat log of atomic activities with ->flat()', function () {
