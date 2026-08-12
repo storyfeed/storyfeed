@@ -3,6 +3,7 @@
 use Storyfeed\Actions\CloseBatches;
 use Storyfeed\Facades\Storyfeed;
 use Storyfeed\Models\Activity;
+use Storyfeed\Models\Batch;
 use Storyfeed\Models\Grouping;
 use Storyfeed\Serialization\ActivitySerializer;
 use Workbench\App\Models\Customer;
@@ -219,4 +220,69 @@ it('records members on the fake for per-object assertions', function () {
 
     Storyfeed::assertPublished('upload', $files[0]);
     Storyfeed::assertPublished('upload', $files[1]);
+});
+
+it('backfills history with storyfeed:bundle after late Collectable adoption', function () {
+    // History recorded BEFORE the type was designated: batch closes, no
+    // bundling (undesignated at close time).
+    foreach (range(1, 4) as $i) {
+        Storyfeed::activity()->actor(tomas())->verb('upload', Delivery::create(['tracking_number' => "H-{$i}"]))->publish();
+    }
+
+    $this->travel(11)->minutes();
+    (new CloseBatches)();
+
+    expect(Grouping::query()->where('bucket', 'composite')->count())->toBe(0);
+
+    // The model adopts Collectable later; automatic bundling is
+    // future-only, so the explicit backfill walks closed batches.
+    Storyfeed::collectables(['delivery']);
+
+    $this->artisan('storyfeed:bundle')->assertSuccessful();
+
+    $items = Storyfeed::feed()->get()->toArray()['items'];
+
+    expect($items)->toHaveCount(1)
+        ->and($items[0]['axis'])->toBe('composite')
+        ->and($items[0]['count'])->toBe(4);
+
+    // Idempotent: a second sweep mints nothing.
+    $this->artisan('storyfeed:bundle')->assertSuccessful();
+
+    expect(Activity::query()->count())->toBe(5);
+});
+
+it('partitions backfilled runs by day — a giant seeded batch never merges days', function () {
+    Storyfeed::collectables(['delivery']);
+    config()->set('storyfeed.grouping.composite.auto', false);
+
+    // A seeder's shape: one actor, uploads spread across two DAYS, all
+    // landing in one batch (batch windows key on wall-clock, not
+    // publishedAt).
+    foreach ([now()->subDays(2), now()->subDay()] as $day) {
+        foreach (range(1, 3) as $i) {
+            Storyfeed::activity()
+                ->actor(tomas())
+                ->verb('upload', Delivery::create(['tracking_number' => "D{$day->day}-{$i}"]))
+                ->publishedAt($day->copy()->addMinutes($i))
+                ->publish();
+        }
+    }
+
+    expect(Batch::query()->count())->toBe(1);
+
+    $this->travel(11)->minutes();
+    (new CloseBatches)();
+
+    // auto=false: the automatic path respects the config...
+    expect(Grouping::query()->where('bucket', 'composite')->count())->toBe(0);
+
+    // ...but the explicit command is intent, and partitions by day.
+    $this->artisan('storyfeed:bundle')->assertSuccessful();
+
+    $items = collect(Storyfeed::feed()->limit(10)->get()->toArray()['items']);
+
+    expect($items)->toHaveCount(2)
+        ->and($items->pluck('axis')->unique()->values()->all())->toBe(['composite'])
+        ->and($items->pluck('count')->all())->toBe([3, 3]);
 });

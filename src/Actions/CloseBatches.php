@@ -47,7 +47,9 @@ class CloseBatches
                     if ($batch->activities_count > 0) {
                         BatchClosed::dispatch($batch);
 
-                        (new BundleComposites)($batch);
+                        if (config('storyfeed.grouping.composite.auto', true)) {
+                            (new BundleComposites)($batch);
+                        }
                     }
 
                     $closed++;

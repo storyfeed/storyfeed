@@ -31,6 +31,7 @@ class StoryfeedServiceProvider extends PackageServiceProvider
                 Console\PruneCommand::class,
                 Console\CurateCommand::class,
                 Console\CloseBatchesCommand::class,
+                Console\BundleCommand::class,
                 Console\DoctorCommand::class,
                 Console\VerbsCommand::class,
             ]);

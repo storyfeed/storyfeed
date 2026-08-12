@@ -34,18 +34,19 @@ use Storyfeed\StoryfeedManager;
  */
 class BundleComposites
 {
-    public function __invoke(Batch $batch): void
+    /**
+     * @return int composites minted. The auto on/off decision lives with
+     *             the AUTOMATIC callers (batch close paths) — invoking this
+     *             action directly (storyfeed:bundle) is explicit intent.
+     */
+    public function __invoke(Batch $batch): int
     {
-        if (! config('storyfeed.grouping.composite.auto', true)) {
-            return;
-        }
-
         $manager = app(StoryfeedManager::class);
 
         $members = $batch->activities()->get();
 
         if ($members->isEmpty()) {
-            return;
+            return 0;
         }
 
         $claimed = $this->groupings()
@@ -59,14 +60,20 @@ class BundleComposites
             ->filter(fn (Activity $a) => $a->object_id !== null
                 && $manager->isCollectable($a->object_type));
 
+        // Day-partitioned like every axis: a LIVE batch rarely spans
+        // midnight, but a seeded/backfilled batch holds an actor's whole
+        // history — without the day component, a week of uploads would
+        // merge into one giant composite.
         $runs = $candidates->groupBy(fn (Activity $a) => implode("\x1f", [
             $a->verb,
             $a->object_type,
             (string) $a->target_type, (string) $a->target_id,
             (string) $a->context_type, (string) $a->context_id,
+            $a->published_at?->toDateString() ?? '',
         ]));
 
         $min = (int) config('storyfeed.grouping.composite.min_objects', 2);
+        $minted = 0;
 
         foreach ($runs as $run) {
             $distinctObjects = $run->unique(fn (Activity $a) => $a->object_type.':'.$a->object_id);
@@ -76,7 +83,10 @@ class BundleComposites
             }
 
             $this->mint($run->sortBy('published_at')->values());
+            $minted++;
         }
+
+        return $minted;
     }
 
     /**

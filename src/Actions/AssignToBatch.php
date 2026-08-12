@@ -107,7 +107,9 @@ class AssignToBatch
 
             // The burst is over — homogeneous collectable runs become
             // composite stories (docs/grouping.md).
-            (new BundleComposites)($batch);
+            if (config('storyfeed.grouping.composite.auto', true)) {
+                (new BundleComposites)($batch);
+            }
         }
     }
 }
