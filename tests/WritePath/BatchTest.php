@@ -151,7 +151,7 @@ it('keeps batches out of curation and out of every feed', function () {
 
     expect(Grouping::query()->where('bucket', 'batch')->whereNotNull('winner')->count())->toBe(0);
 
-    foreach ([Storyfeed::feed(), Storyfeed::feed()->curated()] as $feed) {
+    foreach ([Storyfeed::feed(), Storyfeed::feed()->flat()] as $feed) {
         $axes = collect($feed->get()->toArray()['items'])->pluck('axis')->filter();
 
         expect($axes->all())->not->toContain('batch');

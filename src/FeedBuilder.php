@@ -27,8 +27,10 @@ use Storyfeed\Payload\NodePresenter;
  *   Storyfeed::feed()->context($project)->get();
  *   Storyfeed::feed()->actor($user)->limit(15)->get();
  *
- * Grouping is plain repetition by default; ->curated() opts into the
- * experimental multi-axis curated grouping (docs/grouping.md).
+ * Feeds are CURATED by default — grouped on each activity's winning axis
+ * ("Bob, Sally and 3 others uploaded files to Concur"), falling back to
+ * plain repetition where curation hasn't spoken. ->flat() opts a view out
+ * of grouping entirely (docs/grouping.md).
  *
  * READ STRATEGY (docs/grouping.md). The page is selected in two phases:
  *
@@ -67,8 +69,8 @@ class FeedBuilder
     /** A named filter was requested but matched no party. */
     protected bool $unresolvable = false;
 
-    /** Opt in to multi-axis curated grouping (EXPERIMENTAL). */
-    protected bool $curated = false;
+    /** Opt out of grouping entirely: a flat log of atomic activities. */
+    protected bool $flat = false;
 
     /** Ordering rank of each stream, applied at identical timestamps. */
     protected const RANK_GROUP = 0;
@@ -128,21 +130,20 @@ class FeedBuilder
     }
 
     /**
-     * Group on the curated winning axis rather than plain repetition —
-     * "Bob, Sally and 3 others uploaded files to Concur".
+     * A flat log of atomic activities — no group nodes at all. The per-view
+     * "log mode" opt-out from the curated default: story views group,
+     * audit-style views ("my activity") often read better plain.
      *
-     * EXPERIMENTAL. Opt-in per feed, because the axis a feed should collapse
-     * is a property of the view, not of the data: a global "what happened
-     * today" feed wants social aggregation; ClientA's history reads better
-     * as plain repeat groups. The consumer knows which; the server would
-     * only be guessing.
+     * The middle tier — repeat grouping without multi-axis curation, the
+     * classic pre-package behaviour — is an app-wide policy choice, not a
+     * per-view one: set `grouping.curate => false` and the default feed
+     * degrades to repeat-only everywhere.
      *
-     * Cursors are view-specific: do not replay one from a curated feed into
-     * an uncurated one (or the reverse).
+     * Cursors are view-specific: do not replay one across flat/grouped.
      */
-    public function curated(bool $curated = true): static
+    public function flat(bool $flat = true): static
     {
-        $this->curated = $curated;
+        $this->flat = $flat;
 
         return $this;
     }
@@ -191,7 +192,8 @@ class FeedBuilder
 
     protected function grouped(): bool
     {
-        return ! is_a(config('storyfeed.grouping.strategy'), NullStrategy::class, true);
+        return ! $this->flat
+            && ! is_a(config('storyfeed.grouping.strategy'), NullStrategy::class, true);
     }
 
     protected function groupedPage(Carbon $now): FeedPage
@@ -340,25 +342,18 @@ class FeedBuilder
 
     /**
      * The grouping predicate, applied wherever the groupings table is in
-     * play.
+     * play: `winner = true` is the curated answer, and a row with NO winner
+     * stamped anywhere for its activity falls back to `repeat`.
      *
-     * Default: the `repeat` axis — the same grouping the pre-package apps
-     * shipped ("Sally uploaded 12 photos"), and the reason curation can be
-     * experimental without holding anything back.
-     *
-     * curated(): `winner = true` is the curated answer, and a row with NO
-     * winner stamped anywhere for its activity falls back to `repeat`. That
-     * per-activity fallback is what lets an adopter turn curation on without
-     * a backfill cliff — uncurated rows read exactly as they did before, and
-     * `storyfeed:curate` settles them incrementally.
+     * That per-activity fallback carries two guarantees: adopters upgrade
+     * into the winner column with no backfill cliff (`storyfeed:curate`
+     * settles history incrementally), and an app that disables curation
+     * (`grouping.curate => false`) gets classic repeat-only grouping
+     * everywhere — the pre-package behaviour as an app-wide policy choice.
      */
     protected function winning(): Closure
     {
         $groupings = $this->groupingModel()->getTable();
-
-        if (! $this->curated) {
-            return fn ($query) => $query->where("{$groupings}.bucket", 'repeat');
-        }
 
         return function ($query) use ($groupings) {
             $query->where("{$groupings}.winner", true)
