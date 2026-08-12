@@ -114,3 +114,35 @@ it('notes aggregate grammar keys that reference unregistered axes', function () 
         ->expectsOutputToContain('references axis `actrs`, which is not registered')
         ->assertSuccessful();
 });
+
+it('audits the fallback axis for aggregate coverage — a missing repeat.* key is visible', function () {
+    // How `archive` slipped four rounds: repeat groups render aggregate
+    // headlines like any other axis, but the coverage audit used to filter
+    // on aggregateAxes(), which excludes the fallback by definition.
+    $sally = User::create(['name' => 'Sally', 'email' => 'sally@example.com']);
+
+    foreach (range(1, 3) as $i) {
+        Storyfeed::activity()->actor($sally)->verb('archive', Delivery::create(['tracking_number' => "TN-{$i}"]))->publish();
+    }
+
+    $this->artisan('storyfeed:doctor')
+        ->expectsOutputToContain('No aggregate grammar resolves for `repeat.archive`')
+        ->assertSuccessful();
+
+    Storyfeed::aggregateGrammar(['repeat.archive' => ':actor archived :count deliveries']);
+
+    $this->artisan('storyfeed:doctor')
+        ->doesntExpectOutputToContain('No aggregate grammar resolves for `repeat.archive`')
+        ->assertSuccessful();
+});
+
+it('does not flag fallback verbs that only ever appear as singletons', function () {
+    // A repeat winner in a cluster of ONE renders as a plain activity node —
+    // no aggregate headline needed, no warning earned. Healthy must mean
+    // healthy.
+    Storyfeed::activity('confirm', Delivery::create(['tracking_number' => 'TN-1']))->publish();
+
+    $this->artisan('storyfeed:doctor')
+        ->doesntExpectOutputToContain('No aggregate grammar resolves for `repeat.confirm`')
+        ->assertSuccessful();
+});

@@ -4,6 +4,7 @@ namespace Storyfeed\Testing;
 
 use PHPUnit\Framework\Assert;
 use Storyfeed\Models\Activity;
+use Storyfeed\Models\Grouping;
 use Storyfeed\StoryfeedManager;
 
 /**
@@ -116,11 +117,27 @@ class GrammarCoverage
         $groupings = config('storyfeed.tables.groupings', 'feed_groupings');
         $activities = config('storyfeed.tables.activities', 'feed_activities');
         $model = config('storyfeed.models.activity', Activity::class);
+        $grouping = config('storyfeed.models.grouping', Grouping::class);
+
+        // Fallback axis included, clusters of 2+ only — repeat groups render
+        // aggregate headlines like any other axis, and excluding the
+        // fallback here once hid a missing repeat.* key through four rounds
+        // of audits (curation priority is a different question from whether
+        // a headline resolves).
+        $clustered = $grouping::query()
+            ->select(["{$groupings}.bucket", "{$groupings}.hash"])
+            ->where("{$groupings}.winner", true)
+            ->whereIn("{$groupings}.bucket", array_keys($storyfeed->registeredAxes()))
+            ->groupBy(["{$groupings}.bucket", "{$groupings}.hash"])
+            ->havingRaw('count(*) > 1');
 
         $pairs = $model::query()
             ->join($groupings, "{$groupings}.activity_id", '=', "{$activities}.id")
             ->where("{$groupings}.winner", true)
-            ->whereIn("{$groupings}.bucket", $storyfeed->aggregateAxes())
+            ->joinSub($clustered, 'clustered', function ($join) use ($groupings) {
+                $join->on('clustered.bucket', '=', "{$groupings}.bucket")
+                    ->on('clustered.hash', '=', "{$groupings}.hash");
+            })
             ->distinct()
             ->get(["{$groupings}.bucket as axis", "{$activities}.verb"]);
 

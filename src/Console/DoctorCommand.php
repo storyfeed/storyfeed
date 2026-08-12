@@ -207,10 +207,27 @@ class DoctorCommand extends Command
 
         $issues = 0;
 
+        // ALL registered axes, fallback included: the fallback's exclusion
+        // from aggregateAxes() is about curation priority — a different
+        // question from whether a headline resolves. Repeat groups render
+        // aggregate headlines like any other axis, and a missing repeat.*
+        // key used to be structurally invisible here (found live: `archive`
+        // slipped four rounds of audits). Only clusters of 2+ count —
+        // winners in a cluster of one render as plain activity nodes.
+        $clustered = $this->groupingQuery()
+            ->select(["{$groupings}.bucket", "{$groupings}.hash"])
+            ->where("{$groupings}.winner", true)
+            ->whereIn("{$groupings}.bucket", array_keys($storyfeed->registeredAxes()))
+            ->groupBy(["{$groupings}.bucket", "{$groupings}.hash"])
+            ->havingRaw('count(*) > 1');
+
         $pairs = $this->activityQuery()
             ->join($groupings, "{$groupings}.activity_id", '=', "{$activities}.id")
             ->where("{$groupings}.winner", true)
-            ->whereIn("{$groupings}.bucket", $storyfeed->aggregateAxes())
+            ->joinSub($clustered, 'clustered', function ($join) use ($groupings) {
+                $join->on('clustered.bucket', '=', "{$groupings}.bucket")
+                    ->on('clustered.hash', '=', "{$groupings}.hash");
+            })
             ->distinct()
             ->get(["{$groupings}.bucket as axis", "{$activities}.verb"]);
 
@@ -293,6 +310,13 @@ class DoctorCommand extends Command
     protected function activityQuery()
     {
         $model = config('storyfeed.models.activity', Activity::class);
+
+        return $model::query();
+    }
+
+    protected function groupingQuery()
+    {
+        $model = config('storyfeed.models.grouping', Grouping::class);
 
         return $model::query();
     }
