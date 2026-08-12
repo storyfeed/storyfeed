@@ -25,6 +25,7 @@ class StoryfeedServiceProvider extends PackageServiceProvider
                 'create_feed_parties_table',
                 'create_feed_batches_table',
                 'create_feed_meta_table',
+                'add_shape_to_feed_snapshots_table',
             ])
             ->hasCommands([
                 Console\RebuildCommand::class,

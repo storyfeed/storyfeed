@@ -26,6 +26,7 @@ class DoctorCommand extends Command
         $issues = 0;
 
         $issues += $this->checkTables();
+        $issues += $this->checkColumns();
         $issues += $this->checkCoverage($storyfeed);
         $issues += $this->checkAggregateCoverage($storyfeed);
         $issues += $this->checkAggregateTokens($storyfeed);
@@ -51,6 +52,44 @@ class DoctorCommand extends Command
             if (! Schema::hasTable($table)) {
                 $this->warn("Table `{$table}` ({$key}) does not exist — run the migrations.");
                 $issues++;
+            }
+        }
+
+        return $issues;
+    }
+
+    /**
+     * Columns added after 1.x tables were first published. A consumer whose
+     * install predates the column deploys green, then every write that
+     * touches it throws SQLSTATE[42S22] at runtime — a production feed once
+     * froze for hours this way (snapshot writes dying silently while reads
+     * looked alive). This is the mechanical detector for schema drift
+     * between published migrations and what the package writes.
+     */
+    protected function checkColumns(): int
+    {
+        $expected = [
+            'snapshots' => ['shape'],
+            'groupings' => ['winner'],
+        ];
+
+        $issues = 0;
+
+        foreach ($expected as $key => $columns) {
+            $table = config("storyfeed.tables.{$key}", "feed_{$key}");
+
+            if (! Schema::hasTable($table)) {
+                continue; // checkTables() already reported it
+            }
+
+            foreach ($columns as $column) {
+                if (! Schema::hasColumn($table, $column)) {
+                    $this->warn(
+                        "Table `{$table}` is missing the `{$column}` column — writes touching it will throw at "
+                        .'runtime. Publish and run the package migrations (vendor:publish --tag=storyfeed-migrations).'
+                    );
+                    $issues++;
+                }
             }
         }
 
@@ -257,7 +296,9 @@ class DoctorCommand extends Command
     {
         $table = config('storyfeed.tables.snapshots', 'feed_snapshots');
 
-        if (! Schema::hasTable($table)) {
+        // Missing column is checkColumns()'s finding; querying it here
+        // would just crash the doctor mid-diagnosis.
+        if (! Schema::hasTable($table) || ! Schema::hasColumn($table, 'shape')) {
             return 0;
         }
 

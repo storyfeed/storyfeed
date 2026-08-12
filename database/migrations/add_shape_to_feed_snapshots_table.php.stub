@@ -1,0 +1,43 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+/**
+ * The shape column originally shipped ONLY inside the create stub — invisible
+ * to installs that had already run it, freezing snapshot writes at runtime
+ * (SQLSTATE[42S22]) while deploys stayed green. This additive migration
+ * repairs existing installs; the hasColumn guard keeps it idempotent for
+ * fresh installs whose create stub already includes the column.
+ */
+return new class extends Migration
+{
+    public function up(): void
+    {
+        $table = config('storyfeed.tables.snapshots', 'feed_snapshots');
+
+        if (Schema::hasColumn($table, 'shape')) {
+            return;
+        }
+
+        Schema::table($table, function (Blueprint $blueprint) {
+            $blueprint->string('shape', 40)->nullable();
+            $blueprint->index(['model_type', 'shape']);
+        });
+    }
+
+    public function down(): void
+    {
+        $table = config('storyfeed.tables.snapshots', 'feed_snapshots');
+
+        if (! Schema::hasColumn($table, 'shape')) {
+            return;
+        }
+
+        Schema::table($table, function (Blueprint $blueprint) {
+            $blueprint->dropIndex(['model_type', 'shape']);
+            $blueprint->dropColumn('shape');
+        });
+    }
+};
