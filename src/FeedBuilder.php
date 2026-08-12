@@ -263,7 +263,34 @@ class FeedBuilder
                 $members->get($key) ?? $this->activityModel()->newCollection(),
                 $distinct[$key] ?? [],
             );
-        });
+        })
+            // PHASE 2 IS AUTHORITATIVE (2026-08-12, found in the Newsroom's
+            // production logs). The two phases run as separate queries, so a
+            // candidate selected in phase 1 can have its activities deleted
+            // before phase 2 hydrates them — a real race, not a bad state:
+            // both phases share one soft-delete scope, so deleting up front
+            // stays consistent and cannot reproduce it. The Newsroom hit it
+            // during the shape-column drift, when an every-5-minute trickle
+            // was taking the ORPHAN delete path over a 200-row budget while
+            // open tabs polled every 10 seconds.
+            //
+            // An empty slice took down the WHOLE render, two ways: count == 1
+            // (no HAVING floor in groupStream, so it happens) fails
+            // isGroup() and passes null into activityNode(); count > 1
+            // reaches groupNode() and dies on the head member. Guarding one
+            // presenter line would have left the other crash live, so the
+            // drop belongs here, at the boundary — and activityNode() keeps
+            // its non-nullable Activity instead of pushing the empty case
+            // into every caller.
+            //
+            // Dropping is the honest answer, not hiding: the activities are
+            // genuinely gone, so omitting their node degrades gracefully the
+            // way a missing snapshot does. `$next` is already computed above
+            // from the unfiltered candidates, so pagination neither skips a
+            // page nor stalls; a page that drops every slice still carries a
+            // usable cursor.
+            ->reject(fn (GroupSlice $slice) => $slice->members->isEmpty())
+            ->values();
 
         return new FeedPage($slices, $next, app(NodePresenter::class), SyncToken::current());
     }
