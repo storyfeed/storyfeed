@@ -96,7 +96,7 @@ class PendingActivity
      * A COMPOSITE: one authored story whose object is a collection —
      * "Tomás uploaded 6 files to Spring Campaign". Publishes the story
      * (object-less parent) plus one atomic member activity per model; the
-     * atomics are the timeline (->flat() shows them), the composite is the
+     * atomics are the timeline (->log() shows them), the composite is the
      * story (grouped/curated show one node, AS2 serializes the object as an
      * OrderedCollection). See docs/grouping.md.
      *

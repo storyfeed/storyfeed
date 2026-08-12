@@ -31,11 +31,17 @@ use Storyfeed\Support\SyncToken;
  *
  * Three read modes, each naming what you get (docs/grouping.md):
  *
- *   ->flat()      a log of atomic activities, no group nodes
- *   ->grouped()   repeat-only grouping ("Sally uploaded 12 photos")
- *   ->curated()   multi-axis winners ("Bob, Sally and 3 others uploaded…")
+ *   ->log()       the atomic timeline, no group nodes
+ *   ->live()      repeat-only grouping ("Sally uploaded 12 photos")
+ *   ->summary()   multi-axis winners ("Bob, Sally and 3 others uploaded…")
  *
- * The shipped default is curated; apps override via `grouping.default`.
+ * The shipped default is summary; apps override via `grouping.default`.
+ *
+ * Renamed in v0.7 from flat/grouped/curated. The modes vary GRANULARITY;
+ * `curated` is deliberately reserved for a future relevance-ranked view, which
+ * varies SELECTION and ORDER — a different axis, and the only one that would
+ * earn the word. A fourth granularity tier, `digest` (age-decayed
+ * retrospective), is designed but unbuilt.
  *
  * READ STRATEGY (docs/grouping.md). The page is selected in two phases:
  *
@@ -74,7 +80,7 @@ class FeedBuilder
     /** A named filter was requested but matched no party. */
     protected bool $unresolvable = false;
 
-    /** Read mode: 'flat' | 'grouped' | 'curated'. Null = configured default. */
+    /** Read mode: 'log' | 'live' | 'summary'. Null = configured default. */
     protected ?string $mode = null;
 
     /** Ordering rank of each stream, applied at identical timestamps. */
@@ -135,52 +141,72 @@ class FeedBuilder
     }
 
     /**
-     * A flat log of atomic activities — no group nodes at all. Log mode:
-     * audit-style views ("my activity") often read better plain.
+     * LOG — the atomic timeline, no group nodes at all. Audit-style views
+     * ("my activity") often read better plain.
      */
-    public function flat(): static
+    public function log(): static
     {
-        $this->mode = 'flat';
+        $this->mode = 'log';
 
         return $this;
     }
 
     /**
-     * Repeat-only grouping — "Sally uploaded 12 photos", never multi-axis.
-     * The sensible middle tier, and the pre-package apps' proven behaviour.
+     * LIVE — repeat-only grouping, "Sally uploaded 12 photos", never
+     * multi-axis. The sensible middle tier, and the pre-package apps' proven
+     * behaviour.
      */
-    public function grouped(): static
+    public function live(): static
     {
-        $this->mode = 'grouped';
+        $this->mode = 'live';
 
         return $this;
     }
 
     /**
-     * Multi-axis curated grouping — each activity under its winning axis
+     * SUMMARY — multi-axis collapsing, each activity under its winning axis
      * ("Bob, Sally and 3 others uploaded files to Concur"). The shipped
      * default; experimental in the sense that the policy keeps evolving.
      *
+     * Named `summary`, not `curated`: it collapses MECHANICALLY, and the old
+     * name claimed editorial judgement it does not exercise. That misread its
+     * own author into shipping it as the Newsroom's landing page for weeks —
+     * the anti-lie rule that doctor enforces on headlines, applied to a mode
+     * name. `curated` is reserved for a relevance-RANKED view, which would be
+     * a different axis entirely (selection and order, not granularity) and
+     * would actually earn the word.
+     *
      * Cursors are mode-specific: never replay one across modes.
      */
-    public function curated(): static
+    public function summary(): static
     {
-        $this->mode = 'curated';
+        $this->mode = 'summary';
 
         return $this;
     }
 
     /**
      * The effective read mode: explicit per-view choice, else the app-wide
-     * `grouping.default`. Unknown modes are errors, not features.
+     * `grouping.default`. Unknown modes are errors, not features — including
+     * the pre-0.7 names, which fail loudly here rather than silently
+     * selecting a default.
      */
     protected function mode(): string
     {
-        $mode = $this->mode ?? (string) config('storyfeed.grouping.default', 'curated');
+        $mode = $this->mode ?? (string) config('storyfeed.grouping.default', 'summary');
 
-        if (! in_array($mode, ['flat', 'grouped', 'curated'], true)) {
+        if (! in_array($mode, ['log', 'live', 'summary'], true)) {
+            $renamed = ['flat' => 'log', 'grouped' => 'live', 'curated' => 'summary'];
+
+            if (isset($renamed[$mode])) {
+                throw new InvalidArgumentException(
+                    "Feed mode [{$mode}] was renamed to [{$renamed[$mode]}] in v0.7. "
+                    .'Valid modes: log, live, summary.',
+                );
+            }
+
             throw new InvalidArgumentException(
-                "Unknown feed mode [{$mode}]. Valid modes: flat, grouped, curated.",
+                "Unknown feed mode [{$mode}]. Valid modes: log, live, summary.",
             );
         }
 
@@ -205,7 +231,7 @@ class FeedBuilder
 
         return $this->shouldGroup()
             ? $this->groupedPage($now)
-            : $this->flatPage($now);
+            : $this->logPage($now);
     }
 
     /**
@@ -231,7 +257,7 @@ class FeedBuilder
 
     protected function shouldGroup(): bool
     {
-        return $this->mode() !== 'flat'
+        return $this->mode() !== 'log'
             && ! is_a(config('storyfeed.grouping.strategy'), NullStrategy::class, true);
     }
 
@@ -295,7 +321,7 @@ class FeedBuilder
         return new FeedPage($slices, $next, app(NodePresenter::class), SyncToken::current());
     }
 
-    protected function flatPage(Carbon $now): FeedPage
+    protected function logPage(Carbon $now): FeedPage
     {
         $activities = $this->activityModel()->getTable();
         $groupings = $this->groupingModel()->getTable();
@@ -431,7 +457,7 @@ class FeedBuilder
     {
         $groupings = $this->groupingModel()->getTable();
 
-        if ($this->mode() === 'grouped') {
+        if ($this->mode() === 'live') {
             // Authored stories (composites) belong in the classic tier too —
             // grouped mode excludes multi-axis INFERENCE, not declarations.
             return fn ($query) => $query

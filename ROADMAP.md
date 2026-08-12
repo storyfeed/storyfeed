@@ -33,10 +33,10 @@ high-level plan; detailed design documents will be published as the milestones l
 
 - Smarter feed curation — dynamic, social-style activity grouping ("Bob, Sally and 3
   others uploaded files to Project X") that improves behind the stable payload
-  contract. Three per-view read modes — `->flat()` (atomic log), `->grouped()`
-  (classic repeat grouping), and curated multi-axis grouping as the **default** —
-  and the curation policy is free to keep evolving after 1.0 because it was never
-  part of the contract.
+  contract. Three per-view read modes — `->log()` (atomic log), `->live()`
+  (classic repeat grouping), and `->summary()` multi-axis grouping as the
+  **default** — and the curation policy is free to keep evolving after 1.0
+  because it was never part of the contract.
 - Full-history scale — feeds that stay fast at millions of activities without
   pruning (time-partitioned storage, warm/cold tiering behind the opaque cursor).
 - Story auto-discovery.

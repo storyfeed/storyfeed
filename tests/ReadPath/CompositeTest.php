@@ -52,7 +52,7 @@ it('publishes an explicit composite: one story, six atomic members', function ()
 it('shows the atomic timeline in flat mode — members yes, story no', function () {
     Storyfeed::activity('upload')->actor(tomas())->objects(sixFiles())->publish();
 
-    $items = Storyfeed::feed()->flat()->limit(10)->get()->toArray()['items'];
+    $items = Storyfeed::feed()->log()->limit(10)->get()->toArray()['items'];
 
     expect($items)->toHaveCount(6)
         ->and(collect($items)->pluck('kind')->unique()->values()->all())->toBe(['activity'])
@@ -62,7 +62,7 @@ it('shows the atomic timeline in flat mode — members yes, story no', function 
 it('shows composites in grouped mode — authored stories are not inference', function () {
     Storyfeed::activity('upload')->actor(tomas())->objects(sixFiles())->publish();
 
-    $items = Storyfeed::feed()->grouped()->get()->toArray()['items'];
+    $items = Storyfeed::feed()->live()->get()->toArray()['items'];
 
     expect($items)->toHaveCount(1)
         ->and($items[0]['axis'])->toBe('composite')

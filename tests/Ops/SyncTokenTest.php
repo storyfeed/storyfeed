@@ -14,7 +14,7 @@ it('is null until the first settled-history rewrite, then surfaces in every mode
 
     $token = SyncToken::bump();
 
-    foreach ([Storyfeed::feed(), Storyfeed::feed()->grouped(), Storyfeed::feed()->flat()] as $feed) {
+    foreach ([Storyfeed::feed(), Storyfeed::feed()->live(), Storyfeed::feed()->log()] as $feed) {
         expect($feed->get()->toArray()['sync_token'])->toBe($token);
     }
 

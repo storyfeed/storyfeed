@@ -11,7 +11,7 @@ use Storyfeed\Models\Activity;
  * Items are individual activities, strictly reverse-chronological — AS2.0
  * has no grouping concept, so curated grouping never appears here. (The
  * `sf:group` annotation the design once reserved is deliberately not
- * emitted: group identity became view-dependent with ->curated(), so an
+ * emitted: group identity became view-dependent with ->summary(), so an
  * activity has no single group id to annotate.)
  *
  * `totalItems` is omitted by design — a COUNT over a large feed table on

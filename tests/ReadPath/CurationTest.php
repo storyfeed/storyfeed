@@ -261,7 +261,7 @@ it('never uses a closure singular fallback for a group', function () {
         ->and($item['headline'])->toBeNull();
 });
 
-it('returns a flat log of atomic activities with ->flat()', function () {
+it('returns the atomic timeline with ->log()', function () {
     $project = Customer::create(['name' => 'Concur']);
 
     foreach (['Bob', 'Sally', 'Ann'] as $name) {
@@ -272,7 +272,7 @@ it('returns a flat log of atomic activities with ->flat()', function () {
 
     // Groups exist (curation stamped winners) — but flat means FLAT: no
     // group nodes at all, the honest reading of the name. Log mode.
-    $items = Storyfeed::feed()->flat()->limit(10)->get()->toArray()['items'];
+    $items = Storyfeed::feed()->log()->limit(10)->get()->toArray()['items'];
 
     expect($items)->toHaveCount(6)
         ->and(collect($items)->pluck('kind')->unique()->values()->all())->toBe(['activity']);
@@ -285,13 +285,13 @@ it('lets the last mode call win', function () {
         uploadsTo($project, $name);
     }
 
-    $items = Storyfeed::feed()->flat()->curated()->get()->toArray()['items'];
+    $items = Storyfeed::feed()->log()->summary()->get()->toArray()['items'];
 
     expect($items)->toHaveCount(1)
         ->and($items[0]['axis'])->toBe('actors');
 });
 
-it('returns repeat-only groups with ->grouped(), ignoring stamped winners', function () {
+it('returns repeat-only groups with ->live(), ignoring stamped winners', function () {
     $project = Customer::create(['name' => 'Concur']);
 
     foreach (['Bob', 'Sally', 'Ann'] as $name) {
@@ -301,7 +301,7 @@ it('returns repeat-only groups with ->grouped(), ignoring stamped winners', func
     // Curation stamped an actors winner; grouped mode is the proven middle
     // tier and reads the repeat axis regardless — the pre-flip default,
     // back as a per-view choice.
-    $items = Storyfeed::feed()->grouped()->get()->toArray()['items'];
+    $items = Storyfeed::feed()->live()->get()->toArray()['items'];
 
     expect($items)->toHaveCount(3)
         ->and(collect($items)->pluck('kind')->unique()->values()->all())->toBe(['activity'])
@@ -309,7 +309,7 @@ it('returns repeat-only groups with ->grouped(), ignoring stamped winners', func
 });
 
 it('reads the app-wide default mode from config', function () {
-    config()->set('storyfeed.grouping.default', 'grouped');
+    config()->set('storyfeed.grouping.default', 'live');
 
     $project = Customer::create(['name' => 'Concur']);
 
@@ -318,7 +318,7 @@ it('reads the app-wide default mode from config', function () {
     }
 
     expect(Storyfeed::feed()->get()->toArray()['items'])->toHaveCount(3)
-        ->and(Storyfeed::feed()->curated()->get()->toArray()['items'])->toHaveCount(1);
+        ->and(Storyfeed::feed()->summary()->get()->toArray()['items'])->toHaveCount(1);
 });
 
 it('rejects unknown feed modes', function () {
@@ -327,6 +327,21 @@ it('rejects unknown feed modes', function () {
     Storyfeed::activity()->verb('ping')->publish();
 
     expect(fn () => Storyfeed::feed()->get())->toThrow(InvalidArgumentException::class, 'chronological');
+});
+
+it('names the replacement when a pre-0.7 mode is configured', function () {
+    // The rename is a clean break — no aliases, per "unknown modes are errors,
+    // not features". But an adopter whose config still says 'curated' deserves
+    // to be told the new name, not just that theirs is invalid. Pinned because
+    // an affordance with no test is a promise.
+    Storyfeed::activity()->verb('ping')->publish();
+
+    foreach (['flat' => 'log', 'grouped' => 'live', 'curated' => 'summary'] as $old => $new) {
+        config()->set('storyfeed.grouping.default', $old);
+
+        expect(fn () => Storyfeed::feed()->get())
+            ->toThrow(InvalidArgumentException::class, "renamed to [{$new}]");
+    }
 });
 
 it('degrades to classic repeat-only grouping app-wide when curation is disabled', function () {

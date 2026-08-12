@@ -131,12 +131,18 @@ return [
         | Policy is not payload contract: change it freely (docs/payload.md).
         */
         /*
-        | The app-wide default read mode: 'flat' (atomic log), 'grouped'
-        | (repeat-only, the classic behaviour), or 'curated' (multi-axis
-        | winners). Per-view calls (->flat() / ->grouped() / ->curated())
-        | always override.
+        | The app-wide default read mode: 'log' (the atomic timeline), 'live'
+        | (repeat-only, the classic behaviour), or 'summary' (multi-axis
+        | winners). Per-view calls (->log() / ->live() / ->summary()) always
+        | override.
+        |
+        | Renamed in v0.7 from flat/grouped/curated — the old `curated` claimed
+        | editorial judgement over what is mechanical collapsing, and the name
+        | misled people into choosing it for the wrong reason. `curated` is
+        | reserved for a future relevance-RANKED view. The old values now throw
+        | with the new name rather than falling back to a default.
         */
-        'default' => 'curated',
+        'default' => 'summary',
 
         'curate' => true,
         'policy' => [
