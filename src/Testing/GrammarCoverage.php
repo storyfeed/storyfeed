@@ -120,7 +120,7 @@ class GrammarCoverage
         $pairs = $model::query()
             ->join($groupings, "{$groupings}.activity_id", '=', "{$activities}.id")
             ->where("{$groupings}.winner", true)
-            ->whereIn("{$groupings}.bucket", ['actors', 'targets', 'object'])
+            ->whereIn("{$groupings}.bucket", $storyfeed->aggregateAxes())
             ->distinct()
             ->get(["{$groupings}.bucket as axis", "{$activities}.verb"]);
 

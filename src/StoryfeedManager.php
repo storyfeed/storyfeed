@@ -12,6 +12,7 @@ use Storyfeed\ActivityStreams\CoreType;
 use Storyfeed\ActivityStreams\ObjectType;
 use Storyfeed\Contracts\FeedVerb;
 use Storyfeed\Contracts\HasActivityStreamsType;
+use Storyfeed\Grouping\Axis;
 use Storyfeed\Models\Activity;
 use Storyfeed\Models\Party;
 use Storyfeed\Support\MorphResolver;
@@ -85,21 +86,15 @@ class StoryfeedManager
     ];
 
     /**
-     * The tokens each grouping axis can honestly serve in an aggregate
-     * template — a token is listed iff the group node gives it a source
-     * that is homogeneous across members. The canonical counter-example:
-     * `:object` on the repeat axis renders "made 5 revisions to X" over
-     * children spanning five different documents.
-     *
-     * Wildcard-axis grammar keys (`*.verb`, `*.*`) serve every axis, so
-     * they validate against the intersection: `:actors :count :others`.
+     * Buckets owned by row-backed lifecycle state rather than the axis
+     * registry (docs/grouping.md: rows for unrecomputable state, derivation
+     * for inference). The strategy never emits them, the stale-bucket
+     * delete never touches them, and curation never stamps them.
      */
-    public const AGGREGATE_TOKENS = [
-        'repeat' => [':actor', ':actors', ':target', ':context', ':count', ':others'],
-        'actors' => [':actors', ':target', ':context', ':count', ':others'],
-        'targets' => [':actor', ':actors', ':context', ':count', ':others'],
-        'object' => [':actor', ':actors', ':object', ':count', ':others'],
-    ];
+    public const ROW_BACKED_BUCKETS = ['batch'];
+
+    /** @var array<string, Axis>|null lazy — recipes read config at first use */
+    protected ?array $axes = null;
 
     /**
      * Begin composing an activity.
@@ -190,6 +185,119 @@ class StoryfeedManager
         $this->grammar = $merge ? [...$this->grammar, ...$grammar] : $grammar;
 
         return $this;
+    }
+
+    /**
+     * Register grouping axes — replacing same-name axes, appending new
+     * ones. Registration order is curation priority; `merge: false`
+     * replaces the whole registry:
+     *
+     *   Storyfeed::axes([
+     *       Axis::make('thread')->key('v:ca!:cid!:d')->eligibleWhenMembers(min: 3),
+     *   ]);
+     *
+     * The four built-ins (actors, targets, object, repeat-as-fallback) are
+     * seeded lazily; their thresholds read `grouping.policy` config.
+     *
+     * @param  array<int, Axis>  $axes
+     */
+    public function axes(array $axes, bool $merge = true): static
+    {
+        $registry = $merge ? $this->registeredAxes() : [];
+
+        foreach ($axes as $axis) {
+            $registry[$axis->name] = $axis;
+        }
+
+        $this->axes = $registry;
+
+        return $this;
+    }
+
+    /**
+     * @return array<string, Axis> ordered — registration order is priority
+     */
+    public function registeredAxes(): array
+    {
+        return $this->axes ??= $this->defaultAxes();
+    }
+
+    public function axis(string $name): ?Axis
+    {
+        return $this->registeredAxes()[$name] ?? null;
+    }
+
+    /**
+     * The non-fallback axis names, in priority order — the axes curation
+     * can select and coverage tooling audits.
+     *
+     * @return array<int, string>
+     */
+    public function aggregateAxes(): array
+    {
+        return array_keys(array_filter(
+            $this->registeredAxes(),
+            fn (Axis $axis) => ! $axis->isFallback(),
+        ));
+    }
+
+    public function fallbackAxis(): ?Axis
+    {
+        foreach ($this->registeredAxes() as $axis) {
+            if ($axis->isFallback()) {
+                return $axis;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * The headline tokens an aggregate template may safely use for an
+     * axis — derived from the axis's recipe (homogeneity by construction).
+     * `'*'` returns the intersection across all axes, since wildcard
+     * grammar keys serve every axis.
+     *
+     * @return array<int, string>|null null when the axis is unregistered
+     */
+    public function aggregateTokens(string $axis): ?array
+    {
+        if ($axis === '*') {
+            $sets = array_map(
+                fn (Axis $a) => $a->pinnedTokens(),
+                array_values($this->registeredAxes()),
+            );
+
+            return $sets === [] ? [] : array_values(array_intersect(...$sets));
+        }
+
+        return $this->axis($axis)?->pinnedTokens();
+    }
+
+    /**
+     * @return array<string, Axis>
+     */
+    protected function defaultAxes(): array
+    {
+        $policy = config('storyfeed.grouping.policy', []);
+
+        $axes = [
+            Axis::make('actors')
+                ->key('v:ta!:tid:d')
+                ->eligibleWhenDistinct('actor', min: (int) ($policy['min_actors'] ?? 3)),
+            Axis::make('targets')
+                ->key('aa!:aid:v:d')
+                ->eligibleWhenDistinct('target', min: (int) ($policy['min_targets'] ?? 2))
+                ->eligibleWhenMembers(min: (int) ($policy['min_target_members'] ?? 3)),
+            Axis::make('object')
+                ->key('aa:aid:v:oa!:oid!:d')
+                ->eligibleWhenMembers(min: (int) ($policy['min_object_members'] ?? 2)),
+            Axis::make('repeat')
+                ->key('aa:aid:v:oa:ta:tid:d')
+                ->fallback(),
+        ];
+
+        return array_combine(array_column($axes, 'name'), $axes);
     }
 
     /**

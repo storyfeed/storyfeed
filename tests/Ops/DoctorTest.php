@@ -95,3 +95,22 @@ it('warns when an aggregate template references a token its axis does not pin', 
         ->doesntExpectOutputToContain('Aggregate template `*.upload`')
         ->assertSuccessful();
 });
+
+it('warns on :context outside a context-pinning axis — stricter than the old hand map', function () {
+    // The hand-maintained token map allowed :context on repeat/actors by
+    // accident; no built-in recipe includes the context pair, so it was
+    // never homogeneous. Derivation from the recipe fixed the leniency.
+    Storyfeed::aggregateGrammar(['actors.upload' => ':actors uploaded :count files in :context']);
+
+    $this->artisan('storyfeed:doctor')
+        ->expectsOutputToContain('Aggregate template `actors.upload` references `:context`')
+        ->assertSuccessful();
+});
+
+it('notes aggregate grammar keys that reference unregistered axes', function () {
+    Storyfeed::aggregateGrammar(['actrs.upload' => ':actors uploaded :count files']);
+
+    $this->artisan('storyfeed:doctor')
+        ->expectsOutputToContain('references axis `actrs`, which is not registered')
+        ->assertSuccessful();
+});

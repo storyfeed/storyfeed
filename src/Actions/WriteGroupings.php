@@ -5,6 +5,7 @@ namespace Storyfeed\Actions;
 use Storyfeed\Grouping\MultiAxisStrategy;
 use Storyfeed\Models\Activity;
 use Storyfeed\Models\Grouping;
+use Storyfeed\StoryfeedManager;
 
 /**
  * Write one candidate grouping hash per axis for an activity. Called at
@@ -35,7 +36,7 @@ class WriteGroupings
         // delete would otherwise destroy it on every re-run (trickle!).
         $grouping::query()
             ->where('activity_id', $activity->getKey())
-            ->where('bucket', '!=', 'batch')
+            ->whereNotIn('bucket', StoryfeedManager::ROW_BACKED_BUCKETS)
             ->when($hashes !== [], fn ($query) => $query->whereNotIn('bucket', array_keys($hashes)))
             ->delete();
     }

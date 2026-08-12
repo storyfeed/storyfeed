@@ -139,10 +139,10 @@ class NodePresenter
             'icon' => $this->storyfeed->icon($first->object_type, $first->verb),
             'exemplars' => [
                 'actors' => $exemplars,
-                // Only the object axis pins object identity; on every other
-                // axis the members may span many objects, so naming one
-                // would be the "5 revisions to Aut Beatae.docx" lie.
-                'object' => $slice->axis === 'object'
+                // Only an axis whose recipe pins object identity may name
+                // one; anywhere else the members may span many objects and
+                // this would be the "5 revisions to Aut Beatae.docx" lie.
+                'object' => in_array(':object', $this->storyfeed->aggregateTokens((string) $slice->axis) ?? [], true)
                     ? $this->entity($first->object_type, $first->object_id, $first->cachedObject)
                     : null,
                 'target' => $this->entity($first->target_type, $first->target_id, $first->cachedTarget),

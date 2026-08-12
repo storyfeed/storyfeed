@@ -121,12 +121,18 @@ class DoctorCommand extends Command
 
             $axis = explode('.', $key, 2)[0];
 
-            $allowed = $axis === '*'
-                ? array_values(array_intersect(...array_values(StoryfeedManager::AGGREGATE_TOKENS)))
-                : (StoryfeedManager::AGGREGATE_TOKENS[$axis] ?? null);
+            // Derived from the axis registry — a token is allowed iff the
+            // axis's recipe makes it homogeneous; wildcards get the
+            // intersection across all registered axes.
+            $allowed = $storyfeed->aggregateTokens($axis);
 
             if ($allowed === null) {
-                continue; // unknown/custom axis — nothing to judge it against
+                $this->line(
+                    "Note: aggregate grammar key `{$key}` references axis `{$axis}`, which is not registered — "
+                    .'it will never resolve. Registered axes: '.implode(', ', array_keys($storyfeed->registeredAxes())).'.'
+                );
+
+                continue;
             }
 
             preg_match_all('/:[a-z]+/', $template, $matches);
@@ -204,7 +210,7 @@ class DoctorCommand extends Command
         $pairs = $this->activityQuery()
             ->join($groupings, "{$groupings}.activity_id", '=', "{$activities}.id")
             ->where("{$groupings}.winner", true)
-            ->whereIn("{$groupings}.bucket", ['actors', 'targets', 'object'])
+            ->whereIn("{$groupings}.bucket", $storyfeed->aggregateAxes())
             ->distinct()
             ->get(["{$groupings}.bucket as axis", "{$activities}.verb"]);
 

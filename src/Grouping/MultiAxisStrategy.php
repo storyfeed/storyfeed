@@ -4,9 +4,14 @@ namespace Storyfeed\Grouping;
 
 use Storyfeed\Contracts\GroupingStrategy;
 use Storyfeed\Models\Activity;
+use Storyfeed\StoryfeedManager;
 
 /**
- * The default candidate axes, day-bucketed:
+ * Emits one candidate hash per REGISTERED axis (Storyfeed::axes()) — the
+ * axis registry is the single source of truth for recipes, applicability,
+ * eligibility and pinned tokens; this strategy is just the loop.
+ *
+ * The default registry, day-bucketed:
  *
  *  - repeat:  the same actor doing the same kind of thing
  *             ("Sally uploaded 12 photos")
@@ -23,53 +28,16 @@ class MultiAxisStrategy implements GroupingStrategy
 {
     public function hashes(Activity $activity): array
     {
-        $day = ($activity->published_at ?? now())->toDateString();
+        $hashes = [];
 
-        $hashes = [
-            'repeat' => $this->hash([
-                $activity->actor_type, $activity->actor_id,
-                $activity->verb,
-                $activity->object_type,
-                $activity->target_type, $activity->target_id,
-                $day,
-            ]),
-        ];
+        foreach (app(StoryfeedManager::class)->registeredAxes() as $axis) {
+            $hash = $axis->hashFor($activity);
 
-        if ($activity->target_type !== null) {
-            $hashes['actors'] = $this->hash([
-                $activity->verb,
-                $activity->target_type, $activity->target_id,
-                $day,
-            ]);
-        }
-
-        if ($activity->actor_type !== null) {
-            $hashes['targets'] = $this->hash([
-                $activity->actor_type, $activity->actor_id,
-                $activity->verb,
-                $day,
-            ]);
-        }
-
-        // No target component: "the same object repeated" is a story about
-        // the object, wherever the acts pointed.
-        if ($activity->object_type !== null && $activity->object_id !== null) {
-            $hashes['object'] = $this->hash([
-                $activity->actor_type, $activity->actor_id,
-                $activity->verb,
-                $activity->object_type, $activity->object_id,
-                $day,
-            ]);
+            if ($hash !== null) {
+                $hashes[$axis->name] = $hash;
+            }
         }
 
         return $hashes;
-    }
-
-    /**
-     * @param  array<int, string|int|null>  $parts
-     */
-    protected function hash(array $parts): string
-    {
-        return implode(':', array_map(fn ($part) => $part ?? '', $parts));
     }
 }

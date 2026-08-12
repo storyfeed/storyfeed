@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\DB;
 use Storyfeed\Models\Activity;
 use Storyfeed\Models\Builders\ActivityBuilder;
 use Storyfeed\Models\Grouping;
+use Storyfeed\StoryfeedManager;
 
 /**
  * Curation: choose the ONE axis an activity is grouped on, and stamp it
@@ -104,7 +105,7 @@ class CurateCluster
             $this->groupings()
                 ->where('activity_id', $activityId)
                 ->where('bucket', '!=', $winner)
-                ->where('bucket', '!=', 'batch')
+                ->whereNotIn('bucket', StoryfeedManager::ROW_BACKED_BUCKETS)
                 ->update(['winner' => false]);
 
             $this->groupings()
@@ -117,36 +118,51 @@ class CurateCluster
     /**
      * @param  array<string, string>  $hashes  bucket => hash
      */
-    /** Candidate axes, most specific story first — the order IS the tie-break. */
-    protected const AGGREGATE_AXES = ['actors', 'targets', 'object'];
-
     protected function decide(array $hashes): string
     {
-        foreach (self::AGGREGATE_AXES as $axis) {
+        // Registration order IS priority (docs/grouping.md).
+        foreach ($this->manager()->aggregateAxes() as $axis) {
             if (isset($hashes[$axis]) && $this->eligible($axis, $hashes[$axis])) {
                 return $axis;
             }
         }
 
-        return isset($hashes['repeat']) ? 'repeat' : (string) array_key_first($hashes);
+        $fallback = $this->manager()->fallbackAxis()?->name;
+
+        return $fallback !== null && isset($hashes[$fallback])
+            ? $fallback
+            : (string) array_key_first($hashes);
     }
 
     /**
-     * Whether an aggregate axis has enough distinct entities in the
-     * dimension it collapses to be worth collapsing at all. `object`
-     * collapses repetition itself, so its dimension is plain member count.
+     * Interpret the axis's declarative eligibility rules (all must pass).
+     * The rules are data, not closures — introspectable, and interpreted
+     * against this action's cluster queries.
      */
     protected function eligible(string $axis, string $hash): bool
     {
-        $policy = config('storyfeed.grouping.policy', []);
+        $declaration = $this->manager()->axis($axis);
 
-        return match ($axis) {
-            'actors' => $this->distinctRoles($axis, $hash, 'actor') >= (int) ($policy['min_actors'] ?? 3),
-            'targets' => $this->distinctRoles($axis, $hash, 'target') >= (int) ($policy['min_targets'] ?? 2)
-                && $this->clusterActivities($axis, $hash)->count() >= (int) ($policy['min_target_members'] ?? 3),
-            'object' => $this->clusterActivities($axis, $hash)->count() >= (int) ($policy['min_object_members'] ?? 2),
-            default => false,
-        };
+        if ($declaration === null || $declaration->eligibility() === []) {
+            return false;
+        }
+
+        foreach ($declaration->eligibility() as $rule) {
+            $passes = isset($rule['distinct'])
+                ? $this->distinctRoles($axis, $hash, $rule['distinct']) >= ($rule['min'] ?? 1)
+                : $this->clusterActivities($axis, $hash)->count() >= ($rule['members'] ?? 1);
+
+            if (! $passes) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    protected function manager(): StoryfeedManager
+    {
+        return app(StoryfeedManager::class);
     }
 
     /**
@@ -158,7 +174,7 @@ class CurateCluster
      */
     protected function resettle(array $hashes): void
     {
-        foreach (self::AGGREGATE_AXES as $axis) {
+        foreach ($this->manager()->aggregateAxes() as $axis) {
             // An ineligible cluster cannot have made anyone's stamp stale.
             if (! isset($hashes[$axis]) || ! $this->eligible($axis, $hashes[$axis])) {
                 continue;
@@ -232,7 +248,7 @@ class CurateCluster
     {
         return $this->groupings()
             ->where('activity_id', $activityId)
-            ->where('bucket', '!=', 'batch')
+            ->whereNotIn('bucket', StoryfeedManager::ROW_BACKED_BUCKETS)
             ->pluck('hash', 'bucket')
             ->all();
     }
