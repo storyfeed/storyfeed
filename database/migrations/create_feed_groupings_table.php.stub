@@ -13,10 +13,14 @@ return new class extends Migration
             $table->foreignId('activity_id')->index();
             $table->string('hash');
             $table->string('bucket')->nullable();
+            // Curation's stamp: exactly one true per curated activity; null
+            // means "never curated", read as "the repeat axis wins".
+            $table->boolean('winner')->nullable();
             $table->timestamps();
 
             $table->unique(['activity_id', 'bucket']);
             $table->index(['bucket', 'hash']);
+            $table->index(['winner', 'bucket', 'hash'], 'feed_groupings_winner_index');
         });
     }
 

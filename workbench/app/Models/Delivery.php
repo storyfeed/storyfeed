@@ -21,6 +21,9 @@ class Delivery extends Model implements Feedable
     use InteractsWithFeed;
     use SoftDeletes;
 
+    /** Test spy: how often the package asked for a live link. */
+    public static int $feedLinkCalls = 0;
+
     protected $guarded = [];
 
     public function customer(): BelongsTo
@@ -43,6 +46,11 @@ class Delivery extends Model implements Feedable
 
     public static function toFeedLink(array $data): ?FeedLink
     {
+        static::$feedLinkCalls++;
+
+        // Deliberately strict about $data['id'] — a naive real-world
+        // implementation looks like this, and the package must never call
+        // it with empty data (see FrictionRegressionTest).
         return FeedLink::make("/deliveries/{$data['id']}", attributes: ['data-status' => $data['status'] ?? null]);
     }
 }

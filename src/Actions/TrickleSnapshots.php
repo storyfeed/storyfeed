@@ -29,7 +29,8 @@ class TrickleSnapshots
         $snapshotted = 0;
         $pruned = 0;
 
-        $activities = $this->uncached()
+        $activities = $this->activityQuery()
+            ->uncached()
             ->orderByDesc('published_at')
             ->limit($limit)
             ->get();
@@ -68,17 +69,6 @@ class TrickleSnapshots
         }
 
         return ['snapshotted' => $snapshotted, 'pruned' => $pruned];
-    }
-
-    protected function uncached(): ActivityBuilder
-    {
-        return $this->activityQuery()->where(function (ActivityBuilder $query) {
-            foreach (RebuildSnapshots::ROLES as $role) {
-                $query->orWhere(function (ActivityBuilder $q) use ($role) {
-                    $q->whereNotNull("{$role}_type")->whereNull("cached_{$role}_id");
-                });
-            }
-        });
     }
 
     /**

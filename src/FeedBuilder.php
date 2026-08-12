@@ -10,6 +10,7 @@ use Illuminate\Database\Query\JoinClause;
 use Illuminate\Pagination\Cursor;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Traits\Conditionable;
 use Storyfeed\Grouping\NullStrategy;
 use Storyfeed\Models\Activity;
 use Storyfeed\Models\Builders\ActivityBuilder;
@@ -45,6 +46,8 @@ use Storyfeed\Payload\NodePresenter;
  */
 class FeedBuilder
 {
+    use Conditionable;
+
     protected ?Model $actor = null;
 
     protected ?Model $object = null;

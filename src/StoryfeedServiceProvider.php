@@ -24,7 +24,6 @@ class StoryfeedServiceProvider extends PackageServiceProvider
                 'create_feed_groupings_table',
                 'create_feed_parties_table',
                 'create_feed_batches_table',
-                'add_winner_to_feed_groupings_table',
             ])
             ->hasCommands([
                 Console\RebuildCommand::class,

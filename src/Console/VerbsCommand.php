@@ -30,9 +30,9 @@ class VerbsCommand extends Command
             $rows[] = [
                 $verb,
                 $type instanceof ActivityType ? $type->value : (string) $type,
-                $storyfeed->template(null, $verb) !== null ? 'yes' : '—',
-                $storyfeed->icon(null, $verb) !== null ? 'yes' : '—',
-                array_key_exists($verb, StoryfeedManager::DEFAULT_VERBS) ? 'default' : 'registered',
+                $this->coverage($storyfeed->registeredGrammar(), $verb),
+                $this->coverage($storyfeed->registeredIcons(), $verb),
+                $storyfeed->declaredVerb($verb) ? 'registered' : 'default',
             ];
         }
 
@@ -41,6 +41,31 @@ class VerbsCommand extends Command
         return $this->option('used')
             ? $this->reportDrift(array_keys($verbs))
             : self::SUCCESS;
+    }
+
+    /**
+     * Which registered keys can serve this verb. Grammar and icons are
+     * keyed by (object_type, verb) PAIRS, so a verb-only lookup would show
+     * "—" for a fully-authored vocabulary and appear to contradict doctor.
+     * Instead, list the registered keys whose verb segment matches —
+     * "task.create, *.create" — so the catalog shows where coverage comes
+     * from. A bare `*.*` catch-all is shown as itself: real, but vacuous
+     * (GrammarCoverage deliberately doesn't count it).
+     *
+     * @param  array<string, mixed>  $registry
+     */
+    protected function coverage(array $registry, string $verb): string
+    {
+        $keys = array_filter(
+            array_keys($registry),
+            function (string $key) use ($verb) {
+                $segment = explode('.', $key, 2)[1] ?? null;
+
+                return $segment === $verb || $segment === '*';
+            },
+        );
+
+        return $keys === [] ? '—' : implode(', ', $keys);
     }
 
     /**

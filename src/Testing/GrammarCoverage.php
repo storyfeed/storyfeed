@@ -146,6 +146,45 @@ class GrammarCoverage
     }
 
     /**
+     * Assert aggregate grammar for an explicit (axis, verb) matrix — the
+     * proactive form. assertCoversAggregates() only sees combinations the
+     * test run happened to produce (curation only stamps winners the data
+     * contains); this one asserts what COULD occur:
+     *
+     *   GrammarCoverage::assertCoversAggregateMatrix(
+     *       axes: ['actors', 'targets'],
+     *       verbs: ['upload', 'comment', 'approve'],
+     *   );
+     *
+     * @param  array<int, string>  $axes
+     * @param  array<int, string>  $verbs
+     */
+    public static function assertCoversAggregateMatrix(array $axes, array $verbs, bool $allowWildcard = false): void
+    {
+        Assert::assertNotEmpty($axes, 'No axes given, so aggregate matrix coverage proves nothing.');
+        Assert::assertNotEmpty($verbs, 'No verbs given, so aggregate matrix coverage proves nothing.');
+
+        $storyfeed = app(StoryfeedManager::class);
+
+        $missing = [];
+
+        foreach ($axes as $axis) {
+            foreach ($verbs as $verb) {
+                if (! self::covered($storyfeed->aggregateTemplateKey($axis, $verb), $allowWildcard)) {
+                    $missing[] = "{$axis}.{$verb} (no aggregate headline)";
+                }
+            }
+        }
+
+        Assert::assertSame(
+            [],
+            $missing,
+            "Storyfeed aggregate grammar coverage is incomplete:\n  - ".implode("\n  - ", $missing)
+            ."\n\nRegister the missing entries with Storyfeed::aggregateGrammar().",
+        );
+    }
+
+    /**
      * A `*.*` catch-all resolves for everything, which would make coverage
      * vacuous — so it only counts when explicitly allowed.
      */

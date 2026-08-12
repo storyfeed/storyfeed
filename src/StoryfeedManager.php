@@ -33,6 +33,15 @@ class StoryfeedManager
     /** @var array<string, ActivityType|string> */
     protected array $verbs = self::DEFAULT_VERBS;
 
+    /**
+     * Verbs the app explicitly registered (vs. shipped defaults) — tracked
+     * separately because an app-declared mapping may coincide with a
+     * default's value, and tooling should still report it as the app's.
+     *
+     * @var array<string, true>
+     */
+    protected array $declaredVerbs = [];
+
     /** @var array<string, ObjectType|string> */
     protected array $objectTypes = [];
 
@@ -227,7 +236,20 @@ class StoryfeedManager
 
         $this->verbs = $merge ? [...$this->verbs, ...$normalized] : $normalized;
 
+        $declared = array_fill_keys(array_keys($normalized), true);
+
+        $this->declaredVerbs = $merge ? [...$this->declaredVerbs, ...$declared] : $declared;
+
         return $this;
+    }
+
+    /**
+     * Whether the app explicitly registered this verb (as opposed to it
+     * resolving through the shipped defaults).
+     */
+    public function declaredVerb(string $verb): bool
+    {
+        return isset($this->declaredVerbs[$verb]);
     }
 
     /**

@@ -25,6 +25,24 @@ class ActivityBuilder extends Builder
         return $this;
     }
 
+    /**
+     * Activities with at least one filled role that has no snapshot yet —
+     * the trickle's work queue, and the "snapshot backlog" number an ops
+     * dashboard wants. Public so consumers never copy this query.
+     */
+    public function uncached(): static
+    {
+        $this->where(function (self $query) {
+            foreach (['actor', 'object', 'target', 'context'] as $role) {
+                $query->orWhere(function (self $q) use ($role): void {
+                    $q->whereNotNull("{$role}_type")->whereNull("cached_{$role}_id");
+                });
+            }
+        });
+
+        return $this;
+    }
+
     public function verb(string $verb): static
     {
         $this->where('verb', $verb);

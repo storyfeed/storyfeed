@@ -119,3 +119,19 @@ it('fails aggregate coverage when nothing is grouped on an aggregate axis', func
     expect(fn () => GrammarCoverage::assertCoversAggregates())
         ->toThrow(AssertionFailedError::class, 'proves nothing');
 });
+
+it('asserts a declared aggregate matrix proactively', function () {
+    Storyfeed::aggregateGrammar(['actors.upload' => ':actors uploaded :count files']);
+
+    // assertCoversAggregates() only sees combinations the data produced;
+    // the matrix form asserts what COULD occur.
+    expect(fn () => GrammarCoverage::assertCoversAggregateMatrix(['actors', 'targets'], ['upload', 'comment']))
+        ->toThrow(AssertionFailedError::class, 'targets.upload (no aggregate headline)');
+
+    Storyfeed::aggregateGrammar([
+        'actors.comment' => ':actors commented on :target',
+        'targets.*' => ':actor acted on :count things',
+    ]);
+
+    GrammarCoverage::assertCoversAggregateMatrix(['actors', 'targets'], ['upload', 'comment']);
+});

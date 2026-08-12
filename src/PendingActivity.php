@@ -154,6 +154,13 @@ class PendingActivity
             return $manager->capture($this->activity);
         }
 
+        // Stamped HERE, not only in the model's creating hook: a consumer
+        // seeding inside WithoutModelEvents (the starter kit's default!)
+        // would otherwise persist published_at = NULL and every activity
+        // silently vanishes from the feed. "Published means timestamped"
+        // must not depend on model events being enabled.
+        $this->activity->published_at ??= now();
+
         $activity = DB::transaction(function () {
             $this->snapshotEntities();
 

@@ -156,7 +156,10 @@ class NodePresenter
 
         $data = $snapshot->data ?? [];
 
-        $link = LinkResolver::resolve($type, $data);
+        // No snapshot ⇒ no link regeneration: the contract promises degraded
+        // entities arrive with url: null, and calling the app's toFeedLink()
+        // with an empty array makes every naive implementation warn.
+        $link = $snapshot === null ? null : LinkResolver::resolve($type, $data);
 
         return [
             'type' => $type,

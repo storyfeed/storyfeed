@@ -41,7 +41,7 @@ class TestCase extends Orchestra
     protected function defineDatabaseMigrations(): void
     {
         // Published migrations are timestamped in order; the stubs are not,
-        // so tables have to be created before they are altered.
+        // so create_* stubs must run before any alter-style stub.
         $stubs = glob(__DIR__.'/../database/migrations/*.stub');
 
         usort($stubs, fn ($a, $b) => str_starts_with(basename($b), 'create_') <=> str_starts_with(basename($a), 'create_'));

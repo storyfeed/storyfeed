@@ -99,7 +99,9 @@ class ActivitySerializer
         // Application for the app itself); it wins over the class default.
         $type = $this->entityType($alias, $data);
 
-        $url = LinkResolver::resolve($alias, $data)?->url;
+        // No snapshot ⇒ bare reference, no link regeneration (same rule as
+        // the payload presenter: toFeedLink is never called with empty data).
+        $url = $snapshot === null ? null : LinkResolver::resolve($alias, $data)?->url;
         $absolute = $url === null ? null : url($url);
 
         return array_filter([

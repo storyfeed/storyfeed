@@ -185,15 +185,7 @@ class DoctorCommand extends Command
             return 0;
         }
 
-        $backlog = $this->activityQuery()
-            ->where(function ($query) {
-                foreach (['actor', 'object', 'target', 'context'] as $role) {
-                    $query->orWhere(function ($q) use ($role) {
-                        $q->whereNotNull("{$role}_type")->whereNull("cached_{$role}_id");
-                    });
-                }
-            })
-            ->count();
+        $backlog = $this->activityQuery()->uncached()->count();
 
         if ($backlog > 0) {
             $this->warn("{$backlog} activities have uncached entities — schedule storyfeed:trickle (or run storyfeed:rebuild).");
