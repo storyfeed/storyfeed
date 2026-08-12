@@ -3,9 +3,8 @@
 namespace Storyfeed\Console;
 
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Schema;
 use Storyfeed\ActivityStreams\ActivityType;
-use Storyfeed\Models\Activity;
+use Storyfeed\Diagnostics\Checks\VerbDrift;
 use Storyfeed\StoryfeedManager;
 
 /**
@@ -39,7 +38,7 @@ class VerbsCommand extends Command
         $this->table(['Verb', 'AS2.0 type', 'Grammar', 'Icon', 'Source'], $rows);
 
         return $this->option('used')
-            ? $this->reportDrift(array_keys($verbs))
+            ? $this->reportDrift()
             : self::SUCCESS;
     }
 
@@ -69,22 +68,28 @@ class VerbsCommand extends Command
     }
 
     /**
-     * @param  array<int, string>  $declared
+     * Renders Diagnostics\Checks\VerbDrift rather than re-deriving it.
+     *
+     * Both this command and doctor want the declared-vs-recorded comparison in
+     * both directions, and two implementations of one question is how the two
+     * answers come to disagree — which already happened once here, when this
+     * command's Grammar column read "—" for a fully-authored vocabulary while
+     * doctor simultaneously reported healthy.
      */
-    protected function reportDrift(array $declared): int
+    protected function reportDrift(): int
     {
-        if (! Schema::hasTable(config('storyfeed.tables.activities', 'feed_activities'))) {
-            $this->warn('No activities table — skipping usage comparison.');
+        $findings = app(VerbDrift::class)->run(app(StoryfeedManager::class));
 
-            return self::SUCCESS;
+        $undeclared = [];
+        $dead = [];
+
+        foreach ($findings as $finding) {
+            match ($finding->code) {
+                'verbs.undeclared' => $undeclared[] = (string) $finding->subject['verb'],
+                'verbs.dead' => $dead[] = (string) $finding->subject['verb'],
+                default => $this->warn($finding->message),
+            };
         }
-
-        $model = config('storyfeed.models.activity', Activity::class);
-
-        $recorded = $model::query()->distinct()->pluck('verb')->all();
-
-        $undeclared = array_diff($recorded, $declared);
-        $unused = array_diff($declared, $recorded);
 
         if ($undeclared !== []) {
             $this->newLine();
@@ -95,16 +100,16 @@ class VerbsCommand extends Command
             }
         }
 
-        if ($unused !== []) {
+        if ($dead !== []) {
             $this->newLine();
             $this->line('Declared but never recorded (dead vocabulary):');
 
-            foreach ($unused as $verb) {
+            foreach ($dead as $verb) {
                 $this->line("  {$verb}");
             }
         }
 
-        if ($undeclared === [] && $unused === []) {
+        if ($undeclared === [] && $dead === []) {
             $this->newLine();
             $this->info('Declared vocabulary matches recorded activity exactly.');
         }

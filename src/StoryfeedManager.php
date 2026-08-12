@@ -12,8 +12,11 @@ use Storyfeed\ActivityStreams\ActivityType;
 use Storyfeed\ActivityStreams\CoreType;
 use Storyfeed\ActivityStreams\ObjectType;
 use Storyfeed\Contracts\Collectable;
+use Storyfeed\Contracts\DiagnosticCheck;
 use Storyfeed\Contracts\FeedVerb;
 use Storyfeed\Contracts\HasActivityStreamsType;
+use Storyfeed\Diagnostics\Doctor;
+use Storyfeed\Diagnostics\Report;
 use Storyfeed\Grouping\Axis;
 use Storyfeed\Models\Activity;
 use Storyfeed\Models\Party;
@@ -98,6 +101,15 @@ class StoryfeedManager
      * @var array<string, true>
      */
     protected array $collectables = [];
+
+    /**
+     * Health checks. Null means "the shipped set" — resolved lazily so
+     * Doctor::DEFAULT_CHECKS stays the single source of the default order,
+     * and so an app that only appends never has to restate it.
+     *
+     * @var array<int, class-string<DiagnosticCheck>|DiagnosticCheck>|null
+     */
+    protected ?array $checks = null;
 
     /**
      * Begin composing an activity.
@@ -293,6 +305,51 @@ class StoryfeedManager
         return array_keys(array_filter(
             $this->registeredAxes(),
             fn (Axis $axis) => $axis->isRowBacked(),
+        ));
+    }
+
+    /**
+     * Register additional health checks (see Contracts\DiagnosticCheck).
+     *
+     * @param  array<int, class-string<DiagnosticCheck>|DiagnosticCheck>  $checks
+     */
+    public function checks(array $checks, bool $merge = true): static
+    {
+        $this->checks = $merge ? [...($this->checks ?? Doctor::DEFAULT_CHECKS), ...$checks] : $checks;
+
+        return $this;
+    }
+
+    /**
+     * Audit feed health and registry coverage, as DATA.
+     *
+     * `storyfeed:doctor` is one formatter over this; an application can render
+     * the same findings in its own UI instead of shelling out to Artisan and
+     * scraping the CLI text (which is what the first consumer had to do).
+     *
+     * @param  array<int, string>  $only  check names; empty runs all
+     */
+    public function doctor(array $only = []): Report
+    {
+        return (new Doctor($this->resolvedChecks()))->run($this, $only);
+    }
+
+    /**
+     * Check names available to `--only=`, including app-registered ones.
+     *
+     * @return array<int, string>
+     */
+    public function checkNames(): array
+    {
+        return array_map(fn (DiagnosticCheck $check) => $check->name(), $this->resolvedChecks());
+    }
+
+    /** @return list<DiagnosticCheck> */
+    protected function resolvedChecks(): array
+    {
+        return array_values(array_map(
+            fn (string|DiagnosticCheck $check) => is_string($check) ? app($check) : $check,
+            $this->checks ?? Doctor::DEFAULT_CHECKS,
         ));
     }
 

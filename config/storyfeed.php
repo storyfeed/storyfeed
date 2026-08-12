@@ -237,4 +237,24 @@ return [
         'limit' => 200,
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Doctor
+    |--------------------------------------------------------------------------
+    |
+    | `stale_after` (days) is the "has the feed stopped keeping up?" check.
+    | The failure it exists for is not a broken feed but a forgotten one: the
+    | grammar gets authored once, new modules ship, and nothing publishes from
+    | them. Every other check asks whether what you have is correct; this one
+    | asks whether anything is still arriving. Set null to disable.
+    |
+    | Honest about its reach: a module that never touches Storyfeed at all is
+    | invisible to Storyfeed. This is the closest available proxy, not a proof
+    | — `storyfeed:stories` covers the part that IS detectable.
+    */
+
+    'doctor' => [
+        'stale_after' => 30,
+    ],
+
 ];

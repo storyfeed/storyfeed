@@ -3,399 +3,151 @@
 namespace Storyfeed\Console;
 
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Schema;
-use Storyfeed\ActivityStreams\ActivityType;
-use Storyfeed\Models\Activity;
-use Storyfeed\Models\Grouping;
-use Storyfeed\Models\Party;
-use Storyfeed\Models\Snapshot;
+use Storyfeed\Diagnostics\Finding;
+use Storyfeed\Diagnostics\Report;
+use Storyfeed\Diagnostics\Severity;
 use Storyfeed\StoryfeedManager;
 
 /**
- * Surfaces silent-fallback traps as explicit warnings: verbs without grammar
- * or icons, unmapped AS2.0 verbs/aliases, snapshot backlog, and table state.
+ * Surfaces silent-fallback traps as explicit findings: verbs without grammar
+ * or icons, unmapped AS2.0 verbs/aliases, schema drift, snapshot backlog, a
+ * feed that has stopped being written to, and table state.
+ *
+ * This is a FORMATTER. The checks live in Storyfeed\Diagnostics and the run
+ * returns a Report, so `Storyfeed::doctor()` serves an app that wants to render
+ * feed health in its own UI — the first consumer resorted to
+ * `Artisan::call('storyfeed:doctor')` and printing the raw output, which is a
+ * fair review of the command having been the only API.
+ *
+ * `--stubs` is the one worth knowing about: it prints the registrations the
+ * findings imply, ready to paste. The authoring loop consumers arrive at —
+ * *register the axis, run real traffic, run doctor, author exactly the keys it
+ * names* — ends in manual transcription otherwise. Every emitted token comes
+ * from the axis's compiled recipe, so a pasted snippet cannot reference a token
+ * the axis fails to pin.
  */
 class DoctorCommand extends Command
 {
-    protected $signature = 'storyfeed:doctor';
+    protected $signature = 'storyfeed:doctor
+        {--json : Emit the report as JSON}
+        {--stubs : Print only the registrations the findings imply}
+        {--only=* : Limit to named checks (see --list)}
+        {--list : List the available check names}
+        {--fail-on= : Exit non-zero when findings reach this severity (warning|error)}';
 
     protected $description = 'Audit grammar/icon/mapping coverage and feed health';
 
     public function handle(StoryfeedManager $storyfeed): int
     {
-        $issues = 0;
+        if ($this->option('list')) {
+            foreach ($this->checkNames($storyfeed) as $name) {
+                $this->line($name);
+            }
 
-        $issues += $this->checkTables();
-        $issues += $this->checkColumns();
-        $issues += $this->checkCoverage($storyfeed);
-        $issues += $this->checkAggregateCoverage($storyfeed);
-        $issues += $this->checkAggregateTokens($storyfeed);
-        $issues += $this->checkHashLengths();
-        $issues += $this->checkSnapshotShapes();
-        $issues += $this->checkBacklog();
-        $issues += $this->checkParties();
-
-        if ($issues === 0) {
-            $this->info('Storyfeed looks healthy.');
-        } else {
-            $this->warn("{$issues} finding(s) — see above.");
+            return self::SUCCESS;
         }
 
-        return self::SUCCESS;
-    }
+        /** @var list<string> $only */
+        $only = array_filter((array) $this->option('only'));
 
-    protected function checkTables(): int
-    {
-        $issues = 0;
+        $report = $storyfeed->doctor($only);
 
-        foreach (config('storyfeed.tables', []) as $key => $table) {
-            if (! Schema::hasTable($table)) {
-                $this->warn("Table `{$table}` ({$key}) does not exist — run the migrations.");
-                $issues++;
-            }
-        }
-
-        return $issues;
-    }
-
-    /**
-     * Columns added after 1.x tables were first published. A consumer whose
-     * install predates the column deploys green, then every write that
-     * touches it throws SQLSTATE[42S22] at runtime — a production feed once
-     * froze for hours this way (snapshot writes dying silently while reads
-     * looked alive). This is the mechanical detector for schema drift
-     * between published migrations and what the package writes.
-     */
-    protected function checkColumns(): int
-    {
-        $expected = [
-            'snapshots' => ['shape'],
-            'groupings' => ['winner'],
-        ];
-
-        $issues = 0;
-
-        foreach ($expected as $key => $columns) {
-            $table = config("storyfeed.tables.{$key}", "feed_{$key}");
-
-            if (! Schema::hasTable($table)) {
-                continue; // checkTables() already reported it
-            }
-
-            foreach ($columns as $column) {
-                if (! Schema::hasColumn($table, $column)) {
-                    $this->warn(
-                        "Table `{$table}` is missing the `{$column}` column — writes touching it will throw at "
-                        .'runtime. Publish and run the package migrations (vendor:publish --tag=storyfeed-migrations).'
-                    );
-                    $issues++;
-                }
-            }
-        }
-
-        return $issues;
-    }
-
-    protected function checkCoverage(StoryfeedManager $storyfeed): int
-    {
-        if (! Schema::hasTable(config('storyfeed.tables.activities', 'feed_activities'))) {
-            return 0;
-        }
-
-        $issues = 0;
-
-        $pairs = $this->activityQuery()
-            ->distinct()
-            ->get(['object_type as type', 'verb']);
-
-        foreach ($pairs as $pair) {
-            $label = ($pair->type ?? '(no object)').'.'.$pair->verb;
-
-            if ($storyfeed->template($pair->type, $pair->verb) === null) {
-                $this->warn("No grammar entry resolves for `{$label}` — headlines will be null.");
-                $issues++;
-            }
-
-            if ($storyfeed->icon($pair->type, $pair->verb) === null) {
-                $this->warn("No icon resolves for `{$label}`.");
-                $issues++;
-            }
-
-            $type = $storyfeed->activityType($pair->verb);
-
-            if ($type === null) {
-                $this->line("Note: verb `{$pair->verb}` has no AS2.0 mapping — will serialize as base `Activity`.");
-            }
-
-            if ($type instanceof ActivityType && $type->isIntransitive() && $pair->type !== null) {
-                $count = $this->activityQuery()
-                    ->where('verb', $pair->verb)
-                    ->where('object_type', $pair->type)
-                    ->count();
-
-                $this->warn(
-                    "Verb `{$pair->verb}` maps to intransitive type {$type->value} but {$count} activities carry "
-                    .'an object — these serialize as base `Activity`. Map the verb to a transitive type, or stop '
-                    .'setting an object.'
-                );
-                $issues++;
-            }
-        }
-
-        return $issues;
-    }
-
-    /**
-     * An aggregate template referencing a token its axis does not pin
-     * renders a lie: ":object" on the repeat axis produced "made 5
-     * revisions to Aut Beatae.docx" over children spanning five different
-     * documents. Registration accepts anything; this is where it's caught.
-     */
-    protected function checkAggregateTokens(StoryfeedManager $storyfeed): int
-    {
-        $issues = 0;
-
-        foreach ($storyfeed->registeredAggregateGrammar() as $key => $template) {
-            if (! is_string($template)) {
-                continue; // closures pre-render; nothing to inspect
-            }
-
-            $axis = explode('.', $key, 2)[0];
-
-            // Derived from the axis registry — a token is allowed iff the
-            // axis's recipe makes it homogeneous; wildcards get the
-            // intersection across all registered axes.
-            $allowed = $storyfeed->aggregateTokens($axis);
-
-            if ($allowed === null) {
-                $this->line(
-                    "Note: aggregate grammar key `{$key}` references axis `{$axis}`, which is not registered — "
-                    .'it will never resolve. Registered axes: '.implode(', ', array_keys($storyfeed->registeredAxes())).'.'
-                );
-
-                continue;
-            }
-
-            preg_match_all('/:[a-z]+/', $template, $matches);
-
-            foreach (array_diff(array_unique($matches[0]), $allowed) as $token) {
-                $this->warn(
-                    "Aggregate template `{$key}` references `{$token}`, which "
-                    .($axis === '*' ? 'not every axis pins' : "the {$axis} axis does not pin")
-                    .' — groups on that axis may span many values, so the headline can lie. '
-                    .'Allowed here: '.implode(' ', $allowed).'.'
-                );
-                $issues++;
-            }
-        }
-
-        return $issues;
-    }
-
-    /**
-     * A grouping hash at the column limit has probably been truncated —
-     * and truncated hashes OVER-group: unrelated activities collapse into
-     * one node. (Learned the hard way: a legacy app stored hashes in
-     * VARCHAR(50) with no guard.)
-     */
-    protected function checkHashLengths(): int
-    {
-        $groupings = config('storyfeed.tables.groupings', 'feed_groupings');
-
-        if (! Schema::hasTable($groupings)) {
-            return 0;
-        }
-
-        $grouping = config('storyfeed.models.grouping', Grouping::class);
-
-        $suspect = $grouping::query()
-            ->whereRaw($this->lengthExpression('hash').' >= 255')
-            ->count();
-
-        if ($suspect > 0) {
-            $this->warn(
-                "{$suspect} grouping hash(es) are at the 255-character column limit — likely truncated, which "
-                .'silently over-groups unrelated activities. Shorten the strategy output (e.g. digest long parts).'
-            );
-
-            return 1;
-        }
-
-        return 0;
-    }
-
-    protected function lengthExpression(string $column): string
-    {
-        return match (Schema::getConnection()->getDriverName()) {
-            'sqlsrv' => "len({$column})",
-            default => "length({$column})",
+        match (true) {
+            (bool) $this->option('json') => $this->renderJson($report),
+            (bool) $this->option('stubs') => $this->renderStubs($report),
+            default => $this->renderText($report),
         };
+
+        return $this->exitCode($report);
+    }
+
+    protected function renderText(Report $report): void
+    {
+        foreach ($report->all() as $finding) {
+            match ($finding->severity) {
+                Severity::Error => $this->error($finding->message),
+                Severity::Warning => $this->warn($finding->message),
+                Severity::Info => $this->line($finding->message),
+            };
+        }
+
+        if ($report->isHealthy()) {
+            $this->info('Storyfeed looks healthy.');
+
+            return;
+        }
+
+        $this->warn("{$report->count()} finding(s) — see above.");
+
+        if ($report->fixes()->isNotEmpty()) {
+            $this->line('Run with --stubs to print the registrations these imply.');
+        }
+    }
+
+    protected function renderJson(Report $report): void
+    {
+        $this->line((string) json_encode($report->toArray(), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
     }
 
     /**
-     * A group on an aggregate axis without aggregate grammar renders the
-     * singular headline of its head member — "Sally uploaded a file" over a
-     * node that carries three actors. Silent, and wrong.
+     * Only the code. No headings, no counts — the output is meant to be piped
+     * or pasted, and a "3 findings" line in the middle of a PHP array is the
+     * kind of helpfulness that makes a tool unusable in a pipeline.
      */
-    protected function checkAggregateCoverage(StoryfeedManager $storyfeed): int
+    protected function renderStubs(Report $report): void
     {
-        $groupings = config('storyfeed.tables.groupings', 'feed_groupings');
-        $activities = config('storyfeed.tables.activities', 'feed_activities');
+        $fixes = $report->fixes();
 
-        if (! Schema::hasTable($groupings) || ! Schema::hasTable($activities)) {
-            return 0;
+        if ($fixes->isEmpty()) {
+            $this->line('// Nothing to author — no finding names a registry edit.');
+
+            return;
         }
 
-        $issues = 0;
-
-        // ALL registered axes, fallback included: the fallback's exclusion
-        // from aggregateAxes() is about curation priority — a different
-        // question from whether a headline resolves. Repeat groups render
-        // aggregate headlines like any other axis, and a missing repeat.*
-        // key used to be structurally invisible here (found live: `archive`
-        // slipped four rounds of audits). Only clusters of 2+ count —
-        // winners in a cluster of one render as plain activity nodes.
-        $clustered = $this->groupingQuery()
-            ->select(["{$groupings}.bucket", "{$groupings}.hash"])
-            ->where("{$groupings}.winner", true)
-            ->whereIn("{$groupings}.bucket", array_keys($storyfeed->registeredAxes()))
-            ->groupBy(["{$groupings}.bucket", "{$groupings}.hash"])
-            ->havingRaw('count(*) > 1');
-
-        $pairs = $this->activityQuery()
-            ->join($groupings, "{$groupings}.activity_id", '=', "{$activities}.id")
-            ->where("{$groupings}.winner", true)
-            ->joinSub($clustered, 'clustered', function ($join) use ($groupings) {
-                $join->on('clustered.bucket', '=', "{$groupings}.bucket")
-                    ->on('clustered.hash', '=', "{$groupings}.hash");
-            })
-            ->distinct()
-            ->get(["{$groupings}.bucket as axis", "{$activities}.verb"]);
-
-        foreach ($pairs as $pair) {
-            if ($storyfeed->aggregateTemplate($pair->axis, $pair->verb) === null) {
-                $this->warn(
-                    "No aggregate grammar resolves for `{$pair->axis}.{$pair->verb}` — those group nodes fall back "
-                    .'to the singular headline only when its tokens are safe for the axis, and otherwise render '
-                    .'with NO headline at all. Register one with Storyfeed::aggregateGrammar().'
-                );
-                $issues++;
-            }
+        foreach ($fixes as $fix) {
+            $this->line($fix->snippet());
+            $this->newLine();
         }
-
-        return $issues;
     }
 
     /**
-     * Mixed shape fingerprints within one model type mean some snapshots
-     * predate the current toFeed() structure — renderers may hit missing
-     * keys. Cheap data-only check (no model loading); the trickle is the
-     * healer.
+     * Exit code stays 0 by default — doctor has always been safe to run
+     * anywhere, and changing that silently would break schedulers. `--fail-on`
+     * is the opt-in CI gate.
      */
-    protected function checkSnapshotShapes(): int
+    protected function exitCode(Report $report): int
     {
-        $table = config('storyfeed.tables.snapshots', 'feed_snapshots');
+        $floor = $this->option('fail-on');
 
-        // Missing column is checkColumns()'s finding; querying it here
-        // would just crash the doctor mid-diagnosis.
-        if (! Schema::hasTable($table) || ! Schema::hasColumn($table, 'shape')) {
-            return 0;
+        if ($floor === null) {
+            return self::SUCCESS;
         }
 
-        $snapshot = config('storyfeed.models.snapshot', Snapshot::class);
+        $severity = Severity::tryFrom((string) $floor);
 
-        $issues = 0;
+        if ($severity === null || $severity === Severity::Info) {
+            $this->error("--fail-on expects `warning` or `error`, got `{$floor}`.");
 
-        $mixed = $snapshot::query()
-            ->selectRaw('model_type, count(distinct shape) as shapes, sum(case when shape is null then 1 else 0 end) as unshaped')
-            ->groupBy('model_type')
-            ->havingRaw('count(distinct shape) > 1 or sum(case when shape is null then 1 else 0 end) > 0')
-            ->get();
-
-        foreach ($mixed as $row) {
-            $this->warn(
-                "Snapshots of `{$row->model_type}` carry mixed shape fingerprints — some predate the current "
-                .'toFeed() structure. storyfeed:trickle converges them (or run it now).'
-            );
-            $issues++;
+            return self::INVALID;
         }
 
-        return $issues;
-    }
+        $reached = $report->problems()->contains(
+            fn (Finding $f) => $f->severity->atLeast($severity)
+        );
 
-    protected function checkBacklog(): int
-    {
-        if (! Schema::hasTable(config('storyfeed.tables.activities', 'feed_activities'))) {
-            return 0;
-        }
-
-        $backlog = $this->activityQuery()->uncached()->count();
-
-        if ($backlog > 0) {
-            $this->warn("{$backlog} activities have uncached entities — schedule storyfeed:trickle (or run storyfeed:rebuild).");
-
-            return 1;
-        }
-
-        return 0;
+        return $reached ? self::FAILURE : self::SUCCESS;
     }
 
     /**
-     * Parties are created implicitly from strings, so a typo silently mints
-     * a new one. Surfacing unused parties is how that gets caught.
+     * The names `--only=` accepts. Read from the manager rather than from
+     * Doctor::DEFAULT_CHECKS so app-registered checks are listed too — a
+     * `--list` that omits half the checks is the "silently skipped category"
+     * problem in miniature.
+     *
+     * @return list<string>
      */
-    protected function checkParties(): int
+    protected function checkNames(StoryfeedManager $storyfeed): array
     {
-        $table = config('storyfeed.tables.parties', 'feed_parties');
-
-        if (! Schema::hasTable($table)) {
-            return 0;
-        }
-
-        $party = config('storyfeed.models.party', Party::class);
-
-        $parties = $party::query()->get();
-
-        if ($parties->isEmpty()) {
-            return 0;
-        }
-
-        $alias = (new $party)->getMorphClass();
-        $issues = 0;
-
-        foreach ($parties as $row) {
-            $count = $this->activityQuery()
-                ->where(function ($query) use ($alias, $row) {
-                    foreach (['actor', 'object', 'target', 'context'] as $role) {
-                        $query->orWhere(function ($q) use ($role, $alias, $row) {
-                            $q->where("{$role}_type", $alias)->where("{$role}_id", $row->getKey());
-                        });
-                    }
-                })
-                ->count();
-
-            if ($count === 0) {
-                $this->warn("Party `{$row->name}` ({$row->key}) has no activities — likely a typo'd name.");
-                $issues++;
-            } else {
-                $this->line("Party `{$row->name}` ({$row->key}): {$count} activities.");
-            }
-        }
-
-        return $issues;
-    }
-
-    protected function activityQuery()
-    {
-        $model = config('storyfeed.models.activity', Activity::class);
-
-        return $model::query();
-    }
-
-    protected function groupingQuery()
-    {
-        $model = config('storyfeed.models.grouping', Grouping::class);
-
-        return $model::query();
+        return array_values(array_unique($storyfeed->checkNames()));
     }
 }
