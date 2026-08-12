@@ -1,9 +1,12 @@
 <?php
 
 use Storyfeed\Facades\Storyfeed;
+use Storyfeed\Models\Activity;
+use Storyfeed\StoryfeedManager;
 use Workbench\App\Models\Customer;
 use Workbench\App\Models\Delivery;
 use Workbench\App\Models\User;
+use Workbench\App\Stories\DeliveryWasConfirmed;
 
 it('emits the same payload shape as before the recording API change', function () {
     $user = User::create(['name' => 'Sally', 'email' => 's@example.com']);
@@ -54,4 +57,57 @@ it('emits the frozen group-node shape', function () {
         'kind', 'id', 'verb', 'published_at', 'headline_template', 'headline',
         'icon', 'actor', 'object', 'target', 'context', 'data',
     ]);
+});
+
+it('emits a byte-identical payload whether authored as a Story or a registry entry', function () {
+    // THE test that makes the Story layer safe. Stories compile down into the
+    // registries, so the payload must not be able to tell which authoring
+    // surface was used. If this holds, authoring-layer R&D can continue
+    // indefinitely behind a frozen contract — which is the architectural
+    // promise the layer was designed around.
+    $strip = function (array $payload): array {
+        // ids and timestamps differ per row by design.
+        foreach ($payload['items'] as &$item) {
+            unset($item['id'], $item['published_at']);
+        }
+
+        unset($payload['next_cursor'], $payload['sync_token']);
+
+        return $payload;
+    };
+
+    $user = User::create(['name' => 'Sally', 'email' => 'sally@example.com']);
+    $customer = Customer::create(['name' => 'Acme Co.']);
+
+    // Authored the old way.
+    Storyfeed::grammar(['delivery.confirm' => ':actor confirmed :object for :target'])
+        ->icons(['delivery.confirm' => 'bi-truck'])
+        ->verbs(['confirm' => 'Update']);
+
+    Storyfeed::activity('confirm', Delivery::create(['tracking_number' => 'TN-1']))
+        ->actor($user)->for($customer)->publish();
+
+    $viaRegistry = $strip(Storyfeed::feed()->get()->toArray());
+
+    // Same activity, authored as a Story, on a fresh manager.
+    Activity::query()->forceDelete();
+    app()->forgetInstance(StoryfeedManager::class);
+    Storyfeed::clearResolvedInstances();
+
+    Storyfeed::stories([DeliveryWasConfirmed::class]);
+
+    DeliveryWasConfirmed::activity(Delivery::create(['tracking_number' => 'TN-2']))
+        ->actor($user)->for($customer)->publish();
+
+    $viaStory = $strip(Storyfeed::feed()->get()->toArray());
+
+    // Object labels differ (different tracking numbers), so compare everything
+    // the authoring layer could possibly have moved.
+    expect($viaStory['payload_version'])->toBe($viaRegistry['payload_version'])
+        ->and(array_keys($viaStory['items'][0]))->toBe(array_keys($viaRegistry['items'][0]))
+        ->and($viaStory['items'][0]['headline_template'])->toBe($viaRegistry['items'][0]['headline_template'])
+        ->and($viaStory['items'][0]['icon'])->toBe($viaRegistry['items'][0]['icon'])
+        ->and($viaStory['items'][0]['verb'])->toBe($viaRegistry['items'][0]['verb'])
+        ->and($viaStory['items'][0]['actor'])->toBe($viaRegistry['items'][0]['actor'])
+        ->and($viaStory['items'][0]['target'])->toBe($viaRegistry['items'][0]['target']);
 });

@@ -36,6 +36,12 @@ class TestCase extends Orchestra
         // Free-form verbs are a guarantee of the package; the suite exercises
         // them deliberately. StrictVerbTest opts in explicitly.
         config()->set('storyfeed.verbs.strict', false);
+
+        // Same reasoning for grammar: "activities are never hidden by the read
+        // path" means an unauthored activity MUST still publish and degrade to
+        // a null headline, and most of this suite exercises that guarantee.
+        // StrictGrammarTest opts in explicitly.
+        config()->set('storyfeed.grammar.strict', false);
     }
 
     protected function defineDatabaseMigrations(): void

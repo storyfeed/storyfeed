@@ -8,6 +8,7 @@ use DateTimeInterface;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Auth;
 use InvalidArgumentException;
+use Storyfeed\Actions\CompileStories;
 use Storyfeed\ActivityStreams\ActivityType;
 use Storyfeed\ActivityStreams\CoreType;
 use Storyfeed\ActivityStreams\ObjectType;
@@ -17,6 +18,7 @@ use Storyfeed\Contracts\FeedVerb;
 use Storyfeed\Contracts\HasActivityStreamsType;
 use Storyfeed\Diagnostics\Doctor;
 use Storyfeed\Diagnostics\Report;
+use Storyfeed\Exceptions\StoryMisconfigured;
 use Storyfeed\Grouping\Axis;
 use Storyfeed\Models\Activity;
 use Storyfeed\Models\Party;
@@ -101,6 +103,35 @@ class StoryfeedManager
      * @var array<string, true>
      */
     protected array $collectables = [];
+
+    /**
+     * Registered story definitions, in registration order.
+     *
+     * Typed loosely on purpose: this holds whatever the app passed, and
+     * validating it is exactly what storyDefinitions() is for. Narrowing it
+     * here would tell the analyser the checks are unreachable while leaving
+     * the runtime just as exposed.
+     *
+     * @var array<int|string, mixed>
+     */
+    protected array $stories = [];
+
+    protected bool $storiesCompiled = false;
+
+    /**
+     * The compiled output, cached in memory (or seeded from a manifest).
+     *
+     * @var array{grammar: array<string, string>, aggregateGrammar: array<string, string>, icons: array<string, string>, verbs: array<string, mixed>}|null
+     */
+    protected ?array $compiled = null;
+
+    /**
+     * What the last compile merged into the registries, so a recompile can
+     * withdraw it first (see retractApplied()).
+     *
+     * @var array{grammar: array<string, string>, aggregateGrammar: array<string, string>, icons: array<string, string>, verbs: array<string, mixed>}|null
+     */
+    protected ?array $applied = null;
 
     /**
      * Health checks. Null means "the shipped set" — resolved lazily so
@@ -361,6 +392,157 @@ class StoryfeedManager
     }
 
     /**
+     * Register story definitions — classes, StoryDefinition objects, or
+     * `'type.verb' => [...]` arrays (see Storyfeed\Story).
+     *
+     * @param  array<int|string, class-string<Story>|StoryDefinition|array<string, mixed>>  $stories
+     */
+    public function stories(array $stories, bool $merge = true): static
+    {
+        $this->stories = $merge ? [...$this->stories, ...$stories] : $stories;
+
+        // Registering after a compile (a second provider, a test) must not be
+        // silently ignored — and the memoized output is now stale.
+        $this->storiesCompiled = false;
+        $this->compiled = null;
+
+        return $this;
+    }
+
+    /**
+     * Compile registered stories into the registries.
+     *
+     * Deferred to App::booted() by the service provider so PROVIDER ORDERING IS
+     * IRRELEVANT: compilation reads the axis registry (to validate group axes)
+     * and the verb registry, and an app that calls stories() before axes()
+     * would otherwise get a confusing "unknown axis" throw for a correct
+     * configuration.
+     *
+     * Hand-written registrations WIN, whichever order they were made in. An
+     * escape hatch you cannot use to override is not an escape hatch.
+     */
+    public function compileStories(): void
+    {
+        // Set BEFORE applying: the readers below are guarded by this flag and
+        // applying calls verbs(), which calls a guarded reader. Without this
+        // ordering the guard recurses forever.
+        $this->storiesCompiled = true;
+
+        $this->retractApplied();
+
+        if ($this->stories === []) {
+            return;
+        }
+
+        $compiled = $this->compiled ?? (new CompileStories)($this->storyDefinitions(), $this);
+
+        $this->compiled = $compiled;
+
+        $this->grammar = [...$compiled['grammar'], ...$this->grammar];
+        $this->aggregateGrammar = [...$compiled['aggregateGrammar'], ...$this->aggregateGrammar];
+        $this->icons = [...$compiled['icons'], ...$this->icons];
+        $this->verbs = [...$compiled['verbs'], ...$this->verbs];
+
+        foreach (array_keys($compiled['verbs']) as $verb) {
+            $this->declaredVerbs[$verb] ??= true;
+        }
+
+        $this->applied = $compiled;
+    }
+
+    /**
+     * Undo a previous compile's contribution before recompiling.
+     *
+     * Compiled entries are merged INTO the registries so the readers stay a
+     * single array lookup. That means a second compile would otherwise find its
+     * own earlier output sitting in `$this->grammar` and treat it as
+     * hand-written — so a story whose headline CHANGED between compiles would
+     * keep the old text, silently. Only entries still identical to what this
+     * layer put there are withdrawn; anything a hand-written call has since
+     * replaced is left exactly where it is.
+     */
+    protected function retractApplied(): void
+    {
+        if ($this->applied === null) {
+            return;
+        }
+
+        foreach (['grammar', 'aggregateGrammar', 'icons', 'verbs'] as $registry) {
+            foreach ($this->applied[$registry] as $key => $value) {
+                if (($this->{$registry}[$key] ?? null) === $value) {
+                    unset($this->{$registry}[$key]);
+                }
+            }
+        }
+
+        $this->applied = null;
+    }
+
+    /**
+     * The normalized definitions, in registration order.
+     *
+     * @return array<int, StoryDefinition>
+     */
+    public function storyDefinitions(): array
+    {
+        $definitions = [];
+
+        foreach ($this->stories as $key => $story) {
+            $definitions[] = match (true) {
+                $story instanceof StoryDefinition => $story,
+                is_array($story) => StoryDefinition::fromArray((string) $key, $story),
+                is_string($story) && is_a($story, Story::class, true) => StoryDefinition::fromStory($story),
+                default => throw StoryMisconfigured::notAStory(is_string($story) ? $story : get_debug_type($story)),
+            };
+        }
+
+        return $definitions;
+    }
+
+    /**
+     * The compiled arrays — closure-free by construction, so a manifest can
+     * var_export them.
+     *
+     * @return array{grammar: array<string, string>, aggregateGrammar: array<string, string>, icons: array<string, string>, verbs: array<string, mixed>}
+     */
+    public function compiledStories(): array
+    {
+        return (new CompileStories)($this->storyDefinitions(), $this);
+    }
+
+    /**
+     * Seed the compiled arrays from a cached manifest, skipping compilation.
+     *
+     * @param  array{grammar: array<string, string>, aggregateGrammar: array<string, string>, icons: array<string, string>, verbs: array<string, mixed>}  $compiled
+     */
+    public function useCompiledStories(array $compiled): static
+    {
+        $this->compiled = $compiled;
+        $this->storiesCompiled = false;
+
+        return $this;
+    }
+
+    /** @return array<int|string, mixed> */
+    public function registeredStories(): array
+    {
+        return $this->stories;
+    }
+
+    /**
+     * Compile on first read if boot has not done it yet. Console commands,
+     * tests and the fake all reach the registries outside a normal request
+     * lifecycle; this mirrors the existing `$this->axes ??= defaultAxes()`
+     * laziness and costs one boolean per resolution.
+     */
+    protected function ensureStoriesCompiled(): void
+    {
+        if (! $this->storiesCompiled) {
+            $this->compileStories();
+        }
+    }
+
+    /**
      * Register additional health checks (see Contracts\DiagnosticCheck).
      *
      * @param  array<int, class-string<DiagnosticCheck>|DiagnosticCheck>  $checks
@@ -580,6 +762,8 @@ class StoryfeedManager
      */
     public function declaredVerb(string $verb): bool
     {
+        $this->ensureStoriesCompiled();
+
         return isset($this->declaredVerbs[$verb]);
     }
 
@@ -634,6 +818,8 @@ class StoryfeedManager
      */
     public function template(?string $type, string $verb): string|Closure|null
     {
+        $this->ensureStoriesCompiled();
+
         return $this->resolve($this->grammar, $type, $verb);
     }
 
@@ -643,6 +829,8 @@ class StoryfeedManager
      */
     public function aggregateTemplate(?string $axis, string $verb): string|Closure|null
     {
+        $this->ensureStoriesCompiled();
+
         return $this->resolve($this->aggregateGrammar, $axis, $verb);
     }
 
@@ -651,6 +839,8 @@ class StoryfeedManager
      */
     public function icon(?string $type, string $verb): ?string
     {
+        $this->ensureStoriesCompiled();
+
         return $this->resolve($this->icons, $type, $verb);
     }
 
@@ -660,6 +850,8 @@ class StoryfeedManager
      */
     public function activityType(string $verb): ActivityType|string|null
     {
+        $this->ensureStoriesCompiled();
+
         return $this->verbs[$verb] ?? null;
     }
 
@@ -700,24 +892,32 @@ class StoryfeedManager
     /** @return array<string, string|Closure> */
     public function registeredGrammar(): array
     {
+        $this->ensureStoriesCompiled();
+
         return $this->grammar;
     }
 
     /** @return array<string, string|Closure> */
     public function registeredAggregateGrammar(): array
     {
+        $this->ensureStoriesCompiled();
+
         return $this->aggregateGrammar;
     }
 
     /** @return array<string, string> */
     public function registeredIcons(): array
     {
+        $this->ensureStoriesCompiled();
+
         return $this->icons;
     }
 
     /** @return array<string, ActivityType|string> */
     public function registeredVerbs(): array
     {
+        $this->ensureStoriesCompiled();
+
         return $this->verbs;
     }
 
@@ -818,16 +1018,22 @@ class StoryfeedManager
      */
     public function templateKey(?string $type, string $verb): ?string
     {
+        $this->ensureStoriesCompiled();
+
         return $this->resolveKey($this->grammar, $type, $verb);
     }
 
     public function iconKey(?string $type, string $verb): ?string
     {
+        $this->ensureStoriesCompiled();
+
         return $this->resolveKey($this->icons, $type, $verb);
     }
 
     public function aggregateTemplateKey(?string $axis, string $verb): ?string
     {
+        $this->ensureStoriesCompiled();
+
         return $this->resolveKey($this->aggregateGrammar, $axis, $verb);
     }
 

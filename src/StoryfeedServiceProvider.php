@@ -47,6 +47,15 @@ class StoryfeedServiceProvider extends PackageServiceProvider
 
     public function packageBooted(): void
     {
+        // Stories compile AFTER every provider has booted, so provider
+        // ordering is irrelevant: compilation validates group axes against the
+        // axis registry and reads the verb registry, and an app that calls
+        // stories() before axes() would otherwise get an "unknown axis" throw
+        // for a perfectly correct configuration. The manager also compiles
+        // lazily on first registry read, which covers console commands, tests
+        // and the fake — anything reaching the registries outside a request.
+        $this->app->booted(fn () => $this->app->make(StoryfeedManager::class)->compileStories());
+
         // Package-owned aliases must be in Eloquent's map for morphTo() to
         // resolve them. enforceMorphMap() merges by default, so an app that
         // enforces its own map keeps these. MorphResolver additionally

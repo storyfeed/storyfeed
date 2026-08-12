@@ -257,4 +257,24 @@ return [
         'stale_after' => 30,
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Strict Grammar
+    |--------------------------------------------------------------------------
+    |
+    | Throw when publishing a (type, verb) with no headline authored, instead
+    | of letting the feed render a blank line. A development-time assertion
+    | like verbs.strict: null means strict in local/testing only, and
+    | production always publishes.
+    |
+    | This is the earliest place the "grammar was authored once and never grew"
+    | failure can be caught — GrammarCoverage catches it in CI and doctor
+    | catches it at runtime, but both need someone to look. This fires where
+    | the publish call is written.
+    */
+
+    'grammar' => [
+        'strict' => null,
+    ],
+
 ];

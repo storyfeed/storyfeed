@@ -18,6 +18,7 @@ use Storyfeed\Contracts\Feedable;
 use Storyfeed\Contracts\FeedVerb;
 use Storyfeed\Events\ActivityPublished;
 use Storyfeed\Exceptions\IncompleteActivity;
+use Storyfeed\Exceptions\UnauthoredActivity;
 use Storyfeed\Exceptions\UnknownVerb;
 use Storyfeed\Models\Activity;
 use Storyfeed\Models\Grouping;
@@ -182,6 +183,8 @@ class PendingActivity
         $manager = app(StoryfeedManager::class);
 
         $this->resolveDefaultActor($manager);
+
+        $this->assertAuthored($manager);
 
         if ($manager instanceof StoryfeedFake) {
             return $this->captureOnFake($manager);
@@ -355,6 +358,38 @@ class PendingActivity
         $strict = config('storyfeed.verbs.strict');
 
         return $strict ?? app()->environment('local', 'testing');
+    }
+
+    /**
+     * Strict grammar: publishing a (type, verb) with no headline authored is a
+     * development-time error rather than a null headline in production.
+     *
+     * This is the sharpest answer to the failure this package keeps hearing
+     * about — the grammar gets authored once, new modules ship, and nothing
+     * tells you the feed has fallen behind. GrammarCoverage catches it at suite
+     * level and doctor catches it at runtime, but both require someone to look.
+     * This one fires at the moment the publish call is written.
+     *
+     * Like verbs.strict: a development-time assertion, never a storage
+     * constraint, and it does not gate the icon — a missing icon degrades to a
+     * wildcard, which is cosmetic, while a missing headline is a blank line.
+     */
+    private function assertAuthored(StoryfeedManager $manager): void
+    {
+        $strict = config('storyfeed.grammar.strict');
+
+        if (! ($strict ?? app()->environment('local', 'testing'))) {
+            return;
+        }
+
+        $type = $this->activity->object_type;
+        $verb = (string) $this->activity->verb;
+
+        if ($manager->templateKey($type, $verb) !== null) {
+            return;
+        }
+
+        throw UnauthoredActivity::make($type, $verb);
     }
 
     /**
