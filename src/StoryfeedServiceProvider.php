@@ -10,6 +10,7 @@ use Spatie\LaravelPackageTools\PackageServiceProvider;
 use Storyfeed\Actions\CurateCluster;
 use Storyfeed\Events\ActivityDeleted;
 use Storyfeed\Models\Party;
+use Storyfeed\Support\StoryManifest;
 
 class StoryfeedServiceProvider extends PackageServiceProvider
 {
@@ -36,6 +37,8 @@ class StoryfeedServiceProvider extends PackageServiceProvider
                 Console\BundleCommand::class,
                 Console\DoctorCommand::class,
                 Console\VerbsCommand::class,
+                Console\CacheCommand::class,
+                Console\ClearCommand::class,
             ]);
     }
 
@@ -54,7 +57,25 @@ class StoryfeedServiceProvider extends PackageServiceProvider
         // for a perfectly correct configuration. The manager also compiles
         // lazily on first registry read, which covers console commands, tests
         // and the fake — anything reaching the registries outside a request.
-        $this->app->booted(fn () => $this->app->make(StoryfeedManager::class)->compileStories());
+        $this->app->booted(function () {
+            $storyfeed = $this->app->make(StoryfeedManager::class);
+
+            // A cached manifest short-circuits compilation. Applied HERE, not
+            // during registration, because every provider's stories() calls
+            // must already have landed.
+            $this->app->make(StoryManifest::class)->apply($storyfeed);
+
+            $storyfeed->compileStories();
+        });
+
+        // Join `php artisan optimize` / `optimize:clear`. Available in both
+        // supported Laravel lanes, so no method_exists guard — that would only
+        // hide a real incompatibility.
+        $this->optimizes(
+            optimize: 'storyfeed:cache',
+            clear: 'storyfeed:clear',
+            key: 'storyfeed',
+        );
 
         // Package-owned aliases must be in Eloquent's map for morphTo() to
         // resolve them. enforceMorphMap() merges by default, so an app that

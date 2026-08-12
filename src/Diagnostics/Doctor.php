@@ -33,6 +33,7 @@ class Doctor
         Checks\SnapshotShapes::class,
         Checks\Backlog::class,
         Checks\FeedStale::class,
+        Checks\ManifestStale::class,
         Checks\Parties::class,
     ];
 
