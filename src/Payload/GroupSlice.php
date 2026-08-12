@@ -18,23 +18,25 @@ final class GroupSlice
 {
     /**
      * @param  Collection<int, Activity>  $members  newest first, capped
-     * @param  int|null  $actorCount  distinct actors across ALL members —
-     *                                null when it was not computed
+     * @param  array<string, int>  $distinct  TRUE distinct counts per role
+     *                                        across ALL members (not just
+     *                                        the capped list)
      */
     public function __construct(
         public readonly ?string $axis,
         public readonly ?string $hash,
         public readonly int $count,
         public readonly Collection $members,
-        public readonly ?int $actorCount = null,
+        public readonly array $distinct = [],
     ) {}
 
     /**
      * @param  Collection<int, Activity>  $members
+     * @param  array<string, int>  $distinct
      */
-    public static function group(string $axis, string $hash, int $count, Collection $members, ?int $actorCount = null): self
+    public static function group(string $axis, string $hash, int $count, Collection $members, array $distinct = []): self
     {
-        return new self($axis, $hash, $count, $members, $actorCount);
+        return new self($axis, $hash, $count, $members, $distinct);
     }
 
     public static function solo(Activity $activity): self

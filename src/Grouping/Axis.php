@@ -175,10 +175,20 @@ class Axis
      *
      * @return array<int, string>
      */
+    /**
+     * Universal tokens, allowed on every axis: the PLURAL role tokens
+     * render exemplar lists ("Onboarding Portal, Analytics Dashboard and
+     * 2 others"), and a list of length one — a pinned role — is still
+     * true. Singular tokens remain pinned-only (the anti-lie rule).
+     */
+    protected const UNIVERSAL_TOKENS = [
+        ':actors', ':objects', ':targets', ':contexts', ':count', ':others',
+    ];
+
     public function pinnedTokens(): array
     {
         if ($this->custom !== null || $this->rowBacked) {
-            return [...$this->declaredPins, ':actors', ':count', ':others'];
+            return [...$this->declaredPins, ...self::UNIVERSAL_TOKENS];
         }
 
         $pinned = [];
@@ -189,7 +199,7 @@ class Axis
             }
         }
 
-        return [...$pinned, ':actors', ':count', ':others'];
+        return [...$pinned, ...self::UNIVERSAL_TOKENS];
     }
 
     protected function assemble(Activity $activity): ?string

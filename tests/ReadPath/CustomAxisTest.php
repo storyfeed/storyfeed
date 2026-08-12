@@ -53,7 +53,7 @@ it('drives a custom axis through the whole pipeline from one registration', func
         ->and($items[0]['axis'])->toBe('scene')
         ->and($items[0]['count'])->toBe(2)
         ->and($items[0]['headline_template'])->toBe(':actors commented in :context')
-        ->and($items[0]['exemplars']['object'])->toBeNull();
+        ->and($items[0]['exemplars']['objects'])->toHaveCount(2); // the collapsed dimension, listed
 });
 
 it('treats registration order as curation priority', function () {

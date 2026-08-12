@@ -194,3 +194,19 @@ it('can produce a coverage finding for EVERY registered axis', function () {
         ->expectsOutputToContain('No aggregate grammar resolves for `composite.epsilon`')
         ->assertSuccessful();
 });
+
+it('accepts plural tokens on every axis, singular still pinned-only', function () {
+    Storyfeed::aggregateGrammar([
+        'targets.add' => ':actor added :count items in :targets',   // plural: fine
+        'repeat.complete' => ':actor completed :objects',            // plural: fine
+        '*.archive' => ':actors archived :objects in :contexts',     // wildcard + plurals: fine
+        'repeat.revise' => ':actor revised :object',                 // singular unpinned: still a lie
+    ]);
+
+    $this->artisan('storyfeed:doctor')
+        ->doesntExpectOutputToContain('`targets.add`')
+        ->doesntExpectOutputToContain('`repeat.complete`')
+        ->doesntExpectOutputToContain('`*.archive`')
+        ->expectsOutputToContain('Aggregate template `repeat.revise` references `:object`')
+        ->assertSuccessful();
+});

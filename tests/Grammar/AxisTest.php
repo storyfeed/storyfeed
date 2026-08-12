@@ -28,13 +28,15 @@ it('does not apply when a required field is missing', function () {
 });
 
 it('derives pinned tokens from the recipe by mask algebra', function () {
+    $universals = [':actors', ':objects', ':targets', ':contexts', ':count', ':others'];
+
     expect(Axis::make('object')->key('aa:aid:v:oa!:oid!:d')->pinnedTokens())
-        ->toBe([':actor', ':object', ':actors', ':count', ':others'])
+        ->toBe([':actor', ':object', ...$universals])
         ->and(Axis::make('actors')->key('v:ta!:tid:d')->pinnedTokens())
-        ->toBe([':target', ':actors', ':count', ':others'])
+        ->toBe([':target', ...$universals])
         // aa without aid: the actor PAIR is incomplete, so :actor is unsafe.
         ->and(Axis::make('half')->key('aa:v:d')->pinnedTokens())
-        ->toBe([':actors', ':count', ':others']);
+        ->toBe($universals);
 });
 
 it('digests keys that exceed the length threshold', function () {
@@ -56,5 +58,5 @@ it('supports closure recipes with manually declared pins', function () {
         ->pins(':actor');
 
     expect($axis->hashFor(axisActivity()))->toBe('revise:2026-33')
-        ->and($axis->pinnedTokens())->toBe([':actor', ':actors', ':count', ':others']);
+        ->and($axis->pinnedTokens())->toBe([':actor', ':actors', ':objects', ':targets', ':contexts', ':count', ':others']);
 });

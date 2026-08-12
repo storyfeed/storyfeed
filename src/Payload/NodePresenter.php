@@ -139,20 +139,43 @@ class NodePresenter
         return [$entry, null];
     }
 
+    /** role => [plural exemplars key, snapshot relation] */
+    protected const GROUP_ROLES = [
+        'actor' => ['actors', 'cachedActor'],
+        'object' => ['objects', 'cachedObject'],
+        'target' => ['targets', 'cachedTarget'],
+        'context' => ['contexts', 'cachedContext'],
+    ];
+
     public function groupNode(GroupSlice $slice): array
     {
         $members = $slice->members;
         $first = $members->first();
 
-        $actorEntities = $members
-            ->filter(fn (Activity $a) => $a->actor_type !== null)
-            ->unique(fn (Activity $a) => $a->actor_type.':'.$a->actor_id)
-            ->values();
+        // UNIFORM exemplars (2026-08-12): every role is a list of up to 3
+        // distinct entities drawn from the loaded (capped) members. A role
+        // the axis pins collapses to exactly one entry BY CONSTRUCTION —
+        // all members share it — so no axis-conditional logic exists here,
+        // and the collapsed dimensions ("which projects? which tasks?")
+        // are finally nameable via the plural tokens.
+        $exemplars = [];
+        $distinct = [];
 
-        $exemplars = $actorEntities
-            ->take(3)
-            ->map(fn (Activity $a) => $this->entity($a->actor_type, $a->actor_id, $a->cachedActor))
-            ->all();
+        foreach (self::GROUP_ROLES as $role => [$key, $relation]) {
+            $unique = $members
+                ->filter(fn (Activity $a) => $a->{"{$role}_type"} !== null)
+                ->unique(fn (Activity $a) => $a->{"{$role}_type"}.':'.$a->{"{$role}_id"})
+                ->values();
+
+            $exemplars[$key] = $unique
+                ->take(3)
+                ->map(fn (Activity $a) => $this->entity($a->{"{$role}_type"}, $a->{"{$role}_id"}, $a->{$relation}))
+                ->all();
+
+            // True totals from the aggregate query; the in-page unique count
+            // is the floor when a caller built the slice without them.
+            $distinct[$key] = max($slice->distinct[$role] ?? 0, $unique->count());
+        }
 
         [$template, $headline] = $this->aggregateHeadline($slice);
 
@@ -170,18 +193,8 @@ class NodePresenter
             'headline_template' => $template,
             'headline' => $headline,
             'icon' => $this->storyfeed->icon($first->object_type, $first->verb),
-            'exemplars' => [
-                'actors' => $exemplars,
-                // Only an axis whose recipe pins object identity may name
-                // one; anywhere else the members may span many objects and
-                // this would be the "5 revisions to Aut Beatae.docx" lie.
-                'object' => in_array(':object', $this->storyfeed->aggregateTokens((string) $slice->axis) ?? [], true)
-                    ? $this->entity($first->object_type, $first->object_id, $first->cachedObject)
-                    : null,
-                'target' => $this->entity($first->target_type, $first->target_id, $first->cachedTarget),
-                'context' => $this->entity($first->context_type, $first->context_id, $first->cachedContext),
-            ],
-            'others_count' => max(0, ($slice->actorCount ?? $actorEntities->count()) - count($exemplars)),
+            'exemplars' => $exemplars,
+            'distinct' => $distinct,
             'children' => $children,
             'children_truncated' => $slice->count > count($children),
         ];

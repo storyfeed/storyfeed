@@ -44,8 +44,9 @@ it('publishes an explicit composite: one story, six atomic members', function ()
         ->and($items[0]['count'])->toBe(6)
         ->and($items[0]['children'])->toHaveCount(6)
         ->and($items[0]['headline_template'])->toBe(':actor uploaded :count files to :target')
-        ->and($items[0]['exemplars']['object'])->toBeNull()
-        ->and($items[0]['exemplars']['target']['label'])->toBe('Spring Campaign');
+        ->and($items[0]['exemplars']['objects'])->toHaveCount(3)
+        ->and($items[0]['distinct']['objects'])->toBe(6)
+        ->and($items[0]['exemplars']['targets'][0]['label'])->toBe('Spring Campaign');
 });
 
 it('shows the atomic timeline in flat mode — members yes, story no', function () {

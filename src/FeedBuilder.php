@@ -247,9 +247,9 @@ class FeedBuilder
         $groups = $candidates->filter(fn (FeedCandidate $candidate) => $candidate->isGroup())->values();
 
         $members = $this->fetchMembers($now, $groups);
-        $actorCounts = $this->countDistinctActors($now, $groups);
+        $distinct = $this->countDistinctRoles($now, $groups);
 
-        $slices = $candidates->map(function (FeedCandidate $candidate) use ($members, $actorCounts): GroupSlice {
+        $slices = $candidates->map(function (FeedCandidate $candidate) use ($members, $distinct): GroupSlice {
             if ($candidate->activity !== null) {
                 return GroupSlice::solo($candidate->activity);
             }
@@ -261,7 +261,7 @@ class FeedBuilder
                 (string) $candidate->hash,
                 $candidate->count,
                 $members->get($key) ?? $this->activityModel()->newCollection(),
-                $actorCounts[$key] ?? null,
+                $distinct[$key] ?? [],
             );
         });
 
@@ -522,17 +522,18 @@ class FeedBuilder
     }
 
     /**
-     * Distinct actors per selected group — the source of truth for
-     * `others_count`. It cannot be derived from `children`, which is capped:
-     * a 200-actor group would otherwise report "and 22 others".
-     *
-     * Counted through a subquery of distinct (group, actor) rows, because
-     * multi-column COUNT(DISTINCT …) is not portable.
+     * TRUE distinct counts per role per selected group — the source of the
+     * payload's `distinct` block. They cannot be derived from `children`,
+     * which is capped: a 200-actor group would otherwise report "and 22
+     * more". One aggregate query per role (4/page — acceptable; the Step 3
+     * read model absorbs this someday), each a subquery of distinct
+     * (group, role) rows because multi-column COUNT(DISTINCT …) is not
+     * portable.
      *
      * @param  Collection<int, FeedCandidate>  $groups
-     * @return array<string, int>
+     * @return array<string, array<string, int>> groupKey => role => count
      */
-    protected function countDistinctActors(Carbon $now, Collection $groups): array
+    protected function countDistinctRoles(Carbon $now, Collection $groups): array
     {
         if ($groups->isEmpty()) {
             return [];
@@ -541,25 +542,33 @@ class FeedBuilder
         $activities = $this->activityModel()->getTable();
         $groupings = $this->groupingModel()->getTable();
 
-        $distinct = $this->selectedGroupMembers($now, $groups)
-            ->whereNotNull("{$activities}.actor_type")
-            ->select([
-                "{$groupings}.bucket as group_bucket",
-                "{$groupings}.hash as group_hash",
-                "{$activities}.actor_type",
-                "{$activities}.actor_id",
-            ])
-            ->distinct()
-            ->toBase();
+        $counts = [];
 
-        return $this->activityModel()->getConnection()->query()
-            ->fromSub($distinct, 'd')
-            ->groupBy('group_bucket', 'group_hash')
-            ->select(['group_bucket', 'group_hash'])
-            ->selectRaw('count(*) as actors')
-            ->get()
-            ->mapWithKeys(fn ($row) => [$row->group_bucket."\x1f".$row->group_hash => (int) $row->actors])
-            ->all();
+        foreach (['actor', 'object', 'target', 'context'] as $role) {
+            $distinct = $this->selectedGroupMembers($now, $groups)
+                ->whereNotNull("{$activities}.{$role}_type")
+                ->select([
+                    "{$groupings}.bucket as group_bucket",
+                    "{$groupings}.hash as group_hash",
+                    "{$activities}.{$role}_type",
+                    "{$activities}.{$role}_id",
+                ])
+                ->distinct()
+                ->toBase();
+
+            $rows = $this->activityModel()->getConnection()->query()
+                ->fromSub($distinct, 'd')
+                ->groupBy('group_bucket', 'group_hash')
+                ->select(['group_bucket', 'group_hash'])
+                ->selectRaw('count(*) as total')
+                ->get();
+
+            foreach ($rows as $row) {
+                $counts[$row->group_bucket."\x1f".$row->group_hash][$role] = (int) $row->total;
+            }
+        }
+
+        return $counts;
     }
 
     /**

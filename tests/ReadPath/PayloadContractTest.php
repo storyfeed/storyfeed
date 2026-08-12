@@ -42,11 +42,14 @@ it('emits the frozen group-node shape', function () {
     expect($item['kind'])->toBe('group');
     expect(array_keys($item))->toBe([
         'kind', 'id', 'axis', 'count', 'verb', 'published_at', 'headline_template',
-        'headline', 'icon', 'exemplars', 'others_count', 'children', 'children_truncated',
+        'headline', 'icon', 'exemplars', 'distinct', 'children', 'children_truncated',
     ]);
-    // 'object' added 2026-08-12 (additive, pre-1.0): non-null only on the
-    // object axis, the one axis that pins object identity.
-    expect(array_keys($item['exemplars']))->toBe(['actors', 'object', 'target', 'context']);
+    // UNIFORM exemplars (2026-08-12, deliberate pre-freeze break): every
+    // role is a LIST of up to 3 distinct entities; a pinned role collapses
+    // to exactly one by construction. `distinct` carries true per-role
+    // totals (replacing others_count).
+    expect(array_keys($item['exemplars']))->toBe(['actors', 'objects', 'targets', 'contexts']);
+    expect(array_keys($item['distinct']))->toBe(['actors', 'objects', 'targets', 'contexts']);
     expect(array_keys($item['children'][0]))->toBe([
         'kind', 'id', 'verb', 'published_at', 'headline_template', 'headline',
         'icon', 'actor', 'object', 'target', 'context', 'data',
