@@ -11,6 +11,7 @@ use Illuminate\Pagination\Cursor;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Traits\Conditionable;
+use InvalidArgumentException;
 use Storyfeed\Grouping\NullStrategy;
 use Storyfeed\Models\Activity;
 use Storyfeed\Models\Builders\ActivityBuilder;
@@ -27,10 +28,13 @@ use Storyfeed\Payload\NodePresenter;
  *   Storyfeed::feed()->context($project)->get();
  *   Storyfeed::feed()->actor($user)->limit(15)->get();
  *
- * Feeds are CURATED by default — grouped on each activity's winning axis
- * ("Bob, Sally and 3 others uploaded files to Concur"), falling back to
- * plain repetition where curation hasn't spoken. ->flat() opts a view out
- * of grouping entirely (docs/grouping.md).
+ * Three read modes, each naming what you get (docs/grouping.md):
+ *
+ *   ->flat()      a log of atomic activities, no group nodes
+ *   ->grouped()   repeat-only grouping ("Sally uploaded 12 photos")
+ *   ->curated()   multi-axis winners ("Bob, Sally and 3 others uploaded…")
+ *
+ * The shipped default is curated; apps override via `grouping.default`.
  *
  * READ STRATEGY (docs/grouping.md). The page is selected in two phases:
  *
@@ -69,8 +73,8 @@ class FeedBuilder
     /** A named filter was requested but matched no party. */
     protected bool $unresolvable = false;
 
-    /** Opt out of grouping entirely: a flat log of atomic activities. */
-    protected bool $flat = false;
+    /** Read mode: 'flat' | 'grouped' | 'curated'. Null = configured default. */
+    protected ?string $mode = null;
 
     /** Ordering rank of each stream, applied at identical timestamps. */
     protected const RANK_GROUP = 0;
@@ -130,22 +134,56 @@ class FeedBuilder
     }
 
     /**
-     * A flat log of atomic activities — no group nodes at all. The per-view
-     * "log mode" opt-out from the curated default: story views group,
+     * A flat log of atomic activities — no group nodes at all. Log mode:
      * audit-style views ("my activity") often read better plain.
-     *
-     * The middle tier — repeat grouping without multi-axis curation, the
-     * classic pre-package behaviour — is an app-wide policy choice, not a
-     * per-view one: set `grouping.curate => false` and the default feed
-     * degrades to repeat-only everywhere.
-     *
-     * Cursors are view-specific: do not replay one across flat/grouped.
      */
-    public function flat(bool $flat = true): static
+    public function flat(): static
     {
-        $this->flat = $flat;
+        $this->mode = 'flat';
 
         return $this;
+    }
+
+    /**
+     * Repeat-only grouping — "Sally uploaded 12 photos", never multi-axis.
+     * The sensible middle tier, and the pre-package apps' proven behaviour.
+     */
+    public function grouped(): static
+    {
+        $this->mode = 'grouped';
+
+        return $this;
+    }
+
+    /**
+     * Multi-axis curated grouping — each activity under its winning axis
+     * ("Bob, Sally and 3 others uploaded files to Concur"). The shipped
+     * default; experimental in the sense that the policy keeps evolving.
+     *
+     * Cursors are mode-specific: never replay one across modes.
+     */
+    public function curated(): static
+    {
+        $this->mode = 'curated';
+
+        return $this;
+    }
+
+    /**
+     * The effective read mode: explicit per-view choice, else the app-wide
+     * `grouping.default`. Unknown modes are errors, not features.
+     */
+    protected function mode(): string
+    {
+        $mode = $this->mode ?? (string) config('storyfeed.grouping.default', 'curated');
+
+        if (! in_array($mode, ['flat', 'grouped', 'curated'], true)) {
+            throw new InvalidArgumentException(
+                "Unknown feed mode [{$mode}]. Valid modes: flat, grouped, curated.",
+            );
+        }
+
+        return $mode;
     }
 
     /**
@@ -164,7 +202,7 @@ class FeedBuilder
         // group-selection query and the member fetch.
         $now = Carbon::now();
 
-        return $this->grouped()
+        return $this->shouldGroup()
             ? $this->groupedPage($now)
             : $this->flatPage($now);
     }
@@ -190,9 +228,9 @@ class FeedBuilder
         return $resolved;
     }
 
-    protected function grouped(): bool
+    protected function shouldGroup(): bool
     {
-        return ! $this->flat
+        return $this->mode() !== 'flat'
             && ! is_a(config('storyfeed.grouping.strategy'), NullStrategy::class, true);
     }
 
@@ -342,18 +380,23 @@ class FeedBuilder
 
     /**
      * The grouping predicate, applied wherever the groupings table is in
-     * play: `winner = true` is the curated answer, and a row with NO winner
-     * stamped anywhere for its activity falls back to `repeat`.
+     * play.
      *
-     * That per-activity fallback carries two guarantees: adopters upgrade
-     * into the winner column with no backfill cliff (`storyfeed:curate`
-     * settles history incrementally), and an app that disables curation
-     * (`grouping.curate => false`) gets classic repeat-only grouping
-     * everywhere — the pre-package behaviour as an app-wide policy choice.
+     * grouped: the `repeat` axis, plain and proven.
+     *
+     * curated: `winner = true` is the curated answer, and a row with NO
+     * winner stamped anywhere for its activity falls back to `repeat` —
+     * so adopters upgrade into the winner column with no backfill cliff
+     * (`storyfeed:curate` settles history incrementally), and an app with
+     * curation stamping disabled reads as repeat-only.
      */
     protected function winning(): Closure
     {
         $groupings = $this->groupingModel()->getTable();
+
+        if ($this->mode() === 'grouped') {
+            return fn ($query) => $query->where("{$groupings}.bucket", 'repeat');
+        }
 
         return function ($query) use ($groupings) {
             $query->where("{$groupings}.winner", true)

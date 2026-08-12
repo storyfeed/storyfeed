@@ -27,6 +27,7 @@ class DoctorCommand extends Command
         $issues += $this->checkTables();
         $issues += $this->checkCoverage($storyfeed);
         $issues += $this->checkAggregateCoverage($storyfeed);
+        $issues += $this->checkAggregateTokens($storyfeed);
         $issues += $this->checkHashLengths();
         $issues += $this->checkBacklog();
         $issues += $this->checkParties();
@@ -104,6 +105,47 @@ class DoctorCommand extends Command
     }
 
     /**
+     * An aggregate template referencing a token its axis does not pin
+     * renders a lie: ":object" on the repeat axis produced "made 5
+     * revisions to Aut Beatae.docx" over children spanning five different
+     * documents. Registration accepts anything; this is where it's caught.
+     */
+    protected function checkAggregateTokens(StoryfeedManager $storyfeed): int
+    {
+        $issues = 0;
+
+        foreach ($storyfeed->registeredAggregateGrammar() as $key => $template) {
+            if (! is_string($template)) {
+                continue; // closures pre-render; nothing to inspect
+            }
+
+            $axis = explode('.', $key, 2)[0];
+
+            $allowed = $axis === '*'
+                ? array_values(array_intersect(...array_values(StoryfeedManager::AGGREGATE_TOKENS)))
+                : (StoryfeedManager::AGGREGATE_TOKENS[$axis] ?? null);
+
+            if ($allowed === null) {
+                continue; // unknown/custom axis — nothing to judge it against
+            }
+
+            preg_match_all('/:[a-z]+/', $template, $matches);
+
+            foreach (array_diff(array_unique($matches[0]), $allowed) as $token) {
+                $this->warn(
+                    "Aggregate template `{$key}` references `{$token}`, which "
+                    .($axis === '*' ? 'not every axis pins' : "the {$axis} axis does not pin")
+                    .' — groups on that axis may span many values, so the headline can lie. '
+                    .'Allowed here: '.implode(' ', $allowed).'.'
+                );
+                $issues++;
+            }
+        }
+
+        return $issues;
+    }
+
+    /**
      * A grouping hash at the column limit has probably been truncated —
      * and truncated hashes OVER-group: unrelated activities collapse into
      * one node. (Learned the hard way: a legacy app stored hashes in
@@ -162,7 +204,7 @@ class DoctorCommand extends Command
         $pairs = $this->activityQuery()
             ->join($groupings, "{$groupings}.activity_id", '=', "{$activities}.id")
             ->where("{$groupings}.winner", true)
-            ->whereIn("{$groupings}.bucket", ['actors', 'targets'])
+            ->whereIn("{$groupings}.bucket", ['actors', 'targets', 'object'])
             ->distinct()
             ->get(["{$groupings}.bucket as axis", "{$activities}.verb"]);
 

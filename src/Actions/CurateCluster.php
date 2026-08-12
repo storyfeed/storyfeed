@@ -22,6 +22,8 @@ use Storyfeed\Models\Grouping;
  *   actors  wins on distinct actors  >= min_actors  (default 3)
  *   targets wins on distinct targets >= min_targets (default 2), with
  *           at least min_target_members members
+ *   object  wins on the same object acted on >= min_object_members times
+ *           (default 2) — "Bob made 5 revisions to Aut Beatae.docx"
  *   else    repeat (a cluster of one renders as a plain activity node)
  *
  * The function is pure with respect to the database: same rows in, same
@@ -115,10 +117,12 @@ class CurateCluster
     /**
      * @param  array<string, string>  $hashes  bucket => hash
      */
+    /** Candidate axes, most specific story first — the order IS the tie-break. */
+    protected const AGGREGATE_AXES = ['actors', 'targets', 'object'];
+
     protected function decide(array $hashes): string
     {
-        // Priority order IS the tie-break: actors > targets > repeat.
-        foreach (['actors', 'targets'] as $axis) {
+        foreach (self::AGGREGATE_AXES as $axis) {
             if (isset($hashes[$axis]) && $this->eligible($axis, $hashes[$axis])) {
                 return $axis;
             }
@@ -129,18 +133,20 @@ class CurateCluster
 
     /**
      * Whether an aggregate axis has enough distinct entities in the
-     * dimension it collapses to be worth collapsing at all.
+     * dimension it collapses to be worth collapsing at all. `object`
+     * collapses repetition itself, so its dimension is plain member count.
      */
     protected function eligible(string $axis, string $hash): bool
     {
         $policy = config('storyfeed.grouping.policy', []);
 
-        if ($axis === 'actors') {
-            return $this->distinctRoles($axis, $hash, 'actor') >= (int) ($policy['min_actors'] ?? 3);
-        }
-
-        return $this->distinctRoles($axis, $hash, 'target') >= (int) ($policy['min_targets'] ?? 2)
-            && $this->clusterActivities($axis, $hash)->count() >= (int) ($policy['min_target_members'] ?? 3);
+        return match ($axis) {
+            'actors' => $this->distinctRoles($axis, $hash, 'actor') >= (int) ($policy['min_actors'] ?? 3),
+            'targets' => $this->distinctRoles($axis, $hash, 'target') >= (int) ($policy['min_targets'] ?? 2)
+                && $this->clusterActivities($axis, $hash)->count() >= (int) ($policy['min_target_members'] ?? 3),
+            'object' => $this->clusterActivities($axis, $hash)->count() >= (int) ($policy['min_object_members'] ?? 2),
+            default => false,
+        };
     }
 
     /**
@@ -152,7 +158,7 @@ class CurateCluster
      */
     protected function resettle(array $hashes): void
     {
-        foreach (['actors', 'targets'] as $axis) {
+        foreach (self::AGGREGATE_AXES as $axis) {
             // An ineligible cluster cannot have made anyone's stamp stale.
             if (! isset($hashes[$axis]) || ! $this->eligible($axis, $hashes[$axis])) {
                 continue;

@@ -85,6 +85,23 @@ class StoryfeedManager
     ];
 
     /**
+     * The tokens each grouping axis can honestly serve in an aggregate
+     * template — a token is listed iff the group node gives it a source
+     * that is homogeneous across members. The canonical counter-example:
+     * `:object` on the repeat axis renders "made 5 revisions to X" over
+     * children spanning five different documents.
+     *
+     * Wildcard-axis grammar keys (`*.verb`, `*.*`) serve every axis, so
+     * they validate against the intersection: `:actors :count :others`.
+     */
+    public const AGGREGATE_TOKENS = [
+        'repeat' => [':actor', ':actors', ':target', ':context', ':count', ':others'],
+        'actors' => [':actors', ':target', ':context', ':count', ':others'],
+        'targets' => [':actor', ':actors', ':context', ':count', ':others'],
+        'object' => [':actor', ':actors', ':object', ':count', ':others'],
+    ];
+
+    /**
      * Begin composing an activity.
      */
     public function activity(string|FeedVerb|BackedEnum|null $verb = null, Model|string|null $object = null): PendingActivity

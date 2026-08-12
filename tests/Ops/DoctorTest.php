@@ -79,3 +79,19 @@ it('warns about grouping hashes at the column length limit', function () {
         ->expectsOutputToContain('255-character column limit')
         ->assertSuccessful();
 });
+
+it('warns when an aggregate template references a token its axis does not pin', function () {
+    // The screenshot bug: ":object" on the repeat axis rendered "made 5
+    // revisions to Aut Beatae.docx" over five different documents.
+    Storyfeed::aggregateGrammar([
+        'repeat.revise' => ':actor made :count revisions to :object',
+        'object.revise' => ':actor made :count revisions to :object',
+        '*.upload' => ':actors uploaded :count files',
+    ]);
+
+    $this->artisan('storyfeed:doctor')
+        ->expectsOutputToContain('Aggregate template `repeat.revise` references `:object`')
+        ->doesntExpectOutputToContain('Aggregate template `object.revise`')
+        ->doesntExpectOutputToContain('Aggregate template `*.upload`')
+        ->assertSuccessful();
+});

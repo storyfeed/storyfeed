@@ -14,6 +14,10 @@ use Storyfeed\Models\Activity;
  *             ("Bob, Sally, and 3 others uploaded files to Project X")
  *  - targets: same actor + verb across many targets
  *             ("Sally commented on 2 projects")
+ *  - object:  the same actor acting on ONE object repeatedly
+ *             ("Bob made 5 revisions to Aut Beatae.docx") — the only axis
+ *             that pins object identity, which is what makes an :object
+ *             token safe in its aggregate templates
  */
 class MultiAxisStrategy implements GroupingStrategy
 {
@@ -43,6 +47,17 @@ class MultiAxisStrategy implements GroupingStrategy
             $hashes['targets'] = $this->hash([
                 $activity->actor_type, $activity->actor_id,
                 $activity->verb,
+                $day,
+            ]);
+        }
+
+        // No target component: "the same object repeated" is a story about
+        // the object, wherever the acts pointed.
+        if ($activity->object_type !== null && $activity->object_id !== null) {
+            $hashes['object'] = $this->hash([
+                $activity->actor_type, $activity->actor_id,
+                $activity->verb,
+                $activity->object_type, $activity->object_id,
                 $day,
             ]);
         }

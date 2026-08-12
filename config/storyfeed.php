@@ -129,11 +129,20 @@ return [
         |
         | Policy is not payload contract: change it freely (docs/payload.md).
         */
+        /*
+        | The app-wide default read mode: 'flat' (atomic log), 'grouped'
+        | (repeat-only, the classic behaviour), or 'curated' (multi-axis
+        | winners). Per-view calls (->flat() / ->grouped() / ->curated())
+        | always override.
+        */
+        'default' => 'curated',
+
         'curate' => true,
         'policy' => [
             'min_actors' => 3,
             'min_targets' => 2,
             'min_target_members' => 3,
+            'min_object_members' => 2,
         ],
 
         /*
