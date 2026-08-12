@@ -35,7 +35,7 @@ it('emits a spec-shaped Activity document', function () {
 
     expect($document['@context'])->toBe([
         'https://www.w3.org/ns/activitystreams',
-        'https://storyfeed.dev/ns',
+        'https://ns.storyfeed.dev',
     ])
         ->and($document['id'])->toEndWith("/storyfeed/activities/{$activity->uid}")
         ->and($document['type'])->toBe('Update')

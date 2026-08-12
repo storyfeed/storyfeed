@@ -4,6 +4,7 @@ use Storyfeed\ActivityStreams\ActivityType;
 use Storyfeed\ActivityStreams\Context;
 use Storyfeed\ActivityStreams\CoreType;
 use Storyfeed\ActivityStreams\ObjectType;
+use Storyfeed\Serialization\ActivitySerializer;
 
 /**
  * Terms present in the published AS2.0 context that Storyfeed deliberately
@@ -94,6 +95,16 @@ it('builds full IRIs', function () {
     expect(ActivityType::Create->iri())->toBe('https://www.w3.org/ns/activitystreams#Create')
         ->and(ObjectType::Person->iri())->toBe('https://www.w3.org/ns/activitystreams#Person')
         ->and(Context::AS2)->toBe('https://www.w3.org/ns/activitystreams');
+});
+
+it('pins the extension context URL', function () {
+    // Every document ever emitted carries this string, and the context is
+    // add-only forever — so once it resolves publicly it can never change.
+    // Frozen here for the same reason AxisHashStabilityTest freezes hashes:
+    // a silent edit would strand every stored document's @context.
+    expect(Context::SF)->toBe('https://ns.storyfeed.dev')
+        ->and(Context::SF_TERMS)->toBe('https://ns.storyfeed.dev#')
+        ->and(ActivitySerializer::CONTEXT)->toBe(Context::DEFAULT);
 });
 
 it('parses every spelling seen in the wild', function () {

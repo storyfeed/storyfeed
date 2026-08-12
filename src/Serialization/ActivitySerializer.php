@@ -3,6 +3,7 @@
 namespace Storyfeed\Serialization;
 
 use Storyfeed\ActivityStreams\ActivityType;
+use Storyfeed\ActivityStreams\Context;
 use Storyfeed\Models\Activity;
 use Storyfeed\Models\Grouping;
 use Storyfeed\Models\Snapshot;
@@ -28,10 +29,11 @@ use Storyfeed\Support\LinkResolver;
  */
 class ActivitySerializer
 {
-    public const CONTEXT = [
-        'https://www.w3.org/ns/activitystreams',
-        'https://storyfeed.dev/ns',
-    ];
+    /**
+     * Was a hand-copied duplicate of Context::DEFAULT — which nothing used,
+     * so the two could have drifted silently. One source now.
+     */
+    public const CONTEXT = Context::DEFAULT;
 
     public function __construct(
         protected StoryfeedManager $storyfeed,
