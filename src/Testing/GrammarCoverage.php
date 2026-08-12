@@ -202,6 +202,113 @@ class GrammarCoverage
     }
 
     /**
+     * Assert aggregate grammar for every (axis, verb) pair the app COULD
+     * produce — derived from the axes' compiled recipes and the roles each verb
+     * actually fills, rather than reasoned about by hand.
+     *
+     *   Storyfeed::fake();
+     *   // exercise the code that publishes
+     *   GrammarCoverage::assertCoversPossibleAggregates();
+     *
+     * This is the one-line replacement for hand-partitioned matrices. A
+     * consumer maintained three `assertCoversAggregateMatrix()` calls split by
+     * which verbs each axis can semantically produce, with a comment conceding
+     * the reasoning "has already aged once" — and it had: doctor found an
+     * `object.join` gap the written analysis had declared impossible.
+     *
+     * Two honest limits, both stated in the failure message rather than buried
+     * here:
+     *
+     * 1. Role-fill is OBSERVED. A verb only ever recorded without a target
+     *    looks like it can never have one, so this is a strictly better
+     *    superset than hand-partitioning — not a proof. Keep
+     *    assertCoversAggregateMatrix() for asserting ahead of any traffic.
+     * 2. Closure-recipe and row-backed axes are skipped, because their
+     *    applicability is not derivable. They are NAMED in the message, so a
+     *    skipped category can never masquerade as a clean one — a coverage tool
+     *    that silently skips is indistinguishable from a healthy system.
+     */
+    public static function assertCoversPossibleAggregates(bool $allowWildcard = false): void
+    {
+        $storyfeed = app(StoryfeedManager::class);
+
+        $roleMap = $storyfeed instanceof StoryfeedFake
+            ? $storyfeed->recordedRoles()
+            : self::recordedRolesFromDatabase();
+
+        Assert::assertNotEmpty(
+            $roleMap,
+            'No activities were published, so aggregate grammar coverage proves nothing.',
+        );
+
+        $pairs = $storyfeed->possibleAggregatePairs($roleMap);
+
+        Assert::assertNotEmpty(
+            $pairs,
+            'No axis applies to any recorded verb, so aggregate grammar coverage proves nothing. '
+            .'(Closure-recipe and row-backed axes are excluded — their applicability is not derivable.)',
+        );
+
+        $missing = [];
+
+        foreach ($pairs as [$axis, $verb]) {
+            if (! self::covered($storyfeed->aggregateTemplateKey($axis, $verb), $allowWildcard)) {
+                $missing[] = "{$axis}.{$verb} (no aggregate headline)";
+            }
+        }
+
+        $undecidable = array_keys(array_filter(
+            $storyfeed->registeredAxes(),
+            fn ($axis) => $axis->requiredRoles() === null,
+        ));
+
+        $caveat = "\n\nDerived from the roles each verb was observed filling, so it covers what this run "
+            .'exercised — not every shape the verb can take.'
+            .($undecidable === []
+                ? ''
+                : ' NOT checked here (applicability is not derivable): '.implode(', ', $undecidable)
+                  .' — assert those with assertCoversAggregateMatrix().');
+
+        Assert::assertSame(
+            [],
+            $missing,
+            "Storyfeed aggregate grammar coverage is incomplete:\n  - ".implode("\n  - ", $missing)
+            ."\n\nRegister the missing entries with Storyfeed::aggregateGrammar(), or run "
+            .'`php artisan storyfeed:doctor --stubs` to print them.'.$caveat,
+        );
+    }
+
+    /**
+     * @return array<string, list<string>>
+     */
+    protected static function recordedRolesFromDatabase(): array
+    {
+        $model = config('storyfeed.models.activity', Activity::class);
+
+        $map = [];
+
+        $rows = $model::query()
+            ->distinct()
+            ->toBase()
+            ->get(['verb', 'actor_type', 'object_type', 'target_type', 'context_type']);
+
+        foreach ($rows as $row) {
+            $map[$row->verb] ??= [];
+
+            foreach (['actor', 'object', 'target', 'context'] as $role) {
+                if ($row->{"{$role}_type"} !== null) {
+                    $map[$row->verb][$role] = true;
+                }
+            }
+        }
+
+        return array_map(
+            fn (array $roles) => array_values(array_filter(array_keys($roles), 'is_string')),
+            $map,
+        );
+    }
+
+    /**
      * A `*.*` catch-all resolves for everything, which would make coverage
      * vacuous — so it only counts when explicitly allowed.
      */

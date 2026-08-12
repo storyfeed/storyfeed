@@ -191,6 +191,36 @@ class StoryfeedFake extends StoryfeedManager
             ->all();
     }
 
+    /**
+     * Which roles each recorded verb actually filled — the input to
+     * `StoryfeedManager::possibleAggregatePairs()`.
+     *
+     * Accumulated across every recording of a verb (union, not per-row), so a
+     * verb sometimes published with a target and sometimes without reports
+     * both as reachable. That union is what makes the derived matrix a superset
+     * of hand-partitioning rather than a narrower slice of it.
+     *
+     * @return array<string, list<string>>
+     */
+    public function recordedRoles(): array
+    {
+        $map = [];
+
+        foreach ($this->recorded as $activity) {
+            foreach (['actor', 'object', 'target', 'context'] as $role) {
+                if ($activity->{"{$role}_type"} === null) {
+                    continue;
+                }
+
+                $map[$activity->verb][$role] = true;
+            }
+
+            $map[$activity->verb] ??= [];
+        }
+
+        return array_map(fn (array $roles) => array_keys($roles), $map);
+    }
+
     protected function normalize(string|FeedVerb|BackedEnum $verb): string
     {
         return match (true) {

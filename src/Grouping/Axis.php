@@ -147,6 +147,61 @@ class Axis
     }
 
     /**
+     * The roles an activity MUST fill for this axis to apply, derived from the
+     * required mask — `['actor', 'object']` and so on.
+     *
+     * Null means "cannot be determined": a closure recipe decides
+     * applicability in PHP, and a row-backed bucket is written by the
+     * package's own actions rather than derived from fields. Callers must
+     * treat null as unknown and NEVER as "applies to everything" — guessing
+     * generously here would silently under-report coverage gaps, which is the
+     * failure this whole derivation exists to remove.
+     *
+     * Exists because reasoning about which axes a verb can produce has proven
+     * unreliable in practice: a consumer's written analysis concluded `join`
+     * "fires once" and could not group on the object axis, and one run of real
+     * traffic disproved it. The package has always owned this answer as data;
+     * it just never exposed it.
+     *
+     * @return list<string>|null
+     */
+    public function requiredRoles(): ?array
+    {
+        if ($this->custom !== null || $this->rowBacked) {
+            return null;
+        }
+
+        $roles = [];
+
+        foreach (Field::PINNABLE as $token => $pair) {
+            // A role is required when EITHER of its identity bits is
+            // required — the recipe marks `oa!:oid!` as a unit, and a
+            // half-required pair still gates applicability.
+            if (($this->required & $pair) !== 0) {
+                $roles[] = ltrim($token, ':');
+            }
+        }
+
+        return $roles;
+    }
+
+    /**
+     * Could this axis apply to an activity filling exactly these roles?
+     *
+     * @param  list<string>  $filled  role names, e.g. ['actor', 'object']
+     */
+    public function appliesToRoles(array $filled): bool
+    {
+        $required = $this->requiredRoles();
+
+        if ($required === null) {
+            return false;
+        }
+
+        return array_diff($required, $filled) === [];
+    }
+
+    /**
      * The activity's key on this axis, or null when the axis does not
      * apply (a required field is missing). Long keys are digested —
      * fixed-width, still derived, still recomputable.

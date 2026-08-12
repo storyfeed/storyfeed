@@ -280,6 +280,58 @@ class StoryfeedManager
     }
 
     /**
+     * Which axes could apply to an activity filling exactly these roles.
+     *
+     * Row-backed and closure-recipe axes are excluded, because their
+     * applicability is not derivable (see Axis::requiredRoles()). Excluding
+     * them under-reports rather than over-reports, which is the safe direction
+     * for a coverage tool: a gap it cannot see is better than a gap it
+     * confidently denies.
+     *
+     * @param  array<int, string>  $filledRoles
+     * @return array<int, string> axis names, in priority order
+     */
+    public function axesApplicableTo(array $filledRoles): array
+    {
+        return array_keys(array_filter(
+            $this->registeredAxes(),
+            fn (Axis $axis) => $axis->appliesToRoles(array_values($filledRoles)),
+        ));
+    }
+
+    /**
+     * Every (axis, verb) pair the app COULD produce, derived rather than
+     * reasoned about.
+     *
+     * This replaces hand-partitioned coverage matrices. A consumer maintained
+     * three of them, split by which verbs each axis can semantically produce,
+     * with a comment conceding the reasoning "has already aged once" — and it
+     * had: doctor found an `object.join` gap the written analysis said was
+     * impossible.
+     *
+     * `$roleMap` is `verb => [roles seen filled]`. Supplied from a fake's
+     * recorded activities or queried from the table. The honest limit: role-fill
+     * observed from one run is a strictly better superset than hand-partitioning,
+     * not a proof — a verb that has only ever been recorded without a target
+     * looks like it can never have one.
+     *
+     * @param  array<string, array<int, string>>  $roleMap
+     * @return array<int, array{0: string, 1: string}>
+     */
+    public function possibleAggregatePairs(array $roleMap): array
+    {
+        $pairs = [];
+
+        foreach ($roleMap as $verb => $roles) {
+            foreach ($this->axesApplicableTo($roles) as $axis) {
+                $pairs[] = [$axis, (string) $verb];
+            }
+        }
+
+        return array_values(array_unique($pairs, SORT_REGULAR));
+    }
+
+    /**
      * The non-fallback axis names, in priority order — the axes curation
      * can select and coverage tooling audits.
      *
