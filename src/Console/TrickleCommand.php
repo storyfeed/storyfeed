@@ -17,7 +17,10 @@ class TrickleCommand extends Command
 
         $result = (new TrickleSnapshots)($limit === null ? null : (int) $limit);
 
-        $this->info("Snapshotted {$result['snapshotted']} activities, pruned {$result['pruned']} orphans.");
+        $this->info(
+            "Snapshotted {$result['snapshotted']} activities, pruned {$result['pruned']} orphans, "
+            ."reshaped {$result['reshaped']} stale snapshots."
+        );
 
         return self::SUCCESS;
     }

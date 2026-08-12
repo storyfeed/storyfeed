@@ -14,7 +14,10 @@ it('emits the same payload shape as before the recording API change', function (
 
     $payload = Storyfeed::feed()->get()->toArray();
 
-    expect(array_keys($payload))->toBe(['payload_version', 'items', 'next_cursor']);
+    // 'sync_token' added 2026-08-12 (additive): opaque, cursor-grained —
+    // store it; when a later page's differs, drop accumulated nodes and
+    // refetch. Null until the first settled-history rewrite ever.
+    expect(array_keys($payload))->toBe(['payload_version', 'items', 'next_cursor', 'sync_token']);
     expect(array_keys($payload['items'][0]))->toBe([
         'kind', 'id', 'verb', 'published_at', 'headline_template', 'headline',
         'icon', 'actor', 'object', 'target', 'context', 'data',

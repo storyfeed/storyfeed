@@ -20,6 +20,7 @@ use Storyfeed\Models\Party;
 use Storyfeed\Payload\FeedPage;
 use Storyfeed\Payload\GroupSlice;
 use Storyfeed\Payload\NodePresenter;
+use Storyfeed\Support\SyncToken;
 
 /**
  * Fluent reader for feeds.
@@ -264,7 +265,7 @@ class FeedBuilder
             );
         });
 
-        return new FeedPage($slices, $next, app(NodePresenter::class));
+        return new FeedPage($slices, $next, app(NodePresenter::class), SyncToken::current());
     }
 
     protected function flatPage(Carbon $now): FeedPage
@@ -289,7 +290,7 @@ class FeedBuilder
         $slices = Collection::make($paginator->items())
             ->map(fn (Activity $activity) => GroupSlice::solo($activity));
 
-        return new FeedPage($slices, $paginator->nextCursor()?->encode(), app(NodePresenter::class));
+        return new FeedPage($slices, $paginator->nextCursor()?->encode(), app(NodePresenter::class), SyncToken::current());
     }
 
     /**

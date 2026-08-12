@@ -6,6 +6,7 @@ use Illuminate\Console\Command;
 use Storyfeed\Actions\CurateCluster;
 use Storyfeed\Actions\WriteGroupings;
 use Storyfeed\Models\Activity;
+use Storyfeed\Support\SyncToken;
 
 /**
  * Backfill and repair curation. Curation runs inline at publish, so this is
@@ -50,6 +51,12 @@ class CurateCommand extends Command
                 $count++;
             }
         });
+
+        if ($rehash && $count > 0) {
+            // A rehash can rewrite settled group identities wholesale —
+            // the resync signal, same as the bundle backfill.
+            SyncToken::bump();
+        }
 
         $this->info("Curated {$count} activities.");
 

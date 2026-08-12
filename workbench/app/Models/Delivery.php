@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Storyfeed\Concerns\InteractsWithFeed;
 use Storyfeed\Contracts\Feedable;
+use Storyfeed\Contracts\HasFeedShapeVersion;
 use Storyfeed\FeedEntity;
 use Storyfeed\FeedLink;
 
@@ -16,13 +17,19 @@ use Storyfeed\FeedLink;
  * @property string|null $tracking_number
  * @property string $status
  */
-class Delivery extends Model implements Feedable
+class Delivery extends Model implements Feedable, HasFeedShapeVersion
 {
     use InteractsWithFeed;
     use SoftDeletes;
 
     /** Test spy: how often the package asked for a live link. */
     public static int $feedLinkCalls = 0;
+
+    /** Test hook: simulate a deployed change to toFeed()'s data shape. */
+    public static bool $extendedFeedShape = false;
+
+    /** Test hook: declared semantic version (HasFeedShapeVersion escape hatch). */
+    public static int $feedShapeVersion = 1;
 
     protected $guarded = [];
 
@@ -39,9 +46,15 @@ class Delivery extends Model implements Feedable
                 'id' => $this->id,
                 'tracking_number' => $this->tracking_number,
                 'status' => $this->status,
+                ...(static::$extendedFeedShape ? ['carrier' => ['name' => 'ACME', 'code' => 'AC']] : []),
             ],
             component: 'Resource',
         );
+    }
+
+    public static function feedShapeVersion(): int
+    {
+        return static::$feedShapeVersion;
     }
 
     public static function toFeedLink(array $data): ?FeedLink

@@ -25,6 +25,7 @@ return [
         'groupings' => 'feed_groupings',
         'parties' => 'feed_parties',
         'batches' => 'feed_batches',
+        'meta' => 'feed_meta',
     ],
 
     /*

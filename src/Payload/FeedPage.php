@@ -29,6 +29,7 @@ final class FeedPage implements Arrayable, ArrayAccess, JsonSerializable, Respon
         protected Collection $slices,
         protected ?string $nextCursor,
         protected NodePresenter $presenter,
+        protected ?string $syncToken = null,
     ) {}
 
     /**
@@ -53,6 +54,10 @@ final class FeedPage implements Arrayable, ArrayAccess, JsonSerializable, Respon
             'payload_version' => 1,
             'items' => $this->items(),
             'next_cursor' => $this->nextCursor(),
+            // Opaque, cursor-grained: store it; when a later page's token
+            // differs, settled history was rewritten — drop ALL accumulated
+            // nodes and refetch. Null until the first rewrite ever.
+            'sync_token' => $this->syncToken,
         ];
     }
 

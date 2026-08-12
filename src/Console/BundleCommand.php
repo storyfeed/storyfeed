@@ -5,6 +5,7 @@ namespace Storyfeed\Console;
 use Illuminate\Console\Command;
 use Storyfeed\Actions\BundleComposites;
 use Storyfeed\Models\Batch;
+use Storyfeed\Support\SyncToken;
 
 /**
  * Backfill bundling: sweep CLOSED batches through the composite bundler —
@@ -46,6 +47,13 @@ class BundleCommand extends Command
                     $batches++;
                 }
             });
+
+        if ($minted > 0) {
+            // Settled history was rewritten: accumulated clients cannot
+            // reconcile this (docs/payload.md, the third case) — the token
+            // tells them to resync.
+            SyncToken::bump();
+        }
 
         $this->info("Swept {$batches} closed batch(es); minted {$minted} composite(s).");
 

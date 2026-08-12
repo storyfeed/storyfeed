@@ -8,6 +8,7 @@ use Storyfeed\ActivityStreams\ActivityType;
 use Storyfeed\Models\Activity;
 use Storyfeed\Models\Grouping;
 use Storyfeed\Models\Party;
+use Storyfeed\Models\Snapshot;
 use Storyfeed\StoryfeedManager;
 
 /**
@@ -29,6 +30,7 @@ class DoctorCommand extends Command
         $issues += $this->checkAggregateCoverage($storyfeed);
         $issues += $this->checkAggregateTokens($storyfeed);
         $issues += $this->checkHashLengths();
+        $issues += $this->checkSnapshotShapes();
         $issues += $this->checkBacklog();
         $issues += $this->checkParties();
 
@@ -240,6 +242,41 @@ class DoctorCommand extends Command
                 );
                 $issues++;
             }
+        }
+
+        return $issues;
+    }
+
+    /**
+     * Mixed shape fingerprints within one model type mean some snapshots
+     * predate the current toFeed() structure — renderers may hit missing
+     * keys. Cheap data-only check (no model loading); the trickle is the
+     * healer.
+     */
+    protected function checkSnapshotShapes(): int
+    {
+        $table = config('storyfeed.tables.snapshots', 'feed_snapshots');
+
+        if (! Schema::hasTable($table)) {
+            return 0;
+        }
+
+        $snapshot = config('storyfeed.models.snapshot', Snapshot::class);
+
+        $issues = 0;
+
+        $mixed = $snapshot::query()
+            ->selectRaw('model_type, count(distinct shape) as shapes, sum(case when shape is null then 1 else 0 end) as unshaped')
+            ->groupBy('model_type')
+            ->havingRaw('count(distinct shape) > 1 or sum(case when shape is null then 1 else 0 end) > 0')
+            ->get();
+
+        foreach ($mixed as $row) {
+            $this->warn(
+                "Snapshots of `{$row->model_type}` carry mixed shape fingerprints — some predate the current "
+                .'toFeed() structure. storyfeed:trickle converges them (or run it now).'
+            );
+            $issues++;
         }
 
         return $issues;

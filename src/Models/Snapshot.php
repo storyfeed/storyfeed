@@ -16,6 +16,7 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
  * @property string|null $label
  * @property string|null $component
  * @property array<array-key, mixed>|null $data
+ * @property string|null $shape shape fingerprint at write time (see ShapeSignature)
  */
 class Snapshot extends Model
 {
