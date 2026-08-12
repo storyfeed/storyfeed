@@ -5,6 +5,7 @@ use Storyfeed\Models\Activity;
 use Storyfeed\Models\Grouping;
 use Storyfeed\Models\Party;
 use Storyfeed\Models\Snapshot;
+use Storyfeed\StoryfeedManager;
 use Storyfeed\Testing\StoryfeedFake;
 use Workbench\App\Enums\ActivityVerb;
 use Workbench\App\Models\Delivery;
@@ -144,4 +145,28 @@ it('is returned from fake() for direct use', function () {
     Storyfeed::activity('ping')->publish();
 
     $fake->assertPublished('ping');
+});
+
+it('inherits every manager registry, including ones added later', function () {
+    Storyfeed::aggregateGrammar(['actors.upload' => ':actors uploaded :count files']);
+    Storyfeed::grammar(['delivery.upload' => ':actor uploaded :object'])->icons(['delivery.upload' => 'bi-up']);
+
+    $manager = app(StoryfeedManager::class);
+
+    Storyfeed::fake();
+
+    // Reflection over the REAL manager's properties: any registry a future
+    // version adds must survive the swap — a field-by-field copy in
+    // inheritFrom() once silently dropped the aggregate grammar, making a
+    // fully-authored registry assert as 100% missing under the fake.
+    $fake = app(StoryfeedManager::class);
+
+    foreach ((new ReflectionClass(StoryfeedManager::class))->getProperties() as $property) {
+        expect($property->getValue($fake))->toEqual(
+            $property->getValue($manager),
+            "StoryfeedFake did not inherit manager property \${$property->getName()}.",
+        );
+    }
+
+    expect($fake->aggregateTemplate('actors', 'upload'))->toBe(':actors uploaded :count files');
 });

@@ -47,14 +47,21 @@ class StoryfeedFake extends StoryfeedManager
     }
 
     /**
-     * Carry over registry state from the manager being replaced.
+     * Carry over ALL registry state from the manager being replaced.
+     *
+     * Generic on purpose: a field-by-field copy silently drops every
+     * registry added after it was written (the aggregate grammar registry
+     * was lost exactly this way — a faked test saw a fully-authored
+     * registry as 100% missing). Copying the manager's own properties
+     * wholesale means the next registry cannot repeat the bug; the fake's
+     * own state (recorded, parties, …) lives only on this subclass and is
+     * untouched.
      */
     public function inheritFrom(StoryfeedManager $manager): static
     {
-        $this->grammar = $manager->grammar;
-        $this->icons = $manager->icons;
-        $this->verbs = $manager->verbs;
-        $this->objectTypes = $manager->objectTypes;
+        foreach (get_object_vars($manager) as $property => $value) {
+            $this->{$property} = $value;
+        }
 
         return $this;
     }
