@@ -46,6 +46,8 @@ class CloseBatches
 
                     if ($batch->activities_count > 0) {
                         BatchClosed::dispatch($batch);
+
+                        (new BundleComposites)($batch);
                     }
 
                     $closed++;

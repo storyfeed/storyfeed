@@ -93,7 +93,7 @@ it('inserts custom axes at an explicit priority with before:', function () {
     // No registry re-declaration needed — the built-ins keep their config
     // thresholds; the custom axis simply outranks them.
     expect(array_keys(Storyfeed::registeredAxes()))
-        ->toBe(['scene', 'actors', 'targets', 'object', 'repeat']);
+        ->toBe(['scene', 'actors', 'targets', 'object', 'repeat', 'composite', 'batch']);
 
     expect(fn () => Storyfeed::axes([Axis::make('x')->key('v:d')], before: 'nope'))
         ->toThrow(InvalidArgumentException::class, 'nope');

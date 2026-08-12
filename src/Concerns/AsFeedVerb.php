@@ -86,6 +86,16 @@ trait AsFeedVerb
         return $this->activity()->object($model);
     }
 
+    /**
+     * A composite: one story whose object is a collection of models.
+     *
+     * @param  iterable<int, Model>  $models
+     */
+    public function objects(iterable $models): PendingActivity
+    {
+        return $this->activity()->objects($models);
+    }
+
     public function target(Model|string|null $model = null): PendingActivity
     {
         return $this->activity()->target($model);

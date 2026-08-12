@@ -270,8 +270,17 @@ class FeedBuilder
     protected function flatPage(Carbon $now): FeedPage
     {
         $activities = $this->activityModel()->getTable();
+        $groupings = $this->groupingModel()->getTable();
 
         $paginator = $this->filteredActivities($now)
+            // Flat is the atomic timeline: composite MEMBERS appear, the
+            // object-less parent STORY does not (its self-row marks it).
+            ->whereNotExists(fn (QueryBuilder $sub) => $sub
+                ->selectRaw('1')
+                ->from($groupings)
+                ->whereColumn("{$groupings}.activity_id", "{$activities}.id")
+                ->where("{$groupings}.bucket", 'composite')
+                ->whereColumn("{$groupings}.hash", "{$activities}.uid"))
             ->with(['cachedActor', 'cachedObject', 'cachedTarget', 'cachedContext'])
             ->orderBy("{$activities}.published_at", 'desc')
             ->orderBy("{$activities}.id", 'desc')
@@ -395,7 +404,13 @@ class FeedBuilder
         $groupings = $this->groupingModel()->getTable();
 
         if ($this->mode() === 'grouped') {
-            return fn ($query) => $query->where("{$groupings}.bucket", 'repeat');
+            // Authored stories (composites) belong in the classic tier too —
+            // grouped mode excludes multi-axis INFERENCE, not declarations.
+            return fn ($query) => $query
+                ->where("{$groupings}.bucket", 'repeat')
+                ->orWhere(fn ($composite) => $composite
+                    ->where("{$groupings}.bucket", 'composite')
+                    ->where("{$groupings}.winner", true));
         }
 
         return function ($query) use ($groupings) {
@@ -429,6 +444,13 @@ class FeedBuilder
                 ->from($groupings)
                 ->whereColumn("{$groupings}.activity_id", "{$activities}.id")
                 ->where($this->winning()))
+            // Composite parents and members are never solo: the parent is
+            // told by its cluster node, the members by their composite.
+            ->whereNotExists(fn (QueryBuilder $sub) => $sub
+                ->selectRaw('1')
+                ->from("{$groupings} as composite_rows")
+                ->whereColumn('composite_rows.activity_id', "{$activities}.id")
+                ->where('composite_rows.bucket', 'composite'))
             ->with(['cachedActor', 'cachedObject', 'cachedTarget', 'cachedContext'])
             ->orderBy("{$activities}.published_at", 'desc')
             ->orderBy("{$activities}.id")

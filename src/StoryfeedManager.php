@@ -11,6 +11,7 @@ use InvalidArgumentException;
 use Storyfeed\ActivityStreams\ActivityType;
 use Storyfeed\ActivityStreams\CoreType;
 use Storyfeed\ActivityStreams\ObjectType;
+use Storyfeed\Contracts\Collectable;
 use Storyfeed\Contracts\FeedVerb;
 use Storyfeed\Contracts\HasActivityStreamsType;
 use Storyfeed\Grouping\Axis;
@@ -86,16 +87,17 @@ class StoryfeedManager
         'view' => ActivityType::View,
     ];
 
-    /**
-     * Buckets owned by row-backed lifecycle state rather than the axis
-     * registry (docs/grouping.md: rows for unrecomputable state, derivation
-     * for inference). The strategy never emits them, the stale-bucket
-     * delete never touches them, and curation never stamps them.
-     */
-    public const ROW_BACKED_BUCKETS = ['batch'];
-
     /** @var array<string, Axis>|null lazy — recipes read config at first use */
     protected ?array $axes = null;
+
+    /**
+     * Morph aliases whose models are collection-natured (activities about
+     * them arrive in collections) — the registry override for the
+     * Collectable marker interface. Registry wins.
+     *
+     * @var array<string, true>
+     */
+    protected array $collectables = [];
 
     /**
      * Begin composing an activity.
@@ -117,8 +119,10 @@ class StoryfeedManager
         array $data = [],
         DateTimeInterface|string|null $publishedAt = null,
         bool $replace = false,
+        iterable $objects = [],
     ): Activity {
         return $this->activity($verb, $object)
+            ->when($objects !== [], fn (PendingActivity $a) => $a->objects($objects))
             ->actor($actor)
             ->target($target)
             ->context($context)
@@ -273,8 +277,56 @@ class StoryfeedManager
     {
         return array_keys(array_filter(
             $this->registeredAxes(),
-            fn (Axis $axis) => ! $axis->isFallback(),
+            fn (Axis $axis) => ! $axis->isFallback() && ! $axis->isRowBacked(),
         ));
+    }
+
+    /**
+     * Buckets owned by row-backed state (batch windows, composite claims):
+     * never emitted by the strategy, never stale-deleted, never competed
+     * for by curation — docs/grouping.md, rows-vs-derivation.
+     *
+     * @return array<int, string>
+     */
+    public function rowBackedBuckets(): array
+    {
+        return array_keys(array_filter(
+            $this->registeredAxes(),
+            fn (Axis $axis) => $axis->isRowBacked(),
+        ));
+    }
+
+    /**
+     * Designate morph aliases as collection-natured (see Contracts\Collectable).
+     *
+     * @param  array<int, string>  $aliases
+     */
+    public function collectables(array $aliases, bool $merge = true): static
+    {
+        $designated = array_fill_keys($aliases, true);
+
+        $this->collectables = $merge ? [...$this->collectables, ...$designated] : $designated;
+
+        return $this;
+    }
+
+    /**
+     * Registry wins; the Collectable marker interface is the model-side
+     * declaration for first-party models.
+     */
+    public function isCollectable(?string $alias): bool
+    {
+        if ($alias === null) {
+            return false;
+        }
+
+        if (isset($this->collectables[$alias])) {
+            return true;
+        }
+
+        $class = MorphResolver::classFor($alias);
+
+        return $class !== null && is_a($class, Collectable::class, true);
     }
 
     public function fallbackAxis(): ?Axis
@@ -331,6 +383,15 @@ class StoryfeedManager
             Axis::make('repeat')
                 ->key('aa:aid:v:oa:ta:tid:d')
                 ->fallback(),
+            // Row-backed buckets: composite claims (authored/auto-bundled
+            // collection stories — pins derived from what a composite
+            // shares: one actor, one target, one context, MANY objects)
+            // and batch windows (infrastructure, no feed effect, no pins).
+            Axis::make('composite')
+                ->rowBacked()
+                ->pins(':actor', ':target', ':context'),
+            Axis::make('batch')
+                ->rowBacked(),
         ];
 
         return array_combine(array_column($axes, 'name'), $axes);

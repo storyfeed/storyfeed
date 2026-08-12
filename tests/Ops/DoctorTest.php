@@ -179,10 +179,18 @@ it('can produce a coverage finding for EVERY registered axis', function () {
         Storyfeed::activity()->actor($r)->verb('delta', Delivery::create(['tracking_number' => "de-{$i}"]))->publish();
     }
 
+    // composite (row-backed): an explicit authored story.
+    $c = User::create(['name' => 'C', 'email' => 'c@example.com']);
+    Storyfeed::activity('epsilon')->actor($c)->objects([
+        Delivery::create(['tracking_number' => 'ep-1']),
+        Delivery::create(['tracking_number' => 'ep-2']),
+    ])->publish();
+
     $this->artisan('storyfeed:doctor')
         ->expectsOutputToContain('No aggregate grammar resolves for `actors.alpha`')
         ->expectsOutputToContain('No aggregate grammar resolves for `targets.beta`')
         ->expectsOutputToContain('No aggregate grammar resolves for `object.gamma`')
         ->expectsOutputToContain('No aggregate grammar resolves for `repeat.delta`')
+        ->expectsOutputToContain('No aggregate grammar resolves for `composite.epsilon`')
         ->assertSuccessful();
 });

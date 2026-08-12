@@ -38,6 +38,8 @@ class Axis
 
     protected bool $fallback = false;
 
+    protected bool $rowBacked = false;
+
     /**
      * @var array<int, array{distinct?: string, members?: int, min?: int}>
      */
@@ -113,6 +115,24 @@ class Axis
         return $this;
     }
 
+    /**
+     * A row-backed bucket: membership is declared or detected state written
+     * by the package (batch windows, composite claims), never inferred by
+     * the strategy and never competed for by curation. Registered so pins,
+     * coverage audits and token validation still apply.
+     */
+    public function rowBacked(bool $rowBacked = true): static
+    {
+        $this->rowBacked = $rowBacked;
+
+        return $this;
+    }
+
+    public function isRowBacked(): bool
+    {
+        return $this->rowBacked;
+    }
+
     public function isFallback(): bool
     {
         return $this->fallback;
@@ -133,6 +153,12 @@ class Axis
      */
     public function hashFor(Activity $activity): ?string
     {
+        // Row-backed buckets are written by the package's own actions,
+        // never derived from activity fields.
+        if ($this->rowBacked) {
+            return null;
+        }
+
         $key = $this->assemble($activity);
 
         if ($key === null) {
@@ -151,7 +177,7 @@ class Axis
      */
     public function pinnedTokens(): array
     {
-        if ($this->custom !== null) {
+        if ($this->custom !== null || $this->rowBacked) {
             return [...$this->declaredPins, ':actors', ':count', ':others'];
         }
 

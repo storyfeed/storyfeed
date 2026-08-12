@@ -104,6 +104,10 @@ class AssignToBatch
 
         if ($batch->activities_count > 0) {
             BatchClosed::dispatch($batch);
+
+            // The burst is over — homogeneous collectable runs become
+            // composite stories (docs/grouping.md).
+            (new BundleComposites)($batch);
         }
     }
 }

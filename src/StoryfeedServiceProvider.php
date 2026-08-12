@@ -71,6 +71,10 @@ class StoryfeedServiceProvider extends PackageServiceProvider
         // Deleting is the one thing that shrinks a cluster, so it is the one
         // thing that can invalidate a winner. Everything else is monotone.
         Event::listen(ActivityDeleted::class, function (ActivityDeleted $event) {
+            // A force-deleted composite parent releases its members back to
+            // inference before curation re-decides anything.
+            (new Actions\ReleaseComposite)($event->activity);
+
             if (config('storyfeed.grouping.curate', true)) {
                 (new CurateCluster)->afterDelete($event->activity);
             }

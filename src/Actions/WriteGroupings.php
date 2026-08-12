@@ -16,9 +16,21 @@ class WriteGroupings
 {
     public function __invoke(Activity $activity): void
     {
-        $strategy = app(config('storyfeed.grouping.strategy', MultiAxisStrategy::class));
-
         $grouping = config('storyfeed.models.grouping', Grouping::class);
+
+        // A composite parent or member is CLAIMED: its story is the
+        // composite, so it never (re)enters inference — without this guard
+        // the trickle would hand claimed rows back to the axes.
+        $claimed = $grouping::query()
+            ->where('activity_id', $activity->getKey())
+            ->where('bucket', 'composite')
+            ->exists();
+
+        if ($claimed) {
+            return;
+        }
+
+        $strategy = app(config('storyfeed.grouping.strategy', MultiAxisStrategy::class));
 
         $hashes = $strategy->hashes($activity);
 
@@ -36,7 +48,7 @@ class WriteGroupings
         // delete would otherwise destroy it on every re-run (trickle!).
         $grouping::query()
             ->where('activity_id', $activity->getKey())
-            ->whereNotIn('bucket', StoryfeedManager::ROW_BACKED_BUCKETS)
+            ->whereNotIn('bucket', app(StoryfeedManager::class)->rowBackedBuckets())
             ->when($hashes !== [], fn ($query) => $query->whereNotIn('bucket', array_keys($hashes)))
             ->delete();
     }

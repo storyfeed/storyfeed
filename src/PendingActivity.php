@@ -7,7 +7,9 @@ use DateTimeInterface;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Illuminate\Support\Traits\Conditionable;
+use InvalidArgumentException;
 use Storyfeed\Actions\AssignToBatch;
 use Storyfeed\Actions\CurateCluster;
 use Storyfeed\Actions\SnapshotEntity;
@@ -18,6 +20,7 @@ use Storyfeed\Events\ActivityPublished;
 use Storyfeed\Exceptions\IncompleteActivity;
 use Storyfeed\Exceptions\UnknownVerb;
 use Storyfeed\Models\Activity;
+use Storyfeed\Models\Grouping;
 use Storyfeed\Models\Party;
 use Storyfeed\Testing\StoryfeedFake;
 
@@ -44,6 +47,9 @@ class PendingActivity
 
     /** @var array<string, Model> */
     protected array $entities = [];
+
+    /** @var array<int, Model> composite members-to-be (see objects()) */
+    protected array $objects = [];
 
     public function __construct(string|FeedVerb|BackedEnum|null $verb = null, Model|string|null $object = null)
     {
@@ -79,7 +85,34 @@ class PendingActivity
 
     public function object(Model|string|null $model = null): static
     {
+        if ($model !== null && $this->objects !== []) {
+            throw new InvalidArgumentException('An activity takes object() OR objects(), not both.');
+        }
+
         return $this->associate('object', $model);
+    }
+
+    /**
+     * A COMPOSITE: one authored story whose object is a collection —
+     * "Tomás uploaded 6 files to Spring Campaign". Publishes the story
+     * (object-less parent) plus one atomic member activity per model; the
+     * atomics are the timeline (->flat() shows them), the composite is the
+     * story (grouped/curated show one node, AS2 serializes the object as an
+     * OrderedCollection). See docs/grouping.md.
+     *
+     * @param  iterable<int, Model>  $models
+     */
+    public function objects(iterable $models): static
+    {
+        if ($this->activity->object_type !== null) {
+            throw new InvalidArgumentException('An activity takes object() OR objects(), not both.');
+        }
+
+        foreach ($models as $model) {
+            $this->objects[] = $model;
+        }
+
+        return $this;
     }
 
     public function target(Model|string|null $model = null): static
@@ -151,7 +184,7 @@ class PendingActivity
         $this->resolveDefaultActor($manager);
 
         if ($manager instanceof StoryfeedFake) {
-            return $manager->capture($this->activity);
+            return $this->captureOnFake($manager);
         }
 
         // Stamped HERE, not only in the model's creating hook: a consumer
@@ -160,6 +193,10 @@ class PendingActivity
         // silently vanishes from the feed. "Published means timestamped"
         // must not depend on model events being enabled.
         $this->activity->published_at ??= now();
+
+        if ($this->objects !== []) {
+            return $this->publishComposite();
+        }
 
         $activity = DB::transaction(function () {
             $this->snapshotEntities();
@@ -183,6 +220,89 @@ class PendingActivity
         ActivityPublished::dispatch($activity);
 
         return $activity;
+    }
+
+    /**
+     * A composite: the object-less parent story plus one atomic member per
+     * object, all in one transaction. Members are CLAIMED from birth —
+     * their only grouping row is the composite row (winner = true), so
+     * inference and curation never touch them; the parent carries a
+     * composite self-row (hash = own uid, winner = null) marking it as the
+     * story. One act ⇒ one batch increment (the parent) and one
+     * ActivityPublished event (the parent).
+     */
+    protected function publishComposite(): Activity
+    {
+        $grouping = config('storyfeed.models.grouping', Grouping::class);
+
+        $parent = DB::transaction(function () use ($grouping) {
+            $this->snapshotEntities();
+
+            // The composite substrate keys on the uid (hash = parent uid),
+            // so it cannot depend on the HasUlids creating hook — same
+            // WithoutModelEvents lesson as published_at.
+            $this->activity->uid ??= (string) Str::ulid();
+
+            $this->activity->save();
+
+            $grouping::query()->create([
+                'activity_id' => $this->activity->getKey(),
+                'bucket' => 'composite',
+                'hash' => $this->activity->uid,
+                'winner' => null,
+            ]);
+
+            foreach ($this->objects as $model) {
+                $member = $this->activity->replicate([
+                    'uid', 'cached_object_id',
+                ]);
+
+                $member->object()->associate($model);
+                // Non-Feedable members degrade like any role: no snapshot,
+                // null label at read — never withheld.
+                $member->cached_object_id = $model instanceof Feedable
+                    ? (new SnapshotEntity)($model)->getKey()
+                    : null;
+                $member->uid ??= (string) Str::ulid();
+                $member->save();
+
+                $grouping::query()->create([
+                    'activity_id' => $member->getKey(),
+                    'bucket' => 'composite',
+                    'hash' => $this->activity->uid,
+                    'winner' => true,
+                ]);
+            }
+
+            (new AssignToBatch)($this->activity);
+
+            return $this->activity;
+        });
+
+        ActivityPublished::dispatch($parent);
+
+        return $parent;
+    }
+
+    /**
+     * On the fake, a composite records the parent story plus each member,
+     * so per-object assertions (assertPublished('upload', $file)) hold.
+     */
+    protected function captureOnFake(StoryfeedFake $fake): Activity
+    {
+        if ($this->objects === []) {
+            return $fake->capture($this->activity);
+        }
+
+        $parent = $fake->capture($this->activity);
+
+        foreach ($this->objects as $model) {
+            $member = $this->activity->replicate(['uid']);
+            $member->object()->associate($model);
+            $fake->capture($member);
+        }
+
+        return $parent;
     }
 
     /**

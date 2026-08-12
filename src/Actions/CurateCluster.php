@@ -105,7 +105,7 @@ class CurateCluster
             $this->groupings()
                 ->where('activity_id', $activityId)
                 ->where('bucket', '!=', $winner)
-                ->whereNotIn('bucket', StoryfeedManager::ROW_BACKED_BUCKETS)
+                ->whereNotIn('bucket', app(StoryfeedManager::class)->rowBackedBuckets())
                 ->update(['winner' => false]);
 
             $this->groupings()
@@ -158,6 +158,18 @@ class CurateCluster
         }
 
         return true;
+    }
+
+    /**
+     * Re-decide every remaining member of one cluster — for callers that
+     * removed members out-of-band (composite claiming, releases). The same
+     * non-monotone repair a deletion triggers.
+     */
+    public function repair(string $axis, string $hash): void
+    {
+        foreach ($this->memberIds($axis, $hash) as $id) {
+            $this->settle($id, $this->hashes($id));
+        }
     }
 
     protected function manager(): StoryfeedManager
@@ -248,7 +260,7 @@ class CurateCluster
     {
         return $this->groupings()
             ->where('activity_id', $activityId)
-            ->whereNotIn('bucket', StoryfeedManager::ROW_BACKED_BUCKETS)
+            ->whereNotIn('bucket', app(StoryfeedManager::class)->rowBackedBuckets())
             ->pluck('hash', 'bucket')
             ->all();
     }

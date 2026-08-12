@@ -4,6 +4,7 @@ namespace Storyfeed\Serialization;
 
 use Storyfeed\ActivityStreams\ActivityType;
 use Storyfeed\Models\Activity;
+use Storyfeed\Models\Grouping;
 use Storyfeed\Models\Snapshot;
 use Storyfeed\StoryfeedManager;
 use Storyfeed\Support\LinkResolver;
@@ -50,7 +51,8 @@ class ActivitySerializer
             'sf:verb' => $activity->verb,
             ...array_filter([
                 'actor' => $this->entity($activity->actor_type, $activity->cachedActor, actor: true),
-                'object' => $this->entity($activity->object_type, $activity->cachedObject),
+                'object' => $this->collectionObject($activity)
+                    ?? $this->entity($activity->object_type, $activity->cachedObject),
                 'target' => $this->entity($activity->target_type, $activity->cachedTarget),
                 'context' => $this->entity($activity->context_type, $activity->cachedContext),
             ], fn (?array $entity) => $entity !== null),
@@ -79,6 +81,53 @@ class ActivitySerializer
         }
 
         return $this->storyfeed->activityTypeValue($activity->verb);
+    }
+
+    /**
+     * A composite parent's object is an OrderedCollection — the one
+     * aggregate AS2 natively supports, and the reason composites exist at
+     * the serialization boundary: "uploaded 6 files" is one Activity whose
+     * object is a collection of six, each member entity embedded live from
+     * its snapshot, reverse-chronological.
+     *
+     * @return array<string, mixed>|null null for non-composite activities
+     */
+    protected function collectionObject(Activity $activity): ?array
+    {
+        if ($activity->object_type !== null) {
+            return null;
+        }
+
+        $grouping = config('storyfeed.models.grouping', Grouping::class);
+
+        $memberIds = $grouping::query()
+            ->where('bucket', 'composite')
+            ->where('hash', $activity->uid)
+            ->where('winner', true)
+            ->pluck('activity_id');
+
+        if ($memberIds->isEmpty()) {
+            return null;
+        }
+
+        $model = config('storyfeed.models.activity', Activity::class);
+
+        $members = $model::query()
+            ->whereKey($memberIds)
+            ->with('cachedObject')
+            ->orderByDesc('published_at')
+            ->orderByDesc('id')
+            ->get();
+
+        return [
+            'type' => 'OrderedCollection',
+            'totalItems' => $members->count(),
+            'orderedItems' => $members
+                ->map(fn (Activity $member) => $this->entity($member->object_type, $member->cachedObject))
+                ->filter()
+                ->values()
+                ->all(),
+        ];
     }
 
     /**
