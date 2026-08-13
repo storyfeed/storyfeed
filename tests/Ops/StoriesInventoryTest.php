@@ -5,6 +5,7 @@ use PHPUnit\Framework\AssertionFailedError;
 use Storyfeed\Facades\Storyfeed;
 use Storyfeed\Grouping\Group;
 use Storyfeed\StoryDefinition;
+use Storyfeed\Testing\GrammarCoverage;
 use Storyfeed\Testing\StorySurface;
 use Workbench\App\Models\Customer;
 use Workbench\App\Models\Delivery;
@@ -189,6 +190,41 @@ it('names a model that never appears, and does not conflate that with publishing
             ->toContain('User')
             ->toContain('APPEARS in the feed')
             ->toContain('invisible to Storyfeed');
+    }
+});
+
+it('works under Storyfeed::fake(), like its two sibling assertions', function () {
+    // The gap the Newsroom hit: GrammarCoverage has been fake-aware from the
+    // start, so reaching for all three coverage assertions in one faked test gave
+    // two passes and one inexplicable refusal. A namespace where two of three
+    // work under fake() is worse than one where none do — the inconsistency is
+    // what sends you to the wrong conclusion about which tool is broken.
+    Storyfeed::stories([DeliveryWasConfirmed::class]);
+    Storyfeed::fake();
+
+    $user = User::create(['name' => 'Sally', 'email' => 's@example.com']);
+    $customer = Customer::create(['name' => 'Acme']);
+
+    DeliveryWasConfirmed::activity(Delivery::create(['tracking_number' => 'TN-1']))
+        ->actor($user)->for($customer)->publish();
+
+    // Nothing reached the table, and this still returns a real verdict.
+    StorySurface::assertNoUnwiredSurface();
+    GrammarCoverage::assertCoversRecorded();
+});
+
+it('still names unwired surface when faked', function () {
+    Storyfeed::fake();
+    Storyfeed::grammar(['delivery.confirm' => ':actor confirmed :object']);
+
+    // Only Delivery appears — the fake must not be a blanket pass either.
+    Storyfeed::activity('confirm', Delivery::create(['tracking_number' => 'TN-1']))->publish();
+
+    try {
+        StorySurface::assertNoUnwiredSurface();
+        $this->fail('Expected unwired surface to be reported.');
+    } catch (AssertionFailedError $e) {
+        expect($e->getMessage())->toContain('User');
     }
 });
 

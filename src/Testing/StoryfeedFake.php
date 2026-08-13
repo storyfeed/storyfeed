@@ -192,6 +192,33 @@ class StoryfeedFake extends StoryfeedManager
     }
 
     /**
+     * Every morph alias that appeared in ANY role — the input to the
+     * `surface` check when running faked.
+     *
+     * Exists so `StorySurface::assertNoUnwiredSurface()` works in the same tests
+     * as its two siblings. `GrammarCoverage` has been fake-aware from the start,
+     * and a namespace where two of three assertions work under `fake()` is worse
+     * than one where none do: the inconsistency is what sends someone to the
+     * wrong conclusion about which tool is broken.
+     *
+     * @return array<int, string>
+     */
+    public function recordedAliases(): array
+    {
+        $aliases = [];
+
+        foreach ($this->recorded as $activity) {
+            foreach (['actor', 'object', 'target', 'context'] as $role) {
+                if ($activity->{"{$role}_type"} !== null) {
+                    $aliases[] = (string) $activity->{"{$role}_type"};
+                }
+            }
+        }
+
+        return array_values(array_unique($aliases));
+    }
+
+    /**
      * Which roles each recorded verb actually filled — the input to
      * `StoryfeedManager::possibleAggregatePairs()`.
      *

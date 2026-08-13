@@ -5,6 +5,7 @@ namespace Storyfeed\Diagnostics\Checks;
 use Storyfeed\Diagnostics\Finding;
 use Storyfeed\StoryfeedManager;
 use Storyfeed\Support\SurfaceScanner;
+use Storyfeed\Testing\StoryfeedFake;
 
 /**
  * Feed surface that publishes nothing — THE detector for "the feed stopped
@@ -39,13 +40,20 @@ class UnwiredSurface extends Check
 
     public function run(StoryfeedManager $storyfeed): iterable
     {
-        if (! $this->hasTable('activities')) {
+        $faked = $storyfeed instanceof StoryfeedFake;
+
+        if (! $faked && ! $this->hasTable('activities')) {
             return;
         }
 
         $surface = $this->scanner->scan();
 
-        $recordedTypes = $this->recordedAliases();
+        // Fake-aware, like GrammarCoverage. Under Storyfeed::fake() nothing
+        // reaches the table, so a database read would report every declared model
+        // as never appearing — and this assertion's two siblings work fine in
+        // faked tests, so someone reaching for all three together gets one
+        // inexplicable failure. The inconsistency is the trap, not the strictness.
+        $recordedTypes = $faked ? $storyfeed->recordedAliases() : $this->recordedAliases();
 
         // NON-VACUOUS GUARD. With an empty activities table every declared model
         // trivially "never appears", so the check would report the entire app as
@@ -58,8 +66,8 @@ class UnwiredSurface extends Check
         if ($recordedTypes === []) {
             yield Finding::info(
                 'surface.unassessable',
-                'No activities are recorded, so declared feed surface cannot be assessed. Run this against a '
-                .'database with real traffic (or a seeded world), not a fresh test database.',
+                'No activities are recorded, so declared feed surface cannot be assessed. Exercise the code that '
+                .'publishes first, or run this against a database with real traffic.',
             );
 
             return;
