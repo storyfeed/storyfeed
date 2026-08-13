@@ -40,6 +40,7 @@ class StoryfeedServiceProvider extends PackageServiceProvider
                 Console\CacheCommand::class,
                 Console\ClearCommand::class,
                 Console\StoriesCommand::class,
+                Console\StoryMakeCommand::class,
             ]);
     }
 

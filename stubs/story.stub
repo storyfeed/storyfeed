@@ -1,0 +1,37 @@
+<?php
+
+namespace {{ namespace }};
+
+use Storyfeed\Grouping\Group;
+use Storyfeed\Story;
+
+class {{ class }} extends Story
+{
+    public string|array|null $objectType = {{ objectType }};
+
+    public string|\Storyfeed\Contracts\FeedVerb|\BackedEnum|null $verb = '{{ verb }}';
+
+    public function headline(): string
+    {
+        return '{{ headline }}';
+    }
+
+    public function icon(): ?string
+    {
+        return null;
+    }
+
+    /**
+     * One aggregate headline per axis this activity can group on.
+     *
+     * The axes below are the ones the recipes say can apply — not a guess.
+     * Only the tokens each axis PINS are safe here; anything else can render a
+     * headline that lies over a group spanning many values.
+     */
+    public function groups(): array
+    {
+        return [
+{{ groups }}
+        ];
+    }
+}
