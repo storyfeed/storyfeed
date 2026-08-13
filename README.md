@@ -26,6 +26,22 @@ Storyfeed::activity(ActivityVerb::Confirm, $delivery)->actor($user)->for($custom
 Storyfeed::feed()->context($project)->get();
 ```
 
+## Activity streams, not activity logs
+
+Laravel is well served for *audit logging* — recording who changed what, for
+compliance and debugging. This is the other thing: the human-readable narrative a
+product shows its own users.
+
+The difference shows up the moment a feed gets busy. An audit log has five rows;
+a stream has one sentence:
+
+> *Bob, Sally, and 3 others uploaded files to Project X.*
+
+Deciding which activities collapse together, along which axis, and what the
+resulting sentence should honestly say is most of the work — and it is the work
+this package does for you. It is also why teams reach for a hosted feed service.
+You shouldn't have to.
+
 ## What it does
 
 - **Curated recording** — a typed, autocomplete-friendly API for publishing
@@ -79,3 +95,13 @@ Please see [CHANGELOG](CHANGELOG.md) for more information on what has changed re
 ## License
 
 The MIT License (MIT). Please see [License File](LICENSE.md) for more information.
+
+**A commitment, so you can build on this safely:** everything MIT today stays MIT.
+This package is complete on its own — recording, reads, grouping, curation and the
+payload contract — and nothing in it will move behind a licence later. Paid
+companions like `storyfeed/ui` add convenience on top; they never take anything
+away, and a feed built on the core alone will keep working exactly as it does now.
+
+Building your own renderer against the payload contract is expected and
+encouraged — there's a plain Blade reference loop in the docs precisely so you
+can.
