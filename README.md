@@ -7,8 +7,16 @@
 > **Status: under active development.** See the [roadmap](ROADMAP.md) for what's in
 > progress. APIs below reflect the working design spec and may shift until v1.0.
 
-Storyfeed is an implementation of the activity stream pattern — the feed of meaningful
-events at the heart of products like GitHub's dashboard:
+Every product you use at scale has one. GitHub's dashboard, Slack's activity, the
+feed on every social network you have ever opened — the same pattern, solved over
+and over by teams with the headcount to solve it properly.
+
+**None of this is a new idea.** It is a well-understood pattern that has simply
+stayed out of reach for ordinary applications: you either build it yourself and
+discover how much detail is hiding inside it, or you rent it from a hosted
+service.
+
+Storyfeed brings it to any Laravel app — including the small ones.
 
 > *Sally confirmed Delivery #1042 for Acme Co.*
 > *Bob, Sally, and 3 others uploaded files to Project X.*
@@ -26,6 +34,16 @@ Storyfeed::activity(ActivityVerb::Confirm, $delivery)->actor($user)->for($custom
 Storyfeed::feed()->context($project)->get();
 ```
 
+## The feature nobody asks for
+
+Across sixteen years of building operational portals, this is the one feature
+that was never requested and consistently loved the most. It usually arrived as a
+placeholder — something to fill an empty homepage — and became the thing people
+opened the app to look at.
+
+Users don't ask for an activity feed, because they don't know it is a thing they
+can have. They recognise it instantly once it is there.
+
 ## Activity streams, not activity logs
 
 Laravel is well served for *audit logging* — recording who changed what, for
@@ -38,9 +56,8 @@ a stream has one sentence:
 > *Bob, Sally, and 3 others uploaded files to Project X.*
 
 Deciding which activities collapse together, along which axis, and what the
-resulting sentence should honestly say is most of the work — and it is the work
-this package does for you. It is also why teams reach for a hosted feed service.
-You shouldn't have to.
+resulting sentence can honestly claim is most of the work. That is the part this
+package does for you.
 
 ## What it does
 
