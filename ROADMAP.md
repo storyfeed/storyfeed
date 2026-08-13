@@ -25,7 +25,7 @@ high-level plan; detailed design documents will be published as the milestones l
       a working feed with no recording calls, then eject the real code.
 - [ ] **v0.5 — Activity Streams 2.0.** Spec-conformant JSON-LD serialization
       (`Activity`, `OrderedCollection`) validated against the W3C test documents;
-      declarative `Story` classes (experimental).
+      declarative `Story` classes — **shipped**, experimental.
 - [ ] **v1.0 — Stable.** Frozen payload contract, semver promise, both authoring
       APIs (fluent builder + `Story` classes).
 
