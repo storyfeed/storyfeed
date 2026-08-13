@@ -42,6 +42,12 @@ class TestCase extends Orchestra
         // a null headline, and most of this suite exercises that guarantee.
         // StrictGrammarTest opts in explicitly.
         config()->set('storyfeed.grammar.strict', false);
+
+        // Point surface discovery at the workbench app. Testbench's skeleton
+        // app/ has no Feedable models, so without this the scanner would
+        // correctly find nothing and every surface assertion would pass
+        // vacuously — the failure mode those assertions exist to prevent.
+        config()->set('storyfeed.discovery.paths', [__DIR__.'/../workbench/app']);
     }
 
     protected function defineDatabaseMigrations(): void

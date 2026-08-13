@@ -36,7 +36,10 @@ it('counts only warnings and errors, never info', function () {
 
     confirmOne();
 
-    $report = Storyfeed::doctor();
+    // Scoped to the checks this test reasons about: `surface` legitimately
+    // warns here, because the workbench declares Feedable models that publish
+    // nothing, and that is its job.
+    $report = Storyfeed::doctor(['grammar', 'verbs']);
 
     // `confirm` has no AS2 mapping here, which is an Info note — reportage,
     // not a finding. A tool that counts notes as problems is one people stop

@@ -34,6 +34,7 @@ class Doctor
         Checks\Backlog::class,
         Checks\FeedStale::class,
         Checks\ManifestStale::class,
+        Checks\UnwiredSurface::class,
         Checks\Parties::class,
     ];
 

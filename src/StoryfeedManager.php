@@ -16,6 +16,7 @@ use Storyfeed\Contracts\Collectable;
 use Storyfeed\Contracts\DiagnosticCheck;
 use Storyfeed\Contracts\FeedVerb;
 use Storyfeed\Contracts\HasActivityStreamsType;
+use Storyfeed\Contracts\PublishesToFeed;
 use Storyfeed\Diagnostics\Doctor;
 use Storyfeed\Diagnostics\Report;
 use Storyfeed\Exceptions\StoryMisconfigured;
@@ -389,6 +390,20 @@ class StoryfeedManager
             $this->registeredAxes(),
             fn (Axis $axis) => $axis->isRowBacked(),
         ));
+    }
+
+    /**
+     * Publish the activity a PublishesToFeed implementor describes.
+     *
+     * THE seam. Domain events reach it through one interface-registered
+     * listener today; a Job, Mailable or Notification would reach the same
+     * method from its own hook, with no change to the contract.
+     *
+     * A null return is a deliberate skip, not an error.
+     */
+    public function publishFor(PublishesToFeed $publisher): ?Activity
+    {
+        return $publisher->toFeedStory()?->publish();
     }
 
     /**

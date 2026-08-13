@@ -277,4 +277,21 @@ return [
         'strict' => null,
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Surface Discovery
+    |--------------------------------------------------------------------------
+    |
+    | Where `storyfeed:stories` and doctor's `surface` check look for declared
+    | feed surface — Feedable models, PublishesToFeed implementors, Story
+    | classes. Null scans app_path().
+    |
+    | This is a DEV-TIME scan only: nothing at boot depends on it, which is what
+    | keeps registration explicit. Narrow it if your app is large.
+    */
+
+    'discovery' => [
+        'paths' => null,
+    ],
+
 ];

@@ -39,6 +39,7 @@ class StoryfeedServiceProvider extends PackageServiceProvider
                 Console\VerbsCommand::class,
                 Console\CacheCommand::class,
                 Console\ClearCommand::class,
+                Console\StoriesCommand::class,
             ]);
     }
 
@@ -67,6 +68,13 @@ class StoryfeedServiceProvider extends PackageServiceProvider
 
             $storyfeed->compileStories();
         });
+
+        // ONE listener, registered against the interface. Laravel's dispatcher
+        // walks class_implements() for object events, so this fires for every
+        // implementor and costs nothing for anything else — and it appears in
+        // `php artisan event:list`, which is the greppability answer to whether
+        // an attribute would have been better.
+        Event::listen(Contracts\PublishesToFeed::class, Listeners\PublishFeedActivity::class);
 
         // Join `php artisan optimize` / `optimize:clear`. Available in both
         // supported Laravel lanes, so no method_exists guard — that would only
