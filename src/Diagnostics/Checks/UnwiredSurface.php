@@ -47,6 +47,24 @@ class UnwiredSurface extends Check
 
         $recordedTypes = $this->recordedAliases();
 
+        // NON-VACUOUS GUARD. With an empty activities table every declared model
+        // trivially "never appears", so the check would report the entire app as
+        // broken while knowing nothing. That is not a strict reading — it is what
+        // happened: run against a RefreshDatabase suite, it flagged all six of a
+        // consumer's models, and the only way to satisfy it was to except all six,
+        // which is a permanently vacuous assertion.
+        //
+        // Absence of evidence has to be reported as absence of evidence.
+        if ($recordedTypes === []) {
+            yield Finding::info(
+                'surface.unassessable',
+                'No activities are recorded, so declared feed surface cannot be assessed. Run this against a '
+                .'database with real traffic (or a seeded world), not a fresh test database.',
+            );
+
+            return;
+        }
+
         foreach ($surface['feedable'] as $model) {
             $alias = (new $model)->getMorphClass();
 
@@ -60,15 +78,23 @@ class UnwiredSurface extends Check
                 continue;
             }
 
+            // Carefully worded: `Feedable` declares that a model APPEARS in the
+            // feed, not that it publishes. Publishing from an Action class while
+            // the model is merely a role is an ordinary Laravel shape, so the
+            // finding is about the model never appearing in ANY role — which is a
+            // real contradiction — and not about where the publish call lives.
             yield Finding::warning(
                 'surface.unwired',
-                "[{$model}] implements Feedable — declaring that it belongs in the feed — but no activity has "
-                ."ever been recorded about `{$alias}` and no grammar is authored for it. Either it should be "
-                .'publishing and nothing does, or the contract is left over from something removed.',
+                "[{$model}] implements Feedable, declaring that it appears in the feed, but `{$alias}` has never "
+                .'appeared in any role on any activity and no grammar is authored for it. Either something should '
+                .'be publishing about it and nothing does, or the contract is left over from something removed.',
                 ['model' => $model, 'alias' => $alias],
             );
         }
 
+        // A PublishesToFeed implementor is a claim about publishing, not about
+        // appearing — so this is the sound half of the check, and it needs no
+        // guesswork about where the call site lives.
         foreach ($surface['publishers'] as $publisher) {
             yield Finding::info(
                 'surface.publisher',

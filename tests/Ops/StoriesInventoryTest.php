@@ -5,7 +5,6 @@ use PHPUnit\Framework\AssertionFailedError;
 use Storyfeed\Facades\Storyfeed;
 use Storyfeed\Grouping\Group;
 use Storyfeed\StoryDefinition;
-use Storyfeed\Support\SurfaceScanner;
 use Storyfeed\Testing\StorySurface;
 use Workbench\App\Models\Customer;
 use Workbench\App\Models\Delivery;
@@ -95,14 +94,18 @@ it('marks a story missing an applicable axis as a gap', function () {
         ->assertSuccessful();
 });
 
-it('reports declared surface as unwired when nothing has published', function () {
-    // The workbench declares three Feedable models and publishes nothing, so
-    // the useful answer is "these three are unwired" — NOT "nothing publishes",
-    // which would be the report telling you it has no news when it does.
-    // Order matters to the helper: each expectation consumes the first
-    // matching line, and one table row contains both words.
+it('names a declared model that never appears, once there is data to judge against', function () {
+    // With an EMPTY table every declared model trivially never appears, so the
+    // check refuses a verdict rather than reporting the whole app as broken —
+    // the defect its first consumer hit. Give it one activity and the answer
+    // becomes real: Delivery appears, User and Customer do not.
+    Storyfeed::grammar(['delivery.confirm' => ':actor confirmed :object']);
+    Storyfeed::activity('confirm', Delivery::create(['tracking_number' => 'TN-1']))->publish();
+
+    // Order matters to the helper: each expectation consumes the first matching
+    // line, and one table row contains both words.
     $this->artisan('storyfeed:stories')
-        ->expectsOutputToContain('Delivery')
+        ->expectsOutputToContain('User')
         ->expectsOutputToContain('unwired')
         ->assertSuccessful();
 });
@@ -144,22 +147,54 @@ it('warns when the newest activity is older than --since', function () {
         ->assertSuccessful();
 });
 
-it('asserts no declared surface is silent, and names it when some is', function () {
-    // Nothing published at all, so every Feedable workbench model is unwired.
+it('refuses a verdict when nothing has been published', function () {
+    // THE defect its first consumer hit: against a RefreshDatabase suite every
+    // declared model trivially never appears, so this failed wholesale while
+    // knowing nothing — and the only way to green it was to except everything,
+    // which is a permanently vacuous assertion. They deleted it, correctly.
+    // Absence of evidence must be reported as absence of evidence.
+    try {
+        StorySurface::assertNoUnwiredSurface();
+        $this->fail('Expected the assertion to refuse a verdict.');
+    } catch (AssertionFailedError $e) {
+        expect($e->getMessage())->toContain('proves nothing');
+    }
+});
+
+it('passes once every declared model appears in SOME role', function () {
+    Storyfeed::stories([DeliveryWasConfirmed::class]);
+
+    $user = User::create(['name' => 'Sally', 'email' => 's@example.com']);
+    $customer = Customer::create(['name' => 'Acme']);
+
+    // `Feedable` means the model APPEARS in the feed, not that it publishes.
+    // Publishing from an Action class while the model is merely a role is an
+    // ordinary Laravel shape, and must satisfy this.
+    DeliveryWasConfirmed::activity(Delivery::create(['tracking_number' => 'TN-1']))
+        ->actor($user)->for($customer)->publish();
+
+    StorySurface::assertNoUnwiredSurface();
+});
+
+it('names a model that never appears, and does not conflate that with publishing', function () {
+    Storyfeed::grammar(['delivery.confirm' => ':actor confirmed :object']);
+    Storyfeed::activity('confirm', Delivery::create(['tracking_number' => 'TN-1']))->publish();
+
     try {
         StorySurface::assertNoUnwiredSurface();
         $this->fail('Expected unwired surface to be reported.');
     } catch (AssertionFailedError $e) {
         expect($e->getMessage())
-            ->toContain('declared but publishes nothing')
-            ->toContain('Delivery')
-            // States its own reach rather than implying completeness.
+            ->toContain('never appears in the feed')
+            ->toContain('User')
+            ->toContain('APPEARS in the feed')
             ->toContain('invisible to Storyfeed');
     }
 });
 
-it('accepts deliberately silent surface via $except', function () {
-    $feedable = app(SurfaceScanner::class)->scan()['feedable'];
+it('accepts deliberately absent surface via $except', function () {
+    Storyfeed::grammar(['delivery.confirm' => ':actor confirmed :object']);
+    Storyfeed::activity('confirm', Delivery::create(['tracking_number' => 'TN-1']))->publish();
 
-    StorySurface::assertNoUnwiredSurface(except: $feedable);
+    StorySurface::assertNoUnwiredSurface(except: [User::class, Customer::class]);
 });
