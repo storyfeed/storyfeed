@@ -23,6 +23,7 @@ return [
         'activities' => 'feed_activities',
         'snapshots' => 'feed_snapshots',
         'groupings' => 'feed_groupings',
+        'participants' => 'feed_participants',
         'parties' => 'feed_parties',
         'batches' => 'feed_batches',
         'meta' => 'feed_meta',

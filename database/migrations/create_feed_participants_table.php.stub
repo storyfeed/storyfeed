@@ -1,0 +1,40 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create(config('storyfeed.tables.participants', 'feed_participants'), function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('activity_id');
+            // Which slot this entity filled. An activity row holds 0-or-1 of
+            // each, so (activity_id, role) is unique — composite parents carry
+            // no object of their own and members are separate rows.
+            $table->string('role', 20);
+            $table->string('entity_type');
+            $table->string('entity_id');
+            // Denormalized so `involving()` orders and pages from this index
+            // alone, without reaching into the activities table to sort.
+            $table->timestamp('published_at')->nullable();
+            $table->timestamps();
+
+            $table->unique(['activity_id', 'role']);
+
+            // The involving lookup: one entity, newest first. Covering —
+            // entity identity narrows, published_at orders, activity_id joins.
+            $table->index(
+                ['entity_type', 'entity_id', 'published_at', 'activity_id'],
+                'feed_participants_entity_published_index',
+            );
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists(config('storyfeed.tables.participants', 'feed_participants'));
+    }
+};

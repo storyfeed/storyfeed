@@ -5,6 +5,8 @@ namespace Storyfeed\Models\Builders;
 use DateTimeInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Query\Builder as QueryBuilder;
+use Storyfeed\Actions\SyncParticipants;
 
 /**
  * @template TModel of \Storyfeed\Models\Activity
@@ -71,15 +73,29 @@ class ActivityBuilder extends Builder
     }
 
     /**
-     * Activities involving the model in any role: actor, object, or target.
+     * Activities involving the model in ANY role — actor, object, target or
+     * context. This is what an entity's own feed means: everything that
+     * mentions it, however it participated.
+     *
+     * A semi-join against feed_participants, not an OR across the four morph
+     * pairs. The OR is the shape every earlier generation of this feed used,
+     * and it cannot be indexed: each branch would need its own composite and
+     * the planner still could not use them for the newest-first ordering.
+     * SyncParticipants maintains the rows; `storyfeed:participants` backfills
+     * an install that predates the table.
      */
     public function involving(Model $model): static
     {
-        $this->where(function (self $query) use ($model) {
-            $query
-                ->where(fn (self $q) => $q->whereMorphRole('actor', $model))
-                ->orWhere(fn (self $q) => $q->whereMorphRole('object', $model))
-                ->orWhere(fn (self $q) => $q->whereMorphRole('target', $model));
+        $participants = SyncParticipants::table();
+        $activities = $this->getModel()->getTable();
+        $alias = $model->getMorphClass();
+        $key = (string) $model->getKey();
+
+        $this->whereExists(function (QueryBuilder $query) use ($participants, $activities, $alias, $key) {
+            $query->from($participants)
+                ->whereColumn("{$participants}.activity_id", "{$activities}.id")
+                ->where("{$participants}.entity_type", $alias)
+                ->where("{$participants}.entity_id", $key);
         });
 
         return $this;

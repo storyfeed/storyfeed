@@ -36,6 +36,7 @@ class Doctor
         Checks\ManifestStale::class,
         Checks\UnwiredSurface::class,
         Checks\Parties::class,
+        Checks\Participants::class,
     ];
 
     /** @param list<DiagnosticCheck> $checks */

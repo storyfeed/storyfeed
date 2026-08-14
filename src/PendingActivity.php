@@ -13,6 +13,7 @@ use InvalidArgumentException;
 use Storyfeed\Actions\AssignToBatch;
 use Storyfeed\Actions\CurateCluster;
 use Storyfeed\Actions\SnapshotEntity;
+use Storyfeed\Actions\SyncParticipants;
 use Storyfeed\Actions\WriteGroupings;
 use Storyfeed\Contracts\Feedable;
 use Storyfeed\Contracts\FeedVerb;
@@ -209,12 +210,15 @@ class PendingActivity
             $this->writeGroupings();
 
             if ($this->replace && $this->activity->object_id !== null) {
-                $this->activity->newQuery()
+                $superseded = $this->activity->newQuery()
                     ->whereKeyNot($this->activity->getKey())
                     ->where('object_type', $this->activity->object_type)
                     ->where('object_id', $this->activity->object_id)
-                    ->where('verb', $this->activity->verb)
-                    ->delete();
+                    ->where('verb', $this->activity->verb);
+
+                SyncParticipants::forget(...$superseded->pluck('id')->all());
+
+                $superseded->delete();
             }
 
             return $this->activity;
@@ -255,6 +259,8 @@ class PendingActivity
                 'winner' => null,
             ]);
 
+            (new SyncParticipants)($this->activity);
+
             foreach ($this->objects as $model) {
                 $member = $this->activity->replicate([
                     'uid', 'cached_object_id',
@@ -275,6 +281,11 @@ class PendingActivity
                     'hash' => $this->activity->uid,
                     'winner' => true,
                 ]);
+
+                // Members carry the object, so involving($file) finds the
+                // member — and the composite it belongs to surfaces through
+                // the grouping join.
+                (new SyncParticipants)($member);
             }
 
             (new AssignToBatch)($this->activity);
@@ -427,6 +438,10 @@ class PendingActivity
     private function writeGroupings(): void
     {
         (new WriteGroupings)($this->activity);
+
+        // The involving index. In the same transaction as the activity, so a
+        // participant row can never outlive (or precede) the row it points at.
+        (new SyncParticipants)($this->activity);
 
         // Batching is invisible to the recording code: the activity joins
         // (or opens) its actor's current batch here, in the same

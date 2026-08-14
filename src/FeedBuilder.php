@@ -117,13 +117,35 @@ class FeedBuilder
     }
 
     /**
-     * Activities involving the model in any role.
+     * An entity's own feed: every activity that mentions it, in any role —
+     * actor, object, target or context.
+     *
+     * This is what a project page or a client page wants. `context()` answers
+     * the narrower question ("what happened INSIDE this container"), and misses
+     * an entity's own creation, since that records it as the object.
+     *
+     * Indexed via feed_participants — see ActivityBuilder::involving(). An
+     * install upgrading into this needs `storyfeed:participants` once.
      */
-    public function for(Model|string $model): static
+    public function involving(Model|string $model): static
     {
         $this->involving = $this->resolve($model);
 
         return $this;
+    }
+
+    /**
+     * Renamed: `for()` meant target when recording and involving when
+     * reading, which is how it came to be documented as the wrong one.
+     */
+    public function for(Model|string $model): never
+    {
+        throw new InvalidArgumentException(
+            'FeedBuilder::for() was renamed to involving() in v0.7 — it filters activities '
+            .'involving the model in ANY role, which the old name obscured (on the recording '
+            .'side, for() sets the target). Use ->involving($model), or ->target($model) if '
+            .'you meant the single role.',
+        );
     }
 
     public function verb(string $verb): static

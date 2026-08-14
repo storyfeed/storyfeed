@@ -47,6 +47,8 @@ class PruneActivities
 
             $grouping::query()->whereIn('activity_id', $ids)->delete();
 
+            SyncParticipants::forget(...$ids);
+
             $activity::query()->withTrashed()->whereKey($ids)->forceDelete();
 
             $pruned += $ids->count();

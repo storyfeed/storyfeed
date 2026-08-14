@@ -59,6 +59,7 @@ class TrickleSnapshots
 
             if ($orphaned) {
                 $activity->delete();
+                SyncParticipants::forget($activity->getKey());
                 $pruned++;
 
                 continue;
