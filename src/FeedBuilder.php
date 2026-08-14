@@ -83,6 +83,13 @@ class FeedBuilder
     /** Read mode: 'log' | 'live' | 'summary'. Null = configured default. */
     protected ?string $mode = null;
 
+    /**
+     * Caller constraints on the candidate activities.
+     *
+     * @var array<int, Closure>
+     */
+    protected array $callbacks = [];
+
     /** Ordering rank of each stream, applied at identical timestamps. */
     protected const RANK_GROUP = 0;
 
@@ -151,6 +158,38 @@ class FeedBuilder
     public function verb(string $verb): static
     {
         $this->verb = $verb;
+
+        return $this;
+    }
+
+    /**
+     * Constrain the candidate activities with anything Eloquent can express.
+     *
+     *   $project->storyfeed()
+     *       ->query(fn (ActivityBuilder $q) => $q->whereNot('verb', 'comment'))
+     *       ->summary()->get();
+     *
+     * The filters above this one are a closed vocabulary — roles, one verb, a
+     * mode. This is the way out for everything else: excluding a verb, a date
+     * window, several actors, an object type, a `data->` key.
+     *
+     * The closure receives the candidate query and its return value is IGNORED,
+     * which is why this is not called `filter()` — a predicate-shaped closure
+     * would silently do nothing. It is not `tap()` either: core's `tap()` hands
+     * a callback `$this`, and this hands over a different, inner builder.
+     *
+     * Runs once per BRANCH of the read, not once per page: measured at once for
+     * a log page, and seven times for a grouped page carrying one group — the
+     * group stream, the solo stream, the member fetch, and one distinct count per
+     * role. Keep it free of side effects.
+     *
+     * Constraints reach the whole read, including group children and the
+     * distinct-role counts behind ":actors and 3 others", because every branch
+     * is built from the same method.
+     */
+    public function query(Closure $callback): static
+    {
+        $this->callbacks[] = $callback;
 
         return $this;
     }
@@ -690,7 +729,46 @@ class FeedBuilder
             ->when($this->target, fn (ActivityBuilder $q, Model $m) => $q->target($m))
             ->when($this->context, fn (ActivityBuilder $q, Model $m) => $q->context($m))
             ->when($this->involving, fn (ActivityBuilder $q, Model $m) => $q->involving($m))
-            ->when($this->verb, fn (ActivityBuilder $q, string $verb) => $q->verb($verb));
+            ->when($this->verb, fn (ActivityBuilder $q, string $verb) => $q->verb($verb))
+            ->tap(fn (ActivityBuilder $q) => $this->applyCallbacks($q));
+    }
+
+    /**
+     * Hand the candidate query to each `query()` callback, then make sure they
+     * left it usable.
+     *
+     * A limit or offset here would truncate the candidate set BEFORE grouping,
+     * curation and member counting see it — the hazard
+     * `ActivityBuilder::involving()` warns about in its own comment. It is
+     * refused rather than silently honoured, because the result would be a page
+     * that looks fine and is wrong.
+     *
+     * Ordering is dropped instead of refused: this method returns an unordered
+     * candidate set on purpose and each caller adds the ordering its stream and
+     * cursor depend on, so a stray `orderBy` is meaningless rather than
+     * mistaken.
+     */
+    protected function applyCallbacks(ActivityBuilder $query): void
+    {
+        if ($this->callbacks === []) {
+            return;
+        }
+
+        foreach ($this->callbacks as $callback) {
+            $callback($query);
+        }
+
+        $base = $query->getQuery();
+
+        if ($base->limit !== null || $base->offset !== null) {
+            throw new InvalidArgumentException(
+                'A query() callback set a limit or offset on the candidate activities, which '
+                .'would truncate them before grouping and curation ran. Use FeedBuilder::limit() '
+                .'to size the page instead.',
+            );
+        }
+
+        $query->reorder();
     }
 
     /**
