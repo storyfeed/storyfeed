@@ -23,6 +23,29 @@ use Storyfeed\StoryfeedManager;
  * Prefer the recorded form over a hand-maintained list: it asserts against
  * what the application actually publishes, so a new activity type can't be
  * added without also being authored.
+ *
+ * WHAT THIS DOES NOT PROVE, and it is less than people assume. Every assertion
+ * here answers one question — *does a template EXIST for this pair?* None of
+ * them can tell you:
+ *
+ *  - that the axis ever FIRES. A verb whose activities stopped grouping — a
+ *    changed threshold, a role no longer filled, a curator regression — leaves
+ *    every one of these assertions green, because the templates are all still
+ *    registered.
+ *  - that the template which RESOLVES is the one a reader should see. Coverage
+ *    is satisfied by a `type.*` or `*.verb` wildcard standing in for the
+ *    specific entry you meant to author.
+ *  - that the resulting sentence is TRUE of its group. Token safety is checked
+ *    at compile time and by doctor, but "at most one plural list per template"
+ *    and whether the prose reads well are untoolable by design.
+ *
+ * A consumer found four of six built-in axes with no payload-level proof at all,
+ * while every coverage assertion they owned was green — the axes could have
+ * silently stopped being reachable and nothing would have said so. Pair these
+ * with assertions over the actual payload: that the group node appears, on the
+ * axis you expect, with the headline you meant. This package's own
+ * `tests/ReadPath/CurationTest.php` is the worked example, including both
+ * directions of the object-axis case (one object groups; several fall back).
  */
 class GrammarCoverage
 {
