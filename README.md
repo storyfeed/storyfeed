@@ -74,8 +74,8 @@ package does for you.
   (`Activity`, `OrderedCollection`), with ActivityPub federation on the long-range
   roadmap.
 - **Headless by design** — the core emits a stable, versioned payload contract.
-  Bring your own UI, or use **`storyfeed/ui`** (coming) — polished pre-built
-  components by Tey Labs.
+  Bring your own UI, or use **`storyfeed/ui`** — pre-built components, free and
+  MIT like everything else here. Coming; see [Sponsoring](#sponsoring).
 
 ## Installation
 
@@ -109,15 +109,32 @@ Please see [CHANGELOG](CHANGELOG.md) for more information on what has changed re
 - [Jasper Tey](https://github.com/jaspertey) / [Tey Labs](https://teylabs.com)
 - [All Contributors](../../contributors)
 
+## Sponsoring
+
+`storyfeed/ui` — the pre-built renderer components — will be **free and MIT**, like
+everything else here. Gating it was the original plan and it was the wrong one:
+holding the UI back means nobody can see the whole pattern working end to end,
+which is the only way this is worth learning.
+
+**Sponsorship sets its pace instead of its price.** Every adapter is a surface that
+has to keep working, so how far `storyfeed/ui` goes depends on how much time
+sponsorship makes available:
+
+- **Unsponsored** — it moves at my own pace, and realistically ships Vue/Inertia
+  and Filament adapters only.
+- **Sponsored** — Livewire, Blade components and React become reachable, along
+  with faster response on the core.
+
+If it earns a place in your app, that is the way to say so.
+
 ## License
 
 The MIT License (MIT). Please see [License File](LICENSE.md) for more information.
 
-**A commitment, so you can build on this safely:** everything MIT today stays MIT.
-This package is complete on its own — recording, reads, grouping, curation and the
-payload contract — and nothing in it will move behind a licence later. Paid
-companions like `storyfeed/ui` add convenience on top; they never take anything
-away, and a feed built on the core alone will keep working exactly as it does now.
+**A commitment, so you can build on this safely:** everything MIT today stays MIT,
+and nothing here will move behind a licence later — not the core, not the UI
+components. This package is complete on its own: recording, reads, aggregation,
+curation and the payload contract.
 
 Building your own renderer against the payload contract is expected and
 encouraged — there's a plain Blade reference loop in the docs precisely so you

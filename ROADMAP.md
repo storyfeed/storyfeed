@@ -40,9 +40,10 @@ high-level plan; detailed design documents will be published as the milestones l
 - Full-history scale — feeds that stay fast at millions of activities without
   pruning (time-partitioned storage, warm/cold tiering behind the opaque cursor).
 - Story auto-discovery.
-- **`storyfeed/ui`** — a companion package of polished, pre-built feed components
-  for those who'd rather not build their own renderer. Vue/Inertia first; more
-  adapters (Livewire, Blade, Filament, React) to follow.
+- **`storyfeed/ui`** — a free, MIT companion package of pre-built feed components
+  for those who'd rather not build their own renderer. Vue/Inertia and Filament
+  first; Livewire, Blade components and React follow as sponsorship allows the
+  time (see Sponsoring in the README).
 - A public demo API, so any frontend — Nuxt, Next, SvelteKit, mobile — can be
   pointed at a live Storyfeed and render it however it likes.
 - Long-range: ActivityPub (the architecture already mints stable IRIs and speaks

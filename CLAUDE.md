@@ -1,8 +1,10 @@
 # Storyfeed — working notes for Claude
 
-Open-core Laravel activity-feed package by Tey Labs. Core (this repo, MIT,
-headless) emits a versioned payload contract; a paid `storyfeed/ui` package
-will consume it. Activity Streams 2.0 at the serialization boundary.
+Laravel activity-feed package by Tey Labs. Core (this repo, MIT, headless) emits
+a versioned payload contract; a `storyfeed/ui` package will consume it — **also
+free and MIT** (decided 2026-08-14: gating the UI made the end-to-end story
+untellable; sponsorship funds its pace instead, so unsponsored means Vue/Inertia
++ Filament only). Activity Streams 2.0 at the serialization boundary.
 
 ## Key documents (gitignored — local only until milestones publish them)
 
