@@ -85,6 +85,17 @@ class PendingActivity
         return $this->associate('actor', $model);
     }
 
+    /**
+     * Actor, as a byline: `->by($user)->verb('upload', $document)`.
+     *
+     * Not to be confused with `Storyfeed::as($actor)`, which sets an AMBIENT
+     * actor for everything recorded inside it. This sets it on one activity.
+     */
+    public function by(Model|string|null $model = null): static
+    {
+        return $this->actor($model);
+    }
+
     public function object(Model|string|null $model = null): static
     {
         if ($model !== null && $this->objects !== []) {
@@ -127,6 +138,16 @@ class PendingActivity
         return $this->associate('context', $model);
     }
 
+    /**
+     * ── Target aliases ───────────────────────────────────────────────────────
+     *
+     * Every one of these sets `target` and nothing else. They exist so a
+     * recording line reads as the sentence it records; the stored row is
+     * identical whichever you pick, so choose the preposition your verb takes.
+     *
+     * Note that `in()` and `from()` predate the `context` role and read as
+     * though they might set it. They do not — see `context()`.
+     */
     public function in(Model|string|null $model = null): static
     {
         return $this->target($model);
@@ -143,6 +164,30 @@ class PendingActivity
     }
 
     public function from(Model|string|null $model = null): static
+    {
+        return $this->target($model);
+    }
+
+    /**
+     * Target, for verbs of attachment: `->verb('comment', $comment)->on($document)`.
+     */
+    public function on(Model|string|null $model = null): static
+    {
+        return $this->target($model);
+    }
+
+    /**
+     * Target, for verbs of sharing: `->verb('share', $document)->with($teammate)`.
+     */
+    public function with(Model|string|null $model = null): static
+    {
+        return $this->target($model);
+    }
+
+    /**
+     * Target, for verbs of transfer: `->verb('move', $document)->into($folder)`.
+     */
+    public function into(Model|string|null $model = null): static
     {
         return $this->target($model);
     }

@@ -81,6 +81,11 @@ trait AsFeedVerb
         return $this->activity()->actor($model);
     }
 
+    public function by(Model|string|null $model = null): PendingActivity
+    {
+        return $this->activity()->by($model);
+    }
+
     public function object(Model|string|null $model = null): PendingActivity
     {
         return $this->activity()->object($model);
@@ -124,6 +129,21 @@ trait AsFeedVerb
     public function from(Model|string|null $model = null): PendingActivity
     {
         return $this->activity()->from($model);
+    }
+
+    public function on(Model|string|null $model = null): PendingActivity
+    {
+        return $this->activity()->on($model);
+    }
+
+    public function with(Model|string|null $model = null): PendingActivity
+    {
+        return $this->activity()->with($model);
+    }
+
+    public function into(Model|string|null $model = null): PendingActivity
+    {
+        return $this->activity()->into($model);
     }
 
     public function data(array $data): PendingActivity
