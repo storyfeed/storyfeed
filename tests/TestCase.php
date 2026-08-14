@@ -15,6 +15,17 @@ class TestCase extends Orchestra
     {
         parent::setUp();
 
+        // Freeze the clock at midday, keeping TODAY's date.
+        //
+        // Axis keys are day-grained (`:d`), so any test that publishes at
+        // `now()->subMinutes(...)` and asserts ONE group silently depends on the
+        // wall clock: run it at 00:20 and a 25-minute spread straddles midnight,
+        // producing two groups. That is a real property of the grouping model,
+        // not a bug — but a test asserting children-capping should not be
+        // asserting it accidentally, and CI running past midnight UTC should not
+        // fail for it. Midday leaves ±12h of margin in both directions.
+        $this->travelTo(now()->startOfDay()->addHours(12));
+
         Relation::enforceMorphMap([
             'user' => User::class,
             'customer' => Customer::class,
