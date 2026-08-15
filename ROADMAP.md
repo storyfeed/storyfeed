@@ -46,6 +46,10 @@ high-level plan; detailed design documents will be published as the milestones l
   time (see Sponsoring in the README).
 - A public demo API, so any frontend — Nuxt, Next, SvelteKit, mobile — can be
   pointed at a live Storyfeed and render it however it likes.
+- Laravel notifications, bridged both ways — a notification class that
+  `implements PublishesToFeed` also publishes its fact to the feed (same
+  interface events use, no channel plumbing at the call site), and feed
+  activities notifying subscribers via the `ActivityPublished` event.
 - Long-range: ActivityPub (the architecture already mints stable IRIs and speaks
   AS2.0 for this reason).
 
