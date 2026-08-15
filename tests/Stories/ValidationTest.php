@@ -1,6 +1,5 @@
 <?php
 
-use BackedEnum;
 use Storyfeed\Contracts\FeedVerb;
 use Storyfeed\Exceptions\StoryMisconfigured;
 use Storyfeed\Facades\Storyfeed;
