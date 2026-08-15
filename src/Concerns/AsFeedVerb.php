@@ -81,6 +81,16 @@ trait AsFeedVerb
         return $this->activity()->actor($model);
     }
 
+    /**
+     * On an enum the verb is already known, so this only takes the object —
+     * `ActivityVerb::Upload->action($document)` is `->activity($document)` with
+     * the sentence's word.
+     */
+    public function action(Model|string|null $object = null): PendingActivity
+    {
+        return $this->activity($object);
+    }
+
     public function by(Model|string|null $model = null): PendingActivity
     {
         return $this->activity()->by($model);

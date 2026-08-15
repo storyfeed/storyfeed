@@ -80,6 +80,23 @@ class PendingActivity
         return $this;
     }
 
+    /**
+     * The action the actor took: `->by($user)->action('upload', $document)`.
+     *
+     * An alias for `verb()`, and the reason is the chain reading as a sentence.
+     * `actor` and `action` are a pair — who acted, and what the act was — where
+     * `actor` and `verb` mix a person with a part of speech.
+     *
+     * Only the authoring word changes. Storage is `verb` throughout and always
+     * will be: the payload key, the column, the `verbs` registry, `FeedVerb`,
+     * `AsFeedVerb`, and `FeedBuilder::verb()` on the read side. Reading is a
+     * query rather than a sentence, so no alias there.
+     */
+    public function action(string|FeedVerb|BackedEnum $verb, Model|string|null $object = null): static
+    {
+        return $this->verb($verb, $object);
+    }
+
     public function actor(Model|string|null $model = null): static
     {
         return $this->associate('actor', $model);

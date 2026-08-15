@@ -1,6 +1,7 @@
 <?php
 
 use Storyfeed\Facades\Storyfeed;
+use Workbench\App\Enums\ActivityVerb;
 use Workbench\App\Models\Customer;
 use Workbench\App\Models\Delivery;
 use Workbench\App\Models\User;
@@ -47,6 +48,34 @@ it('does not let by() set the ambient actor', function () {
 
     expect($second->actor_type)->toBeNull()
         ->and($second->actor_id)->toBeNull();
+});
+
+it('records action() as the verb, with its object', function () {
+    $activity = Storyfeed::activity()
+        ->by($this->user)
+        ->action('confirm', $this->delivery)
+        ->publish();
+
+    expect($activity->verb)->toBe('confirm')
+        ->and($activity->object_type)->toBe($this->delivery->getMorphClass())
+        ->and($activity->object_id)->toEqual($this->delivery->getKey());
+});
+
+it('treats action() and verb() as the same call', function () {
+    $viaAlias = Storyfeed::activity()->by($this->user)->action('confirm', $this->delivery)->publish();
+    $viaRole = Storyfeed::activity()->actor($this->user)->verb('confirm', $this->delivery)->publish();
+
+    expect($viaAlias->only(['verb', 'object_type', 'object_id', 'actor_type', 'actor_id']))
+        ->toEqual($viaRole->only(['verb', 'object_type', 'object_id', 'actor_type', 'actor_id']));
+});
+
+it('accepts an enum through action(), like verb()', function () {
+    $activity = Storyfeed::activity()
+        ->by($this->user)
+        ->action(ActivityVerb::Confirm, $this->delivery)
+        ->publish();
+
+    expect($activity->verb)->toBe('confirm');
 });
 
 dataset('target aliases', ['target', 'to', 'for', 'from', 'in', 'on', 'with', 'into']);
