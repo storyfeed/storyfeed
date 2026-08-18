@@ -4,8 +4,11 @@
 [![GitHub Tests Action Status](https://github.com/storyfeed/storyfeed/actions/workflows/run-tests.yml/badge.svg)](https://github.com/storyfeed/storyfeed/actions?query=workflow%3Arun-tests+branch%3Amain)
 [![Total Downloads](https://img.shields.io/packagist/dt/storyfeed/storyfeed.svg?style=flat-square)](https://packagist.org/packages/storyfeed/storyfeed)
 
-> **Status: under active development.** See the [roadmap](ROADMAP.md) for what's in
-> progress. APIs below reflect the working design spec and may shift until v1.0.
+> **Status: pre-1.0, and genuinely unfinished.** This package is being designed in
+> public, not maintained in public. Anything here can change without a deprecation
+> cycle — method names, class names, config keys, database columns, the docs, this
+> README. There are no alpha tags out of politeness; there are alpha tags because
+> it is an alpha. See [Stability before 1.0](#stability-before-10).
 
 Every product you use at scale has one. GitHub's dashboard, Slack's activity, the
 feed on every social network you have ever opened — the same pattern, solved over
@@ -77,6 +80,38 @@ package does for you.
   Bring your own UI, or use **`storyfeed/ui`** — pre-built Vue/Inertia and Blade
   components, free and MIT like the core. Coming; see
   [How this is packaged](#how-this-is-packaged).
+
+## Stability before 1.0
+
+**Nobody is being asked to depend on this yet.** It is not marketed, not announced,
+and as of today the author is its only user. If you found it and want to build on
+it, you are welcome to — but you are doing so at your own risk, and the risk is
+real rather than boilerplate.
+
+What "pre-1.0" means here, concretely:
+
+- **Breaking changes ship without a deprecation cycle**, and without a major
+  version bump — the version is still `0.x` precisely so it can. Two renaming
+  waves landed in a single week (`for()` → `involving()`;
+  `flat`/`grouped`/`curated` → `log`/`live`/`summary`), and there will be more.
+- **The documentation changes with it**, and can lag it. A doc describing a method
+  that was renamed yesterday is a bug, not a promise — please report it, but do
+  not plan around it.
+- **Pin an exact commit or tag, never a range.** `dev-main` is a moving target and
+  is meant to be.
+- **Design decisions get reversed.** They are reversed in the open, with the
+  reasoning written down, and sometimes within days of being made.
+
+**The one exception, and it is deliberate:** the [payload
+contract](docs/payload.md) is versioned independently of the package and does not
+churn. It is the boundary a renderer builds against, so it hardens early and stays
+hard while everything behind it moves. That is the whole point of having it — the
+package is free to change its mind because the contract is not.
+
+Two things are also not up for revision, for the avoidance of doubt: everything
+published under MIT stays MIT (see [License](#license)), and the payload contract's
+compatibility promise above. Instability is about the API surface, not about
+walking back commitments.
 
 ## Installation
 
