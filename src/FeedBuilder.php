@@ -183,9 +183,10 @@ class FeedBuilder
      * Renamed: `for()` meant target when recording and involving when
      * reading, which is how it came to be documented as the wrong one.
      *
-     * The same reasoning is why a Feed class has no for() either — its entry
-     * points name the role (`CustomerFeed::context($order)`), so the call site
-     * says which one it binds instead of the class saying it invisibly.
+     * The same reasoning is why a Feed class has no for() either: it would have
+     * bound whichever role the class binds, invisibly. A class feed is entered
+     * through its constructor (`CustomerFeed::make($order)`), which claims no
+     * relationship at all.
      */
     public function for(Model|string $model): never
     {
@@ -193,8 +194,8 @@ class FeedBuilder
             'FeedBuilder::for() was renamed to involving() in v0.7 — it filters activities '
             .'involving the model in ANY role, which the old name obscured (on the recording '
             .'side, for() sets the target). Use ->involving($model), or ->target($model) if '
-            .'you meant the single role. A Feed class is entered the same way, by role: '
-            .'CustomerFeed::involving($model) / ::context($model) — see docs/feeds.md.',
+            .'you meant the single role. A Feed CLASS is entered through its constructor '
+            .'instead — CustomerFeed::make($model) — and binds its own role; see docs/feeds.md.',
         );
     }
 
@@ -260,7 +261,7 @@ class FeedBuilder
      * A ∩ B, so a call site downstream of a preset can only ever cut further.
      * Scope has no such property, because role filters are single-slot
      * ASSIGNMENTS — a second involving() replaces the first. So
-     * `CustomerFeed::for($order)->involving($someoneElse)` would silently swap
+     * `CustomerFeed::make($order)->involving($someoneElse)` would silently swap
      * the scope a surface was built on, and no allowlist protects you from
      * that. Declared scope is therefore pinned; the other four roles stay open,
      * because adding a role NARROWS (they AND together) and narrowing was never

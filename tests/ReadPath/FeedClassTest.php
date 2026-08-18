@@ -121,6 +121,49 @@ it('has no for(), and says where the name went', function () {
         ->toThrow(FeedMisconfigured::class, 'Feed classes have no for()');
 });
 
+it('never sends a tombstone reader to a method that does not exist', function () {
+    // Pinned because this message has already drifted once: it was written
+    // against a role-named entry API (CustomerFeed::context($order)) that was
+    // discarded in favour of ::make(), and shipped teaching an API that never
+    // existed — in the one place a person lands when they are already lost.
+    // Asserting the METHODS RESOLVE rather than snapshotting the prose keeps
+    // the message free to be rewritten and unable to lie.
+    $messages = [];
+
+    try {
+        CustomerFeed::for($this->mine);
+    } catch (FeedMisconfigured $e) {
+        $messages[] = $e->getMessage();
+    }
+
+    try {
+        Storyfeed::feed()->for($this->mine);
+    } catch (InvalidArgumentException $e) {
+        $messages[] = $e->getMessage();
+    }
+
+    expect($messages)->toHaveCount(2);
+
+    foreach ($messages as $message) {
+        preg_match_all('/::(\w+)\(/', $message, $statics);
+        preg_match_all('/->(\w+)\(/', $message, $instance);
+
+        // A `Class::method()` reference is a claim about a STATIC entry point,
+        // so it must resolve as one on Feed. Merely existing as an instance
+        // method on FeedBuilder is what made the drifted message look valid.
+        foreach ($statics[1] as $method) {
+            $static = method_exists(Feed::class, $method)
+                && (new ReflectionMethod(Feed::class, $method))->isStatic();
+
+            expect(["Feed::{$method}()" => $static])->toBe(["Feed::{$method}()" => true]);
+        }
+
+        foreach ($instance[1] as $method) {
+            expect([$method => method_exists(FeedBuilder::class, $method)])->toBe([$method => true]);
+        }
+    }
+});
+
 it('produces the same query as the equivalent closure preset', function () {
     // The two authoring forms compile to one registry. If this ever diverges,
     // the docs are lying about one of them.
