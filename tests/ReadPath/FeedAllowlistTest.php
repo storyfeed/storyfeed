@@ -209,8 +209,8 @@ it('cannot be widened by a query() callback using a top-level orWhere', function
 });
 
 it('still refuses a limit set inside a callback when a filter is active', function () {
-    // The callbacks move into a nested group when a verb filter is present;
-    // the limit/offset guard must still see them.
+    // The callbacks always run inside a nested group; the limit/offset guard
+    // must still see them there, filter or no filter.
     Storyfeed::activity()->actor($this->ines)->verb('order.placed', $this->project)->publish();
 
     $this->project->storyfeed()

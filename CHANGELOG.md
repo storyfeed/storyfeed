@@ -1,5 +1,50 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- **`query()` callbacks are now always nested — a top-level `orWhere` can no
+  longer widen a feed.** This is a behaviour change, and it changes emitted SQL.
+
+  Callbacks registered with `FeedBuilder::query()` were applied at the top level
+  of the candidate query. Because AND binds tighter than OR, a callback whose
+  first move was `orWhere` became a *sibling* of everything the builder had
+  already applied, and the read compiled to:
+
+  ```sql
+  where (published and involving and theirs) or (their other thing)
+  ```
+
+  An app could therefore surface **unpublished (including scheduled-for-later)
+  activities**, or activities **outside the scope it asked for** — another
+  tenant's, another model's — from a feed that read as correctly scoped in PHP.
+  Nothing in the page announced it: the payload was well formed, the counts were
+  internally consistent, and the extra rows looked like ordinary feed entries.
+
+  This was a bug rather than a feature. `query()` is documented as the way to
+  *narrow* the candidate activities; there has never been an intended way to use
+  it to widen past `published()` or past the role scope, and no page shape
+  depended on the escape. It predates the v0.8 feeds work.
+
+  v0.8.0-alpha.1 already nested callbacks, but **only when a verb allowlist was
+  active** — so whether your callback was safe depended on whether some other
+  part of the feed happened to call `only()`/`except()`. The nesting is now
+  unconditional.
+
+  **What changes in the SQL.** A feed with no `query()` callback is byte-for-byte
+  unchanged. A feed whose callbacks only ever AND gains one pair of parentheses
+  around them and is unchanged in meaning — `and not "verb" = ?` becomes
+  `and (not "verb" = ?)`. A feed whose callback used a top-level `orWhere` changes
+  in meaning, which is the point: the OR is now confined to the group the
+  callback built, and that group AND-s against the publish gate, the role scope
+  and any verb allowlist. `query()` can narrow a feed and can never widen it.
+
+  If you were relying on the old shape to deliberately reach past a scope, the
+  supported way is a second feed read, or a `query()` callback that names the
+  wider set inside its own closure. Nothing else in the read path moved.
+
+
 ## v0.8.0-alpha.1 — audience scoping (2026-08-18)
 
 The first tag since `v0.6.0-alpha.1`. It carries two milestones: the v0.7

@@ -331,6 +331,11 @@ class FeedBuilder
      * Constraints reach the whole read, including group children and the
      * distinct-role counts behind ":actors and 3 others", because every branch
      * is built from the same method.
+     *
+     * Your callbacks always land inside their own parenthesised group, so a
+     * top-level `orWhere` widens only what you wrote — never the publish gate,
+     * the requested scope, or a verb allowlist. Constraints here can NARROW a
+     * feed and can never widen it. See `applyConstraints()`.
      */
     public function query(Closure $callback): static
     {
@@ -881,31 +886,31 @@ class FeedBuilder
     /**
      * The caller's query() callbacks, plus the verb filter if there is one.
      *
-     * The nesting is the whole point of this method existing. AND binds tighter
-     * than OR, so a query() callback using a top-level `orWhere` would land as
-     * a sibling of the verb filter and SQL would read the allowlist as
-     * `... or (their thing and verb in (...))` — escaping a filter the caller
-     * never meant to escape. Wrapping the callbacks in their own group makes
-     * that impossible, and applying the filter afterwards means it AND-s
-     * against the group as a whole.
+     * The nesting is the whole point of this method existing, and it is
+     * UNCONDITIONAL. AND binds tighter than OR, so a callback whose first move
+     * is a top-level `orWhere` lands as a sibling of everything
+     * `filteredActivities()` already built, and SQL reads the whole read as
+     * `(published and involving and theirs) or (their other thing)` — an escape
+     * from the publish gate and the requested scope that nobody wrote and the
+     * resulting page cannot show you. Wrapping the callbacks in their own group
+     * makes it impossible: whatever boolean shape they compose inside the
+     * parens, the group as a whole AND-s against the scope.
      *
-     * It is done ONLY when a filter is present, so a feed that never calls
-     * only()/except() generates the SQL it always did, byte for byte. The
-     * asymmetry is a documented rule rather than an accident: inside a filtered
-     * feed, your query() constraints are grouped so they cannot widen the
-     * allowlist.
+     * The verb filter is applied AFTER the group for the same reason — it must
+     * AND against the group, not join it as a sibling.
+     *
+     * The rule has no exceptions on purpose. An earlier version grouped only
+     * when a verb allowlist was present, which meant the safety of your `query()`
+     * callback depended on whether some OTHER part of the feed happened to call
+     * only()/except() — the kind of asymmetry you cannot hold in your head.
      */
     protected function applyConstraints(ActivityBuilder $query): void
     {
-        if ($this->verbFilter === null || $this->verbFilter->isEmpty()) {
-            $this->applyCallbacks($query);
-
-            return;
+        if ($this->callbacks !== []) {
+            $query->where(fn (ActivityBuilder $group) => $this->applyCallbacks($group));
         }
 
-        $query->where(fn (ActivityBuilder $group) => $this->applyCallbacks($group));
-
-        $this->verbFilter->applyTo($query);
+        $this->verbFilter?->applyTo($query);
     }
 
     /**

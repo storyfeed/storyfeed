@@ -1,5 +1,6 @@
 <?php
 
+use Illuminate\Support\Facades\DB;
 use Storyfeed\Facades\Storyfeed;
 use Storyfeed\Models\Builders\ActivityBuilder;
 use Workbench\App\Models\Customer;
@@ -186,4 +187,65 @@ it('runs the callback once per branch of the read, with no side effects assumed'
     // If these numbers move, the docblock on FeedBuilder::query() is now wrong.
     expect($log)->toBe(1)
         ->and($grouped)->toBe(7);
+});
+
+/**
+ * The two escapes below are what `FeedBuilder::applyConstraints()` nests to
+ * prevent, and they are the reason the nesting is unconditional. Neither feed
+ * here names a verb allowlist: before the fix, that was exactly the case where
+ * the callbacks were left at the top level and a single `orWhere` could widen
+ * the read past the publish gate and past the requested scope. Both pages
+ * looked entirely plausible while being wrong, which is why they are pinned
+ * rather than reasoned about.
+ */
+it('cannot surface an unpublished activity through a top-level orWhere', function () {
+    $file = Delivery::create(['tracking_number' => 'embargoed.pdf']);
+
+    Storyfeed::activity()->actor($this->ines)->verb('upload', $file)->to($this->project)->publish();
+
+    // Scheduled for tomorrow: the publish gate is the only thing holding it back.
+    Storyfeed::activity()->actor($this->ines)->verb('announce', $file)
+        ->to($this->project)->publishedAt(now()->addDay())->publish();
+
+    $page = $this->project->storyfeed()
+        ->query(fn (ActivityBuilder $q) => $q->where('verb', 'upload')->orWhere('verb', 'announce'))
+        ->log()
+        ->get();
+
+    expect(collect($page->items())->pluck('verb')->all())->toBe(['upload']);
+});
+
+it('cannot escape involving() through a top-level orWhere', function () {
+    $other = Customer::create(['name' => 'Somebody Else']);
+    $file = Delivery::create(['tracking_number' => 'shared.fig']);
+
+    Storyfeed::activity()->actor($this->ines)->verb('upload', $file)->to($this->project)->publish();
+    Storyfeed::activity()->actor($this->ines)->verb('upload', $file)->to($other)->publish();
+
+    $page = $this->project->storyfeed()
+        ->query(fn (ActivityBuilder $q) => $q->where('verb', 'upload')->orWhere('verb', 'upload'))
+        ->log()
+        ->get();
+
+    // Two rows carry this verb; only one is in the requested scope.
+    expect($page->items())->toHaveCount(1);
+});
+
+it('nests callbacks even with no verb allowlist in play', function () {
+    // The grouping of a plain AND callback is invisible in results, so it is
+    // pinned in the SQL: `(...)` around the callback's own wheres, unconditional.
+    $sql = null;
+
+    DB::listen(function ($query) use (&$sql) {
+        if (str_contains($query->sql, 'feed_activities') && str_contains($query->sql, 'verb')) {
+            $sql ??= $query->sql;
+        }
+    });
+
+    $this->project->storyfeed()
+        ->query(fn (ActivityBuilder $q) => $q->whereNot('verb', 'comment'))
+        ->log()
+        ->get();
+
+    expect($sql)->toContain('(not "verb" = ?)');
 });
