@@ -44,11 +44,13 @@ class StoryfeedManager
     protected array $verbs = self::DEFAULT_VERBS;
 
     /**
-     * Named feed presets — an audience's scope and verb allowlist, declared
-     * once at boot. Closures rather than arrays on purpose: a preset composes
-     * the whole FeedBuilder (roles, mode, query()), not just a verb list.
+     * Named feeds — an audience's scope and verb allowlist, declared once at
+     * boot. Behaviour rather than data on purpose: a feed composes the whole
+     * FeedBuilder (roles, mode, query()), not just a verb list — which is also
+     * why, unlike the story registries, this one can never enter the compiled
+     * manifest. There is nothing to cache: feeds are registered, not compiled.
      *
-     * @var array<string, Closure>
+     * @var array<string, FeedDefinition>
      */
     protected array $feeds = [];
 
@@ -224,28 +226,29 @@ class StoryfeedManager
     }
 
     /**
-     * Begin composing a feed query, optionally through a named preset.
+     * Begin composing a feed query, optionally through a named feed.
      *
      *   Storyfeed::feed()             the whole feed, unchanged
-     *   Storyfeed::feed('customer')   the 'customer' preset's builder
+     *   Storyfeed::feed('customer')   the 'customer' feed's builder
      *
      * An unknown name throws rather than falling back to the unfiltered feed:
-     * a preset is how an audience's verb allowlist is declared, so answering a
-     * typo with every verb you have is the one failure this must not have.
+     * a named feed is how an audience's verb allowlist is declared, so
+     * answering a typo with every verb you have is the one failure this must
+     * not have.
+     *
+     * A feed class that takes constructor arguments also throws here, for the
+     * same reason one level up: it has no unscoped form, and handing back a
+     * builder missing the scope the class carries would be the fail-open case
+     * the class exists to remove. Enter it through its constructor —
+     * `CustomerFeed::make($order)`.
      */
     public function feed(?string $preset = null): FeedBuilder
     {
-        $feed = new FeedBuilder;
-
         if ($preset === null) {
-            return $feed;
+            return new FeedBuilder;
         }
 
-        if (! isset($this->feeds[$preset])) {
-            throw UnknownFeed::named($preset, array_keys($this->feeds));
-        }
-
-        return $this->applyPreset($this->feeds[$preset], $feed, $preset);
+        return $this->feedDefinition($preset)->build();
     }
 
     /**
@@ -253,15 +256,23 @@ class StoryfeedManager
      * ONCE instead of at every call site.
      *
      *   Storyfeed::feeds([
-     *       'customer' => fn (FeedBuilder $feed) => $feed->only(['order.*'])->log(),
-     *       'admin' => fn (FeedBuilder $feed) => $feed,
+     *       'customer' => CustomerFeed::class,                              // a class
+     *       AdminFeed::class,                                              // name derived
+     *       'kitchen' => fn (FeedBuilder $feed) => $feed->only(['order.*']), // a closure
      *   ]);
      *
      * The same register-once-at-boot shape as grammar(), axes(), verbs(),
      * icons(), stories() and checks(), one level up: those describe how an
      * activity READS, this describes which activities a surface is about.
      *
-     * The value of declaring it here rather than app-side is that
+     * Both forms normalize into one FeedDefinition, exactly as a Story class
+     * and an ad-hoc StoryDefinition do — so the closure stays first-class (a
+     * two-line admin preset should not need a file) and nothing downstream can
+     * tell which form declared a feed. Only a class can carry a SUBJECT: a
+     * closure receives the builder at boot, before any subject exists, which is
+     * the structural reason the scope half of the seam needed a class at all.
+     *
+     * The value of declaring here rather than app-side is that
      * `storyfeed:doctor` can see it — the FeedCoverage check turns a verb
      * nobody assigned to an audience into a CI failure instead of a leak six
      * months from now. An app-side allowlist is invisible to that.
@@ -269,19 +280,27 @@ class StoryfeedManager
      * This is a query filter, not authorization and not row-level visibility;
      * see docs/feeds.md for what it deliberately does not do.
      *
-     * @param  array<string, Closure>  $feeds
+     * @param  array<int|string, Closure|Feed|class-string<Feed>>  $feeds
      */
     public function feeds(array $feeds, bool $merge = true): static
     {
-        $this->feeds = $merge ? [...$this->feeds, ...$feeds] : $feeds;
+        $normalized = [];
+
+        foreach ($feeds as $key => $value) {
+            $definition = FeedDefinition::normalize($key, $value);
+
+            $normalized[$definition->name] = $definition;
+        }
+
+        $this->feeds = $merge ? [...$this->feeds, ...$normalized] : $normalized;
 
         return $this;
     }
 
     /**
-     * The registered preset closures, keyed by name.
+     * The registered feeds as definitions, keyed by name.
      *
-     * @return array<string, Closure>
+     * @return array<string, FeedDefinition>
      */
     public function registeredFeeds(): array
     {
@@ -295,36 +314,23 @@ class StoryfeedManager
     }
 
     /**
-     * Run a preset closure against a builder.
+     * Resolve a feed by registered name, or by Feed class-string.
      *
-     * Both `fn ($feed) => $feed->only([...])` and a multi-line closure that
-     * forgets to return are accepted: the builder is mutable, so it is the same
-     * object either way and rejecting the second would be a papercut with no
-     * safety payoff. Returning anything ELSE is an error — the likely cause is
-     * a closure that built a different query, and honouring it would quietly
-     * discard the preset.
-     *
-     * Deliberately NOT query()'s "the return value is ignored" rule: there a
-     * predicate-shaped closure was a real trap, here the arrow-function form is
-     * the idiomatic one and returning is natural.
+     * The class-string form needs no registration, because the class is the
+     * declaration. Registration is what makes doctor able to CHECK it, which is
+     * why `make:feed` says so on every generate.
      */
-    protected function applyPreset(Closure $preset, FeedBuilder $feed, string $name): FeedBuilder
+    public function feedDefinition(string $preset): FeedDefinition
     {
-        $returned = $preset($feed);
-
-        if ($returned === null) {
-            return $feed;
+        if (isset($this->feeds[$preset])) {
+            return $this->feeds[$preset];
         }
 
-        if (! $returned instanceof FeedBuilder) {
-            throw new InvalidArgumentException(
-                "Feed [{$name}] returned ".get_debug_type($returned).' instead of a FeedBuilder. '
-                .'A preset closure receives the builder and should return it (or nothing) — '
-                .'returning something else would silently discard the preset.',
-            );
+        if (class_exists($preset) && is_a($preset, Feed::class, true)) {
+            return FeedDefinition::fromFeed($preset);
         }
 
-        return $returned;
+        throw UnknownFeed::named($preset, array_keys($this->feeds));
     }
 
     /**

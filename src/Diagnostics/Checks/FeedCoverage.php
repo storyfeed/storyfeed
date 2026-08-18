@@ -33,6 +33,11 @@ use Throwable;
  *
  * Silent when unused. An app with no registered feeds gets no findings at all,
  * not even an Info suggesting it declare some.
+ *
+ * EVERY FINDING THAT NAMES A FEED CARRIES ITS SOURCE — `app/Feeds/CustomerFeed.php:14`,
+ * or the provider line that opened a closure. Both forms reflect, so this is not
+ * a class-only privilege; what the class form adds is a STABLE identity, since
+ * a file does not move when someone reorders the array in a provider.
  */
 class FeedCoverage extends Check
 {
@@ -50,20 +55,28 @@ class FeedCoverage extends Check
         }
 
         $filters = [];
+        $sources = [];
 
-        foreach ($feeds as $name => $preset) {
-            // Each preset gets its own try/catch rather than relying on
-            // Doctor's run-wide one: a single app closure that throws would
-            // otherwise cost every other preset's findings, and this check is
-            // most valuable precisely when part of the config is broken.
+        foreach ($feeds as $name => $definition) {
+            $sources[$name] = $definition->source;
+
+            // Each feed gets its own try/catch rather than relying on Doctor's
+            // run-wide one: a single app closure that throws would otherwise
+            // cost every other feed's findings, and this check is most valuable
+            // precisely when part of the config is broken.
+            //
+            // inspect() rather than build(): a Feed class takes its subject as
+            // a constructor argument, so doctor cannot construct one — but it
+            // can still read what the class DECLARED, which is the whole reason
+            // define() and scope() are separate hooks.
             try {
-                $filters[$name] = $storyfeed->feed($name)->verbFilter();
+                $filters[$name] = $definition->inspect()->verbFilter();
             } catch (Throwable $e) {
                 yield Finding::warning(
                     'feeds.preset_failed',
                     "Feed `{$name}` threw ".$e::class.' while being inspected, so its verbs could not '
-                    .'be classified — every verb it was meant to decide is unchecked.',
-                    ['feed' => $name, 'exception' => $e::class],
+                    ."be classified — every verb it was meant to decide is unchecked. Declared in {$definition->source}.",
+                    ['feed' => $name, 'exception' => $e::class, 'source' => $definition->source],
                 );
             }
         }
@@ -139,19 +152,20 @@ class FeedCoverage extends Check
                     continue;
                 }
 
+                $source = $sources[$name];
                 $message = "Feed `{$name}` names verb `{$literal}`, which is neither declared nor recorded";
 
                 yield $opted
                     ? Finding::warning(
                         'feeds.unknown_verb',
                         $message.' — likely a typo, and a typo in an allowlist silently drops the real '
-                        .'verb from that feed.',
-                        ['feed' => $name, 'verb' => $literal],
+                        ."verb from that feed. Declared in {$source}.",
+                        ['feed' => $name, 'verb' => $literal, 'source' => $source],
                     )
                     : Finding::info(
                         'feeds.unknown_verb',
-                        $message.' — fine if you are authoring ahead of traffic.',
-                        ['feed' => $name, 'verb' => $literal],
+                        $message." — fine if you are authoring ahead of traffic. Declared in {$source}.",
+                        ['feed' => $name, 'verb' => $literal, 'source' => $source],
                     );
             }
         }

@@ -14,6 +14,7 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Traits\Conditionable;
 use InvalidArgumentException;
 use Storyfeed\Contracts\FeedVerb;
+use Storyfeed\Exceptions\FeedMisconfigured;
 use Storyfeed\Grouping\NullStrategy;
 use Storyfeed\Models\Activity;
 use Storyfeed\Models\Builders\ActivityBuilder;
@@ -79,6 +80,22 @@ class FeedBuilder
     /** Verb allowlist/denylist, lazily created by only()/except(). */
     protected ?VerbFilter $verbFilter = null;
 
+    /**
+     * Roles a Feed class bound as its subject, and may not be rebound.
+     *
+     * @var array<string, string> role => the class that bound it
+     */
+    protected array $lockedRoles = [];
+
+    /**
+     * Every role bound so far, in order. Read by FeedDefinition to discover
+     * what a Feed's scope() actually did — a feed that binds NOTHING is the
+     * fail-open case, and the only way to catch it is to look.
+     *
+     * @var list<string>
+     */
+    protected array $boundRoles = [];
+
     protected int $limit = 30;
 
     protected ?string $cursor = null;
@@ -103,6 +120,9 @@ class FeedBuilder
 
     public function actor(Model|string $model): static
     {
+        $this->assertUnlocked('actor');
+
+        $this->boundRoles[] = 'actor';
         $this->actor = $this->resolve($model);
 
         return $this;
@@ -110,6 +130,9 @@ class FeedBuilder
 
     public function object(Model|string $model): static
     {
+        $this->assertUnlocked('object');
+
+        $this->boundRoles[] = 'object';
         $this->object = $this->resolve($model);
 
         return $this;
@@ -117,6 +140,9 @@ class FeedBuilder
 
     public function target(Model|string $model): static
     {
+        $this->assertUnlocked('target');
+
+        $this->boundRoles[] = 'target';
         $this->target = $this->resolve($model);
 
         return $this;
@@ -124,6 +150,9 @@ class FeedBuilder
 
     public function context(Model|string $model): static
     {
+        $this->assertUnlocked('context');
+
+        $this->boundRoles[] = 'context';
         $this->context = $this->resolve($model);
 
         return $this;
@@ -142,6 +171,9 @@ class FeedBuilder
      */
     public function involving(Model|string $model): static
     {
+        $this->assertUnlocked('involving');
+
+        $this->boundRoles[] = 'involving';
         $this->involving = $this->resolve($model);
 
         return $this;
@@ -150,6 +182,10 @@ class FeedBuilder
     /**
      * Renamed: `for()` meant target when recording and involving when
      * reading, which is how it came to be documented as the wrong one.
+     *
+     * The same reasoning is why a Feed class has no for() either — its entry
+     * points name the role (`CustomerFeed::context($order)`), so the call site
+     * says which one it binds instead of the class saying it invisibly.
      */
     public function for(Model|string $model): never
     {
@@ -157,7 +193,8 @@ class FeedBuilder
             'FeedBuilder::for() was renamed to involving() in v0.7 — it filters activities '
             .'involving the model in ANY role, which the old name obscured (on the recording '
             .'side, for() sets the target). Use ->involving($model), or ->target($model) if '
-            .'you meant the single role.',
+            .'you meant the single role. A Feed class is entered the same way, by role: '
+            .'CustomerFeed::involving($model) / ::context($model) — see docs/feeds.md.',
         );
     }
 
@@ -212,6 +249,52 @@ class FeedBuilder
         $this->verbFilter()->deny($verbs);
 
         return $this;
+    }
+
+    /**
+     * Pin the role a Feed class declared as its subject.
+     *
+     * @internal Called by FeedDefinition::buildFor() and nowhere else.
+     *
+     * The verb allowlist is unwidenable for free: only(A) then only(B) is
+     * A ∩ B, so a call site downstream of a preset can only ever cut further.
+     * Scope has no such property, because role filters are single-slot
+     * ASSIGNMENTS — a second involving() replaces the first. So
+     * `CustomerFeed::for($order)->involving($someoneElse)` would silently swap
+     * the scope a surface was built on, and no allowlist protects you from
+     * that. Declared scope is therefore pinned; the other four roles stay open,
+     * because adding a role NARROWS (they AND together) and narrowing was never
+     * the problem.
+     *
+     * Only a Feed class locks anything. A closure preset, a bare
+     * Storyfeed::feed() and $model->storyfeed() are untouched — calling
+     * involving() twice on a plain builder still does what it always did.
+     */
+    public function lockScope(string $role, string $owner): static
+    {
+        // Nothing is locked implicitly: only a Feed class, and only the roles
+        // its scope() actually bound.
+        $this->lockedRoles[$role] = $owner;
+
+        return $this;
+    }
+
+    /**
+     * @internal The roles bound so far, so a Feed's scope() can be checked for
+     * having bound anything at all.
+     *
+     * @return list<string>
+     */
+    public function boundRoles(): array
+    {
+        return $this->boundRoles;
+    }
+
+    protected function assertUnlocked(string $role): void
+    {
+        if (isset($this->lockedRoles[$role])) {
+            throw FeedMisconfigured::scopeLocked($role, $this->lockedRoles[$role]);
+        }
     }
 
     /**

@@ -1,0 +1,24 @@
+<?php
+
+namespace {{ namespace }};
+
+use Storyfeed\Feed;
+use Storyfeed\FeedBuilder;
+
+class {{ class }} extends Feed
+{
+{{ constructor }}
+    /**
+     * What this feed is ABOUT: verbs, mode, limit.
+     *
+     * Must not read constructor state — storyfeed:doctor runs this without
+     * constructing you, so it can check the verbs of a feed it has no subject
+     * for. Bind values in scope() instead.
+     */
+    public function define(FeedBuilder $feed): void
+    {
+        $feed->only([
+{{ verbs }}
+        ]){{ mode }};
+    }
+{{ scope }}}

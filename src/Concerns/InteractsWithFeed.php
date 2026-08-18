@@ -46,13 +46,19 @@ trait InteractsWithFeed
      * manager, or a pending activity when given a verb. Both are reachable from
      * inside a model: `storyfeed()` is the function, `$this->storyfeed()` this.
      *
-     * A named feed preset narrows it to one audience's verbs, declared once in
-     * a service provider with `Storyfeed::feeds([...])` — see docs/feeds.md:
+     * A named feed narrows it to one audience's verbs, declared once in a
+     * service provider with `Storyfeed::feeds([...])` — see docs/feeds.md:
      *
      *   $order->storyfeed('customer')->get();
      *
-     * The preset's constraints apply BEFORE involving(), so the two compose:
-     * this order's timeline, as a customer may see it.
+     * The feed's constraints apply BEFORE involving(), so the two compose: this
+     * order's timeline, as a customer may see it.
+     *
+     * A Feed CLASS that takes its subject as a constructor argument cannot be
+     * entered this way — it is built through its constructor instead, and the
+     * role it binds is its own rather than involving():
+     *
+     *   CustomerFeed::make($order)->get();
      *
      * Needs `feed_participants` populated. On an existing install that means
      * running `storyfeed:participants` once; `storyfeed:doctor` warns until it

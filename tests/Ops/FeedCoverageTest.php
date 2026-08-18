@@ -5,6 +5,8 @@ use Storyfeed\Diagnostics\Severity;
 use Storyfeed\Facades\Storyfeed;
 use Storyfeed\FeedBuilder;
 use Workbench\App\Enums\ActivityVerb;
+use Workbench\App\Feeds\CustomerFeed;
+use Workbench\App\Feeds\GreedyFeed;
 use Workbench\App\Models\Delivery;
 use Workbench\App\Stories\DeliveryWasConfirmed;
 
@@ -120,9 +122,14 @@ it('flags a verb an allowlist names that is neither declared nor recorded', func
 
     $finding = feedFindings()->firstWhere('code', 'feeds.unknown_verb');
 
-    expect($finding['subject'])->toBe(['feed' => 'customer', 'verb' => 'confrim'])
+    expect($finding['subject']['feed'])->toBe('customer')
+        ->and($finding['subject']['verb'])->toBe('confrim')
         ->and($finding['severity'])->toBe(Severity::Warning->value)
-        ->and($finding['message'])->toContain('likely a typo');
+        ->and($finding['message'])->toContain('likely a typo')
+        // Every finding that names a feed points AT it. Closures reflect too,
+        // so this is not a privilege of the class form.
+        ->and($finding['subject']['source'])->toContain('FeedCoverageTest.php:')
+        ->and($finding['message'])->toContain('Declared in');
 });
 
 it('softens the unknown-verb finding for an app with no declared vocabulary', function () {
@@ -165,8 +172,11 @@ it('survives a preset that throws, and still classifies the others', function ()
         'customer' => fn (FeedBuilder $feed) => $feed->only(['confirm']),
     ]);
 
-    expect(feedFindings()->firstWhere('code', 'feeds.preset_failed')['subject'])
-        ->toBe(['feed' => 'broken', 'exception' => RuntimeException::class])
+    $broken = feedFindings()->firstWhere('code', 'feeds.preset_failed')['subject'];
+
+    expect($broken['feed'])->toBe('broken')
+        ->and($broken['exception'])->toBe(RuntimeException::class)
+        ->and($broken['source'])->toContain('FeedCoverageTest.php:')
         ->and(feedFindings()->where('code', 'feeds.unclassified')->pluck('subject.verb'))
         ->toContain('comment');
 });
@@ -207,4 +217,60 @@ it('runs from the doctor command under --only=feeds', function () {
 
 it('is registered in the shipped check list', function () {
     expect(Storyfeed::checkNames())->toContain('feeds');
+});
+
+it('classifies verbs a Feed CLASS named, without being able to construct it', function () {
+    // The asymmetry the two hooks exist for: a customer feed takes an order in
+    // its constructor, so doctor can never build one — but it can still read
+    // what the class DECLARED, which is the only thing this check needs.
+    Storyfeed::verbs(ActivityVerb::class);
+    Storyfeed::feeds([CustomerFeed::class]);
+
+    expect(feedFindings()->where('code', 'feeds.unclassified')->pluck('subject.verb'))
+        ->toContain('confirm')
+        ->not->toContain('order.placed');
+});
+
+it('points a finding at the class file, not just the feed name', function () {
+    Storyfeed::verbs(ActivityVerb::class);
+    Storyfeed::feeds([CustomerFeed::class]);
+
+    // The Story layer's jump, on the read side: `app/Feeds/CustomerFeed.php:19`
+    // rather than a string key. Closures reflect too — what the class adds is
+    // an identity that survives someone reordering the provider array.
+    $finding = feedFindings()->firstWhere('code', 'feeds.unknown_verb');
+
+    expect($finding['subject']['source'])->toContain('CustomerFeed.php:')
+        ->and($finding['message'])->toContain('Declared in');
+});
+
+it('reports a define() that reads constructor state, and keeps checking the others', function () {
+    // define() is contractually forbidden from touching what the constructor
+    // was given, because doctor runs it on an instance built without one. The
+    // failure is already handled: it is one feed's finding, not the run's.
+    Storyfeed::verbs(ActivityVerb::class);
+    Storyfeed::feeds(['greedy' => GreedyFeed::class, 'customer' => CustomerFeed::class]);
+
+    expect(feedCodes())->toContain('feeds.preset_failed')
+        ->and(feedFindings()->firstWhere('code', 'feeds.preset_failed')['subject']['feed'])->toBe('greedy')
+        ->and(feedFindings()->where('code', 'feeds.unclassified')->pluck('subject.verb'))->toContain('confirm');
+});
+
+it('checks class feeds identically through a cached manifest', function () {
+    // storyfeed:cache is a NO-OP for feeds by construction: a feed compiles to
+    // behaviour, not data, so it never enters the manifest. What must not break
+    // is this check's vocabulary, which does come from there.
+    Storyfeed::stories([DeliveryWasConfirmed::class]);
+    Storyfeed::feeds([CustomerFeed::class]);
+
+    Storyfeed::useCompiledStories([
+        'grammar' => ['*.deliver' => ':actor delivered :object'],
+        'aggregateGrammar' => [],
+        'icons' => [],
+        'verbs' => ['deliver' => 'Deliver'],
+    ]);
+
+    expect(feedFindings()->where('code', 'feeds.unclassified')->pluck('subject.verb'))
+        ->toContain('deliver')
+        ->not->toContain('order.placed');
 });
