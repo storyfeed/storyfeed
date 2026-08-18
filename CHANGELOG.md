@@ -1,8 +1,48 @@
 # Changelog
 
-## Unreleased
+## v0.8.0-alpha.2 — Feed classes, and a scope that cannot leak (unreleased)
+
+The alpha.1 lane shipped the allowlist half of audience scoping. This one ships
+the SCOPE half — the half that fails open — plus the one place a `query()`
+callback could already escape a scope entirely.
 
 ### Added
+
+- **`Storyfeed\Feed`** — one class per audience, the declarative form of a named
+  feed. The subject is a typed **constructor** parameter and `CustomerFeed::make($order)`
+  is the only way in, so PHP itself refuses to build an unscoped feed; nothing in
+  the package has to enforce it. `define()` declares what the feed is about
+  (verbs, mode, limit) and must not touch constructor state, because
+  `storyfeed:doctor` reads it without being able to supply a subject; `scope()`
+  binds what only a request can supply. Closures remain first-class and both
+  forms compile to one registry. See `docs/feeds.md`.
+
+  A closure preset can carry the allowlist; it cannot carry the scope, because it
+  runs at boot before any subject exists. The two halves fail in opposite
+  directions and only one fails safe: forget the allowlist and a customer sees
+  too little, forget `->involving($order)` and a customer sees **every order in
+  the system**, correctly verb-filtered and entirely plausible. That asymmetry is
+  the whole reason this class exists.
+
+- **Scope is locked once bound.** Re-binding a role on a scoped Feed —
+  `->context($someoneElse)` — throws rather than silently swapping the scope the
+  surface was built on. Narrowing stays open: another `only()`, a `query()`, a
+  different mode. `only(A)->only(B)` was already `A ∩ B`, so the allowlist half
+  came free. **Only Feed classes lock anything** — plain builders, closure
+  presets and `$model->storyfeed()` are untouched.
+
+- **`make:feed`** — generates a Feed with its typed constructor already written,
+  which is the step people skip and the step the guarantee rests on.
+  `--from-doctor` writes **one** class with the undecided verbs commented out:
+  one feed per verb would have been a restricted feed naming its verb, which
+  `FeedCoverage` counts as decided, so the generator would have turned the check
+  green while nobody decided anything. The generated file deliberately cannot
+  make the check pass.
+
+- **`Exceptions\FeedMisconfigured`** — the four ways a Feed class can be wrong,
+  each naming the fix: a subject feed reached by name, a Feed that takes a
+  subject and never binds it, a re-bound role on a locked scope, and a
+  registered class that is not a Feed.
 
 - **A PHPStan rule for `Feed::make()`.** `CustomerFeed::make()` with no arguments
   was only ever an unconditional runtime `ArgumentCountError`: `make()` forwards
@@ -56,6 +96,26 @@
   supported way is a second feed read, or a `query()` callback that names the
   wider set inside its own closure. Nothing else in the read path moved.
 
+### Fixed
+
+- **`FeedBuilder::for()`'s tombstone taught an API that never shipped.** Its
+  message pointed at `CustomerFeed::involving($model)` / `::context($model)` —
+  the role-named entry API drafted and then discarded in favour of `::make()`.
+  Two docblocks carried the same discarded draft. A test now extracts every
+  `Class::method()` and `->method()` reference from both tombstone messages and
+  asserts each one resolves, so a tombstone is free to be rewritten and unable
+  to lie. It matters where it stands: a tombstone is what a person reads when
+  they are already confused.
+
+### Also
+
+- `storyfeed:doctor` findings that name a feed now carry `file:line`. Closures
+  reflect too, so both forms get it; the class form's advantage is a stable
+  identity that survives someone reordering the provider array.
+- `README.md` states the pre-1.0 reality plainly — not announced, breaking
+  changes without a deprecation cycle, pin a commit rather than a range — and
+  carves out the two things that do not move: the payload contract and the MIT
+  commitment.
 
 ## v0.8.0-alpha.1 — audience scoping (2026-08-18)
 
