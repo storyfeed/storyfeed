@@ -17,6 +17,7 @@ serialization boundary.
 - `docs/stories.md`, `docs/grouping.md` — the two R&D tracks (explicitly unsettled)
 - `docs/verbs.md` — the verb ladder (strings → FeedVerb enum → Story classes)
 - `docs/parties.md` — named participants with no app model (any role)
+- `docs/feeds.md` — named feeds: verb allowlists a doctor check can see
 - `docs/roadmap.md` — phasing (v0.1–v0.4 ✅ → v0.5 DX/Newsroom → v0.6 AS2.0 → …)
 - `ROADMAP.md` — the slim public roadmap (tracked); keep it in sync at milestones
 
