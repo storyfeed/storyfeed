@@ -6,16 +6,26 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Storyfeed\Models\Activity;
 use Storyfeed\Serialization\ActivitySerializer;
-use Storyfeed\Serialization\CollectionSerializer;
 
 /**
- * The opt-in, read-only AS2.0 endpoints (config: storyfeed.routes.enabled,
- * default off). They exist in v1 primarily to make the serialization layer
- * testable end-to-end; they are the seed of a 2.x outbox.
+ * The opt-in, read-only AS2.0 activity endpoint (config:
+ * storyfeed.routes.enabled, default off). It exists in v1 primarily to make the
+ * serialization layer testable end-to-end; it is the seed of a 2.x outbox.
  *
  * Content-negotiated: only AS2 media types are served. HTML/browser
  * requests get 406 rather than a surprise JSON blob — the app's own feed
  * UI is the payload contract's job, not this surface's.
+ *
+ * THERE IS NO COLLECTION ROUTE. `GET {prefix}/feed` existed and was removed at
+ * v0.8.0-alpha.2: it served every published activity in the system, unscoped
+ * and with no verb allowlist, and it could not be made safe without deciding
+ * which named feed backs it — a design question, not a patch. Serializing a
+ * collection is still supported (`Serialization\CollectionSerializer`), which
+ * is the half that was never the problem. This route returns when a feed can
+ * be named.
+ *
+ * A single activity is a different exposure and stays: it is addressed by an
+ * unguessable ULID rather than enumerable, and `published()` gates it.
  */
 class ActivityStreamsController
 {
@@ -41,18 +51,6 @@ class ActivityStreamsController
             ->firstOrFail();
 
         return $this->respond(app(ActivitySerializer::class)->activity($activity));
-    }
-
-    public function feed(Request $request): JsonResponse
-    {
-        $this->negotiate($request);
-
-        $document = app(CollectionSerializer::class)->feed(
-            cursor: $request->query('cursor'),
-            limit: min(100, max(1, (int) $request->query('limit', '30'))),
-        );
-
-        return $this->respond($document);
     }
 
     protected function negotiate(Request $request): void

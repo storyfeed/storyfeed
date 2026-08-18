@@ -99,9 +99,13 @@ class StoryfeedServiceProvider extends PackageServiceProvider
 
         Relation::morphMap(config('storyfeed.morph_map', []));
 
-        // Opt-in, read-only AS2.0 endpoints (docs/activity-streams.md).
+        // Opt-in, read-only AS2.0 endpoint (docs/activity-streams.md).
         // Off by default: exposing a feed is an app decision, not a
         // package side effect.
+        //
+        // One route, not two. The collection route was removed at
+        // v0.8.0-alpha.2 — it was an unscoped firehose — and returns when a
+        // named feed can back it.
         if (config('storyfeed.routes.enabled', false)) {
             $prefix = trim((string) config('storyfeed.routes.prefix', 'storyfeed'), '/');
 
@@ -109,7 +113,6 @@ class StoryfeedServiceProvider extends PackageServiceProvider
                 ->prefix($prefix)
                 ->group(function () {
                     Route::get('activities/{uid}', [Http\ActivityStreamsController::class, 'activity']);
-                    Route::get('feed', [Http\ActivityStreamsController::class, 'feed']);
                 });
         }
 

@@ -3,8 +3,39 @@
 ## v0.8.0-alpha.2 — Feed classes, and a scope that cannot leak (unreleased)
 
 The alpha.1 lane shipped the allowlist half of audience scoping. This one ships
-the SCOPE half — the half that fails open — plus the one place a `query()`
-callback could already escape a scope entirely.
+the SCOPE half — the half that fails open — plus the two places a scope could
+already be escaped entirely: a `query()` callback's `orWhere`, and an AS2.0
+route that never had a scope to begin with.
+
+### Removed
+
+- **The AS2.0 collection route, `GET {prefix}/feed`.** It ran
+  `Activity::query()->published()->cursorPaginate()` — **every published activity
+  in the system**, unscoped, with no verb allowlist and no named feed behind it.
+  An app that switched the AS2.0 routes on exposed its whole activity table over
+  HTTP, in a package whose entire v0.8 milestone is about deciding who may see
+  which verbs. The route predated named feeds and was never reached by them: it
+  built its own query, so neither the allowlist nor the `query()` nesting change
+  above ever applied to it.
+
+  It was removed rather than scoped or documented. There is no way to make it
+  safe without deciding **which named feed backs it**, and that is a design
+  question rather than a patch — while it is open, a firehose nobody can switch
+  on cannot leak. It returns when the question is answered.
+
+  The single-activity route `GET {prefix}/activities/{uid}` **stays**: it is
+  addressed by an unguessable ULID rather than enumerable, and `published()`
+  gates it.
+
+  **Serializing a collection is unaffected.** `Serialization\CollectionSerializer`
+  still emits `OrderedCollection` / `OrderedCollectionPage` with `partOf`, the
+  opaque `next` cursor and no `totalItems` — the shape is AS2.0 roadmap work and
+  none of it was the problem. Its `feed(?string $cursor, int $limit)` method,
+  which built the unscoped query, is replaced by
+  `collection(CursorPaginator $page, string $iri, ?string $cursor = null)`: the
+  activities and the IRI both come from the caller now, so the class has no way
+  to reach past what it was handed. Coverage of the collection shape moved from
+  the HTTP tests to `CollectionSerializerTest`, against the serializer directly.
 
 ### Added
 

@@ -187,14 +187,18 @@ return [
     | AS2.0 Routes
     |--------------------------------------------------------------------------
     |
-    | Opt-in, read-only Activity Streams 2.0 endpoints:
+    | Opt-in, read-only Activity Streams 2.0 endpoint:
     |
     |   GET /{prefix}/activities/{uid}   single Activity document
-    |   GET /{prefix}/feed               OrderedCollection (cursor param)
     |
     | Off by default — exposing a feed is an app decision. Add auth or
     | throttling via the middleware array. The prefix also mints activity
     | IRIs, so changing it changes document ids.
+    |
+    | There is no collection route. GET /{prefix}/feed was removed at
+    | v0.8.0-alpha.2: it served every published activity in the system,
+    | unscoped and with no verb allowlist. It returns when a named feed can
+    | back it. Serializing a collection is still supported.
     |
     */
 

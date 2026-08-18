@@ -3,7 +3,6 @@
 use Storyfeed\Facades\Storyfeed;
 use Storyfeed\StoryfeedServiceProvider;
 use Workbench\App\Models\Delivery;
-use Workbench\App\Models\User;
 
 function enableRoutes(): void
 {
@@ -14,9 +13,9 @@ function enableRoutes(): void
 }
 
 it('registers no routes by default', function () {
-    Storyfeed::activity()->verb('ping')->publish();
+    $activity = Storyfeed::activity()->verb('ping')->publish();
 
-    $this->get('/storyfeed/feed', ['Accept' => 'application/activity+json'])
+    $this->get("/storyfeed/activities/{$activity->uid}", ['Accept' => 'application/activity+json'])
         ->assertNotFound();
 });
 
@@ -50,36 +49,16 @@ it('hides unpublished activities', function () {
         ->assertNotFound();
 });
 
-it('serves the feed as an OrderedCollection and pages with the opaque cursor', function () {
+it('serves no collection route, even with routes enabled', function () {
+    // Removed at v0.8.0-alpha.2: it was every published activity in the system,
+    // unscoped and with no verb allowlist. The OrderedCollection SHAPE is still
+    // supported and still covered — by CollectionSerializerTest, against the
+    // serializer directly, because there is no longer an endpoint to drive it
+    // through. It returns when a named feed can back it.
     enableRoutes();
 
-    $user = User::create(['name' => 'Sally', 'email' => 'sally@example.com']);
+    Storyfeed::activity()->verb('ping')->publish();
 
-    foreach (range(1, 5) as $i) {
-        Storyfeed::activity()->actor($user)->verb('ping')->publishedAt(now()->subMinutes($i))->publish();
-    }
-
-    $first = $this->get('/storyfeed/feed?limit=2', ['Accept' => 'application/activity+json'])
-        ->assertOk()
-        ->assertJsonPath('type', 'OrderedCollection')
-        ->assertJsonCount(2, 'orderedItems')
-        ->json();
-
-    expect($first)->toHaveKey('next')
-        ->and($first)->not->toHaveKey('totalItems');
-
-    parse_str((string) parse_url($first['next'], PHP_URL_QUERY), $params);
-
-    $second = $this->get('/storyfeed/feed?limit=2&cursor='.$params['cursor'], ['Accept' => 'application/activity+json'])
-        ->assertOk()
-        ->assertJsonPath('type', 'OrderedCollectionPage')
-        ->assertJsonCount(2, 'orderedItems')
-        ->json();
-
-    expect($second['partOf'])->toEndWith('/storyfeed/feed');
-
-    $firstIds = array_column($first['orderedItems'], 'id');
-    $secondIds = array_column($second['orderedItems'], 'id');
-
-    expect(array_intersect($firstIds, $secondIds))->toBe([]);
+    $this->get('/storyfeed/feed', ['Accept' => 'application/activity+json'])
+        ->assertNotFound();
 });
