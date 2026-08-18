@@ -43,10 +43,12 @@ use Storyfeed\Exceptions\FeedMisconfigured;
  * name considered instead (`for()`, `of()`, `scopedTo()`) claims a relationship
  * the class declares elsewhere, and `for()` in particular is the name this
  * package RETIRED at v0.7 for exactly that ambiguity. A constructor claims
- * nothing. (The limit, stated honestly: `new CustomerFeed()` is caught
- * statically by PHPStan and the IDE, while `CustomerFeed::make()` forwards
- * variadically and is caught at runtime on the first call. Both fail
- * immediately and unconditionally; only one fails before the code runs.)
+ * nothing. (`new CustomerFeed()` is caught statically by PHPStan and the IDE.
+ * `CustomerFeed::make()` forwards variadically, so PHP catches it at runtime on
+ * the first call — and `PHPStan\FeedMakeArityRule`, which this package ships,
+ * catches it in CI by resolving the call against the constructor it reaches.
+ * The runtime guarantee is still the load-bearing one; the rule only moves
+ * discovery earlier.)
  *
  * TWO HOOKS, BECAUSE TOOLING CANNOT CONSTRUCT YOU. `define()` declares what the
  * feed is ABOUT — verbs, mode, limits — and must not touch constructor state,

@@ -1,5 +1,8 @@
 includes:
     - phpstan-baseline.neon
+    # Dogfood the rule this package ships to its consumers. extension-installer
+    # wires it up for apps; the root package has to include it by hand.
+    - extension.neon
 
 parameters:
     level: 5

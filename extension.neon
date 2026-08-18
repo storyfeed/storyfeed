@@ -1,0 +1,6 @@
+# Registered through composer's extra.phpstan.includes, so an app installing
+# storyfeed alongside phpstan/extension-installer gets this rule with no config.
+# It checks Feed::make() calls against the subclass constructor they reach —
+# see Storyfeed\PHPStan\FeedMakeArityRule for why that gap exists at all.
+rules:
+    - Storyfeed\PHPStan\FeedMakeArityRule

@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+### Added
+
+- **A PHPStan rule for `Feed::make()`.** `CustomerFeed::make()` with no arguments
+  was only ever an unconditional runtime `ArgumentCountError`: `make()` forwards
+  variadically to a reflected constructor — it has to, because the constructor
+  varies by subclass and that variance is the feature — so an analyser saw a
+  variadic and said nothing. `Storyfeed\PHPStan\FeedMakeArityRule` resolves the
+  static call against the constructor it will actually reach and checks arity
+  where the call is written. Apps get it automatically through
+  `phpstan/extension-installer`; no configuration. Arity only — argument types
+  are already PHPStan's business. Nothing about the runtime changed.
+
 ### Changed
 
 - **`query()` callbacks are now always nested — a top-level `orWhere` can no
