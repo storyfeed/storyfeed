@@ -1,10 +1,14 @@
 # Storyfeed — working notes for Claude
 
 Laravel activity-feed package by Tey Labs. Core (this repo, MIT, headless) emits
-a versioned payload contract; a `storyfeed/ui` package will consume it — **also
-free and MIT** (decided 2026-08-14: gating the UI made the end-to-end story
-untellable; sponsorship funds its pace instead, so unsponsored means Vue/Inertia
-+ Filament only). Activity Streams 2.0 at the serialization boundary.
+a versioned payload contract; renderer packages consume it. **Packaging model
+settled 2026-08-18:** `storyfeed/ui` (Vue/Inertia + Blade) is free and MIT on
+Packagist — gating it made the end-to-end story untellable, and sponsorship funds
+its pace rather than access. `storyfeed/filament` is a **separate repo,
+commercial from its first commit** (~$49 one-time, Anystack licence keys +
+private Composer endpoint). This narrows the 2026-08-14 all-MIT-UI decision for
+the Filament adapter only; see journal 035. Activity Streams 2.0 at the
+serialization boundary.
 
 ## Key documents (gitignored — local only until milestones publish them)
 

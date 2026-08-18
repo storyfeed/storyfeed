@@ -74,8 +74,9 @@ package does for you.
   (`Activity`, `OrderedCollection`), with ActivityPub federation on the long-range
   roadmap.
 - **Headless by design** — the core emits a stable, versioned payload contract.
-  Bring your own UI, or use **`storyfeed/ui`** — pre-built components, free and
-  MIT like everything else here. Coming; see [Sponsoring](#sponsoring).
+  Bring your own UI, or use **`storyfeed/ui`** — pre-built Vue/Inertia and Blade
+  components, free and MIT like the core. Coming; see
+  [How this is packaged](#how-this-is-packaged).
 
 ## Installation
 
@@ -109,32 +110,78 @@ Please see [CHANGELOG](CHANGELOG.md) for more information on what has changed re
 - [Jasper Tey](https://github.com/jaspertey) / [Tey Labs](https://teylabs.com)
 - [All Contributors](../../contributors)
 
+## How this is packaged
+
+| Package | Licence | Where |
+|---|---|---|
+| `storyfeed/storyfeed` — the core | MIT | Packagist |
+| `storyfeed/ui` — Vue/Inertia + Blade feed components | MIT | Packagist |
+| `storyfeed/filament` — the Filament plugin | Commercial, ~$49 one-time | Sold through [Anystack](https://anystack.sh) (licence key + private Composer endpoint) |
+
+**The whole pattern is free, end to end.** The core plus `storyfeed/ui` render a
+real feed — recording, reads, grouping, curation, the payload contract and
+components that consume it — without paying anyone. That is deliberate: a
+package you cannot see working is not worth learning.
+
+**One adapter is paid, and here is the honest reason.** Between 2026-08-14 and
+2026-08-18 this README said *every* adapter, Filament included, would be MIT. It
+now says the Filament plugin is a paid product. That is a narrowing of something
+already written down in public, so it gets explained rather than quietly edited:
+
+- **Filament is the one corner of this ecosystem with a working paid-plugin
+  market.** It has a plugin directory, a norm of paying for plugins, and an
+  audience that already does. Charging there is a normal transaction rather than
+  a toll booth bolted onto an open-source project.
+- **What that plugin sells is live-feed correctness and Filament-native
+  components.** A live feed has rules that every consumer gets wrong
+  independently: reconcile by node identity, not list position; drop and refetch
+  when `sync_token` changes; an empty page is not the end of the feed; follow
+  with a live cursor. Getting those right once, on behalf of everyone who
+  installs it, is worth funding — and funding is what keeps it right as Filament
+  moves.
+- **What it explicitly does *not* sell is safety.** Deciding which verbs an
+  audience may see — the thing that makes a customer-facing feed trustworthy —
+  lives in the MIT core, where every surface can reach it and `storyfeed:doctor`
+  can check it. Putting that behind a paywall would mean the free core could not
+  honestly ship a customer-facing feed at all, and a package that cannot be
+  trusted without paying is not open core; it is a hostage situation.
+- **Sponsorship funds pace; the plugin funds maintenance.** They are different
+  jobs, and pretending one could do both is what produced the wrong answer four
+  days earlier.
+- **Now is the only honest moment to change this.** At the time of writing this
+  project has no releases anyone depends on, no installs and no stars — there is
+  nobody whose plans this breaks. The same edit made after the package has
+  adopters would be a bait and switch, so it is being made before, in the open,
+  with the reasoning attached.
+
 ## Sponsoring
 
-`storyfeed/ui` — the pre-built renderer components — will be **free and MIT**, like
-everything else here. Gating it was the original plan and it was the wrong one:
-holding the UI back means nobody can see the whole pattern working end to end,
-which is the only way this is worth learning.
+**Sponsorship sets the MIT packages' pace, never their price.** Every adapter is
+a surface that has to keep working, so how far `storyfeed/ui` goes depends on how
+much time sponsorship makes available:
 
-**Sponsorship sets its pace instead of its price.** Every adapter is a surface that
-has to keep working, so how far `storyfeed/ui` goes depends on how much time
-sponsorship makes available:
+- **Unsponsored** — it moves at my own pace, and realistically ships the
+  Vue/Inertia and Blade components only.
+- **Sponsored** — Livewire and React become reachable, along with faster response
+  on the core.
 
-- **Unsponsored** — it moves at my own pace, and realistically ships Vue/Inertia
-  and Filament adapters only.
-- **Sponsored** — Livewire, Blade components and React become reachable, along
-  with faster response on the core.
-
-If it earns a place in your app, that is the way to say so.
+Nothing behind sponsorship is access. If the package earns a place in your app,
+that is the way to say so.
 
 ## License
 
 The MIT License (MIT). Please see [License File](LICENSE.md) for more information.
 
-**A commitment, so you can build on this safely:** everything MIT today stays MIT,
-and nothing here will move behind a licence later — not the core, not the UI
-components. This package is complete on its own: recording, reads, aggregation,
-curation and the payload contract.
+**A commitment, so you can build on this safely:** everything published under MIT
+stays MIT — the core and `storyfeed/ui` — and nothing that ships MIT will move
+behind a licence later. This package is complete on its own: recording, reads,
+aggregation, curation and the payload contract.
+
+The one paid piece, `storyfeed/filament`, is a separate repository that is
+commercial from its first commit; it is not a part of this package being taken
+away. The scope of the commitment above was narrowed on 2026-08-18 — before this
+project had a single adopter — and the reasoning is in
+[How this is packaged](#how-this-is-packaged).
 
 Building your own renderer against the payload contract is expected and
 encouraged — there's a plain Blade reference loop in the docs precisely so you
