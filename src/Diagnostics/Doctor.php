@@ -29,6 +29,7 @@ class Doctor
         Checks\AggregateCoverage::class,
         Checks\AggregateTokens::class,
         Checks\VerbDrift::class,
+        Checks\FeedCoverage::class,
         Checks\HashLengths::class,
         Checks\SnapshotShapes::class,
         Checks\Backlog::class,

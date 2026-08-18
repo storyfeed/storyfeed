@@ -2,6 +2,7 @@
 
 namespace Storyfeed;
 
+use BackedEnum;
 use Closure;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Database\Eloquent\Model;
@@ -12,6 +13,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Traits\Conditionable;
 use InvalidArgumentException;
+use Storyfeed\Contracts\FeedVerb;
 use Storyfeed\Grouping\NullStrategy;
 use Storyfeed\Models\Activity;
 use Storyfeed\Models\Builders\ActivityBuilder;
@@ -21,6 +23,7 @@ use Storyfeed\Payload\FeedPage;
 use Storyfeed\Payload\GroupSlice;
 use Storyfeed\Payload\NodePresenter;
 use Storyfeed\Support\SyncToken;
+use Storyfeed\Support\VerbFilter;
 
 /**
  * Fluent reader for feeds.
@@ -72,6 +75,9 @@ class FeedBuilder
     protected ?Model $involving = null;
 
     protected ?string $verb = null;
+
+    /** Verb allowlist/denylist, lazily created by only()/except(). */
+    protected ?VerbFilter $verbFilter = null;
 
     protected int $limit = 30;
 
@@ -160,6 +166,61 @@ class FeedBuilder
         $this->verb = $verb;
 
         return $this;
+    }
+
+    /**
+     * Restrict this feed to an allowlist of verbs — the seam a customer-facing
+     * surface is built on.
+     *
+     *   Storyfeed::feed()->only(['order.placed', 'order.delivered'])->get();
+     *   Storyfeed::feed()->only(['order.*', OrderVerb::Paid])->get();
+     *
+     * Takes verb strings, FeedVerb cases and plain backed enum cases, mixed;
+     * verbs are free-form strings in storage, so this NEVER throws on a verb it
+     * does not recognise. A trailing `*` is a prefix wildcard.
+     *
+     * This is a query filter, not hiding and not authorization: the caller is
+     * declaring, visibly, which verbs this feed is ABOUT. Row-level visibility
+     * ("this customer's orders only") is still involving()/context()/query().
+     * Declare it once per audience with Storyfeed::feeds([...]) rather than at
+     * each call site — see docs/feeds.md.
+     *
+     * Repeat calls NARROW: only(A) then only(B) is A ∩ B, never A ∪ B. That is
+     * what makes a preset impossible to widen downstream.
+     *
+     * @param  array<int, string|FeedVerb|BackedEnum>|string|FeedVerb|BackedEnum  $verbs
+     */
+    public function only(array|string|FeedVerb|BackedEnum $verbs): static
+    {
+        $this->verbFilter()->allow($verbs);
+
+        return $this;
+    }
+
+    /**
+     * The inverse of only(): every verb EXCEPT these.
+     *
+     * Weaker than only() by construction — a verb recorded tomorrow is admitted
+     * unless someone remembers to add it here — which is why `storyfeed:doctor`
+     * reports a verb no feed names at all. Prefer only() for feeds you are
+     * defending; except() reads better for feeds that are allowed to grow.
+     *
+     * @param  array<int, string|FeedVerb|BackedEnum>|string|FeedVerb|BackedEnum  $verbs
+     */
+    public function except(array|string|FeedVerb|BackedEnum $verbs): static
+    {
+        $this->verbFilter()->deny($verbs);
+
+        return $this;
+    }
+
+    /**
+     * @internal The registry's read-back seam: FeedCoverage runs a preset
+     * closure against a fresh builder and asks what it declared. Not contract.
+     */
+    public function verbFilter(): VerbFilter
+    {
+        return $this->verbFilter ??= new VerbFilter;
     }
 
     /**
@@ -730,7 +791,37 @@ class FeedBuilder
             ->when($this->context, fn (ActivityBuilder $q, Model $m) => $q->context($m))
             ->when($this->involving, fn (ActivityBuilder $q, Model $m) => $q->involving($m))
             ->when($this->verb, fn (ActivityBuilder $q, string $verb) => $q->verb($verb))
-            ->tap(fn (ActivityBuilder $q) => $this->applyCallbacks($q));
+            ->tap(fn (ActivityBuilder $q) => $this->applyConstraints($q));
+    }
+
+    /**
+     * The caller's query() callbacks, plus the verb filter if there is one.
+     *
+     * The nesting is the whole point of this method existing. AND binds tighter
+     * than OR, so a query() callback using a top-level `orWhere` would land as
+     * a sibling of the verb filter and SQL would read the allowlist as
+     * `... or (their thing and verb in (...))` — escaping a filter the caller
+     * never meant to escape. Wrapping the callbacks in their own group makes
+     * that impossible, and applying the filter afterwards means it AND-s
+     * against the group as a whole.
+     *
+     * It is done ONLY when a filter is present, so a feed that never calls
+     * only()/except() generates the SQL it always did, byte for byte. The
+     * asymmetry is a documented rule rather than an accident: inside a filtered
+     * feed, your query() constraints are grouped so they cannot widen the
+     * allowlist.
+     */
+    protected function applyConstraints(ActivityBuilder $query): void
+    {
+        if ($this->verbFilter === null || $this->verbFilter->isEmpty()) {
+            $this->applyCallbacks($query);
+
+            return;
+        }
+
+        $query->where(fn (ActivityBuilder $group) => $this->applyCallbacks($group));
+
+        $this->verbFilter->applyTo($query);
     }
 
     /**

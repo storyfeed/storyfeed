@@ -20,6 +20,7 @@ use Storyfeed\Contracts\PublishesToFeed;
 use Storyfeed\Diagnostics\Doctor;
 use Storyfeed\Diagnostics\Report;
 use Storyfeed\Exceptions\StoryMisconfigured;
+use Storyfeed\Exceptions\UnknownFeed;
 use Storyfeed\Grouping\Axis;
 use Storyfeed\Models\Activity;
 use Storyfeed\Models\Party;
@@ -41,6 +42,15 @@ class StoryfeedManager
 
     /** @var array<string, ActivityType|string> */
     protected array $verbs = self::DEFAULT_VERBS;
+
+    /**
+     * Named feed presets — an audience's scope and verb allowlist, declared
+     * once at boot. Closures rather than arrays on purpose: a preset composes
+     * the whole FeedBuilder (roles, mode, query()), not just a verb list.
+     *
+     * @var array<string, Closure>
+     */
+    protected array $feeds = [];
 
     /**
      * Verbs the app explicitly registered (vs. shipped defaults) — tracked
@@ -214,11 +224,107 @@ class StoryfeedManager
     }
 
     /**
-     * Begin composing a feed query.
+     * Begin composing a feed query, optionally through a named preset.
+     *
+     *   Storyfeed::feed()             the whole feed, unchanged
+     *   Storyfeed::feed('customer')   the 'customer' preset's builder
+     *
+     * An unknown name throws rather than falling back to the unfiltered feed:
+     * a preset is how an audience's verb allowlist is declared, so answering a
+     * typo with every verb you have is the one failure this must not have.
      */
-    public function feed(): FeedBuilder
+    public function feed(?string $preset = null): FeedBuilder
     {
-        return new FeedBuilder;
+        $feed = new FeedBuilder;
+
+        if ($preset === null) {
+            return $feed;
+        }
+
+        if (! isset($this->feeds[$preset])) {
+            throw UnknownFeed::named($preset, array_keys($this->feeds));
+        }
+
+        return $this->applyPreset($this->feeds[$preset], $feed, $preset);
+    }
+
+    /**
+     * Register named feeds — an audience's scope and verb allowlist, declared
+     * ONCE instead of at every call site.
+     *
+     *   Storyfeed::feeds([
+     *       'customer' => fn (FeedBuilder $feed) => $feed->only(['order.*'])->log(),
+     *       'admin' => fn (FeedBuilder $feed) => $feed,
+     *   ]);
+     *
+     * The same register-once-at-boot shape as grammar(), axes(), verbs(),
+     * icons(), stories() and checks(), one level up: those describe how an
+     * activity READS, this describes which activities a surface is about.
+     *
+     * The value of declaring it here rather than app-side is that
+     * `storyfeed:doctor` can see it — the FeedCoverage check turns a verb
+     * nobody assigned to an audience into a CI failure instead of a leak six
+     * months from now. An app-side allowlist is invisible to that.
+     *
+     * This is a query filter, not authorization and not row-level visibility;
+     * see docs/feeds.md for what it deliberately does not do.
+     *
+     * @param  array<string, Closure>  $feeds
+     */
+    public function feeds(array $feeds, bool $merge = true): static
+    {
+        $this->feeds = $merge ? [...$this->feeds, ...$feeds] : $feeds;
+
+        return $this;
+    }
+
+    /**
+     * The registered preset closures, keyed by name.
+     *
+     * @return array<string, Closure>
+     */
+    public function registeredFeeds(): array
+    {
+        return $this->feeds;
+    }
+
+    /** @return list<string> */
+    public function feedNames(): array
+    {
+        return array_keys($this->feeds);
+    }
+
+    /**
+     * Run a preset closure against a builder.
+     *
+     * Both `fn ($feed) => $feed->only([...])` and a multi-line closure that
+     * forgets to return are accepted: the builder is mutable, so it is the same
+     * object either way and rejecting the second would be a papercut with no
+     * safety payoff. Returning anything ELSE is an error — the likely cause is
+     * a closure that built a different query, and honouring it would quietly
+     * discard the preset.
+     *
+     * Deliberately NOT query()'s "the return value is ignored" rule: there a
+     * predicate-shaped closure was a real trap, here the arrow-function form is
+     * the idiomatic one and returning is natural.
+     */
+    protected function applyPreset(Closure $preset, FeedBuilder $feed, string $name): FeedBuilder
+    {
+        $returned = $preset($feed);
+
+        if ($returned === null) {
+            return $feed;
+        }
+
+        if (! $returned instanceof FeedBuilder) {
+            throw new InvalidArgumentException(
+                "Feed [{$name}] returned ".get_debug_type($returned).' instead of a FeedBuilder. '
+                .'A preset closure receives the builder and should return it (or nothing) — '
+                .'returning something else would silently discard the preset.',
+            );
+        }
+
+        return $returned;
     }
 
     /**
