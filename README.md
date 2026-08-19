@@ -124,17 +124,12 @@ domain knowledge of your application.
 
 ---
 
-Storyfeed is original work, written from scratch, inspired by sixteen years of
-building this feature by hand in operational portals — a new implementation each
-time, and the same details to get right each time.
-
-It contains no code, schema, data or confidential material belonging to any past
-employer or client. The inspiration is the experience; nothing else carries over.
-
-The data model is not proprietary either: it implements the W3C's public
-[Activity Streams 2.0](https://www.w3.org/TR/activitystreams-core/) specification —
-actor, verb, object, target, and the `OrderedCollection` serialization — and the
-vocabulary enums are transcriptions of that published spec, verified in the test
-suite against the W3C context document.
+Storyfeed is work inspired by sixteen years of ad-hoc implementations of the
+activity feed pattern in production applications for clients, where several
+technical details and edge cases remained unoptimized or unsolved. This package has
+been written from scratch to solve those problems properly and standardize the
+pattern into something that is feature-rich, developer friendly, and aligned with
+the W3C's public
+[Activity Streams 2.0](https://www.w3.org/TR/activitystreams-core/) specification.
 
 — [Jasper Tey](https://github.com/jaspertey) / [Tey Labs](https://teylabs.com)
