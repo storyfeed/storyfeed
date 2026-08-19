@@ -124,13 +124,12 @@ domain knowledge of your application.
 
 ---
 
-I have built this feature by hand in operational portals for sixteen years — a new
-implementation each time, and the same details to get right each time.
+Storyfeed is original work, written from scratch, inspired by sixteen years of
+building this feature by hand in operational portals — a new implementation each
+time, and the same details to get right each time.
 
-Storyfeed is original work, written from scratch for this package. It contains no
-code, schema, data or confidential material belonging to any past employer or
-client. What carries over is experience with the problem, not artefacts of solving
-it elsewhere.
+It contains no code, schema, data or confidential material belonging to any past
+employer or client. The inspiration is the experience; nothing else carries over.
 
 The data model is not proprietary either: it implements the W3C's public
 [Activity Streams 2.0](https://www.w3.org/TR/activitystreams-core/) specification —
