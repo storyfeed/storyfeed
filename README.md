@@ -42,19 +42,16 @@ specification.
 
 I have built this feature by hand in operational portals for sixteen years — a new
 implementation each time, and the same details to get right each time. This package
-is that work extracted.
+is that work extracted. — [Jasper Tey](https://github.com/jaspertey) /
+[Tey Labs](https://teylabs.com)
 
 ## What it does
 
-- **Explicit recording** — a typed, autocomplete-friendly API for publishing
-  activities from your domain events or observers.
 - **Self-describing reads** — entity snapshots avoid polymorphic N+1s. Every feed
   item ships fully described (headline template, icon, linked entities), so a
   renderer needs no domain knowledge.
 - **Aggregation** — activities collapse the way social feeds do (*"…and 3
   others"*), along a chosen axis.
-- **Named feeds** — a verb allowlist declared once, so a customer-facing surface
-  cannot show an internal verb. `storyfeed:doctor` checks it.
 - **Activity Streams 2.0** — spec-conformant JSON-LD serialization (`Activity`,
   `OrderedCollection`), with ActivityPub federation on the long-range roadmap.
 - **Headless by design** — the core emits a stable, versioned payload contract.
@@ -120,8 +117,11 @@ How much a page collapses is a per-read choice:
 $project->storyfeed()->summary()->get();
 ```
 
-A **named feed** is a verb allowlist declared once, in a service provider, instead
-of at every call site:
+### Named feeds
+
+A named feed is a verb allowlist declared once, in a service provider, instead of
+at every call site — so a customer-facing surface cannot show an internal verb, and
+`storyfeed:doctor` can check that it does not:
 
 ```php
 // AppServiceProvider::boot()
@@ -141,12 +141,8 @@ every call site — `Storyfeed::feed('customer')->get()` returns every order in 
 system, correctly verb-filtered. A Feed class takes its subject as a typed
 constructor argument, which is how PHP ends up enforcing the scope for you.
 
-## Documentation
-
-Full documentation ships alongside the v0.x milestones — see the
-[roadmap](ROADMAP.md) for what is in progress. The design-spec documents (payload
-contract, Activity Streams 2.0 conformance, the Story authoring layer, feed
-curation) are published as each area stabilizes.
+Documentation and the design-spec documents are published alongside the v0.x
+milestones — see the [roadmap](ROADMAP.md) for what is in progress.
 
 ## How this is packaged
 
@@ -195,12 +191,7 @@ already written down in public, so it gets explained rather than quietly edited:
 
 **Sponsorship sets the MIT packages' pace, never their price.** Every adapter is a
 surface that has to keep working, so how far `storyfeed/ui` goes depends on how much
-time sponsorship makes available:
-
-- **Unsponsored** — it moves at my own pace, and realistically ships the Vue/Inertia
-  and Blade components only.
-- **Sponsored** — Livewire and React become reachable, along with faster response on
-  the core.
+time sponsorship makes available; the [roadmap](ROADMAP.md) says what is planned.
 
 Nothing behind sponsorship is access. If the package earns a place in your app, that
 is the way to say so.
@@ -237,21 +228,10 @@ published under MIT stays MIT (see [License](#license)), and the payload contrac
 compatibility promise above. Instability is about the API surface, not about walking
 back commitments.
 
-## Testing
-
-```bash
-composer test
-```
-
 ## Changelog
 
 Please see [CHANGELOG](CHANGELOG.md) for more information on what has changed
 recently.
-
-## Credits
-
-- [Jasper Tey](https://github.com/jaspertey) / [Tey Labs](https://teylabs.com)
-- [All Contributors](../../contributors)
 
 ## License
 
