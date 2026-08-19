@@ -20,6 +20,7 @@ the pattern behind GitHub's dashboard, Slack's activity and social timelines
 generally.
 
 > *Sally confirmed Delivery #1042 for Acme Co.*
+>
 > *Bob, Sally, and 3 others uploaded files to Project X.*
 
 The second headline is one feed item covering several activities. Which activities
