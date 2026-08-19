@@ -132,4 +132,10 @@ code, schema, data or confidential material belonging to any past employer or
 client. What carries over is experience with the problem, not artefacts of solving
 it elsewhere.
 
+The data model is not proprietary either: it implements the W3C's public
+[Activity Streams 2.0](https://www.w3.org/TR/activitystreams-core/) specification —
+actor, verb, object, target, and the `OrderedCollection` serialization — and the
+vocabulary enums are transcriptions of that published spec, verified in the test
+suite against the W3C context document.
+
 — [Jasper Tey](https://github.com/jaspertey) / [Tey Labs](https://teylabs.com)
