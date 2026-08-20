@@ -884,10 +884,14 @@ class StoryfeedManager
     /**
      * Register icons, keyed like grammar ("type.verb", wildcards allowed).
      *
-     * @param  array<string, string>  $icons
+     * Typed loosely on the KEY on purpose — see assertKeyed().
+     *
+     * @param  array<array-key, string>  $icons
      */
     public function icons(array $icons, bool $merge = true): static
     {
+        $this->assertKeyed($icons, 'icons', 'delivery.confirm', 'bi-truck');
+
         $this->icons = $merge ? [...$this->icons, ...$icons] : $icons;
 
         return $this;

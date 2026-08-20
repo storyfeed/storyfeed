@@ -170,3 +170,12 @@ it('refuses a list of aggregate templates', function () {
 
     expect(Storyfeed::aggregateTemplateKey('actors', 'upload'))->toBe('actors.upload');
 });
+
+it('refuses a list of icons', function () {
+    expect(fn () => Storyfeed::icons(['bi-truck']))
+        ->toThrow(InvalidArgumentException::class, "Storyfeed::icons(['delivery.confirm' => 'bi-truck'])");
+
+    Storyfeed::icons(['delivery.confirm' => 'bi-truck']);
+
+    expect(Storyfeed::iconKey('delivery', 'confirm'))->toBe('delivery.confirm');
+});
