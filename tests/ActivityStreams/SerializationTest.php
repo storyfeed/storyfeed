@@ -5,17 +5,9 @@ use Storyfeed\ActivityStreams\ObjectType;
 use Storyfeed\Facades\Storyfeed;
 use Storyfeed\Models\Activity;
 use Storyfeed\Models\Party;
-use Storyfeed\Serialization\ActivitySerializer;
 use Workbench\App\Models\Customer;
 use Workbench\App\Models\Delivery;
 use Workbench\App\Models\User;
-
-function serialize_one(Activity $activity): array
-{
-    return app(ActivitySerializer::class)->activity(
-        $activity->fresh(['cachedActor', 'cachedObject', 'cachedTarget', 'cachedContext']),
-    );
-}
 
 it('emits a spec-shaped Activity document', function () {
     Storyfeed::verbs(['confirm' => ActivityType::Update]);
