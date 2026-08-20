@@ -33,6 +33,7 @@ class Doctor
         Checks\HashLengths::class,
         Checks\SnapshotShapes::class,
         Checks\Backlog::class,
+        Checks\Ungrouped::class,
         Checks\FeedStale::class,
         Checks\ManifestStale::class,
         Checks\UnwiredSurface::class,
