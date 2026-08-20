@@ -308,34 +308,37 @@ class FeedBuilder
     }
 
     /**
-     * Whether this feed's DECLARED verb constraints would show the verb.
+     * EVERY verb constraint this feed declared, as one filter.
      *
-     * @internal The same read-back seam one level up, for Testing\FeedAudience.
-     * Not contract.
+     * @internal The read-back seam tooling reads: doctor's FeedCoverage and
+     * Testing\FeedAudience both consume this rather than verbFilter(), so a
+     * feed written as `->verb('confirm')` is not invisible to them. A single
+     * verb() narrows a feed exactly as `only(['confirm'])` does — same equality
+     * in the same SQL — so it folds into the same structure rather than
+     * becoming a second thing every consumer has to remember to ask about.
      *
-     * Both narrowing surfaces are consulted, because an app writing
-     * `->verb('order.paid')` in a preset has restricted the feed just as
-     * surely as `->only(['order.paid'])` did, and a helper that saw only the
-     * allowlist would report a single-verb feed as wide open.
-     *
-     * What it cannot see is query(): a closure excluding a verb narrows the
-     * feed without saying so in a form anything can read back. That is stated
-     * where it matters — in the assertion messages FeedAudience raises — rather
-     * than papered over here.
+     * What no read-back can see is query(): a closure excluding a verb narrows
+     * the feed without saying so in any form. That is stated where it matters —
+     * in the assertion messages FeedAudience raises — rather than papered over
+     * here.
      */
+    public function declaredVerbFilter(): VerbFilter
+    {
+        $filter = $this->verbFilter ?? new VerbFilter;
+
+        return $this->verb === null ? $filter : $filter->withAllowed($this->verb);
+    }
+
+    /** Whether this feed's declaration would show the verb. */
     public function admits(string $verb): bool
     {
-        if ($this->verb !== null && $this->verb !== $verb) {
-            return false;
-        }
-
-        return $this->verbFilter?->admits($verb) ?? true;
+        return $this->declaredVerbFilter()->admits($verb);
     }
 
     /** Whether this feed declared any verb constraint at all. */
     public function isVerbRestricted(): bool
     {
-        return $this->verb !== null || ! ($this->verbFilter?->isEmpty() ?? true);
+        return ! $this->declaredVerbFilter()->isEmpty();
     }
 
     /**

@@ -31,6 +31,12 @@ use Throwable;
  * The union is not belt-and-braces: the leak this exists for is a verb nobody
  * ever declared, so a declaration-only universe misses exactly the case.
  *
+ * A single `verb()` counts as a restriction, and names the verb it allows. It
+ * narrows a feed exactly as `only([...])` does, and reading only the allowlist
+ * once made a single-verb feed look wide open to this check — classifying
+ * nothing, and hiding a typo'd verb the same way a typo'd allowlist entry hides
+ * one.
+ *
  * Silent when unused. An app with no registered feeds gets no findings at all,
  * not even an Info suggesting it declare some.
  *
@@ -70,7 +76,7 @@ class FeedCoverage extends Check
             // can still read what the class DECLARED, which is the whole reason
             // define() and scope() are separate hooks.
             try {
-                $filters[$name] = $definition->inspect()->verbFilter();
+                $filters[$name] = $definition->inspect()->declaredVerbFilter();
             } catch (Throwable $e) {
                 yield Finding::warning(
                     'feeds.preset_failed',

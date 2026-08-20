@@ -78,7 +78,7 @@ class FeedAudience
             $refused,
             "Feed `{$feed}` refuses verbs it was expected to show:\n  - ".implode("\n  - ", $refused)
             ."\n\nDeclared in {$definition->source}. Its only()/except() patterns: "
-            .self::describe($builder->verbFilter()).'.',
+            .self::describe($builder->declaredVerbFilter()).'.',
         );
     }
 
@@ -101,7 +101,7 @@ class FeedAudience
         // "customer allows order.margin_note" without saying WHY reads as a
         // pattern bug, and sends the reader to the allowlist they never wrote.
         $why = $builder->isVerbRestricted()
-            ? "Its only()/except() patterns: {$definition->source} — ".self::describe($builder->verbFilter()).'.'
+            ? "Its only()/except() patterns: {$definition->source} — ".self::describe($builder->declaredVerbFilter()).'.'
             : "Feed `{$feed}` declares no only()/except() at all, so it shows every verb. "
                 ."Declared in {$definition->source}.";
 

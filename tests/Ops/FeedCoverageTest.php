@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Support\Collection;
+use Storyfeed\ActivityStreams\ActivityType;
 use Storyfeed\Diagnostics\Severity;
 use Storyfeed\Facades\Storyfeed;
 use Storyfeed\FeedBuilder;
@@ -273,4 +274,32 @@ it('checks class feeds identically through a cached manifest', function () {
     expect(feedFindings()->where('code', 'feeds.unclassified')->pluck('subject.verb'))
         ->toContain('deliver')
         ->not->toContain('order.placed');
+});
+
+it('counts a single verb() feed as a restriction that classifies its verb', function () {
+    // ->verb('confirm') narrows a feed exactly as only(['confirm']) does. Read
+    // through verbFilter() alone it looked wide open: classifying nothing, and
+    // hiding a typo the same way a typo'd allowlist entry hides one.
+    Storyfeed::verbs(['confirm' => ActivityType::Update, 'internal.note' => ActivityType::Create]);
+    Storyfeed::feeds(['confirmations' => fn (FeedBuilder $feed) => $feed->verb('confirm')]);
+
+    $codes = collect(Storyfeed::doctor(['feeds'])->all())->pluck('code')->all();
+
+    expect($codes)->not->toContain('feeds.none_restricted')
+        ->and($codes)->toContain('feeds.unclassified');
+
+    $unclassified = collect(Storyfeed::doctor(['feeds'])->all())
+        ->filter(fn ($finding) => $finding->code === 'feeds.unclassified')
+        ->pluck('subject.verb')->all();
+
+    // `confirm` was decided by the single-verb feed; `internal.note` was not.
+    expect($unclassified)->toBe(['internal.note']);
+});
+
+it('reports a typo in a single verb() feed, as it does for an allowlist', function () {
+    Storyfeed::verbs(['confirm' => ActivityType::Update]);
+    Storyfeed::feeds(['confirmations' => fn (FeedBuilder $feed) => $feed->verb('confrim')]);
+
+    expect(collect(Storyfeed::doctor(['feeds'])->all())->pluck('code')->all())
+        ->toContain('feeds.unknown_verb');
 });

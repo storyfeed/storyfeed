@@ -48,6 +48,22 @@ final class VerbFilter
         return $this;
     }
 
+    /**
+     * A copy with one more allowed verb — how FeedBuilder folds a single
+     * `verb()` into the declaration it hands back to tooling.
+     *
+     * A copy rather than a mutation: the builder's own filter is what the read
+     * path applies as SQL, and verb() is already applied there separately.
+     */
+    public function withAllowed(string $verb): self
+    {
+        $copy = clone $this;
+
+        $copy->rules[] = ['allow' => true, 'patterns' => [$verb]];
+
+        return $copy;
+    }
+
     public function isEmpty(): bool
     {
         return $this->rules === [];
