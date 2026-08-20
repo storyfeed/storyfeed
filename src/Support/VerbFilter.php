@@ -82,8 +82,12 @@ final class VerbFilter
         )));
     }
 
-    /** The literal (non-wildcard) verbs named, which are the ones a typo shows up in. */
-    /** @return list<string> */
+    /**
+     * The literal (non-wildcard) verbs named, which are the ones a typo shows
+     * up in.
+     *
+     * @return list<string>
+     */
     public function literals(): array
     {
         return array_values(array_filter(
