@@ -88,6 +88,42 @@ final class VerbFilter
         return false;
     }
 
+    /**
+     * Whether this filter would ADMIT the verb — the PHP twin of applyTo()'s
+     * SQL, rule for rule: an allow rule passes if any of its patterns matches,
+     * a deny rule passes if none does, and rules AND together because they
+     * only ever narrow.
+     *
+     * Distinct from mentions(), and the distinction is the whole point of the
+     * testing surface built on this: mentions() asks "did anyone DECIDE about
+     * this verb", which is doctor's question, and being denied counts. This
+     * asks "would this feed SHOW it", which is the app's question.
+     *
+     * A parity test asserts this agrees with applyTo() over the same rows —
+     * two implementations of "does `order.*` admit `order.paid`" would drift,
+     * and the drift would be a test that passes while the feed leaks.
+     */
+    public function admits(string $verb): bool
+    {
+        foreach ($this->rules as $rule) {
+            $matched = false;
+
+            foreach ($rule['patterns'] as $pattern) {
+                if (self::matches($pattern, $verb)) {
+                    $matched = true;
+
+                    break;
+                }
+            }
+
+            if ($matched !== $rule['allow']) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     public static function matches(string $pattern, string $verb): bool
     {
         if (! str_ends_with($pattern, '*')) {
@@ -158,6 +194,16 @@ final class VerbFilter
         return str_replace(['\\', '%', '_'], ['\\\\', '\%', '\_'], substr($pattern, 0, -1)).'%';
     }
 
+    /** One verb, however it was written, as the string storage uses. */
+    public static function verbString(string|FeedVerb|BackedEnum $verb): string
+    {
+        return match (true) {
+            $verb instanceof FeedVerb => $verb->verb(),
+            $verb instanceof BackedEnum => (string) $verb->value,
+            default => $verb,
+        };
+    }
+
     /**
      * @param  array<int, string|FeedVerb|BackedEnum>|string|FeedVerb|BackedEnum  $verbs
      * @return list<string>
@@ -166,15 +212,7 @@ final class VerbFilter
     {
         $verbs = is_array($verbs) ? $verbs : [$verbs];
 
-        $normalized = [];
-
-        foreach ($verbs as $verb) {
-            $normalized[] = match (true) {
-                $verb instanceof FeedVerb => $verb->verb(),
-                $verb instanceof BackedEnum => (string) $verb->value,
-                default => $verb,
-            };
-        }
+        $normalized = array_map(self::verbString(...), $verbs);
 
         // An empty list is technically honest — an empty allowlist matches
         // nothing — but its symptom is a feed that renders as "nothing happened

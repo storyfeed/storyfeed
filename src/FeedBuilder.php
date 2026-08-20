@@ -308,6 +308,37 @@ class FeedBuilder
     }
 
     /**
+     * Whether this feed's DECLARED verb constraints would show the verb.
+     *
+     * @internal The same read-back seam one level up, for Testing\FeedAudience.
+     * Not contract.
+     *
+     * Both narrowing surfaces are consulted, because an app writing
+     * `->verb('order.paid')` in a preset has restricted the feed just as
+     * surely as `->only(['order.paid'])` did, and a helper that saw only the
+     * allowlist would report a single-verb feed as wide open.
+     *
+     * What it cannot see is query(): a closure excluding a verb narrows the
+     * feed without saying so in a form anything can read back. That is stated
+     * where it matters — in the assertion messages FeedAudience raises — rather
+     * than papered over here.
+     */
+    public function admits(string $verb): bool
+    {
+        if ($this->verb !== null && $this->verb !== $verb) {
+            return false;
+        }
+
+        return $this->verbFilter?->admits($verb) ?? true;
+    }
+
+    /** Whether this feed declared any verb constraint at all. */
+    public function isVerbRestricted(): bool
+    {
+        return $this->verb !== null || ! ($this->verbFilter?->isEmpty() ?? true);
+    }
+
+    /**
      * Constrain the candidate activities with anything Eloquent can express.
      *
      *   $project->storyfeed()
