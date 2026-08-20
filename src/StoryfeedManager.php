@@ -868,10 +868,14 @@ class StoryfeedManager
      * back to the singular grammar of its head member — which is why a
      * multi-actor group reads "Sally uploaded a file" until this is authored.
      *
-     * @param  array<string, string|Closure>  $grammar
+     * Typed loosely on the KEY on purpose — see assertKeyed().
+     *
+     * @param  array<array-key, string|Closure>  $grammar
      */
     public function aggregateGrammar(array $grammar, bool $merge = true): static
     {
+        $this->assertKeyed($grammar, 'aggregateGrammar', 'actors.upload', ':actors uploaded :count files');
+
         $this->aggregateGrammar = $merge ? [...$this->aggregateGrammar, ...$grammar] : $grammar;
 
         return $this;

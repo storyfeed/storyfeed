@@ -161,3 +161,12 @@ it('still accepts a closure grammar entry under a string key', function () {
 
     expect(Storyfeed::templateKey('delivery', 'confirm'))->toBe('delivery.confirm');
 });
+
+it('refuses a list of aggregate templates', function () {
+    expect(fn () => Storyfeed::aggregateGrammar([':actors uploaded :count files']))
+        ->toThrow(InvalidArgumentException::class, 'actors.upload');
+
+    Storyfeed::aggregateGrammar(['actors.upload' => ':actors uploaded :count files']);
+
+    expect(Storyfeed::aggregateTemplateKey('actors', 'upload'))->toBe('actors.upload');
+});
