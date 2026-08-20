@@ -190,3 +190,23 @@ it('refuses a list of object types, the fifth registry with the same hole', func
 
     expect(Storyfeed::objectType('delivery'))->toBe(ObjectType::Document);
 });
+
+it('refuses an enum that forgot to implement FeedVerb, instead of registering nothing', function () {
+    // The silent version registered NO verbs at all, and doctor then reported
+    // `verbs.undeclared` — which reads as "you have not declared a vocabulary"
+    // to someone who just did.
+    expect(fn () => Storyfeed::verbs(PlainVerbEnum::class))
+        ->toThrow(InvalidArgumentException::class, 'not a backed enum implementing');
+
+    expect(fn () => Storyfeed::verbs('App\\Enums\\Renamed'))
+        ->toThrow(InvalidArgumentException::class, 'is not a class');
+
+    Storyfeed::verbs(ActivityVerb::class);
+
+    expect(Storyfeed::declaredVerb('confirm'))->toBeTrue();
+});
+
+enum PlainVerbEnum: string
+{
+    case Confirm = 'confirm';
+}

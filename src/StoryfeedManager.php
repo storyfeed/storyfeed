@@ -995,8 +995,25 @@ class StoryfeedManager
      */
     protected function expandVerbEnum(string $enum): array
     {
+        // Returning [] here registered NOTHING, silently, for the two mistakes
+        // this form invites: a plain backed enum that forgot `implements
+        // FeedVerb` / `use AsFeedVerb`, and a class-string that does not exist
+        // (a stale import, a renamed enum). The app then has no vocabulary at
+        // all — and the symptom is `verbs.undeclared` from doctor, which reads
+        // as "you have not declared a vocabulary yet" to someone who just did.
+        if (! class_exists($enum) && ! interface_exists($enum)) {
+            throw new InvalidArgumentException(
+                "Storyfeed::verbs() was given [{$enum}], which is not a class. Pass a MAP of "
+                .'verb => activity type, or the class-string of a backed enum implementing FeedVerb.',
+            );
+        }
+
         if (! is_a($enum, FeedVerb::class, true) || ! is_a($enum, BackedEnum::class, true)) {
-            return [];
+            throw new InvalidArgumentException(
+                "Storyfeed::verbs() was given [{$enum}], which is not a backed enum implementing "
+                .'Storyfeed\Contracts\FeedVerb. Add `implements FeedVerb` and `use AsFeedVerb` to it, or '
+                ."register the verbs as a map: Storyfeed::verbs(['confirm' => ActivityType::Update]).",
+            );
         }
 
         $map = [];
