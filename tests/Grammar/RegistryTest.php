@@ -142,3 +142,22 @@ it('refuses a list of verbs, which would register the integer 0 as a verb', func
     expect(Storyfeed::declaredVerb('order.placed'))->toBeTrue()
         ->and(Storyfeed::declaredVerb('confirm'))->toBeTrue();
 });
+
+it('refuses a list of grammar templates, which would resolve for nothing', function () {
+    // The silent shape of the same bug verbs() had: key 0 matches no
+    // (type, verb) pair that will ever be asked for, so every headline stays
+    // null and doctor reports the grammar as missing — pointing at the very
+    // templates the developer is looking at.
+    expect(fn () => Storyfeed::grammar([':actor confirmed :object']))
+        ->toThrow(InvalidArgumentException::class, "Storyfeed::grammar(['delivery.confirm' => ':actor confirmed :object'])");
+
+    Storyfeed::grammar(['delivery.confirm' => ':actor confirmed :object']);
+
+    expect(Storyfeed::templateKey('delivery', 'confirm'))->toBe('delivery.confirm');
+});
+
+it('still accepts a closure grammar entry under a string key', function () {
+    Storyfeed::grammar(['delivery.confirm' => fn () => 'rendered']);
+
+    expect(Storyfeed::templateKey('delivery', 'confirm'))->toBe('delivery.confirm');
+});

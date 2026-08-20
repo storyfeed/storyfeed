@@ -339,13 +339,52 @@ class StoryfeedManager
      * :actor/:object/:target/:context placeholders, or closures receiving
      * the Activity and returning a pre-rendered headline.
      *
-     * @param  array<string, string|Closure>  $grammar
+     * Typed loosely on the KEY on purpose — see assertKeyed().
+     *
+     * @param  array<array-key, string|Closure>  $grammar
      */
     public function grammar(array $grammar, bool $merge = true): static
     {
+        $this->assertKeyed($grammar, 'grammar', 'delivery.confirm', ':actor confirmed :object');
+
         $this->grammar = $merge ? [...$this->grammar, ...$grammar] : $grammar;
 
         return $this;
+    }
+
+    /**
+     * Refuse a LIST where a keyed registry was meant.
+     *
+     * The failure this exists for is silent in the worst way: `grammar([':actor
+     * confirmed :object'])` registers the integer 0 as the key, which resolves
+     * for no (type, verb) pair that will ever be asked for, so every headline
+     * stays null and the feed renders exactly as it did before anyone authored
+     * anything. Nothing throws, nothing warns, and `storyfeed:doctor` reports
+     * the grammar as missing — which is true, and points at the templates the
+     * developer is looking straight at.
+     *
+     * Same shape as the bug in verbs(), where a list registered `0` as a verb.
+     * One guard per registry rather than one shared abstraction over all of
+     * them, because each needs to name its OWN key shape to be useful.
+     *
+     * @param  array<array-key, mixed>  $entries
+     */
+    private function assertKeyed(array $entries, string $method, string $key, string $value): void
+    {
+        foreach ($entries as $entryKey => $entryValue) {
+            if (is_string($entryKey)) {
+                continue;
+            }
+
+            $shown = is_string($entryValue) ? $entryValue : get_debug_type($entryValue);
+
+            throw new InvalidArgumentException(
+                "Storyfeed::{$method}() takes a MAP of key => value, not a list. Received [{$shown}] under "
+                .'a numeric key, which resolves for nothing and fails silently. Write '
+                ."Storyfeed::{$method}(['{$key}' => '{$value}']) — keys are patterns, and wildcards "
+                .'(`type.*`, `*.verb`, `*.*`) are allowed.',
+            );
+        }
     }
 
     /**
