@@ -1,5 +1,6 @@
 <?php
 
+use Storyfeed\Diagnostics\Severity;
 use Storyfeed\Facades\Storyfeed;
 use Storyfeed\Models\Activity;
 use Storyfeed\Models\Grouping;
@@ -208,5 +209,36 @@ it('accepts plural tokens on every axis, singular still pinned-only', function (
         ->doesntExpectOutputToContain('`repeat.complete`')
         ->doesntExpectOutputToContain('`*.archive`')
         ->expectsOutputToContain('Aggregate template `repeat.revise` references `:object`')
+        ->assertSuccessful();
+});
+
+it('reports a check name that matches nothing, rather than running nothing quietly', function () {
+    $findings = collect(Storyfeed::doctor(['grammer'])->all());
+
+    // The motivating case: an empty report because nothing ran looks exactly
+    // like a clean one, and a CI gate on --only= goes green on a check that
+    // never executed.
+    expect($findings->pluck('code')->all())->toBe(['doctor.unknown_check'])
+        ->and($findings->first()->severity)->toBe(Severity::Warning)
+        ->and($findings->first()->message)->toContain('grammar')  // lists the valid names
+        ->and($findings->first()->message)->toContain('participants');
+});
+
+it('still runs the names that DID match alongside the unknown one', function () {
+    Storyfeed::activity('confirm', Delivery::create(['tracking_number' => 'TN-1']))->publish();
+
+    $codes = collect(Storyfeed::doctor(['grammer', 'grammar'])->all())->pluck('code');
+
+    expect($codes)->toContain('doctor.unknown_check')
+        ->and($codes->filter(fn (string $code) => str_starts_with($code, 'grammar.')))->not->toBeEmpty();
+});
+
+it('fails the build under --fail-on=warning, which is the point of the finding', function () {
+    // Info severity would leave the build green and the vacuous pass alive,
+    // with a line in the report that merely LOOKS like the system noticed.
+    $this->artisan('storyfeed:doctor --only=grammer --fail-on=warning')
+        ->assertFailed();
+
+    $this->artisan('storyfeed:doctor --only=grammar --fail-on=warning')
         ->assertSuccessful();
 });
