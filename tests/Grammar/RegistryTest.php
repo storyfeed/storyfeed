@@ -179,3 +179,14 @@ it('refuses a list of icons', function () {
 
     expect(Storyfeed::iconKey('delivery', 'confirm'))->toBe('delivery.confirm');
 });
+
+it('refuses a list of object types, the fifth registry with the same hole', function () {
+    // Key 0 is not a morph alias, so every activity would serialize with no
+    // AS2.0 object type and the JSON-LD would look merely under-specified.
+    expect(fn () => Storyfeed::objectTypes(['delivery']))
+        ->toThrow(InvalidArgumentException::class, "Storyfeed::objectTypes(['delivery' => 'Document'])");
+
+    Storyfeed::objectTypes(['delivery' => ObjectType::Document]);
+
+    expect(Storyfeed::objectType('delivery'))->toBe(ObjectType::Document);
+});

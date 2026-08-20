@@ -967,10 +967,14 @@ class StoryfeedManager
     /**
      * Register morph alias → AS2.0 object type mappings.
      *
-     * @param  array<string, ObjectType|string>  $objectTypes
+     * Typed loosely on the KEY on purpose — see assertKeyed().
+     *
+     * @param  array<array-key, ObjectType|string>  $objectTypes
      */
     public function objectTypes(array $objectTypes, bool $merge = true): static
     {
+        $this->assertKeyed($objectTypes, 'objectTypes', 'delivery', 'Document');
+
         $normalized = [];
 
         foreach ($objectTypes as $alias => $type) {
