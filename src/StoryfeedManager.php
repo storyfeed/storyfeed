@@ -862,7 +862,13 @@ class StoryfeedManager
      * Unrecognized type strings are preserved verbatim (extension types
      * must survive round-tripping).
      *
-     * @param  array<string, ActivityType|string>|class-string  $verbs
+     * Typed on the KEY loosely on purpose, for the same reason `$stories` is:
+     * this receives whatever the app passed, and validating it is what the loop
+     * below is for. Declaring `array<string, …>` claimed a guarantee PHP does
+     * not enforce, and the cost of the lie was a list silently registering the
+     * integer 0 as a verb.
+     *
+     * @param  array<array-key, ActivityType|string>|class-string  $verbs
      */
     public function verbs(array|string $verbs, bool $merge = true): static
     {
@@ -871,6 +877,23 @@ class StoryfeedManager
         $normalized = [];
 
         foreach ($resolved as $verb => $type) {
+            // A LIST instead of a map is the one input that fails silently and
+            // badly: `['order.placed']` registers the integer 0 as the verb and
+            // the verb string as its activity type — which normalizeTerm then
+            // preserves verbatim, because extension types must round-trip. The
+            // app now has a vocabulary doctor believes in and `verbs.strict`
+            // rejects every real verb against. Loud beats plausible.
+            if (! is_string($verb)) {
+                $shown = is_string($type) ? $type : get_debug_type($type);
+
+                throw new InvalidArgumentException(
+                    'Storyfeed::verbs() takes a MAP of verb => activity type, not a list. '
+                    ."Received [{$shown}] under a numeric key; write "
+                    ."Storyfeed::verbs(['{$shown}' => ActivityType::Update]) — or pass the class-string of "
+                    .'a backed enum implementing FeedVerb and let it declare its own mappings.',
+                );
+            }
+
             $normalized[$verb] = $this->normalizeTerm($type, ActivityType::class);
         }
 
