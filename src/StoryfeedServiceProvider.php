@@ -66,6 +66,17 @@ class StoryfeedServiceProvider extends PackageServiceProvider
         $this->app->booted(function () {
             $storyfeed = $this->app->make(StoryfeedManager::class);
 
+            // The demo kit's grammar, when the app has opted in. It has to be
+            // registered at BOOT rather than only by the seeder: the seeder runs
+            // in an artisan process, and every process that actually SHOWS the
+            // demo is a different one. Registered only there, a seeded feed
+            // renders group nodes with null headlines everywhere it matters —
+            // silently, and discovered on stage. Off by default, because these
+            // verbs in an app's registry are real noise in FeedCoverage.
+            if (config('storyfeed.demo.enabled', false)) {
+                Demo\Vocabulary::register();
+            }
+
             // A cached manifest short-circuits compilation. Applied HERE, not
             // during registration, because every provider's stories() calls
             // must already have landed.

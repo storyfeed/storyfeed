@@ -86,6 +86,20 @@ class DemoCommand extends Command
         $this->line('  Every verb is prefixed <info>'.Vocabulary::PREFIX.'</info> — that is what makes '
             .'<info>--clear</info> unable to touch real rows.');
 
+        // Seeding and RENDERING are separate opt-ins, and the second one is easy
+        // to miss in the worst way: this command registered the grammar in its
+        // own process, so the feed it just seeded reads perfectly from here and
+        // renders with null headlines in the app. Say so, here, where the
+        // operator is looking.
+        if (! config('storyfeed.demo.enabled', false)) {
+            $this->newLine();
+            $this->components->warn(
+                'storyfeed.demo.enabled is off, so the demo grammar is not registered at boot — '
+                .'the seeded feed will render with empty headlines. Turn it on in the environment '
+                .'doing the demo (config/storyfeed.php).',
+            );
+        }
+
         return self::SUCCESS;
     }
 

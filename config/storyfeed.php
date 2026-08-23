@@ -299,4 +299,28 @@ return [
         'paths' => null,
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Demo Data
+    |--------------------------------------------------------------------------
+    |
+    | Enable the vocabulary `storyfeed:demo` seeds with — its verbs, grammar,
+    | aggregate grammar and icons — so a seeded demo RENDERS.
+    |
+    | This is separate from seeding on purpose. The seeder runs in an artisan
+    | process; every process that shows the demo is a different one, and grammar
+    | registered only by the seeder leaves group nodes with null headlines in
+    | exactly the surfaces you meant to demo. Off by default because these verbs
+    | are noise in an application's own registry and in doctor's feed coverage.
+    |
+    | Turn it on in the environment doing the demo, not in production — wire it
+    | to an env var of your own here if you want it switchable per environment.
+    | See docs/demo-data.md for why the package seeds a world rather than
+    | shipping a redactor.
+    */
+
+    'demo' => [
+        'enabled' => false,
+    ],
+
 ];
