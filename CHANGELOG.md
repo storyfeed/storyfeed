@@ -110,6 +110,63 @@ route that never had a scope to begin with.
   Underneath it, `VerbFilter::admits()` — the PHP twin of `applyTo()`'s SQL, with
   a parity test over eight presets and seven verbs so the two cannot drift.
 
+- **`storyfeed:demo` — a seeded demo tenant, so a demo never needs production
+  data.** The position it makes practical: **a feed is PII from its first row,
+  and this package will never ship a redactor.** Snapshots are written at publish
+  time, so redacting a feed for a screenshot means either rewriting history or
+  filtering at presentation — and the second is the one thing the read path must
+  not do. Worse, redaction fails open: it protects the field you remembered, and
+  the field you forgot is the one on the projector.
+
+  ```bash
+  php artisan storyfeed:demo --days=30 --seed=4    # reproducible history
+  php artisan storyfeed:demo --fresh               # clear the last one, seed again
+  php artisan storyfeed:demo --clear               # remove it all, seed nothing
+  ```
+
+  It publishes through `Storyfeed::activity()` like application code, so party
+  resolution, snapshotting, grouping and inline curation all really run — a demo
+  that shortcut the write path would be showing an audience code nobody executes.
+
+  **The whole cast is Parties**, not application models: no migrations, no
+  factories, no domain coupling, so it seeds identically in any app. Entities are
+  properly typed (`Person`, `Organization`, `Document`, …) so the AS2.0 surface is
+  part of the demo rather than a page of `Service` nodes. What the trade costs is
+  documented rather than hidden — every entity shares the `storyfeed.party` morph
+  alias, so a seeded demo cannot show type-keyed grammar or a link resolver
+  pointing at real records; pass your own models to `DemoSeeder` if you need them.
+
+  **Deterministic**: the same `--seed` produces the same feed down to the minute,
+  so a demo can be *rehearsed* and a screenshot in a doc still matches what a
+  reader seeds tomorrow. Randomness is an LCG carried on the screenplay rather
+  than `mt_rand()`, so seeding cannot disturb anything else in the process.
+
+  **The days are shaped, not sampled.** A uniformly random feed reliably produces
+  a wall of solo nodes, because grouping needs a burst of the same verb by the
+  same actor on the same day to have anything to collapse. Each day composes a
+  morning upload burst (repeat), a comment thread (actor collapse), an afternoon
+  of task closing (target collapse) and scattered singles. One seed fills a world
+  feed, a context feed and an actor feed.
+
+  **Teardown is the half that has to be trustworthy.** Every seeded verb carries
+  a `demo.` prefix and `--clear` matches on that and nothing else — no truncation,
+  no JSON path expression, no "delete everything published before X". It cannot
+  reach a row your application published, on any driver, and a test pins that by
+  publishing a real activity, seeding, clearing and asserting the real row
+  survives. The prefix is visible in dev tools and invisible in the rendered
+  headline. Production is guarded by Laravel's own confirmation, so it behaves
+  like `migrate:fresh`.
+
+  **Seeding and rendering are two opt-ins**, and the second is easy to miss in
+  the worst way: `config('storyfeed.demo.enabled')` registers the demo grammar at
+  **boot**, and without it the feed you just seeded renders group nodes with
+  empty headlines in every process that is not the seeder. The command warns when
+  it seeds with the flag off. Off by default, because these verbs in an app's own
+  registry are noise in doctor's feed coverage.
+
+  See `docs/demo-data.md`, including what seeding does *not* solve: it makes the
+  feed safe, not the rest of the application.
+
 ### Changed
 
 - **`query()` callbacks are now always nested — a top-level `orWhere` can no
