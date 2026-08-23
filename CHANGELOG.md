@@ -85,6 +85,31 @@ route that never had a scope to begin with.
   `phpstan/extension-installer`; no configuration. Arity only — argument types
   are already PHPStan's business. Nothing about the runtime changed.
 
+- **`Testing\FeedAudience`** — "this feed cannot render this verb", as an
+  assertion in the app's own suite: `assertRefuses('customer', 'order.margin_note')`,
+  `assertAllows()`, `assertAllowsOnly()`. An app adopts named feeds because it
+  fears leaking an internal verb to a customer-facing surface, and until now the
+  only thing standing between that fear and production was a registration in a
+  service provider nobody re-reads.
+
+  It is a different question from the `feeds` doctor check, and both are worth
+  asking. `FeedCoverage` asks whether every verb is **decided** — named by
+  somebody's allowlist or denylist — which is vocabulary hygiene, answered across
+  the whole registry, and can be entirely green while the customer feed renders
+  `order.margin_note`, because being denied in the *admin* feed counts as decided.
+  This asks whether **this** feed shows **this** verb.
+
+  It reads the feed's **declaration** rather than its rows, through the same
+  `inspect()` seam doctor uses — so one class works identically under
+  `Storyfeed::fake()` and against real tables, and can inspect a subject feed
+  whose constructor a test cannot satisfy. The empirical form (publish the verb,
+  read the feed, assert it is absent) was rejected: it passes vacuously whenever
+  the fixture happens to lack the verb, which is the normal case for precisely
+  the verb you are afraid of.
+
+  Underneath it, `VerbFilter::admits()` — the PHP twin of `applyTo()`'s SQL, with
+  a parity test over eight presets and seven verbs so the two cannot drift.
+
 ### Changed
 
 - **`query()` callbacks are now always nested — a top-level `orWhere` can no
@@ -127,6 +152,55 @@ route that never had a scope to begin with.
   supported way is a second feed read, or a `query()` callback that names the
   wider set inside its own closure. Nothing else in the read path moved.
 
+- **`storyfeed:doctor` now reads a single `verb()` as a restriction rather than
+  an open feed.** `FeedCoverage` inspected `verbFilter()`, which only
+  `only()`/`except()` populate — so a preset written as `->verb('confirm')`
+  looked wide open: it classified nothing, and a typo in it hid the real verb
+  exactly as a typo'd allowlist entry does, with neither reported.
+
+  Closed through the existing seam rather than by reading the same state a second
+  way: `FeedBuilder::declaredVerbFilter()` folds the single verb in as an allow
+  rule — identical semantics, the same equality in the same SQL — so `mentions()`,
+  `literals()` and `admits()` all keep working and no consumer has to remember to
+  ask about `verb()` separately. `admits()`/`isVerbRestricted()` and
+  `Testing\FeedAudience` go through it too.
+
+- **A `--only=` name that matches no check is now a warning, not silence.**
+  `--only=grammer` ran nothing and reported nothing, which reads as a clean bill
+  of health: an app gating CI on `--only=` got a green build from a check that
+  never executed — the vacuous pass the testing helpers refuse by design, sitting
+  in the diagnostic layer itself.
+
+  A finding rather than a throw, deliberately. The registries guarded below are
+  called once at boot with literals; `doctor()` takes runtime input that may
+  already be whatever an operator typed after `--only=`, and killing a scheduled
+  health check would be a worse bug than the one being closed. It is also the
+  rule Doctor already lives by one level down — a check that throws becomes a
+  finding rather than taking the run with it. **Warning** severity, because that
+  is the entire fix: an Info would leave the build green and the vacuous pass
+  alive, with a line in the report that merely *looks* like the system noticed.
+  The message lists the valid names. Tested through the exit code under
+  `--fail-on=warning`, which is what proves the bug closed rather than annotated.
+
+- **Doctor names the ungrouped rows the trickle can no longer reach.** The silent
+  half of a two-command trap, both commands individually correct. An app that
+  bulk-inserts history has no grouping rows; `storyfeed:trickle` is what converges
+  them, but it only looks at `uncached()` activities and `storyfeed:rebuild`
+  caches every one of them. Run rebuild first and the import is ungrouped forever
+  — a wall of solo nodes — while doctor reports a **clean** backlog, because the
+  backlog counts uncached entities rather than missing groups. A trap that is
+  silent in the exact tool an adopter runs to check their migration is the worst
+  shape a trap can have. The finding names the way out (`storyfeed:curate --rehash`)
+  and the sequence that caused it.
+
+  It asks the strategy rather than counting absence. Under the shipped axes every
+  activity groups — `repeat` requires no roles, so even a bare verb emits a hash
+  — but `NullStrategy` ships and `grouping.strategy` is swappable, so an app that
+  turned grouping off has a whole table of legitimately ungrouped rows. Screaming
+  at those would get the check disabled and take the real signal with it. Absence
+  is the alarm's size, a bounded re-run of today's strategy is its evidence, and
+  the message quotes both numbers rather than extrapolating one from the other.
+
 ### Fixed
 
 - **`FeedBuilder::for()`'s tombstone taught an API that never shipped.** Its
@@ -138,6 +212,41 @@ route that never had a scope to begin with.
   to lie. It matters where it stands: a tombstone is what a person reads when
   they are already confused.
 
+- **Five registries accepted a list where they document a map, and each one
+  failed silently in its own way.** `Storyfeed::verbs(['order.placed'])` — the
+  list form instead of the documented map — registered the **integer `0`** as the
+  verb and `order.placed` as its activity type, which `normalizeTerm()` then
+  preserved verbatim, because extension types must round-trip. The app ends up
+  with a vocabulary doctor believes in and `verbs.strict` rejects every real verb
+  against. All five now throw, and each message names the map form and the enum
+  form, because a message that cannot show the right call is not worth throwing:
+
+  - `verbs()` — the case above.
+  - `grammar()` — the same bug in its quietest form: key `0` matches no
+    `(type, verb)` pair that will ever be asked for. Every headline stays null,
+    nothing throws, and doctor reports the grammar as **missing** — pointing at
+    the templates the developer is looking straight at.
+  - `aggregateGrammar()` — the same, for the collapsed forms.
+  - `icons()` — the same.
+  - `objectTypes()` — key `0` is not a morph alias, so a list registers a mapping
+    nothing ever asks for: activities serialize with no AS2.0 object type and the
+    JSON-LD reads as merely under-specified rather than misconfigured.
+
+  Found by writing tests for `FeedAudience` and hitting the first one, then by an
+  audit for the shape; the fifth was found only by that audit. It is the argument
+  for fixing rather than documenting: nobody can be relying on this, and it bites
+  on day one. The `@param` key type on `verbs()` was corrected to `array-key`
+  alongside — PHPStan was right that the guard contradicted the annotation, and
+  the cost of that lie was the bug.
+
+- **`Storyfeed::verbs(SomeEnum::class)` throws when the enum is not a `FeedVerb`.**
+  The class-string form returned `[]` for an enum that forgot
+  `implements FeedVerb` / `use AsFeedVerb`, and for a class-string that does not
+  exist at all — registering **no** vocabulary, silently. Doctor then reported
+  `verbs.undeclared`, which reads as "you have not declared a vocabulary yet" to
+  someone who just did, on the line above. Both cases now name what is wrong and
+  both accepted forms.
+
 ### Also
 
 - `storyfeed:doctor` findings that name a feed now carry `file:line`. Closures
@@ -147,6 +256,17 @@ route that never had a scope to begin with.
   changes without a deprecation cycle, pin a commit rather than a range — and
   carves out the two things that do not move: the payload contract and the MIT
   commitment.
+- The README's code is pinned by a test: a rename now fails a build instead of
+  reaching a stranger. It is the most-copied artifact in the project and the one
+  nobody re-reads after renaming a method — the same reasoning as the `for()`
+  tombstones. Behaviour, never string-matching: each test *executes* the calls in
+  the shape the README teaches them, so a wording change is free and a rename is
+  not. Verified non-vacuous — renaming `PendingActivity::by()` fails 7 of the 10.
+- The suite runs under `--parallel`. `ContextDocumentTest` called a helper defined
+  in `SerializationTest.php`, which works only when both files load into the same
+  process, so `vendor/bin/pest --parallel` failed on it and neither file could be
+  run alone. Pre-existing, and it cost a confusing minute every time someone
+  iterated on the AS2 layer. `serialize_one()` moved to `Pest.php`.
 
 ## v0.8.0-alpha.1 — audience scoping (2026-08-18)
 
