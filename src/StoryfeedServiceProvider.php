@@ -44,6 +44,7 @@ class StoryfeedServiceProvider extends PackageServiceProvider
                 Console\StoriesCommand::class,
                 Console\StoryMakeCommand::class,
                 Console\FeedMakeCommand::class,
+                Console\DemoCommand::class,
             ]);
     }
 
