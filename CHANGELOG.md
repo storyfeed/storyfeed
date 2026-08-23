@@ -1,6 +1,10 @@
 # Changelog
 
-## v0.8.0-alpha.2 — Feed classes, and a scope that cannot leak (unreleased)
+## v0.8.0 — Feed classes, and a scope that cannot leak (2026-08-23)
+
+**The first stable tag.** The `v0.8.0-alpha.2` pre-release carried an earlier
+draft of these notes; this section is that release plus the twenty-odd commits
+that landed after it. The `v0.8.0-alpha.1` notes stay where they are, below.
 
 The alpha.1 lane shipped the allowlist half of audience scoping. This one ships
 the SCOPE half — the half that fails open — plus the two places a scope could
