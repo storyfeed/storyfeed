@@ -240,6 +240,24 @@ return [
 
     'trickle' => [
         'limit' => 200,
+
+        /*
+         * DELETE activities whose feed roles cannot be resolved.
+         *
+         * Off by default, and deliberately: an unresolvable role is nearly
+         * always a model that is not `Feedable` yet — a bug in the app — and
+         * deleting the evidence of a bug is a poor way to report it. One
+         * consumer discovered that EVERY activity their operator performed had
+         * an unresolvable actor for exactly that reason; with pruning on, a
+         * worker documented as "snapshot convergence" would have removed the
+         * lot on its next scheduled run.
+         *
+         * Left off, the trickle COUNTS them instead (`unresolved` in its
+         * output, and in `storyfeed:doctor`), and keeps snapshotting the rows
+         * behind them. Turn it on when orphans are genuinely garbage — an
+         * import that referenced rows you will never load — and not before.
+         */
+        'prune' => false,
     ],
 
     /*

@@ -243,13 +243,45 @@ it('dispatches ActivityPublished for every backfilled row, and Event::forget sil
         ->and(Activity::query()->count())->toBe(6);
 });
 
-it('prunes an imported row whose entity cannot be resolved, rather than skipping it', function () {
+it('REPORTS an imported row whose entity cannot be resolved, and keeps it', function () {
+    // Pruning is opt-in as of 2026-08-26. An unresolvable role is nearly always
+    // a model that is not Feedable yet — a bug in the app — and a worker whose
+    // documented job is snapshot convergence must not delete the evidence of it
+    // on a schedule. One consumer had EVERY operator activity in this state.
     rawInsert('gone-1', $this->ines, $this->order, '2024-03-01 09:00:00');
 
     DB::table('feed_activities')->where('uid', 'gone-1')->update(['object_id' => 9999]);
 
-    expect((new TrickleSnapshots)())->toMatchArray(['pruned' => 1])
+    expect((new TrickleSnapshots)())->toMatchArray(['pruned' => 0, 'unresolved' => 1])
+        ->and(Activity::query()->count())->toBe(1);
+});
+
+it('prunes the same row when an app asks for it', function () {
+    rawInsert('gone-2', $this->ines, $this->order, '2024-03-01 09:00:00');
+
+    DB::table('feed_activities')->where('uid', 'gone-2')->update(['object_id' => 9999]);
+
+    expect((new TrickleSnapshots)(null, true))->toMatchArray(['pruned' => 1, 'unresolved' => 0])
         ->and(Activity::query()->count())->toBe(0);
+});
+
+it('keeps snapshotting the rows behind a standing population of orphans', function () {
+    // The starvation this design has to avoid, and the reason deletion was the
+    // default in the first place: an orphan can never gain a cached id, so it
+    // matches `uncached()` forever and would fill a limit-sized page on every
+    // run. A run that skips orphans keeps fetching past them.
+    foreach (range(1, 3) as $i) {
+        rawInsert("orphan-{$i}", $this->ines, $this->order, '2024-03-01 09:00:00');
+        DB::table('feed_activities')->where('uid', "orphan-{$i}")->update(['object_id' => 9999]);
+    }
+
+    rawInsert('good-1', $this->ines, $this->order, '2024-02-01 09:00:00');
+
+    // A budget of two would be spent entirely on orphans without the rescan.
+    $result = (new TrickleSnapshots)(2);
+
+    expect($result)->toMatchArray(['snapshotted' => 1, 'pruned' => 0, 'unresolved' => 3])
+        ->and(Activity::query()->count())->toBe(4);
 });
 
 it('refuses an unauthored or undeclared verb only when the strict switches are on', function () {

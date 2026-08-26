@@ -55,9 +55,21 @@ enum Field: int
     ];
 
     /**
-     * The role each identity PAIR pins: when both bits of a pair are in an
-     * axis's field mask, that role is homogeneous across the axis's groups
-     * and its headline token is safe.
+     * What each token needs in an axis's field mask before it is homogeneous
+     * across that axis's groups — and therefore safe in an aggregate headline.
+     *
+     * A ROLE needs both bits of its identity PAIR: an alias alone pins "some
+     * delivery", not "this delivery".
+     *
+     * `:verb` needs one bit, and it was missing from this list until
+     * 2026-08-26 — an omission rather than a decision. The verb field is in
+     * four of the five inferred axis keys, so every member of such a group
+     * shares a verb by exactly the construction that makes `:actor` safe on
+     * `repeat`. While it was absent, `pinnedTokens()` under-claimed: an
+     * aggregate template naming the verb was refused for a group where naming
+     * it was simply true, and a renderer meeting an ungrammared group could
+     * not ask whether the verb was sayable — so it said "31 activities" where
+     * "31 clause.added activities" was available and honest.
      *
      * @var array<string, int>
      */
@@ -66,6 +78,7 @@ enum Field: int
         ':object' => self::ObjectType->value | self::ObjectId->value,
         ':target' => self::TargetType->value | self::TargetId->value,
         ':context' => self::ContextType->value | self::ContextId->value,
+        ':verb' => self::Verb->value,
     ];
 
     public function valueFor(Activity $activity): string

@@ -30,13 +30,20 @@ it('does not apply when a required field is missing', function () {
 it('derives pinned tokens from the recipe by mask algebra', function () {
     $universals = [':actors', ':objects', ':targets', ':contexts', ':count', ':others'];
 
+    // `:verb` needs ONE field rather than an identity pair, and it joined this
+    // list on 2026-08-26: the verb is in the key, so every member shares it, by
+    // exactly the construction that makes :actor safe on an actor-keyed axis.
     expect(Axis::make('object')->key('aa:aid:v:oa!:oid!:d')->pinnedTokens())
-        ->toBe([':actor', ':object', ...$universals])
+        ->toBe([':actor', ':object', ':verb', ...$universals])
         ->and(Axis::make('actors')->key('v:ta!:tid:d')->pinnedTokens())
-        ->toBe([':target', ...$universals])
-        // aa without aid: the actor PAIR is incomplete, so :actor is unsafe.
+        ->toBe([':target', ':verb', ...$universals])
+        // aa without aid: the actor PAIR is incomplete, so :actor is unsafe —
+        // while the verb, needing no pair, is safe on the same key.
         ->and(Axis::make('half')->key('aa:v:d')->pinnedTokens())
-        ->toBe($universals);
+        ->toBe([':verb', ...$universals])
+        // And an axis with no verb in its key does NOT pin it.
+        ->and(Axis::make('verbless')->key('aa:aid:d')->pinnedTokens())
+        ->toBe([':actor', ...$universals]);
 });
 
 it('digests keys that exceed the length threshold', function () {
