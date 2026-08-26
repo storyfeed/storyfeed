@@ -3,6 +3,7 @@
 namespace Storyfeed\Concerns;
 
 use DateTimeInterface;
+use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Database\Eloquent\Model;
 use Storyfeed\ActivityStreams\ActivityType;
 use Storyfeed\Models\Activity;
@@ -156,7 +157,10 @@ trait AsFeedVerb
         return $this->activity()->into($model);
     }
 
-    public function data(array $data): PendingActivity
+    /**
+     * @param  array<string, mixed>|Arrayable<string, mixed>  $data
+     */
+    public function data(array|Arrayable $data): PendingActivity
     {
         return $this->activity()->data($data);
     }

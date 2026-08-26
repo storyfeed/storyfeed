@@ -4,6 +4,7 @@ namespace Storyfeed;
 
 use BackedEnum;
 use DateTimeInterface;
+use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -209,9 +210,24 @@ class PendingActivity
         return $this->target($model);
     }
 
-    public function data(array $data): static
+    /**
+     * The activity's own payload — the app's, never read by this package.
+     *
+     * An `Arrayable` is accepted so a typed DTO can be the authoring surface:
+     * `->data(LinkFetch::from($request))` with a spatie/laravel-data object, or
+     * anything else that can render itself as an array. This is the same
+     * arrangement `FeedEntity` has always had for snapshot data, and the same
+     * doctrine as verbs: STORAGE STAYS A PLAIN ARRAY, and the typed thing is an
+     * authoring convenience that never reaches the column. A row recorded from
+     * a DTO is byte-identical to one recorded from the array it produces, so a
+     * DTO can be introduced or removed later without a migration and without a
+     * renderer noticing.
+     *
+     * @param  array<string, mixed>|Arrayable<string, mixed>  $data
+     */
+    public function data(array|Arrayable $data): static
     {
-        $this->activity->data = $data;
+        $this->activity->data = $data instanceof Arrayable ? $data->toArray() : $data;
 
         return $this;
     }
