@@ -179,6 +179,41 @@ class NodePresenter
 
         [$template, $headline] = $this->aggregateHeadline($slice);
 
+        /*
+         * PINNED ROLES ALSO ANSWER THE SINGULAR TOKEN (2026-08-26).
+         *
+         * A group used to carry roles ONLY as exemplar lists, on the sound
+         * reasoning that a group is many activities. But an axis that PINS a
+         * role collapses it to exactly one entity by construction — and
+         * `aggregateTokens()` already says so, which is how
+         * `safeSingularFallback()` admits a singular template containing
+         * `:actor` for a repeat group in the first place.
+         *
+         * So the registry promised a token the node did not carry, and every
+         * renderer had to discover that for itself. Two did: the Vue renderer
+         * quietly reconstructs the singular from `exemplars[0]`, and the
+         * Filament adapter rendered ":actor" as "Someone" — a shrug with the
+         * authority of a fact — on a vault row summarising client link opens.
+         * A promise the payload does not keep is the payload's bug.
+         *
+         * ADDITIVE: these keys are new on group nodes and unchanged on
+         * activity nodes, so a renderer that ignores them behaves exactly as
+         * before. The guard is deliberately belt-and-braces — pinned by the
+         * registry AND one distinct entity in fact — because a custom axis
+         * declares its own pins and a mis-declared one must degrade to the
+         * list rather than name one member for all of them.
+         */
+        $pinnedTokens = $this->storyfeed->aggregateTokens((string) $slice->axis) ?? [];
+        $singulars = [];
+
+        foreach (self::GROUP_ROLES as $role => [$key, $relation]) {
+            $singulars[$role] = in_array(":{$role}", $pinnedTokens, true)
+                && count($exemplars[$key]) === 1
+                && $distinct[$key] === 1
+                    ? $exemplars[$key][0]
+                    : null;
+        }
+
         $children = $members->map(fn (Activity $a) => $this->activityNode($a))->values()->all();
 
         return [
@@ -193,6 +228,7 @@ class NodePresenter
             'headline_template' => $template,
             'headline' => $headline,
             'icon' => $this->storyfeed->icon($first->object_type, $first->verb),
+            ...$singulars,
             'exemplars' => $exemplars,
             'distinct' => $distinct,
             'children' => $children,

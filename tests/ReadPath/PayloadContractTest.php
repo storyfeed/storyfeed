@@ -45,8 +45,18 @@ it('emits the frozen group-node shape', function () {
     expect($item['kind'])->toBe('group');
     expect(array_keys($item))->toBe([
         'kind', 'id', 'axis', 'count', 'verb', 'published_at', 'headline_template',
-        'headline', 'icon', 'exemplars', 'distinct', 'children', 'children_truncated',
+        'headline', 'icon', 'actor', 'object', 'target', 'context',
+        'exemplars', 'distinct', 'children', 'children_truncated',
     ]);
+    // PINNED SINGULAR ROLES (2026-08-26, ADDITIVE): a role the axis pins is one
+    // entity by construction, and `aggregateTokens()` already promised the
+    // singular token was safe — so the node now carries it. In the same order
+    // as an activity node's, which is what lets a renderer read a role the same
+    // way on both. A role the axis does not pin is null here and lives in
+    // `exemplars`; two renderers reconstructed this for themselves before the
+    // payload did it once.
+    expect($item['actor']['label'])->toBe('Sally')
+        ->and($item['object'])->toBeNull();
     // UNIFORM exemplars (2026-08-12, deliberate pre-freeze break): every
     // role is a LIST of up to 3 distinct entities; a pinned role collapses
     // to exactly one by construction. `distinct` carries true per-role

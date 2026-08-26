@@ -594,8 +594,29 @@ class FeedBuilder
     /**
      * Phase 1 — select one page of FEED ITEMS by merging the grouped and solo
      * streams. Ordering is total by construction: (latest DESC, stream rank
-     * ASC, hash|id ASC), which is what makes the cursor deterministic when
-     * several items share a MAX(published_at) — routine on bulk imports.
+     * ASC, then a PER-STREAM tiebreak — groups by (axis, hash) ASC, solos by
+     * id DESC), which is what makes the cursor deterministic when several
+     * items share a MAX(published_at) — routine on bulk imports.
+     *
+     * THE TWO TIEBREAKS POINT DIFFERENT WAYS ON PURPOSE, and rank is what
+     * makes that safe: every group sorts before every solo at a shared
+     * timestamp, so a group is never tiebroken against a solo and each stream
+     * only has to agree with its own SQL and its own cursor predicate.
+     *
+     * Solos descend (2026-08-26) because THAT tiebreak means something: id
+     * DESC is newest-first, the same order `logPage()` has always used. While
+     * it ascended, two activities published in the same second came back one
+     * way round in `log()` and the other way round in `live()` — nothing
+     * nondeterministic, an exact REVERSAL on a mode switch, which is why a
+     * consumer's rename test flipped rather than flickered when they turned
+     * grouping on. On an audit surface "which happened first" is the question,
+     * and rows sharing a timestamp are routine on seeds and imports.
+     *
+     * Groups keep ascending because (axis, hash) is arbitrary-but-stable
+     * naming, not recency: reversing it would reorder every tied page — the
+     * `actors` group and the `repeat` group swap places — while making no
+     * page more correct. A tiebreak that carries no meaning should not be
+     * churned for symmetry with one that does.
      *
      * @return Collection<int, FeedCandidate>
      */
@@ -632,7 +653,7 @@ class FeedBuilder
         }
 
         if ($a->activity !== null && $b->activity !== null) {
-            return $a->activity->getKey() <=> $b->activity->getKey();
+            return $b->activity->getKey() <=> $a->activity->getKey();
         }
 
         return 0;
@@ -752,7 +773,7 @@ class FeedBuilder
                 ->where('composite_rows.bucket', 'composite'))
             ->with(['cachedActor', 'cachedObject', 'cachedTarget', 'cachedContext'])
             ->orderBy("{$activities}.published_at", 'desc')
-            ->orderBy("{$activities}.id")
+            ->orderBy("{$activities}.id", 'desc')
             ->limit($this->limit + 1);
 
         if ($cursor !== null && $cursor['rank'] === self::RANK_SOLO) {
@@ -760,7 +781,7 @@ class FeedBuilder
                 ->where("{$activities}.published_at", '<', $cursor['latest'])
                 ->orWhere(fn (ActivityBuilder $tie) => $tie
                     ->where("{$activities}.published_at", '=', $cursor['latest'])
-                    ->where("{$activities}.id", '>', $cursor['id'])));
+                    ->where("{$activities}.id", '<', $cursor['id'])));
         } elseif ($cursor !== null) {
             // Every group at this timestamp is spent; solos in the tie remain.
             $query->where("{$activities}.published_at", '<=', $cursor['latest']);
