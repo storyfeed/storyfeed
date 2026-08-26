@@ -81,6 +81,29 @@ enum Field: int
         ':verb' => self::Verb->value,
     ];
 
+    /**
+     * THE DAY SEGMENT IS CUT IN THE APPLICATION'S ZONE, at PUBLISH time.
+     *
+     * `toDateString()` reads `app.timezone` — usually UTC — and a renderer's
+     * day headings are cut in its own DISPLAY zone, at read time. The two can
+     * disagree, and when they do the GROUP wins: a burst straddling midnight in
+     * the reader's zone is one group under one heading, because the members
+     * were bound together before any renderer had a zone to have an opinion in.
+     *
+     * A consumer proved it with seven link-opens either side of midnight in
+     * Ontario — four on the 26th locally, three on the 27th, all seven the 27th
+     * in UTC — which rendered as a single group under "Today" with half of it
+     * belonging to yesterday. Nothing looks wrong: the rows are ordered, the
+     * count is right, and the run simply reads as today's.
+     *
+     * This is a PROPERTY, not a defect to route around. The grouping day is a
+     * publish-time value written into a hash, and it cannot know a read-time
+     * zone that may differ per reader; making it agree would mean taking the
+     * day out of the key entirely, which is a different design with different
+     * costs. An app that needs "yesterday" to mean the reader's yesterday
+     * should set `app.timezone` to the zone its feed is read in, so both cuts
+     * land in the same place.
+     */
     public function valueFor(Activity $activity): string
     {
         $raw = match ($this) {
