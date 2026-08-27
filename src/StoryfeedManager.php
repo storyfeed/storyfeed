@@ -25,6 +25,7 @@ use Storyfeed\Grouping\Axis;
 use Storyfeed\Models\Activity;
 use Storyfeed\Models\Party;
 use Storyfeed\Support\MorphResolver;
+use Storyfeed\Support\Noun;
 use Throwable;
 
 class StoryfeedManager
@@ -39,6 +40,11 @@ class StoryfeedManager
 
     /** @var array<string, string> */
     protected array $icons = [];
+
+    /**
+     * @var array<string, string|Noun> plural forms keyed 'type' or 'type.verb'
+     */
+    protected array $nouns = [];
 
     /** @var array<string, ActivityType|string> */
     protected array $verbs = self::DEFAULT_VERBS;
@@ -817,6 +823,85 @@ class StoryfeedManager
         }
 
         return $this->axis($axis)?->pinnedTokens();
+    }
+
+    /**
+     * Does an axis pin the KIND of a role even where it leaves the role's
+     * identity unpinned? Unregistered axes answer false — see
+     * Axis::pinsType().
+     */
+    public function pinsType(string $axis, string $role): bool
+    {
+        return $this->axis($axis)?->pinsType($role) ?? false;
+    }
+
+    /**
+     * Register the plural forms of the things a role holds, so a group can
+     * say "7 clauses" where its axis leaves the role unpinned:
+     *
+     *   Storyfeed::nouns([
+     *       'clause' => 'clause|clauses',        // per TYPE
+     *       'document.upload' => 'file|files',   // per (type, verb)
+     *       'delivery' => Noun::trans('nouns.delivery'),
+     *   ]);
+     *
+     * Keys are MORPH ALIASES — the value stored in `object_type` — never
+     * class names, matching how every other comparison in the package is
+     * made. Lookup runs type.verb, then type, then the `*` entry, then the
+     * generic noun; there are no `type.*` or `*.verb` wildcards, because a
+     * noun describes a KIND of thing and the verb is only ever a refinement
+     * of it ("uploads of a document are files").
+     *
+     * A type with no noun registered still renders, as "7 items". That is
+     * deliberate: the screen belongs to the reader, and the nagging belongs
+     * on the developer's terminal.
+     *
+     * BOTH FORMS ARE REQUIRED — 'terms sheet|terms sheets'. The core never
+     * inflects, so a single-form value throws here rather than rendering
+     * "7 terms sheet" to somebody's customer. See Noun::of().
+     *
+     * Typed loosely on the KEY on purpose — see assertKeyed().
+     *
+     * @param  array<array-key, string|Noun>  $nouns
+     */
+    public function nouns(array $nouns, bool $merge = true): static
+    {
+        $this->assertKeyed($nouns, 'nouns', 'clause', 'clause|clauses');
+
+        // Validate at REGISTRATION, not at render: a one-form noun is an
+        // authoring mistake, and the core never inflects to cover it.
+        foreach ($nouns as $noun) {
+            if (is_string($noun)) {
+                Noun::of($noun);
+            }
+        }
+
+        $this->nouns = $merge ? [...$this->nouns, ...$nouns] : $nouns;
+
+        return $this;
+    }
+
+    /**
+     * The noun registered for a type (optionally refined by verb), or null
+     * when none is — which the caller renders as the generic noun.
+     */
+    public function noun(?string $type, string $verb): string|Noun|null
+    {
+        if ($type !== null && array_key_exists("{$type}.{$verb}", $this->nouns)) {
+            return $this->nouns["{$type}.{$verb}"];
+        }
+
+        if ($type !== null && array_key_exists($type, $this->nouns)) {
+            return $this->nouns[$type];
+        }
+
+        return $this->nouns['*'] ?? null;
+    }
+
+    /** @return array<string, string|Noun> */
+    public function registeredNouns(): array
+    {
+        return $this->nouns;
     }
 
     /**

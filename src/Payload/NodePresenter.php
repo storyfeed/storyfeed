@@ -7,6 +7,7 @@ use Storyfeed\Models\Activity;
 use Storyfeed\Models\Snapshot;
 use Storyfeed\StoryfeedManager;
 use Storyfeed\Support\LinkResolver;
+use Storyfeed\Support\Noun;
 use Throwable;
 
 /**
@@ -80,21 +81,24 @@ class NodePresenter
      * Aggregate grammar is keyed "axis.verb" and adds the :actors / :count /
      * :others tokens. Without an entry the group falls back to the head
      * member's SINGULAR template — but only when that template's tokens are
-     * all pinned by the axis. An unchecked singular fallback is the lie
-     * class arriving through the back door: "Bob Callahan uploaded — to
-     * Analytics Dashboard" rendered over ten uploads by two people (found
-     * live by the Newsroom). Unsafe fallbacks yield a null template — the
-     * renderer's generic group treatment beats a wrong sentence.
-     * `storyfeed:doctor` and GrammarCoverage surface the missing entry.
+     * all pinned by the axis, or the noun rung can honestly pluralise the
+     * ones that are not. An unchecked singular fallback is the lie class
+     * arriving through the back door: "Bob Callahan uploaded — to Analytics
+     * Dashboard" rendered over ten uploads by two people (found live by the
+     * Newsroom). Unsafe fallbacks yield a null template — the renderer's
+     * generic group treatment beats a wrong sentence. `storyfeed:doctor` and
+     * GrammarCoverage surface the missing entry.
      *
+     * @param  array<string, int>  $distinct  the node's published distinct
+     *                                        block, keyed by PLURAL role
      * @return array{0: string|null, 1: string|null}
      */
-    protected function aggregateHeadline(GroupSlice $slice): array
+    protected function aggregateHeadline(GroupSlice $slice, array $distinct): array
     {
         $entry = $this->storyfeed->aggregateTemplate($slice->axis, (string) $slice->members->first()?->verb);
 
         if ($entry === null) {
-            return $this->safeSingularFallback($slice);
+            return $this->safeSingularFallback($slice, $distinct);
         }
 
         if ($entry instanceof Closure) {
@@ -111,14 +115,18 @@ class NodePresenter
     }
 
     /**
-     * The head member's singular template, admitted only when every token
-     * it uses is homogeneous across the group (pinned by the axis).
+     * The head member's singular template, admitted when every token it uses
+     * is homogeneous across the group (pinned by the axis) — and, failing
+     * that, handed to the noun rung, which can still rescue it by turning an
+     * unpinned role into a count of things.
+     *
      * Closure entries pre-render from ONE member and cannot be inspected,
      * so they are never safe for a group.
      *
+     * @param  array<string, int>  $distinct
      * @return array{0: string|null, 1: string|null}
      */
-    protected function safeSingularFallback(GroupSlice $slice): array
+    protected function safeSingularFallback(GroupSlice $slice, array $distinct): array
     {
         $first = $slice->members->first();
 
@@ -132,8 +140,129 @@ class NodePresenter
 
         preg_match_all('/:[a-z]+/', $entry, $matches);
 
-        if (array_diff(array_unique($matches[0]), $pinned) !== []) {
+        $unpinned = array_values(array_diff(array_unique($matches[0]), $pinned));
+
+        if ($unpinned === []) {
+            return [$entry, null];
+        }
+
+        return $this->pluralisedFallback($slice, $entry, $unpinned, $distinct);
+    }
+
+    /**
+     * THE NOUN RUNG (2026-08-27).
+     *
+     * An unpinned role is not unknowable — it is PLURALISABLE. The repeat
+     * axis pins actor, verb, object TYPE and target, so ":actor reworded
+     * :object in the clause library" over nine activities was thrown away
+     * whole for the sake of one token, and the reader got "Clause reworded ·
+     * 9 times". Every member agrees that Jasper reworded SOMETHING; the
+     * something is seven clauses; so the sentence is available and true:
+     *
+     *     ":actor reworded 7 clauses in the clause library"
+     *
+     * WHAT COMES BACK IS A TEMPLATE, NOT A HEADLINE. Only the unpinned
+     * tokens are substituted; `:actor` stays a token, because it is a real
+     * entity the renderer turns into a LINK and pre-rendering it here would
+     * destroy that. It rides home through the existing [$template, null]
+     * channel: no payload shape change, no new node key, no renderer change.
+     *
+     * THE COUNT IS `distinct`, NEVER THE MEMBER COUNT. Nine activities
+     * across seven clauses is "7 clauses". "9 clauses" would assert into
+     * existence two clauses that do not exist — a lie of number, and exactly
+     * the class of error this whole ladder was built to refuse.
+     *
+     * WHERE IT DECLINES, AND WHY EACH REFUSAL IS THE RIGHT ANSWER:
+     *
+     *  - The count is 1. Then the role is shared in fact, and the renderer
+     *    can NAME it from `exemplars` (FeedPresenter::groupRole). "1 clause"
+     *    where the clause could have been named is a regression, not a
+     *    fallback, so the token is left alone rather than substituted.
+     *  - The count is 0. The role is ABSENT, not plural. A template naming a
+     *    role its activities never carry is an authoring bug that the
+     *    `roles` doctor check exists to surface; "0 items" would paper over
+     *    precisely what it is watching for.
+     *  - The axis does not pin the role's KIND. Two objects in one group can
+     *    then be a clause and a spreadsheet, and "7 clauses" would be a lie
+     *    of kind in place of a lie of number. This is also what keeps the
+     *    rung off the `actors` axis, where "3 items commented on Concur" is
+     *    plainly worse than the label it would replace — that group wants an
+     *    AUTHORED aggregate template naming `:actors`, and should keep
+     *    reading as unfinished until it gets one.
+     *  - The token is not a role at all (`:verb`, or anything invented).
+     *    Nothing can be counted, so nothing is claimed.
+     *  - The slice carries no true distinct counts. The in-page count is
+     *    capped at `grouping.children_limit` and would understate; a floor
+     *    is fine for an exemplar list that says "and N others", and not fine
+     *    for a number the sentence asserts outright.
+     *
+     * Failing any of these, the rung returns null and the ladder falls to
+     * the verb label. That is the bar the OUTPUT has to clear: a bland
+     * sentence reads as finished, while "Clause reworded · 9 times" reads as
+     * unfinished, so a sentence worse than the label is worse than nothing.
+     *
+     * @param  list<string>  $unpinned
+     * @param  array<string, int>  $distinct
+     * @return array{0: string|null, 1: string|null}
+     */
+    protected function pluralisedFallback(GroupSlice $slice, string $entry, array $unpinned, array $distinct): array
+    {
+        if ($slice->distinct === []) {
             return [null, null];
+        }
+
+        $first = $slice->members->first();
+        $axis = (string) $slice->axis;
+        $phrases = [];
+
+        foreach ($unpinned as $token) {
+            $role = ltrim($token, ':');
+
+            if (! isset(self::GROUP_ROLES[$role])) {
+                return [null, null];
+            }
+
+            $count = $distinct[self::GROUP_ROLES[$role][0]] ?? 0;
+
+            if ($count === 0) {
+                return [null, null];
+            }
+
+            if ($count === 1) {
+                continue;
+            }
+
+            if (! $this->storyfeed->pinsType($axis, $role)) {
+                return [null, null];
+            }
+
+            // The type is pinned by construction, so the head member's alias
+            // is every member's alias — the licence for one noun to speak
+            // for all of them.
+            $phrase = Noun::phrase(
+                $this->storyfeed->noun($first->{"{$role}_type"}, (string) $first->verb),
+                $count,
+            );
+
+            // A noun that can look like a token would be re-substituted by
+            // the renderer, which tokenises the string we hand it. Refuse
+            // rather than mangle the author's words.
+            if (preg_match('/:[a-z]+/', $phrase) === 1) {
+                return [null, null];
+            }
+
+            $phrases[$token] = $phrase;
+        }
+
+        foreach ($phrases as $token => $phrase) {
+            // `(?![a-z])` so substituting :object cannot eat the ":object"
+            // inside ":objects", and a callback so a phrase containing `$`
+            // is never read as a backreference.
+            $entry = (string) preg_replace_callback(
+                '/'.preg_quote($token, '/').'(?![a-z])/',
+                fn (): string => $phrase,
+                $entry,
+            );
         }
 
         return [$entry, null];
@@ -177,7 +306,7 @@ class NodePresenter
             $distinct[$key] = max($slice->distinct[$role] ?? 0, $unique->count());
         }
 
-        [$template, $headline] = $this->aggregateHeadline($slice);
+        [$template, $headline] = $this->aggregateHeadline($slice, $distinct);
 
         /*
          * PINNED ROLES ALSO ANSWER THE SINGULAR TOKEN (2026-08-26).

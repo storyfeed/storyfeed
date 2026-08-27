@@ -67,3 +67,33 @@ it('supports closure recipes with manually declared pins', function () {
     expect($axis->hashFor(axisActivity()))->toBe('revise:2026-33')
         ->and($axis->pinnedTokens())->toBe([':actor', ':actors', ':objects', ':targets', ':contexts', ':count', ':others']);
 });
+
+it('knows when it pins a role KIND without pinning the role', function () {
+    // `repeat` carries the object ALIAS but not the object id: many objects,
+    // all the same kind of thing. That gap is exactly the licence to say
+    // "7 clauses" where naming one clause would be a lie.
+    $repeat = Axis::make('repeat')->key('aa:aid:v:oa:ta:tid:d');
+
+    expect($repeat->pinnedTokens())->not->toContain(':object')
+        ->and($repeat->pinsType('object'))->toBeTrue()
+        ->and($repeat->pinsType('actor'))->toBeTrue()
+        ->and($repeat->pinsType('context'))->toBeFalse();
+
+    // `actors` pins neither the actor's identity nor its kind — an actor can
+    // be a user or a Party — so nothing may be said about the kind at all.
+    $actors = Axis::make('actors')->key('v:ta!:tid:d');
+
+    expect($actors->pinsType('actor'))->toBeFalse()
+        ->and($actors->pinsType('target'))->toBeTrue()
+        ->and($actors->pinsType('nonsense'))->toBeFalse();
+});
+
+it('refuses to guess a role KIND for closure and row-backed axes', function () {
+    // `pins()` declares whole tokens, never the halves, so the answer is not
+    // available — and guessing generously is the failure requiredRoles()
+    // already refuses to commit.
+    $weekly = Axis::make('weekly')->key(fn (Activity $a) => 'x')->pins(':actor');
+
+    expect($weekly->pinsType('actor'))->toBeFalse()
+        ->and(Axis::make('composite')->rowBacked()->pins(':actor')->pinsType('actor'))->toBeFalse();
+});

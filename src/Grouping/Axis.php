@@ -257,6 +257,39 @@ class Axis
         return [...$pinned, ...self::UNIVERSAL_TOKENS];
     }
 
+    /**
+     * Does this axis pin the KIND of a role — its morph alias — even when it
+     * leaves the role's identity unpinned?
+     *
+     * `repeat` is keyed `aa:aid:v:oa:ta:tid:d`: it carries the object ALIAS
+     * but not the object id, so a repeat group is many objects that are all
+     * the same kind of thing. That is exactly the licence to call them
+     * "7 clauses". Where the alias is NOT in the key — the `actors` axis
+     * pins neither actor alias nor id — the members' kinds may differ past
+     * the loaded page, and naming one kind for all of them would be a lie of
+     * kind rather than of number.
+     *
+     * Closure and row-backed axes answer false: `pins()` declares whole
+     * tokens, never the halves, and guessing generously here is the failure
+     * `requiredRoles()` already refuses to commit.
+     */
+    public function pinsType(string $role): bool
+    {
+        if ($this->custom !== null || $this->rowBacked) {
+            return false;
+        }
+
+        $field = match ($role) {
+            'actor' => Field::ActorType,
+            'object' => Field::ObjectType,
+            'target' => Field::TargetType,
+            'context' => Field::ContextType,
+            default => null,
+        };
+
+        return $field !== null && ($this->fields & $field->value) !== 0;
+    }
+
     protected function assemble(Activity $activity): ?string
     {
         if ($this->custom !== null) {
