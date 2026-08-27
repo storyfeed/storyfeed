@@ -1,5 +1,242 @@
 # Changelog
 
+## Unreleased
+
+Two doctor checks, both from the same discovery: a check can be entirely right
+about the database and still wrong about what the reader will do next.
+
+### Added
+
+- **`roles` — a template may not name a role its activities never carry.** An
+  operations portal was rendering a literal italicised "somewhere" inside its
+  sentences. That is the `absent` placeholder doing exactly what it was built to
+  do: a template named `:target`, the activities carry none, and the renderer
+  politely printed the word rather than breaking.
+
+  Which is the problem. A reader cannot tell "the target is unknown" from "this
+  sentence should never have mentioned a target" — the authoring bug renders as
+  **content**. Three checks already touched grammar without catching it:
+  `Coverage` asserts a template exists, `AggregateTokens` validates aggregate
+  tokens against axis pinning, `AggregateCoverage` covers clustered pairs.
+  Nothing compared a **singular** template's tokens against the roles its
+  activities actually have.
+
+  Data-driven, like `Coverage` and for the same reason: reasoning about which
+  roles an app's activities carry has been wrong in practice. **Two codes**,
+  because the roles are not equivalent. `roles.always_anonymous` is Info for
+  `:actor` — a null actor has a documented meaning, never conflated with a system
+  actor, so the sentence still reads and this is reportage.
+  `roles.never_carried` is a Warning for `:object`, `:target` and `:context`:
+  their placeholders exist only so a template naming a missing role "still
+  reads", which is precisely the behaviour that hid this for as long as it hid.
+
+  Accumulated per **resolved template** rather than per pair, so a `*.*`
+  catch-all naming `:target` is judged against everything it actually renders
+  instead of being condemned by the first pair that lacks one. Only the **never**
+  case is reported — a role carried by some activities is the placeholder earning
+  its keep, and warning there would bury the finding. Closure templates are
+  skipped rather than guessed at, and no Fix is offered: the remedy is authorial,
+  and a stub here would be the wrong instrument.
+
+  It is a debt rather than a discovery. Those rows sat inside a group this
+  package started closing by default; they were visible on the dashboard
+  yesterday and are behind a click now. Closing groups removed an app's ability
+  to see its own broken sentences — the surface was doing this check informally,
+  the package took it away, so doctor owes it deliberately.
+
+### Changed
+
+- **`aggregates` asks whether anything can actually read the pair.**
+  `AggregateCoverage` warned for every clustered `(axis, verb)` pair with no
+  aggregate grammar, regardless of whether any surface in the app would ever
+  render that axis. A consumer got eight warnings on a `->live()` dashboard: five
+  `object.*` and one `targets.*`, and live reads only `repeat` plus authored
+  composites — so six of the eight templates it asked for by name could never
+  have fired, and `--stubs` would have printed six unrenderable registrations.
+
+  `Diagnostics\Reachability` reads each **registered** feed's declared mode, and
+  a pair nothing can read is reported as `aggregates.latent` rather than as a gap
+  to go fix. **Latent is not an all-clear and not silence**: the pair is still
+  reported, under its own code, because a cluster forming with no template is
+  worth knowing about and becomes a real gap the instant a surface changes mode.
+  It carries no Fix, because printing an unrenderable stub is the exact harm
+  being closed.
+
+  It is only ever said when the registry can actually say it. With no feeds
+  registered, or one feed that will not inspect, every pair reverts to the plain
+  warning plus an `aggregates.reachability_unknown` note. **Caveats are emitted
+  first**, so nothing below them can be read as a complete answer by someone who
+  stopped at the first warning — silence that reads as coverage is the failure
+  this check has already committed twice.
+
+  Mode is a presentation default rather than a safety property, since any call
+  site may override a feed's declared mode, so this only ever says "unreachable
+  **as declared**", and says that out loud. `FeedBuilder::declaredMode()` joins
+  `declaredVerbFilter()` as an `@internal` read-back seam; both exist because
+  tooling has to see what a feed declared.
+
+  **Known and not fixed**: the clustered query still selects winner rows only,
+  while live mode reads every repeat row regardless of winner — so a
+  live-readable repeat pair whose rows lost curation stays invisible. That is the
+  mirror of the bug closed here, it is pre-existing, and it wants a failing test
+  before a fix rather than more reasoning about a check that has now misled three
+  times.
+
+## v0.9.0 — Grouping says which day, and a group speaks for its members (2026-08-26)
+
+Cut because a consumer needed this work in production and had no released
+version to require. The alternative was pinning a live portal to dev-`main`,
+which puts an unreviewed package change into a client-facing deploy the next
+time anything unrelated ships.
+
+Every item below was found by somebody **rendering** the payload rather than
+reasoning about it. Between two renderers and an operations vault they turned up
+a destructive default that arrived by following the install instructions, a
+promise the payload made and left every renderer to keep for itself, and an
+ordering that reversed itself on a mode switch.
+
+### Changed
+
+- **Pruning in the trickle is now opt-in, and off by default.** This is the one
+  that matters. An activity whose role could not be resolved was **deleted** by
+  the scheduled worker, by default — and the documentation recommends running
+  that worker every fifteen minutes, so the destructive behaviour was what an
+  installer got by following the instructions and reading no further.
+
+  A consumer found the cost. In their portal **every** activity their operator
+  had performed carried an unresolvable actor, because their `User` was not
+  `Feedable` — so an entire class of "things the operator did" was queued for
+  removal by a worker whose documented purpose is snapshot convergence. Their
+  standing rule is no pruning at all: it is an operations vault and they need it
+  for audit. Soft deletes make it recoverable, but the rows leave the feed
+  silently and retention force-deletes them later.
+
+  An unresolvable role is nearly always a missing `Feedable`, which is a bug in
+  the app, and **deleting the evidence of a bug is a poor way to report it**. So
+  the default counts them instead: `unresolved` in the action's return and in
+  `storyfeed:trickle`'s output, which names the likely cause in two short lines
+  rather than one wrapped paragraph — a console that truncates a paragraph drops
+  the half that names the fix, and the half that names the fix is the reason for
+  printing anything. `storyfeed.trickle.prune`, or `--prune`, turns deletion back
+  on for an app that genuinely wants it. The flag is read as "on or defer", never
+  as "off", so passing nothing cannot override an app that switched pruning on in
+  config.
+
+  **The starvation that made deletion look necessary is handled rather than
+  inherited.** An orphan can never gain a cached id, so it matches `uncached()`
+  forever, and a standing population of them would fill a limit-sized page every
+  run and starve every newer row behind it — which is exactly why deleting them
+  looked like the tidy answer. A run that steps over an orphan now keeps
+  fetching, excluding what it has already examined, until it has done `limit`
+  real snapshots or reached a bounded ceiling of five times `limit` rows
+  examined. The ceiling is what stops a table that is entirely orphans from
+  turning one run into a full scan. There is a test for precisely the case:
+  three orphans, one good row, a budget of two, and the good row still gets
+  snapshotted.
+
+- **The solo tiebreak now descends, matching `log()`.** `soloStream()` ordered
+  `published_at desc, id ASC` while `logPage()` has always ordered
+  `published_at desc, id DESC`. Two activities published in the same second came
+  back one way round in `log()` and the other way round in `live()` — nothing
+  nondeterministic, an exact **reversal** on a mode switch, which is why a
+  consumer's rename test flipped rather than flickered when they turned grouping
+  on. On an audit surface "which happened first" is the question, and rows
+  sharing a timestamp are routine on seeds and bulk imports. The cursor
+  comparison flips with it: `id <` where it was `id >`.
+
+  **Groups keep ascending**, and the first attempt at this flipped them too,
+  which was wrong and the suite said so within a minute. A group's tiebreak is
+  (axis, hash): arbitrary-but-stable naming, not recency. Reversing it reorders
+  every tied page — the `actors` group and the `repeat` group swap places —
+  while making no page more correct. `rank` sorts every group before every solo
+  at a shared timestamp, so the two streams are never tiebroken against each
+  other and each only has to agree with its own SQL and its own cursor. A
+  tiebreak that carries no meaning should not be churned for symmetry with one
+  that does.
+
+  Reaching the branch at all meant deleting the grouping rows in the test: an
+  ordinary recorded activity carries a winning grouping row, so in a grouped mode
+  even a lone one is read as a group of one. The solo branch belongs to imported
+  rows, rows predating the install, and rows awaiting the trickle — which is also
+  exactly where same-instant ties cluster, because a bulk import stamps a whole
+  batch with one timestamp.
+
+### Added
+
+- **A group node carries its pinned roles as singulars** (additive).
+  `aggregateTokens('repeat')` lists `:actor` as safe — the axis key pins actor
+  identity, so it is homogeneous by construction — and `safeSingularFallback()`
+  admits a singular template on that basis. But `groupNode()` emitted roles
+  **only** as exemplar lists, so a renderer meeting `:actor` had to know to reach
+  into `exemplars.actors[0]`.
+
+  Two renderers met it and handled it differently. The Vue one quietly
+  reconstructs the singular; the Filament adapter rendered the **anonymous**
+  branch — "The link sent to Someone was opened 5 times", sitting directly above
+  five member rows naming the recipient correctly, on an audit vault. A promise
+  the payload does not keep is the payload's bug, and "Someone" is a shrug with
+  the authority of a fact.
+
+  Group nodes now carry `actor`, `object`, `target` and `context` alongside the
+  exemplar lists. The guard is deliberately belt-and-braces — pinned by the
+  registry **and** one distinct entity in fact — because a custom axis declares
+  its own pins, and a mis-declared one must degrade to the exemplar list rather
+  than name one member on behalf of all of them. Additive: new keys on group
+  nodes, nothing changed on activity nodes, so a renderer that ignores them
+  behaves exactly as before. The frozen-shape contract test was updated
+  deliberately, which is the only reason it exists.
+
+- **`:verb` is a pinnable token.** It needs one field rather than an identity
+  pair, and the verb is in four of the five inferred axis keys, so every member
+  of such a group shares it by exactly the construction that makes `:actor` safe
+  on `repeat`. Its absence from `Field::PINNABLE` was an omission, not a
+  decision, and it under-claimed twice: an aggregate template naming the verb was
+  refused for a group where naming it was simply true, and a renderer meeting an
+  ungrammared group could not ask whether the verb was sayable — so it said
+  "31 activities" where "31 clause.added activities" was available and honest.
+
+- **`->data()` takes a typed DTO and stores a plain array.**
+  `->data(LinkFetch::from($request))` with a spatie/laravel-data object, or
+  anything else `Arrayable`. `FeedEntity` has accepted `Arrayable` for snapshot
+  data since it was written; the activity's own payload had not, so the two
+  halves of "describe this in a DTO" disagreed depending on which side of the
+  seam you were on.
+
+  The doctrine is the verb ladder's, applied to data: **the typed thing is an
+  authoring convenience and storage stays plain.** An activity recorded from a
+  DTO is byte-identical to one recorded from the array that DTO produces, which
+  is what the first test asserts and the reason it is the test worth having — a
+  DTO can be introduced or removed later with no migration, and no renderer can
+  tell which was used. Nothing downstream learns a type: the payload still hands
+  `data` over uninterpreted. Widened on both authoring surfaces, since a verb
+  enum's `->data()` forwards to the builder's and a signature that disagreed with
+  the thing it forwards to is a trap for whoever finds the shorter one first.
+
+### Also
+
+- **The grouping day is cut in a named zone, and it is written down because
+  nothing on screen can say which one it was.** The `d` segment of an axis key is
+  `published_at->toDateString()` — the application's zone, at publish time. A
+  renderer's day headings are cut in its **display** zone, at read time. When
+  those disagree the **group** wins: a burst straddling midnight in the reader's
+  zone stays one group under one heading, because its members were bound together
+  before any renderer had a zone to have an opinion in.
+
+  A consumer proved it with seven opens of one link either side of midnight in
+  Ontario — four on the 26th locally, three on the 27th, all seven the 27th in
+  UTC — rendering as one group under "Today" with over half of it belonging to
+  yesterday. The rows are ordered, the count is right, and the run reads as
+  today's. There is nothing to notice, which is the entire reason the note
+  exists.
+
+  Not fixed, and deliberately: the grouping day is a publish-time value written
+  into a hash, and it cannot know a read-time zone that may differ per reader.
+  Making the two agree means taking the day out of the key, which is a different
+  design with different costs and not one to adopt in passing. What an app can do
+  is set `app.timezone` to the zone its feed is read in, so both cuts land in the
+  same place — storage is unaffected either way, since only the derived date
+  string reads the zone.
+
 ## v0.8.0 — Feed classes, and a scope that cannot leak (2026-08-23)
 
 **The first stable tag.** The `v0.8.0-alpha.2` pre-release carried an earlier

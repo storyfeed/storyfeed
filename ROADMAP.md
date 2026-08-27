@@ -34,16 +34,24 @@ work leads to is a demonstration of a working package, not a launch event, so
       `OrderedCollection`) behind opt-in content-negotiated routes. Alpha caveat:
       emitted documents reference an extension context that is not published yet,
       which blocks a beta, not an alpha.
-- [ ] **v0.7 — Authoring DX (unreleased, on `main`).** `Story` classes — one class
-      per activity type instead of seven registration sites — with `make:story`,
-      `PublishesToFeed` for domain events, a structured `doctor` report you can
-      assert on in CI, `storyfeed:stories`, `storyfeed:cache`, and strict grammar
-      in local/testing.
-- [ ] **v0.8 — Audience scoping.** Named feed presets registered once
-      (`Storyfeed::feeds([...])`, entered as `Storyfeed::feed('customer')`), with
-      `->only()` / `->except()` verb allowlists and a `FeedCoverage` doctor check so a
-      verb that belongs to no audience fails CI rather than leaking. In the MIT core,
-      deliberately: nothing that makes a feed safe to show belongs in a paid package.
+- [x] **v0.7 — Authoring DX** *(released as part of `v0.8.0-alpha.1`)*. `Story`
+      classes — one class per activity type instead of seven registration sites —
+      with `make:story`, `PublishesToFeed` for domain events, a structured `doctor`
+      report you can assert on in CI, `storyfeed:stories`, `storyfeed:cache`, and
+      strict grammar in local/testing.
+- [x] **v0.8 — Audience scoping** *(tagged `v0.8.0`)*. Named feed presets
+      registered once (`Storyfeed::feeds([...])`, entered as
+      `Storyfeed::feed('customer')`) and `Feed` classes that take their subject as a
+      typed constructor argument, so an unscoped feed cannot be built. `->only()` /
+      `->except()` verb allowlists, a `FeedCoverage` doctor check so a verb that
+      belongs to no audience fails CI rather than leaking, and `storyfeed:demo` for
+      showing a feed without production data. In the MIT core, deliberately: nothing
+      that makes a feed safe to show belongs in a paid package.
+- [x] **v0.9 — What renderers need** *(tagged `v0.9.0`)*. The first milestone driven
+      by consumers rendering the payload rather than by the package's own plan: group
+      nodes carry their pinned roles as singulars instead of leaving every renderer to
+      reconstruct them, an activity's `data` accepts a typed DTO, and the trickle
+      reports activities it cannot resolve instead of deleting them.
 - [ ] **v1.0 — Stable.** Frozen payload contract, semver promise, both authoring
       APIs (fluent builder + `Story` classes).
 
