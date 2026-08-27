@@ -83,9 +83,26 @@ final class Noun
     /** The form for a count: 1 => "clause", 7 => "clauses". */
     public function forCount(int $count): string
     {
-        return $this->translated
-            ? (string) trans_choice($this->value, $count)
-            : (string) (new MessageSelector)->choose($this->value, $count, app()->getLocale());
+        if (! $this->translated) {
+            return (string) (new MessageSelector)->choose($this->value, $count, app()->getLocale());
+        }
+
+        /*
+         * `:count` IS SUPPRESSED, not passed through. A noun is a noun — the
+         * number is prepended by phrase() and belongs to nobody else. But
+         * Laravel's trans_choice() adds `count` to the replacements for free,
+         * so a translator who reasonably writes ":count clauses" used to get
+         * "7 7 clauses" on the page. Overriding it with an empty string makes
+         * that line render the noun alone instead of doubling the number, and
+         * the collapse below removes the space it leaves behind.
+         *
+         * The alternative — letting a translation own the whole phrase — would
+         * mean a literal and a key registered for the same type produce
+         * different shapes, which is a worse thing to explain than this.
+         */
+        $phrase = (string) trans_choice($this->value, $count, ['count' => '']);
+
+        return trim((string) preg_replace('/\s+/u', ' ', $phrase));
     }
 
     /**

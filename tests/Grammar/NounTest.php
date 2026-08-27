@@ -76,3 +76,14 @@ it('refuses a list where a map of nouns was meant', function () {
     expect(fn () => Storyfeed::nouns(['clause|clauses']))
         ->toThrow(InvalidArgumentException::class, 'takes a MAP');
 });
+
+it('suppresses :count inside a translated noun rather than doubling the number', function () {
+    // trans_choice() adds `count` to the replacements for free, so a
+    // translator who writes ":count clauses" — an entirely reasonable thing to
+    // write — used to put "7 7 clauses" on the page. The number belongs to
+    // phrase(); the key supplies the noun.
+    app('translator')->addLines(['test.clause' => '{1} :count clause|[2,*] :count clauses'], 'en');
+
+    expect(Noun::phrase(Noun::trans('test.clause'), 7))->toBe('7 clauses')
+        ->and(Noun::phrase(Noun::trans('test.clause'), 1))->toBe('1 clause');
+});
