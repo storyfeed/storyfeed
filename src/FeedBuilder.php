@@ -342,6 +342,25 @@ class FeedBuilder
     }
 
     /**
+     * The read mode this feed declared, resolved against the configured
+     * default exactly as the read path resolves it.
+     *
+     * @internal The read-back seam beside declaredVerbFilter(), and it exists
+     * for the same reason: mode decides which AXES a surface can ever render
+     * (see winning()), so doctor's AggregateCoverage is misleading without it
+     * — it asked a `->live()` dashboard for five `object.*` templates that
+     * could not have fired. Not contract.
+     *
+     * Unlike the verb filter this is a presentation default, not a safety
+     * property: any call site may override it (docs/feeds.md). Tooling reading
+     * it must say "as declared" and must never go silent on the strength of it.
+     */
+    public function declaredMode(): string
+    {
+        return $this->mode();
+    }
+
+    /**
      * Constrain the candidate activities with anything Eloquent can express.
      *
      *   $project->storyfeed()
