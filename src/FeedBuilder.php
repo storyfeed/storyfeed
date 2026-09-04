@@ -96,6 +96,14 @@ class FeedBuilder
      */
     protected array $boundRoles = [];
 
+    /**
+     * The registered name this builder was entered through, or null for an
+     * ad-hoc read. Not a filter: it changes no query. It is the identity a
+     * resolver sees as FeedContext::feed(), so the same snapshot can link
+     * differently on the kitchen wall and on the customer's status page.
+     */
+    protected ?string $feed = null;
+
     protected int $limit = 30;
 
     protected ?string $cursor = null;
@@ -278,6 +286,32 @@ class FeedBuilder
         $this->lockedRoles[$role] = $owner;
 
         return $this;
+    }
+
+    /**
+     * Name this builder after the feed definition that produced it.
+     *
+     * @internal Called by FeedDefinition::build() and nowhere else — the
+     * identity is DECLARED by the registry, never asserted at a call site,
+     * because a call site that can name the feed is a call site that can
+     * misname it, and a resolver would then mint the wrong surface's URL
+     * with no symptom. A bare Storyfeed::feed() stays unnamed on purpose.
+     */
+    public function declareFeed(string $name): static
+    {
+        $this->feed = $name;
+
+        return $this;
+    }
+
+    /**
+     * The feed this builder was entered through — `'kitchen'` — or null
+     * when it was built ad hoc. The read-back beside declaredMode(), and
+     * what NodePresenter hands every resolver on the page.
+     */
+    public function declaredFeed(): ?string
+    {
+        return $this->feed;
     }
 
     /**
@@ -582,7 +616,16 @@ class FeedBuilder
             ->reject(fn (GroupSlice $slice) => $slice->members->isEmpty())
             ->values();
 
-        return new FeedPage($slices, $next, app(NodePresenter::class), SyncToken::current());
+        return new FeedPage($slices, $next, $this->presenter(), SyncToken::current());
+    }
+
+    /**
+     * A presenter that knows which feed it is presenting — a copy, so a
+     * container singleton could never carry one page's name into the next.
+     */
+    protected function presenter(): NodePresenter
+    {
+        return app(NodePresenter::class)->forFeed($this->feed);
     }
 
     protected function logPage(Carbon $now): FeedPage
@@ -607,7 +650,7 @@ class FeedBuilder
         $slices = Collection::make($paginator->items())
             ->map(fn (Activity $activity) => GroupSlice::solo($activity));
 
-        return new FeedPage($slices, $paginator->nextCursor()?->encode(), app(NodePresenter::class), SyncToken::current());
+        return new FeedPage($slices, $paginator->nextCursor()?->encode(), $this->presenter(), SyncToken::current());
     }
 
     /**

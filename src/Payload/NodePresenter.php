@@ -22,9 +22,31 @@ use Throwable;
  */
 class NodePresenter
 {
+    /**
+     * @param  string|null  $feed  the registered name of the feed this page was
+     *                             read through, or null for an ad-hoc builder
+     */
     public function __construct(
         protected StoryfeedManager $storyfeed,
+        protected ?string $feed = null,
     ) {}
+
+    /**
+     * The same presenter, told which feed it is presenting.
+     *
+     * A copy rather than a setter because the presenter is resolved from the
+     * container: were an app to bind it as a singleton, a setter would leak
+     * one page's feed name into the next page rendered in the same process —
+     * a queued digest rendering the customer feed after the kitchen feed
+     * would mint kitchen URLs. A copy cannot.
+     */
+    public function forFeed(?string $feed): static
+    {
+        $presenter = clone $this;
+        $presenter->feed = $feed;
+
+        return $presenter;
+    }
 
     public function node(GroupSlice $slice): array
     {
@@ -383,6 +405,7 @@ class NodePresenter
             id: $id,
             label: $snapshot->label,
             data: $data,
+            feed: $this->feed,
         ));
 
         return [

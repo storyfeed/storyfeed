@@ -165,7 +165,10 @@ final class FeedDefinition
      */
     public function build(): FeedBuilder
     {
-        $feed = new FeedBuilder;
+        // Stamped here, the one place every named read passes through, so
+        // the identity a resolver sees (FeedContext::feed()) is exactly the
+        // name this definition was registered or derived under.
+        $feed = (new FeedBuilder)->declareFeed($this->name);
 
         if ($this->instance === null) {
             /** @var Closure $preset */

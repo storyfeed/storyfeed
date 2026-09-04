@@ -54,10 +54,19 @@ class Customer extends Model implements Feedable, HasFeedMedia
         return FeedLink::make("/customers/{$data['id']}");
     }
 
+    /**
+     * The shape issue #3 exists for: one snapshot, a different URL per
+     * surface, chosen by the feed's declared name and never by the request.
+     * An ad-hoc feed and the AS2 serializer both report no feed and take the
+     * default arm.
+     */
     public static function feedMedia(FeedContext $context): ?FeedMedia
     {
         static::$lastContext = $context;
 
-        return FeedMedia::make('/customers/'.$context->data('id'));
+        return match ($context->feed()) {
+            'kitchen' => FeedMedia::make('/kitchen/customers/'.$context->data('id')),
+            default => FeedMedia::make('/customers/'.$context->data('id')),
+        };
     }
 }

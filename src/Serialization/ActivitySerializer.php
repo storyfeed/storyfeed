@@ -153,11 +153,16 @@ class ActivitySerializer
 
         // No snapshot ⇒ bare reference, no link regeneration (same rule as
         // the payload presenter: a resolver is never called with empty data).
+        //
+        // No feed, on purpose. A federation document describes an activity,
+        // not a surface, and must read the same whoever fetched it — so the
+        // resolver is told there is no feed and answers from its default arm.
         $url = $snapshot === null ? null : LinkResolver::resolve(new FeedContext(
             type: $alias,
             id: $snapshot->model_id,
             label: $snapshot->label,
             data: $data,
+            feed: null,
         ))?->url;
         $absolute = $url === null ? null : url($url);
 

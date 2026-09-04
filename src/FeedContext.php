@@ -9,11 +9,11 @@ namespace Storyfeed;
  *
  * The object exists so the contract can grow. Adding a parameter to an
  * interface method breaks every implementation; adding an accessor here
- * breaks none. The feed being read and a lazily hydrated model are both
- * planned to arrive as accessors (issues #3 and #4), which is why nothing
- * in here is derived from anything but the snapshot yet, and why the
- * constructor takes named arguments with defaults: a future argument must
- * not reorder today's.
+ * breaks none. The feed being read arrived that way (issue #3, feed()); a
+ * lazily hydrated model is next (issue #4). Each is one constructor
+ * argument appended after the last, which is why the constructor takes
+ * named arguments with defaults: a future argument must not reorder
+ * today's, and a caller that does not know about it must not have to.
  *
  * Final and readonly on purpose. A subclass could be broken by a new
  * accessor; a value that cannot be mutated cannot be mutated behind the
@@ -30,6 +30,7 @@ final readonly class FeedContext
         private int|string|null $id = null,
         private ?string $label = null,
         private array $data = [],
+        private ?string $feed = null,
     ) {}
 
     /**
@@ -69,5 +70,41 @@ final readonly class FeedContext
         }
 
         return $this->data[$key] ?? $default;
+    }
+
+    /**
+     * The registered name of the feed being read — `'kitchen'`,
+     * `'customer'` — or null when there is none to report.
+     *
+     * DECLARED, NEVER SNIFFED. This is the name a FeedDefinition stamped on
+     * the builder the page was read through, and nothing else: not the
+     * request, not the route, not a panel, not who is logged in. Feeds render
+     * with no request at all (queued digests, console, the AS2 serializer,
+     * tests), a Livewire poll arrives through a shared endpoint that says
+     * nothing about the page, and a payload that varied by request would
+     * have no stable cache key. A resolver that branches on this value is
+     * therefore correct in every one of those places, or wrong in none.
+     *
+     * NULL IS AN ANSWER, NOT A GAP. A feed built ad hoc — `Storyfeed::feed()`,
+     * `$model->storyfeed()`, `new FeedBuilder` — has no name and reports none;
+     * inventing one ('default', 'global') would make an unnamed surface look
+     * deliberate. The AS2 serializer reports null for a different reason: a
+     * federation document has no surface, and must not vary by one. A
+     * resolver's `default =>` arm is for both.
+     *
+     * A STRING, NOT THE DEFINITION AND NOT A CLASS. The name is what a
+     * `match` reads best against and the only identity every feed has — a
+     * closure preset has no class, and handing over the definition would put
+     * build() and inspect() in the hands of code that should only compare.
+     * It is the key the feed was ENTERED by: a registered key when the read
+     * went through `Storyfeed::feed('kitchen')`, the class-derived name
+     * (`CustomerFeed` → 'customer') when it went through `CustomerFeed::make()`
+     * or a class-string. To survive a rename, compare against the class rather
+     * than a literal — `CustomerFeed::name() => …` — which is also why the
+     * Feed base class exposes name() statically.
+     */
+    public function feed(): ?string
+    {
+        return $this->feed;
     }
 }

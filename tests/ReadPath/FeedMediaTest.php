@@ -5,13 +5,17 @@ use Illuminate\Support\Facades\Exceptions;
 use Storyfeed\Contracts\Feedable;
 use Storyfeed\Contracts\HasFeedMedia;
 use Storyfeed\Facades\Storyfeed;
+use Storyfeed\FeedBuilder;
 use Storyfeed\FeedContext;
 use Storyfeed\FeedLink;
 use Storyfeed\FeedMedia;
 use Storyfeed\Models\Activity;
 use Storyfeed\Support\LinkResolver;
+use Workbench\App\Feeds\AdminFeed;
+use Workbench\App\Feeds\CustomerFeed;
 use Workbench\App\Models\Customer;
 use Workbench\App\Models\Delivery;
+use Workbench\App\Models\User;
 
 /*
  * The resolver seam (issue #2): feedMedia(FeedContext) is preferred over
@@ -179,4 +183,127 @@ it('keeps the contracts optional and interface-shaped', function () {
     expect(Customer::class)->toImplement(HasFeedMedia::class)
         ->and(Delivery::class)->toImplement(Feedable::class)
         ->and(Delivery::class)->not->toImplement(HasFeedMedia::class);
+});
+
+/*
+ * Surface identity (issue #3): FeedContext::feed() is the registered name of
+ * the feed the page was read through — declared by the registry, never
+ * sniffed from a request — so one snapshot can link differently per surface.
+ */
+
+it('tells the resolver which named feed the page was read through', function () {
+    Storyfeed::feeds(['kitchen' => fn (FeedBuilder $feed) => $feed->log()]);
+
+    $customer = Customer::create(['name' => 'Acme']);
+
+    Storyfeed::activity('onboard', $customer)->publish();
+
+    $item = Storyfeed::feed('kitchen')->get()->toArray()['items'][0];
+
+    expect(Customer::$lastContext?->feed())->toBe('kitchen')
+        ->and($item['object']['url'])->toBe("/kitchen/customers/{$customer->id}");
+});
+
+it('reports the class-derived name for a feed entered through its constructor', function () {
+    $customer = Customer::create(['name' => 'Acme']);
+
+    Storyfeed::activity('order.placed', $customer)->context($customer)->publish();
+
+    CustomerFeed::make($customer)->get()->toArray();
+
+    expect(Customer::$lastContext?->feed())->toBe('customer');
+});
+
+it('reports the class-derived name for a feed reached by class-string', function () {
+    $customer = Customer::create(['name' => 'Acme']);
+
+    Storyfeed::activity('onboard', $customer)->publish();
+
+    Storyfeed::feed(AdminFeed::class)->get()->toArray();
+
+    expect(Customer::$lastContext?->feed())->toBe('admin');
+});
+
+it('reports the registered key, not the class name, when a class feed is registered under one', function () {
+    // The identity is the name the feed was ENTERED by. Registering a class
+    // under a different key and then reading it by that key reports the key;
+    // the docblock on FeedContext::feed() says to compare against
+    // Feed::name() when a rename must not break a resolver.
+    Storyfeed::feeds(['staff' => AdminFeed::class]);
+
+    $customer = Customer::create(['name' => 'Acme']);
+
+    Storyfeed::activity('onboard', $customer)->publish();
+
+    Storyfeed::feed('staff')->get()->toArray();
+
+    expect(Customer::$lastContext?->feed())->toBe('staff')
+        ->and(AdminFeed::name())->toBe('admin');
+});
+
+it('reports no feed for an ad-hoc builder rather than inventing a name', function () {
+    Storyfeed::feeds(['kitchen' => fn (FeedBuilder $feed) => $feed->log()]);
+
+    $customer = Customer::create(['name' => 'Acme']);
+
+    Storyfeed::activity('onboard', $customer)->publish();
+
+    $item = Storyfeed::feed()->get()->toArray()['items'][0];
+
+    expect(Customer::$lastContext?->feed())->toBeNull()
+        ->and($item['object']['url'])->toBe("/customers/{$customer->id}");
+
+    Customer::$lastContext = null;
+    $customer->storyfeed()->get()->toArray();
+
+    expect(Customer::$lastContext)->not->toBeNull()
+        ->and(Customer::$lastContext?->feed())->toBeNull()
+        ->and((new FeedBuilder)->declaredFeed())->toBeNull()
+        ->and(Storyfeed::feed('kitchen')->declaredFeed())->toBe('kitchen')
+        ->and((new FeedContext(type: 'customer'))->feed())->toBeNull();
+});
+
+it('reports no feed to the AS2.0 serializer, even when a named feed exists', function () {
+    Storyfeed::feeds(['kitchen' => fn (FeedBuilder $feed) => $feed->log()]);
+
+    $customer = Customer::create(['name' => 'Acme']);
+
+    $activity = Storyfeed::activity('onboard', $customer)->publish();
+
+    $document = serialize_one($activity);
+
+    expect(Customer::$lastContext?->feed())->toBeNull()
+        ->and($document['object']['url'])->toEndWith("/customers/{$customer->id}")
+        ->and($document['object']['url'])->not->toContain('/kitchen/');
+});
+
+it('carries the feed into every entity of a group node, exemplars and children alike', function () {
+    Storyfeed::feeds(['kitchen' => fn (FeedBuilder $feed) => $feed->live()]);
+
+    $ines = User::create(['name' => 'Ines', 'email' => 'ines@example.com']);
+    $customer = Customer::create(['name' => 'Acme']);
+
+    foreach (range(1, 3) as $i) {
+        Storyfeed::activity()->actor($ines)->verb('onboard', $customer)->publish();
+    }
+
+    $item = Storyfeed::feed('kitchen')->get()->toArray()['items'][0];
+
+    expect($item['kind'])->toBe('group')
+        ->and($item['exemplars']['objects'][0]['url'])->toBe("/kitchen/customers/{$customer->id}")
+        ->and($item['children'][0]['object']['url'])->toBe("/kitchen/customers/{$customer->id}");
+});
+
+it('does not leak one page\'s feed into the next through a shared presenter', function () {
+    Storyfeed::feeds(['kitchen' => fn (FeedBuilder $feed) => $feed->log()]);
+
+    $customer = Customer::create(['name' => 'Acme']);
+
+    Storyfeed::activity('onboard', $customer)->publish();
+
+    $kitchen = Storyfeed::feed('kitchen')->get()->toArray()['items'][0];
+    $plain = Storyfeed::feed()->get()->toArray()['items'][0];
+
+    expect($kitchen['object']['url'])->toBe("/kitchen/customers/{$customer->id}")
+        ->and($plain['object']['url'])->toBe("/customers/{$customer->id}");
 });
