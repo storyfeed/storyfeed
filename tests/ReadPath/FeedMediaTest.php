@@ -153,6 +153,28 @@ it('serializes the feedMedia() url into the AS2.0 document', function () {
     expect($document['object']['url'])->toEndWith("/customers/{$customer->id}");
 });
 
+it('hands the same entity id to the resolver from both surfaces', function () {
+    // The presenter takes the id from the activity's role column; the
+    // serializer takes it from Snapshot::model_id. Two sources for one fact
+    // is a drift waiting to happen, so pin that they agree — and agree with
+    // the row the snapshot points at.
+    $customer = Customer::create(['name' => 'Acme']);
+
+    $activity = Storyfeed::activity('onboard', $customer)->publish();
+
+    Storyfeed::feed()->get()->toArray();
+    $presented = Customer::$lastContext;
+
+    Customer::$lastContext = null;
+    serialize_one($activity);
+    $serialized = Customer::$lastContext;
+
+    expect($presented?->id())->toBe($customer->id)
+        ->and($serialized?->id())->toBe($presented?->id())
+        ->and($serialized?->type())->toBe($presented?->type())
+        ->and($activity->fresh()->cachedObject?->model_id)->toBe($presented?->id());
+});
+
 it('keeps the contracts optional and interface-shaped', function () {
     expect(Customer::class)->toImplement(HasFeedMedia::class)
         ->and(Delivery::class)->toImplement(Feedable::class)
