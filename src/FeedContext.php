@@ -96,12 +96,19 @@ final readonly class FeedContext
      * `match` reads best against and the only identity every feed has — a
      * closure preset has no class, and handing over the definition would put
      * build() and inspect() in the hands of code that should only compare.
-     * It is the key the feed was ENTERED by: a registered key when the read
-     * went through `Storyfeed::feed('kitchen')`, the class-derived name
-     * (`CustomerFeed` → 'customer') when it went through `CustomerFeed::make()`
-     * or a class-string. To survive a rename, compare against the class rather
-     * than a literal — `CustomerFeed::name() => …` — which is also why the
-     * Feed base class exposes name() statically.
+     *
+     * ONE FEED, ONE NAME, WHATEVER DOOR. A class feed registered as
+     * `'kitchen' => CustomerFeed::class` reports 'kitchen' when read through
+     * `Storyfeed::feed('kitchen')`, through `CustomerFeed::make($order)`, and
+     * through a class-string alike. It briefly reported the class-derived
+     * 'customer' on the last two, which made a resolver silently right on
+     * one page and silently wrong on another — the exact failure a declared
+     * surface exists to remove (journal 054, 055). The registered key wins;
+     * the derived name is only what a class is called when nobody registered
+     * it under anything. To survive a rename of either, compare against the
+     * class rather than a literal — `CustomerFeed::name() => …` — which
+     * returns this same canonical name; that is why the Feed base class
+     * exposes name() statically.
      */
     public function feed(): ?string
     {

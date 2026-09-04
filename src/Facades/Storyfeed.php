@@ -47,6 +47,7 @@ use Storyfeed\Testing\StoryfeedFake;
  * @method static \Storyfeed\StoryfeedManager feeds(array $feeds, bool $merge = true)
  * @method static array registeredFeeds()
  * @method static array feedNames()
+ * @method static string|null feedNameFor(string $class)
  * @method static \Storyfeed\FeedDefinition feedDefinition(string $preset)
  * @method static \Storyfeed\StoryfeedManager useCompiledStories(array $compiled)
  * @method static void compileStories()

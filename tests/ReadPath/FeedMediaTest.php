@@ -205,6 +205,8 @@ it('tells the resolver which named feed the page was read through', function () 
 });
 
 it('reports the class-derived name for a feed entered through its constructor', function () {
+    // Registered under no key, so the derived name is the only identity the
+    // class has — canonical because it is the only one.
     $customer = Customer::create(['name' => 'Acme']);
 
     Storyfeed::activity('order.placed', $customer)->context($customer)->publish();
@@ -225,10 +227,6 @@ it('reports the class-derived name for a feed reached by class-string', function
 });
 
 it('reports the registered key, not the class name, when a class feed is registered under one', function () {
-    // The identity is the name the feed was ENTERED by. Registering a class
-    // under a different key and then reading it by that key reports the key;
-    // the docblock on FeedContext::feed() says to compare against
-    // Feed::name() when a rename must not break a resolver.
     Storyfeed::feeds(['staff' => AdminFeed::class]);
 
     $customer = Customer::create(['name' => 'Acme']);
@@ -237,8 +235,84 @@ it('reports the registered key, not the class name, when a class feed is registe
 
     Storyfeed::feed('staff')->get()->toArray();
 
-    expect(Customer::$lastContext?->feed())->toBe('staff')
-        ->and(AdminFeed::name())->toBe('admin');
+    expect(Customer::$lastContext?->feed())->toBe('staff');
+});
+
+it('reports one identity whichever door a registered class feed is entered by', function () {
+    // The trapdoor journal 054 escalated: a resolver matching on 'kitchen'
+    // was right for Storyfeed::feed('kitchen') and silently wrong for
+    // CustomerFeed::make(), because make() reported the derived 'customer'.
+    // The registered key wins on every door, and Feed::name() returns it,
+    // so a `CustomerFeed::name() => …` arm survives a key rename too.
+    Storyfeed::feeds(['kitchen' => CustomerFeed::class, 'staff' => AdminFeed::class]);
+
+    $customer = Customer::create(['name' => 'Acme']);
+
+    Storyfeed::activity('order.placed', $customer)->context($customer)->publish();
+
+    // A subject feed has one door in — its constructor — and it now reports
+    // the key it was registered under, not the name of its class.
+    $item = CustomerFeed::make($customer)->get()->toArray()['items'][0];
+
+    expect(Customer::$lastContext?->feed())->toBe('kitchen')
+        ->and($item['object']['url'])->toBe("/kitchen/customers/{$customer->id}")
+        ->and(CustomerFeed::name())->toBe('kitchen')
+        ->and(CustomerFeed::make($customer)->declaredFeed())->toBe('kitchen');
+
+    // A constructable feed has three doors, and they agree.
+    Storyfeed::feed('staff')->get()->toArray();
+    $byKey = Customer::$lastContext?->feed();
+
+    AdminFeed::make()->get()->toArray();
+    $byConstructor = Customer::$lastContext?->feed();
+
+    Storyfeed::feed(AdminFeed::class)->get()->toArray();
+    $byClassString = Customer::$lastContext?->feed();
+
+    expect([$byKey, $byConstructor, $byClassString])->toBe(['staff', 'staff', 'staff'])
+        ->and(AdminFeed::name())->toBe('staff');
+});
+
+it('names a class registered under two keys by the first, deterministically', function () {
+    // Two surfaces sharing one allowlist is allowed. Entered by key each
+    // reports its own; entered through the class there is no key to prefer,
+    // so the first registration — declaration order, merge order across
+    // feeds() calls — is the canonical one. Stated, not left to chance.
+    Storyfeed::feeds(['staff' => AdminFeed::class]);
+    Storyfeed::feeds(['ops' => AdminFeed::class]);
+
+    $customer = Customer::create(['name' => 'Acme']);
+
+    Storyfeed::activity('onboard', $customer)->publish();
+
+    Storyfeed::feed('ops')->get()->toArray();
+    $ops = Customer::$lastContext?->feed();
+
+    Storyfeed::feed(AdminFeed::class)->get()->toArray();
+    $byClass = Customer::$lastContext?->feed();
+
+    expect($ops)->toBe('ops')
+        ->and($byClass)->toBe('staff')
+        ->and(AdminFeed::name())->toBe('staff')
+        ->and(Storyfeed::feedNameFor(AdminFeed::class))->toBe('staff');
+
+    // Re-registering without merge forgets the earlier claim.
+    Storyfeed::feeds(['ops' => AdminFeed::class], merge: false);
+
+    expect(AdminFeed::name())->toBe('ops');
+});
+
+it('does not let a registered key leak into a bare list registration of the same class', function () {
+    // Registration derives; entry canonicalizes. A bare AdminFeed::class
+    // entry names itself 'admin' even when 'staff' => AdminFeed::class is
+    // already registered — otherwise it would silently re-register as
+    // 'staff' and replace it.
+    Storyfeed::feeds(['staff' => AdminFeed::class]);
+    Storyfeed::feeds([AdminFeed::class]);
+
+    expect(Storyfeed::feedNames())->toBe(['staff', 'admin'])
+        ->and(AdminFeed::name())->toBe('staff')
+        ->and(Storyfeed::feedNameFor(CustomerFeed::class))->toBeNull();
 });
 
 it('reports no feed for an ad-hoc builder rather than inventing a name', function () {

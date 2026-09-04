@@ -72,6 +72,17 @@ class StoryfeedManager
     protected array $feeds = [];
 
     /**
+     * Feed class → the key it was registered under, rebuilt on every feeds()
+     * call. The reverse index behind Feed::name(): a class feed entered
+     * through its own constructor has to report the SAME identity as the
+     * registry key it was entered by elsewhere, and this is where the class
+     * learns that key. See feedNameFor().
+     *
+     * @var array<class-string<Feed>, string>
+     */
+    protected array $feedKeys = [];
+
+    /**
      * Verbs the app explicitly registered (vs. shipped defaults) — tracked
      * separately because an app-declared mapping may coincide with a
      * default's value, and tooling should still report it as the app's.
@@ -406,7 +417,47 @@ class StoryfeedManager
 
         $this->feeds = $merge ? [...$this->feeds, ...$normalized] : $normalized;
 
+        $this->feedKeys = [];
+
+        foreach ($this->feeds as $name => $definition) {
+            if ($definition->feedClass !== null) {
+                // First registration wins — see feedNameFor() for why.
+                $this->feedKeys[$definition->feedClass] ??= $name;
+            }
+        }
+
         return $this;
+    }
+
+    /**
+     * The key a Feed class is registered under, or null when it is not.
+     *
+     * ONE FEED, ONE IDENTITY. `'kitchen' => CustomerFeed::class` read through
+     * `Storyfeed::feed('kitchen')` reports 'kitchen' to every resolver on the
+     * page. Read through `CustomerFeed::make($order)` it used to report the
+     * class-derived 'customer', so a `match` in feedMedia() was right on one
+     * door and silently wrong on the other — no failure, just a link quietly
+     * absent. The registered key wins because it is the one a human chose and
+     * the one the doctor prints; the derived name is what a class is called
+     * when nobody chose. Feed::name() consults this so both doors agree.
+     *
+     * REGISTERED TWICE. Nothing stops `'staff' => AdminFeed::class` and
+     * `'ops' => AdminFeed::class` — one allowlist, two surfaces — and entering
+     * by key still reports each key. Entered through the class there is no
+     * key to prefer, so the FIRST registration (declaration order, which is
+     * merge order across feeds() calls) is the class's canonical name. That
+     * is deterministic and stated, not chosen at random; a class that needs
+     * to be two surfaces from its own constructor is two classes.
+     *
+     * A reverse index rather than a scan: this runs once per feed build and
+     * once per doctor label, so a scan would be affordable, but an index
+     * costs nothing at registration and cannot get slower as feeds grow.
+     *
+     * @param  class-string<Feed>  $class
+     */
+    public function feedNameFor(string $class): ?string
+    {
+        return $this->feedKeys[$class] ?? null;
     }
 
     /**

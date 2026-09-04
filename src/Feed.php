@@ -2,6 +2,7 @@
 
 namespace Storyfeed;
 
+use Illuminate\Container\Container;
 use Illuminate\Database\Eloquent\Model;
 use ReflectionClass;
 use Storyfeed\Exceptions\FeedMisconfigured;
@@ -111,11 +112,43 @@ abstract class Feed
     protected function scope(FeedBuilder $feed): void {}
 
     /**
-     * The registry name, used when the class is registered without a key and
-     * in doctor's findings. `CustomerFeed` → `customer`.
+     * This feed's one identity — what FeedContext::feed() reports for every
+     * page read through it, whichever door the read came in by.
+     *
+     * The registered key wins. `'kitchen' => CustomerFeed::class` makes this
+     * class 'kitchen' — for `Storyfeed::feed('kitchen')`, for
+     * `CustomerFeed::make($order)`, for `Storyfeed::feed(CustomerFeed::class)`,
+     * and for a resolver's `CustomerFeed::name() => …` arm, which is exactly
+     * why that arm survives both a class rename and a key rename. Before this
+     * the constructor door reported the class-derived name, and a `match`
+     * could be right on one page and silently wrong on the next (journal 054
+     * escalated it; the ruling was one name, whatever door).
+     *
+     * A class registered under no key has only the name derived from the
+     * class (`CustomerFeed` → 'customer'), which is canonical because it is
+     * the only one. A class registered under two keys is named by the first;
+     * StoryfeedManager::feedNameFor() says why. The derived name is the
+     * registry's fallback, not a second identity a resolver should compare
+     * against: do not write `'customer' =>` for a class registered as
+     * 'kitchen' and expect a match.
+     *
+     * Reaches the registry once per call, and the calls are per feed build
+     * and per doctor finding — never per entity. Without a container (a
+     * static-analysis rule, a bare unit test) there is no registry to
+     * consult, and the derived name is the answer.
      */
     public static function name(): string
     {
+        $app = Container::getInstance();
+
+        if ($app->bound(StoryfeedManager::class)) {
+            $registered = $app->make(StoryfeedManager::class)->feedNameFor(static::class);
+
+            if ($registered !== null) {
+                return $registered;
+            }
+        }
+
         return FeedDefinition::deriveName(static::class);
     }
 

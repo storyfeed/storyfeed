@@ -78,7 +78,12 @@ final class FeedDefinition
             return self::fromClosure($key, $value);
         }
 
-        return self::fromFeed($value, is_string($key) ? $key : null);
+        // A bare list entry names itself from the CLASS, not from name():
+        // name() consults the registry this entry is about to join, and a
+        // class already registered under 'kitchen' would otherwise re-register
+        // as 'kitchen' rather than 'customer'. Registration derives; entry
+        // canonicalizes.
+        return self::fromFeed($value, is_string($key) ? $key : self::deriveName(is_string($value) ? $value : $value::class));
     }
 
     public static function fromClosure(string $name, Closure $preset): self
@@ -99,6 +104,11 @@ final class FeedDefinition
      * only — a class with required constructor arguments is instantiated
      * WITHOUT them, which is safe precisely because define() is contractually
      * forbidden from reading constructor state).
+     *
+     * With no name given, the feed is named by Feed::name() — the registered
+     * key when the class is registered, the derived name when it is not — so
+     * `CustomerFeed::make()` and `Storyfeed::feed(CustomerFeed::class)` stamp
+     * the same identity on the builder that `Storyfeed::feed('kitchen')` does.
      */
     public static function fromFeed(Feed|string $feed, ?string $name = null): self
     {
