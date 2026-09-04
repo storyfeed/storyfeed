@@ -4,6 +4,7 @@ namespace Storyfeed\Serialization;
 
 use Storyfeed\ActivityStreams\ActivityType;
 use Storyfeed\ActivityStreams\Context;
+use Storyfeed\FeedContext;
 use Storyfeed\Models\Activity;
 use Storyfeed\Models\Grouping;
 use Storyfeed\Models\Snapshot;
@@ -151,8 +152,13 @@ class ActivitySerializer
         $type = $this->entityType($alias, $data);
 
         // No snapshot ⇒ bare reference, no link regeneration (same rule as
-        // the payload presenter: toFeedLink is never called with empty data).
-        $url = $snapshot === null ? null : LinkResolver::resolve($alias, $data)?->url;
+        // the payload presenter: a resolver is never called with empty data).
+        $url = $snapshot === null ? null : LinkResolver::resolve(new FeedContext(
+            type: $alias,
+            id: $snapshot->model_id,
+            label: $snapshot->label,
+            data: $data,
+        ))?->url;
         $absolute = $url === null ? null : url($url);
 
         return array_filter([

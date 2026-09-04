@@ -16,6 +16,11 @@ use Storyfeed\FeedLink;
  *  - toFeedLink() : STATIC. Rebuilds a fresh link from the cached data at
  *                   read time, so cached labels stay fast but links never
  *                   go stale.
+ *
+ * toFeedLink() has a successor, HasFeedMedia::feedMedia(), which receives a
+ * FeedContext instead of the bare array. Implement that interface alongside
+ * this one and the read path calls it instead; toFeedLink() keeps working
+ * for every model that has not moved. See HasFeedMedia for why.
  */
 interface Feedable
 {

@@ -7,15 +7,24 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Storyfeed\Concerns\InteractsWithFeed;
 use Storyfeed\Contracts\Feedable;
+use Storyfeed\Contracts\HasFeedMedia;
+use Storyfeed\FeedContext;
 use Storyfeed\FeedEntity;
 use Storyfeed\FeedLink;
+use Storyfeed\FeedMedia;
 
 /**
  * @property int $id
  * @property string $name
  */
-class Customer extends Model implements Feedable
+class Customer extends Model implements Feedable, HasFeedMedia
 {
+    /** Counts calls to the OLD contract, which the read path must skip once feedMedia() exists. */
+    public static int $feedLinkCalls = 0;
+
+    /** The last context handed to feedMedia(), for tests to inspect. */
+    public static ?FeedContext $lastContext = null;
+
     use InteractsWithFeed;
     use SoftDeletes;
 
@@ -34,8 +43,21 @@ class Customer extends Model implements Feedable
         );
     }
 
+    /**
+     * Kept alongside feedMedia() to prove the dispatch prefers the new
+     * contract when both exist.
+     */
     public static function toFeedLink(array $data): ?FeedLink
     {
+        static::$feedLinkCalls++;
+
         return FeedLink::make("/customers/{$data['id']}");
+    }
+
+    public static function feedMedia(FeedContext $context): ?FeedMedia
+    {
+        static::$lastContext = $context;
+
+        return FeedMedia::make('/customers/'.$context->data('id'));
     }
 }

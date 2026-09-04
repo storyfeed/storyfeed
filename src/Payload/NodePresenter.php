@@ -3,6 +3,7 @@
 namespace Storyfeed\Payload;
 
 use Closure;
+use Storyfeed\FeedContext;
 use Storyfeed\Models\Activity;
 use Storyfeed\Models\Snapshot;
 use Storyfeed\StoryfeedManager;
@@ -14,8 +15,9 @@ use Throwable;
  * Builds Payload v1 nodes (docs/payload.md) from hydrated activities.
  *
  * Entities are self-describing: label/component/data come from the snapshot,
- * while the URL is regenerated live via the model's static toFeedLink() —
- * wrapped so one broken link never breaks the feed. Missing snapshots
+ * while the URL is regenerated live via the model's static resolver
+ * (feedMedia(), or the older toFeedLink()) — wrapped so one broken link
+ * never breaks the feed. Missing snapshots
  * degrade to placeholder entities; activities are never withheld.
  */
 class NodePresenter
@@ -374,9 +376,14 @@ class NodePresenter
         $data = $snapshot->data ?? [];
 
         // No snapshot ⇒ no link regeneration: the contract promises degraded
-        // entities arrive with url: null, and calling the app's toFeedLink()
-        // with an empty array makes every naive implementation warn.
-        $link = $snapshot === null ? null : LinkResolver::resolve($type, $data);
+        // entities arrive with url: null, and calling the app's resolver
+        // with empty data makes every naive implementation warn.
+        $link = $snapshot === null ? null : LinkResolver::resolve(new FeedContext(
+            type: $type,
+            id: $id,
+            label: $snapshot->label,
+            data: $data,
+        ));
 
         return [
             'type' => $type,
