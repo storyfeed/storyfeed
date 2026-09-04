@@ -11,4 +11,13 @@ parameters:
         - config
         - database
         - workbench
+        # The two testing traits are only ever `use`d by consumers, so PHPStan
+        # would otherwise skip them as unused. These two classes use them.
+        - tests/Testing/RecordsStoriesTest.php
+        - tests/Testing/WithoutRecordingTest.php
     tmpDir: build/phpstan
+    # Where THIS package's config lives. Larastan's env()-outside-config rule
+    # defaults to the host app's config_path(), which is the testbench
+    # skeleton's — so the one env() in config/storyfeed.php read as a leak.
+    configDirectories:
+        - config

@@ -7,6 +7,7 @@ use Closure;
 use DateTimeInterface;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Str;
 use InvalidArgumentException;
 use Storyfeed\Actions\CompileStories;
 use Storyfeed\ActivityStreams\ActivityType;
@@ -31,6 +32,16 @@ use Throwable;
 class StoryfeedManager
 {
     protected ?Closure $actorResolver = null;
+
+    /**
+     * The recording switch's RUNTIME half. Null defers to config; true or
+     * false is a stopRecording()/startRecording() call, and wins over config
+     * for the rest of this process. An instance property rather than a
+     * static so it dies with the container: Laravel's test case builds a
+     * fresh application per test, so a toggle can never leak into the next
+     * one — the same reason Pulse keeps `$shouldRecord` on its singleton.
+     */
+    protected ?bool $recording = null;
 
     /** @var array<string, string|Closure> */
     protected array $grammar = [];
@@ -192,6 +203,101 @@ class StoryfeedManager
             ->when($publishedAt !== null, fn (PendingActivity $a) => $a->publishedAt($publishedAt))
             ->replace($replace)
             ->publish();
+    }
+
+    /**
+     * Is the feed being written? Config decides unless a runtime toggle has
+     * spoken for this process. The default is ON in every environment — see
+     * config/storyfeed.php, `recording`.
+     */
+    public function isRecording(): bool
+    {
+        return $this->recording ?? (bool) config('storyfeed.recording.enabled', true);
+    }
+
+    /**
+     * Stop writing the feed for the rest of this process. Every publish()
+     * from here composes its Activity and hands it back unsaved; nothing
+     * reaches the tables, nothing is dispatched, nothing throws.
+     *
+     * The same shape as Telescope's and Pulse's stopRecording(): process-
+     * scoped, and overriding config rather than editing it.
+     */
+    public function stopRecording(): static
+    {
+        $this->recording = false;
+
+        return $this;
+    }
+
+    /**
+     * Resume writing the feed — or, in a suite muted through config, opt
+     * this one process back in. This is the one-liner for a test that
+     * asserts on the feed; `Testing\RecordsStories` is the same call as a
+     * trait.
+     */
+    public function startRecording(): static
+    {
+        $this->recording = true;
+
+        return $this;
+    }
+
+    /**
+     * Run a callback with recording off, restoring whatever the state was
+     * before — including when the callback throws.
+     *
+     *   Storyfeed::withoutRecording(fn () => $importer->run());
+     *
+     * Telescope's withoutRecording() and Pulse's ignore(), with the same
+     * try/finally. The previous state is restored rather than recording
+     * being switched back on: nesting one of these inside a muted suite must
+     * leave the suite muted.
+     *
+     * @template TReturn
+     *
+     * @param  callable(): TReturn  $callback
+     * @return TReturn
+     */
+    public function withoutRecording(callable $callback): mixed
+    {
+        return $this->recordingScope(false, $callback);
+    }
+
+    /**
+     * Run a callback with recording ON, restoring the previous state after —
+     * the inverse of withoutRecording(), for the single test in a muted file
+     * that needs the rows to be real.
+     *
+     *   Storyfeed::recording(fn () => $this->post(route('orders.confirm', $order)));
+     *
+     * @template TReturn
+     *
+     * @param  callable(): TReturn  $callback
+     * @return TReturn
+     */
+    public function recording(callable $callback): mixed
+    {
+        return $this->recordingScope(true, $callback);
+    }
+
+    /**
+     * @template TReturn
+     *
+     * @param  callable(): TReturn  $callback
+     * @return TReturn
+     */
+    private function recordingScope(bool $recording, callable $callback): mixed
+    {
+        $previous = $this->recording;
+
+        $this->recording = $recording;
+
+        try {
+            return $callback();
+        } finally {
+            $this->recording = $previous;
+        }
     }
 
     /**
@@ -1270,12 +1376,39 @@ class StoryfeedManager
     /**
      * Resolve or create the party with this name. Overridden by the fake to
      * stub one in memory.
+     *
+     * With recording off this must not write either: `->actor('Concur')` and
+     * `Storyfeed::as('System', …)` resolve their party at association time,
+     * BEFORE publish() gets to decline, and a muted suite that still inserts
+     * a feed_parties row per string actor is not muted. An existing row is
+     * still found (a read); a missing one comes back as an unsaved model,
+     * the way the fake stubs its parties, so the composed no-op Activity
+     * carries the role's alias like any other.
      */
     public function party(string $name): Party
     {
         $model = config('storyfeed.models.party', Party::class);
 
-        return $model::make($name);
+        if ($this->isRecording()) {
+            return $model::make($name);
+        }
+
+        return $model::find($name) ?? $this->unsavedParty($name);
+    }
+
+    protected function unsavedParty(string $name): Party
+    {
+        $model = config('storyfeed.models.party', Party::class);
+
+        $party = new $model;
+
+        $party->forceFill([
+            'key' => Str::slug($name),
+            'name' => $name,
+            'type' => ObjectType::Service->value,
+        ]);
+
+        return $party;
     }
 
     protected function objectTypeFromModel(string $alias): ObjectType|string|null

@@ -242,3 +242,30 @@ it('fails the build under --fail-on=warning, which is the point of the finding',
     $this->artisan('storyfeed:doctor --only=grammar --fail-on=warning')
         ->assertSuccessful();
 });
+
+it('warns when recording is switched off outside testing', function () {
+    config()->set('storyfeed.recording.enabled', false);
+
+    app()->detectEnvironment(fn () => 'production');
+
+    $report = Storyfeed::doctor(['recording']);
+
+    expect($report->has('recording.disabled'))->toBeTrue()
+        ->and($report->withCode('recording.disabled')->first()->severity)->toBe(Severity::Warning)
+        ->and($report->withCode('recording.disabled')->first()->subject)
+        ->toBe(['environment' => 'production', 'config' => false]);
+});
+
+it('notes rather than warns when recording is switched off under testing', function () {
+    Storyfeed::stopRecording();
+
+    $report = Storyfeed::doctor(['recording']);
+
+    expect($report->has('recording.disabled'))->toBeTrue()
+        ->and($report->withCode('recording.disabled')->first()->severity)->toBe(Severity::Info)
+        ->and($report->isHealthy())->toBeTrue();
+});
+
+it('says nothing about recording when the feed is being written', function () {
+    expect(Storyfeed::doctor(['recording'])->all())->toBeEmpty();
+});

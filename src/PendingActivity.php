@@ -269,6 +269,10 @@ class PendingActivity
             return $this->captureOnFake($manager);
         }
 
+        if (! $manager->isRecording()) {
+            return $this->decline();
+        }
+
         // Stamped HERE, not only in the model's creating hook: a consumer
         // seeding inside WithoutModelEvents (the starter kit's default!)
         // would otherwise persist published_at = NULL and every activity
@@ -374,6 +378,31 @@ class PendingActivity
         ActivityPublished::dispatch($parent);
 
         return $parent;
+    }
+
+    /**
+     * Recording is off: hand back the composed Activity, unsaved.
+     *
+     * The return type stays `Activity` so every call site is source-compatible
+     * — `->publish()->uid`, `record(...)->verb`, a Story's typed return — and
+     * the row is exactly what the fake hands back minus the fabricated id:
+     * `uid` and `published_at` stamped, `exists` false, `id` null. `exists`
+     * is the honest tell, and it is Eloquent's own. No id is invented because
+     * an invented key can be handed to a foreign key; a null one cannot.
+     *
+     * Nothing is dispatched. ActivityPublished means a row was written, and
+     * a listener that goes on to read it back must not be told a lie. The
+     * dev-time assertions above (strict verbs, strict grammar) DID run:
+     * muted is not blind, and a quiet suite still catches a typo'd verb.
+     *
+     * Composites decline whole — the parent, unsaved; no members composed.
+     */
+    protected function decline(): Activity
+    {
+        $this->activity->uid ??= (string) Str::ulid();
+        $this->activity->published_at ??= now();
+
+        return $this->activity;
     }
 
     /**

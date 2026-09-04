@@ -31,6 +31,38 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Recording
+    |--------------------------------------------------------------------------
+    |
+    | The switch. Off, every publish() — the builder, Storyfeed::record(),
+    | Story classes, PublishesToFeed events, `->publish()` on a verb enum —
+    | composes its Activity and returns it UNSAVED, writes nothing to any of
+    | the seven tables, dispatches no ActivityPublished, and throws nothing.
+    | Feedable models stop refreshing their snapshots on save. Reads are
+    | untouched: a feed page renders whatever is already there.
+    |
+    | ON EVERYWHERE, BY DEFAULT — including under `testing`. A feed that
+    | silently records nothing in one environment is the "green in tests,
+    | empty in production" class of bug, and it would break every feature
+    | test that renders a feed page. Mute a suite explicitly, in phpunit.xml:
+    |
+    |   <env name="STORYFEED_RECORDING_ENABLED" value="false"/>
+    |
+    | …then opt the tests that assert on the feed back in with the
+    | `Storyfeed\Testing\RecordsStories` trait, or Storyfeed::startRecording().
+    | The runtime toggles (stopRecording / startRecording / withoutRecording /
+    | recording) override this for the current process. See docs/testing.md,
+    | "Quiet suites". `storyfeed:doctor` warns when this is off anywhere
+    | other than testing.
+    |
+    */
+
+    'recording' => [
+        'enabled' => env('STORYFEED_RECORDING_ENABLED', true),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Models
     |--------------------------------------------------------------------------
     |

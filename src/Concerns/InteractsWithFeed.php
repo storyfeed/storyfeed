@@ -17,8 +17,16 @@ trait InteractsWithFeed
 {
     public static function bootInteractsWithFeed(): void
     {
+        // The lifecycle half of the recording switch. feed_snapshots is the
+        // highest-churn feed table because this hook fires for EVERY save of
+        // every Feedable model, activity or not — one consumer's parallel
+        // suite hit Postgres autovacuum deadlocks on exactly that table. The
+        // explicit call below is deliberately not gated: a method does what
+        // its name says; only the automatic write is muted.
         static::saved(function ($model) {
-            $model->updateFeedSnapshot();
+            if (app(StoryfeedManager::class)->isRecording()) {
+                $model->updateFeedSnapshot();
+            }
         });
 
         static::deleted(function ($model) {

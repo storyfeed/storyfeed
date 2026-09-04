@@ -3,9 +3,64 @@
 ## Unreleased
 
 Two doctor checks, both from the same discovery: a check can be entirely right
-about the database and still wrong about what the reader will do next.
+about the database and still wrong about what the reader will do next. And a
+switch, from the first upstream issue a consumer filed.
 
 ### Added
+
+- **Recording is a switch, and the switch has knobs.** A consumer's 3,270-test
+  parallel suite on Postgres deadlocked intermittently — eight `40P01`s in one
+  run — because every test that exercised anything publishing a story wrote to
+  seven tables, and autovacuum on `feed_snapshots` collided with the next
+  worker's `migrate:fresh`. The tests that asserted on the feed were 43 of ~160
+  files. Everything else was paying for rows it never read. (#1)
+
+  The ask was a default that flips under `testing`. **Declined, on purpose.** A
+  feed that silently records nothing in one environment breaks every feature
+  test that renders a feed page, and env-flipped defaults are the "green in
+  tests, empty in production" class of bug — the existing `verbs.strict: null`
+  is a warning about that shape, not a model for it. What shipped instead is
+  what Telescope, Pulse, spatie/laravel-activitylog and laravel-auditing all
+  ship: a config key that is **on everywhere by default**, and runtime toggles
+  that override it for one process.
+
+  `storyfeed.recording.enabled` (`STORYFEED_RECORDING_ENABLED`, default
+  `true`). Off, every `publish()` — the builder, `Storyfeed::record()`, a Story,
+  a `PublishesToFeed` event, `->publish()` on a verb enum, a composite —
+  composes its `Activity` and returns it **unsaved**: `uid` and `published_at`
+  stamped, `exists` false, `id` null, so every call site stays
+  source-compatible and Eloquent's own `exists` is the tell. No id is invented
+  because an invented key can be handed to a foreign key. No party row is
+  inserted for a string actor (parties resolve at association time, before
+  `publish()` can decline — a muted suite that still inserts `feed_parties` is
+  not muted), `ActivityPublished` is not dispatched, and Feedable models stop
+  refreshing snapshots on save, which was the churn. Nothing throws. The
+  development-time assertions still run: muted is not blind, and a quiet suite
+  still catches a typo'd verb. Reads are untouched.
+
+  `Storyfeed::stopRecording()` / `startRecording()` / `isRecording()`, and the
+  scoped `withoutRecording(fn)` / `recording(fn)`, which restore the
+  **previous** state — not the opposite one — including when the callback
+  throws. Runtime state lives on the manager singleton, so it dies with the
+  container between tests. **`Storyfeed::fake()` outranks the switch**: an
+  explicit fake still captures with recording off, because a fake that honoured
+  a global mute would fail `assertPublished()` for a reason nothing in the test
+  file explains.
+
+  Two traits in `Storyfeed\Testing`, picked up through Laravel's own
+  `setUp{Trait}` convention: `RecordsStories` opts a class or a Pest directory
+  back in (`uses(RecordsStories::class)->in('Feature/Feed')`) in a suite muted
+  through `phpunit.xml`; `WithoutRecording` is the other direction. The whole
+  recipe is two lines and no test is edited.
+
+  A `recording` doctor check, because a switch left off in production is the
+  quietest failure this package has — every feature keeps working and the feed
+  simply stops. Warning outside `testing`; Info under it, so a suite whose feed
+  assertions pass against zero rows is at least said out loud.
+
+  Independently of all of the above, the testing docs now carry the Postgres
+  note: `feed_snapshots` is high-churn by design, and a parallel suite should
+  set `autovacuum_enabled = false` on the feed tables in test databases.
 
 - **`roles` — a template may not name a role its activities never carry.** An
   operations portal was rendering a literal italicised "somewhere" inside its
