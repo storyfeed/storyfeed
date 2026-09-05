@@ -3,10 +3,69 @@
 ## Unreleased
 
 Two doctor checks, both from the same discovery: a check can be entirely right
-about the database and still wrong about what the reader will do next. And a
-switch, from the first upstream issue a consumer filed.
+about the database and still wrong about what the reader will do next. A switch,
+from the first upstream issue a consumer filed. And a new read-time resolver
+contract, which exists because two consumers read out every `Feedable` they had
+and one of them turned out to be returning `null` from all of them.
 
 ### Added
+
+- **The array that could not grow.** `Feedable::toFeedLink(array $data)` had
+  stopped being about links — it returns a url, a label override, link
+  attributes and a modal hint — and it could not learn anything new, because in
+  PHP a parameter added to an interface method breaks every implementation. Two
+  applications running this package in production inventoried all thirteen of
+  their `Feedable` implementations to settle what a replacement had to carry.
+  Not one of them read anything outside `$data`; one returned `null` from every
+  model because the same snapshot renders on three surfaces and the right URL
+  depends on who is reading.
+
+  `Contracts\HasFeedMedia::feedMedia(FeedContext $context): ?FeedMedia` is the
+  successor. It is **opt-in and additive**: `Support\LinkResolver` — the one
+  seam the payload presenter and the AS2 serializer both route through, so they
+  cannot drift — prefers it when a class implements it and calls `toFeedLink()`
+  otherwise, indefinitely. A `FeedLink` is lifted into a `FeedMedia` at that
+  seam, so neither surface knows which contract answered. Migrate one model at a
+  time, or none. (#2)
+
+  `FeedContext` is a value object rather than more parameters, so the next thing
+  it carries costs an accessor instead of a break.
+
+- **The surface that declares itself.** `FeedContext::feed()` reports the
+  registered name of the feed being read, so a resolver can return a different
+  URL per surface — a signed operational link here, a public one there — from
+  one snapshot. It is **declared, never sniffed**: not the request, not the
+  route, not a panel, not who is logged in. Feeds render with no request at all
+  (queued digests, console, the AS2 serializer, tests), a Livewire poll arrives
+  through a shared endpoint that says nothing about the page, and a payload that
+  varied by request would have no stable cache key. (#3)
+
+  An ad-hoc builder reports `null`, and so does the AS2 serializer — a
+  federation document has no surface and must not vary by one. A resolver's
+  `default =>` arm is for both.
+
+- **One feed, one name, whatever door.** A registered key now wins over the
+  class-derived name everywhere: `'kitchen' => CustomerFeed::class` makes that
+  class `'kitchen'` whether the read entered by key, by `CustomerFeed::make()`,
+  or by class-string. Before this the constructor door reported `'customer'` and
+  a resolver's `match` could be right on one page and silently wrong on the
+  next. Compare against `CustomerFeed::name()` and the arm survives both a class
+  rename and a key rename.
+
+  A class registered under no key keeps its derived name, which is canonical
+  because it is the only one. **`Feed::name()` now consults the container**, so
+  a bare unit test asserting the derived name for a registered class will see
+  the key instead; without a container bound it degrades to the derived name
+  rather than throwing.
+
+- **AS2.0 property vocabulary.** `ActivityStreams\Property` transcribes the nine
+  properties the serializer actually emits, and `ActivityStreams\Extension\ExtensionTerm`
+  defines the `sf:` namespace — one term, the app-level verb, because
+  `ns.storyfeed.dev` is add-only and naming a term commits it before the code
+  that emits it exists. `orderedItems` is the JSON-LD list alias for `as:items`
+  rather than a term of its own, so its `iri()` says so while its value keeps
+  the emitted spelling. Adoption in the serializer is a separate pass.
+
 
 - **Recording is a switch, and the switch has knobs.** A consumer's 3,270-test
   parallel suite on Postgres deadlocked intermittently — eight `40P01`s in one
