@@ -15,7 +15,7 @@ use Storyfeed\Models\Activity;
  *   class DocumentWasUploaded extends Story
  *   {
  *       public string|array|null $objectType = Document::class;
- *       public string|FeedVerb|null $verb = ActivityVerb::Upload;
+ *       public string|FeedVerb|BackedEnum|null $verb = ActivityVerb::Upload;
  *
  *       public function headline(): string
  *       {
