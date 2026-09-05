@@ -2,6 +2,7 @@
 
 namespace Storyfeed\Concerns;
 
+use Storyfeed\Actions\ForgetActivities;
 use Storyfeed\Actions\SnapshotEntity;
 use Storyfeed\FeedBuilder;
 use Storyfeed\FeedContext;
@@ -132,11 +133,47 @@ trait InteractsWithFeed
 
     /**
      * Permanently delete every activity involving this model, including
-     * activities that were already soft-deleted.
+     * activities that were already soft-deleted — and everything that points
+     * at them.
+     *
+     * A bulk `forceDelete()` fires no model events, so nothing downstream
+     * hears about the rows going. Until 2026-09-05 this method was that one
+     * query, and it left `feed_groupings` and `feed_participants` rows behind
+     * pointing at primary keys that no longer existed. It was the one
+     * hard-delete path with no opt-in in front of it: `replace()` defaults to
+     * soft, the trickle prunes only when asked, but this fires for every
+     * `Feedable` that is force-deleted. So the ids are collected first and
+     * `Actions\ForgetActivities` clears their rows before the delete, the
+     * same way `PruneActivities` does it.
+     *
+     * Still a bulk operation, deliberately. Per-model deletes would get the
+     * events back at the cost of a query per activity on exactly the path
+     * that exists to be fast, and curation has nothing to re-decide for a
+     * cluster whose members are all leaving at once.
+     *
+     * Chunked because `involving()` is an index over the participants table:
+     * each pass forgets the rows it deletes, so the next pass sees only what
+     * is left and the loop converges without a running exclusion list.
      */
     public function forceDeleteFromFeed(): void
     {
-        $this->newFeedActivityQuery()->withTrashed()->involving($this)->forceDelete();
+        $forget = new ForgetActivities;
+
+        while (true) {
+            $ids = $this->newFeedActivityQuery()
+                ->withTrashed()
+                ->involving($this)
+                ->limit(500)
+                ->pluck('id');
+
+            if ($ids->isEmpty()) {
+                break;
+            }
+
+            $forget(...$ids);
+
+            $this->newFeedActivityQuery()->withTrashed()->whereKey($ids)->forceDelete();
+        }
     }
 
     protected function newFeedActivityQuery(): ActivityBuilder

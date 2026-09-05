@@ -478,6 +478,27 @@ and one of them turned out to be returning `null` from all of them — folded in
   before a fix rather than more reasoning about a check that has now misled three
   times.
 
+### Fixed
+
+- **Force-deleting a `Feedable` no longer leaves grouping and participant rows
+  pointing at activities that do not exist.** `InteractsWithFeed::forceDeleteFromFeed()`
+  was a single bulk `forceDelete()`, and a bulk query fires no model events, so
+  every `feed_groupings` and `feed_participants` row for those activities
+  survived with a dead `activity_id`. It was the one hard-delete path with no
+  opt-in in front of it — `replace()` defaults to soft, the trickle prunes only
+  when asked — and it fires for every `Feedable` that is force-deleted. The rows
+  now go in the same operation, before the delete, through a new
+  `Actions\ForgetActivities` that does the bookkeeping `PruneActivities` and
+  force-mode supersede were each doing inline. Still one bulk delete per chunk,
+  deliberately: per-model deletes would buy the events back with a query per
+  activity on exactly the path that exists to be fast.
+
+  Existing installs may already carry orphans from this path. Nothing on the
+  read path reaches a grouping or participant row except through a live
+  activity, so they are inert; `storyfeed:prune` does not sweep them because it
+  walks activities, not their rows. A doctor check that counts them is the
+  natural follow-on and is not in this change.
+
 ## v0.9.0 — Grouping says which day, and a group speaks for its members (2026-08-26)
 
 Cut because a consumer needed this work in production and had no released
