@@ -2,6 +2,9 @@
 
 namespace Storyfeed;
 
+use Illuminate\Database\Eloquent\Model;
+use Storyfeed\Support\ModelHydrator;
+
 /**
  * Everything the read path knows about an entity at the moment a resolver
  * is asked for its media — handed to Feedable::feedMedia() in place of the
@@ -9,11 +12,12 @@ namespace Storyfeed;
  *
  * The object exists so the contract can grow. Adding a parameter to an
  * interface method breaks every implementation; adding an accessor here
- * breaks none. The feed being read arrived that way (issue #3, feed()); a
- * lazily hydrated model is next (issue #4). Each is one constructor
- * argument appended after the last, which is why the constructor takes
- * named arguments with defaults: a future argument must not reorder
- * today's, and a caller that does not know about it must not have to.
+ * breaks none. The feed being read arrived that way (issue #3, feed()),
+ * and so did the lazily hydrated model (issue #4, model()). Each is one
+ * constructor argument appended after the last, which is why the
+ * constructor takes named arguments with defaults: a future argument must
+ * not reorder today's, and a caller that does not know about it must not
+ * have to.
  *
  * Final and readonly on purpose. A subclass could be broken by a new
  * accessor; a value that cannot be mutated cannot be mutated behind the
@@ -24,6 +28,9 @@ final readonly class FeedContext
     /**
      * @param  string  $type  the entity's morph alias, exactly as stored on the activity
      * @param  array<array-key, mixed>  $data  the cached snapshot data from toFeed()
+     * @param  ModelHydrator  $hydrator  the page's identity map; a context built
+     *                                   without one gets a private map and
+     *                                   model() becomes a single lookup
      */
     public function __construct(
         private string $type,
@@ -31,6 +38,7 @@ final readonly class FeedContext
         private ?string $label = null,
         private array $data = [],
         private ?string $feed = null,
+        private ModelHydrator $hydrator = new ModelHydrator,
     ) {}
 
     /**
@@ -113,5 +121,66 @@ final readonly class FeedContext
     public function feed(): ?string
     {
         return $this->feed;
+    }
+
+    /**
+     * The live model behind this entity — or null.
+     *
+     * THIS IS THE ONE PLACE A RESOLVER MAY TOUCH THE DATABASE, and it costs
+     * what it says: nothing until called, one query per class on the page
+     * once it is. It is an accessor and not a parameter on purpose. A
+     * signature that quietly hydrated would make a page slower with nothing
+     * at the call site to say so; a call announces the cost where it is
+     * paid, and a signature could not express `with:` anyway. Use it when
+     * the snapshot genuinely cannot carry what the link needs — a policy
+     * check, a relation, a value that changes too often to trickle. Do not
+     * use it to read what toFeed() already cached; that is what data() is for.
+     *
+     * BATCHED, NOT N+1. The presenter seeds the page's identity map with
+     * every (type, id) it holds before any resolver runs, so the first
+     * Customer to ask loads every Customer on the page in one whereKey()
+     * and every later Customer is a map hit. Ten classes is ten queries
+     * whether the page has twenty nodes or two hundred. The AS2 serializer
+     * resolves one activity at a time and has no page to seed from, so
+     * there a call is a single lookup — correct, only not amortised.
+     *
+     *     $model = $context->model();                       // batched on first use, per class
+     *     $model = $context->model(with: ['engagement']);   // relations ride the same batch
+     *
+     * NESTED ACCESS IS STILL A FOOTGUN. `$context->model()->customer->name`
+     * is an N+1 inside a hydrated model and invisible to the batch — the map
+     * loaded Deliveries, not their Customers. That is what `with:` is for:
+     * relations named there are eager loaded across the whole class. Named
+     * on a later call than the first, they load once across every model
+     * already in the map, not once per model, so the order of asking does
+     * not change the count.
+     *
+     * NULL IS THE ANSWER FOR EVERY WAY THIS CAN NOT RESOLVE, and the read
+     * path never throws through here. Row gone: null — the snapshot still
+     * renders, the slot is simply not linked. Soft-deleted: null by default,
+     * because a link to a page that 500s is worse than no link; pass
+     * `withTrashed: true` to opt in, on classes that soft-delete. Alias
+     * that resolves to nothing, id the snapshot never carried, a batch that
+     * threw (reported, once): null. Hydration switched off in config
+     * (`storyfeed.hydration.enabled`), for a surface that needs a
+     * no-queries guarantee: null, silently. A resolver that calls this has
+     * therefore always written its null branch — the same `default =>` arm
+     * it already needed for feed().
+     *
+     * KNOWN CONSEQUENCE, NOT A BUG. The entity's label comes from its
+     * snapshot; a link minted from the live model comes from now. The two
+     * can disagree — a row reading with the name from before a rename while
+     * linking to the record as it is today. Fresh and stale in one sentence.
+     * A resolver that has paid for the model can close that gap itself by
+     * returning FeedMedia with a `label:` from the model, which overrides
+     * the snapshot's on the node. What it must not do is write: this runs
+     * for exemplars that are never painted, and it is read-time.
+     *
+     * @param  array<int|string, mixed>  $with  relations to eager load with the batch, in the shape Builder::with() accepts
+     * @param  bool  $withTrashed  include soft-deleted rows; ignored on classes that do not soft-delete
+     */
+    public function model(array $with = [], bool $withTrashed = false): ?Model
+    {
+        return $this->hydrator->model($this->type, $this->id, $with, $withTrashed);
     }
 }

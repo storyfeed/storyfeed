@@ -20,6 +20,15 @@ class Customer extends Model implements Feedable
     /** The last context handed to feedMedia(), for tests to inspect. */
     public static ?FeedContext $lastContext = null;
 
+    /** Test hook: make the resolver ask for its live model (issue #4). */
+    public static bool $hydrates = false;
+
+    /** Test hook: `withTrashed:` passed through when hydrating. */
+    public static bool $hydratesTrashed = false;
+
+    /** Test spy: every model (or null) model() handed back, in call order. */
+    public static array $hydrated = [];
+
     use InteractsWithFeed;
     use SoftDeletes;
 
@@ -47,6 +56,23 @@ class Customer extends Model implements Feedable
     public static function feedMedia(FeedContext $context): ?FeedMedia
     {
         static::$lastContext = $context;
+
+        if (static::$hydrates) {
+            // The hydrating shape: link from the live row, label from the live
+            // row too — closing the fresh-link/stale-label gap the accessor
+            // opens — and no link at all when the row is gone or hidden.
+            $model = $context->model(withTrashed: static::$hydratesTrashed);
+            static::$hydrated[] = $model;
+
+            // `instanceof self` rather than a null check: a static resolver is
+            // always asking for its own class, and the test narrows the type
+            // for static analysis where `!== null` leaves a bare Model.
+            if (! $model instanceof self) {
+                return null;
+            }
+
+            return FeedMedia::make("/customers/{$model->id}", label: $model->name);
+        }
 
         return match ($context->feed()) {
             'kitchen' => FeedMedia::make('/kitchen/customers/'.$context->data('id')),

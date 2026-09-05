@@ -160,6 +160,15 @@ class ActivitySerializer
         // No feed, on purpose. A federation document describes an activity,
         // not a surface, and must read the same whoever fetched it — so the
         // resolver is told there is no feed and answers from its default arm.
+        //
+        // NO BATCH, on purpose too. This serializes one activity at a time,
+        // so there is no page to seed an identity map from: a resolver that
+        // calls $context->model() here pays one query per entity, where the
+        // payload presenter pays one per class per page. Correct, not
+        // amortised — do not benchmark this endpoint against a feed page
+        // with a hydrating resolver and report the difference as a
+        // regression. A resolver that must stay query-free on this path can
+        // branch on feed() === null, which is always true here.
         $media = $snapshot === null ? null : LinkResolver::resolve(new FeedContext(
             type: $alias,
             id: $snapshot->model_id,

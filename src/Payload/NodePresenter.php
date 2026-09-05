@@ -3,11 +3,13 @@
 namespace Storyfeed\Payload;
 
 use Closure;
+use Illuminate\Support\Collection;
 use Storyfeed\FeedContext;
 use Storyfeed\Models\Activity;
 use Storyfeed\Models\Snapshot;
 use Storyfeed\StoryfeedManager;
 use Storyfeed\Support\LinkResolver;
+use Storyfeed\Support\ModelHydrator;
 use Storyfeed\Support\Noun;
 use Throwable;
 
@@ -29,6 +31,7 @@ class NodePresenter
     public function __construct(
         protected StoryfeedManager $storyfeed,
         protected ?string $feed = null,
+        protected ?ModelHydrator $hydrator = null,
     ) {}
 
     /**
@@ -44,6 +47,41 @@ class NodePresenter
     {
         $presenter = clone $this;
         $presenter->feed = $feed;
+
+        return $presenter;
+    }
+
+    /**
+     * The same presenter, holding a fresh identity map seeded with every
+     * (type, id) the page carries — what lets FeedContext::model() load a
+     * whole class in one query the first time any resolver asks for it.
+     *
+     * A copy, for the reason forFeed() is: an identity map that outlived the
+     * build would hand one page's models to the next page rendered in the
+     * same process, and a singleton-bound presenter would do exactly that.
+     * Seeded from the loaded members, so a group's capped children and the
+     * exemplars drawn from them are covered; nothing beyond the page is.
+     *
+     * A presenter that was never given a page still works — entity() falls
+     * back to a private, unseeded map, which makes model() a single lookup.
+     * Correct, only not amortised; the seam FeedPage::items() exists to close.
+     *
+     * @param  Collection<int, GroupSlice>  $slices
+     */
+    public function forPage(Collection $slices): static
+    {
+        $hydrator = new ModelHydrator;
+
+        foreach ($slices as $slice) {
+            foreach ($slice->members as $activity) {
+                foreach (array_keys(self::GROUP_ROLES) as $role) {
+                    $hydrator->seed($activity->{"{$role}_type"}, $activity->{"{$role}_id"});
+                }
+            }
+        }
+
+        $presenter = clone $this;
+        $presenter->hydrator = $hydrator;
 
         return $presenter;
     }
@@ -406,6 +444,7 @@ class NodePresenter
             label: $snapshot->label,
             data: $data,
             feed: $this->feed,
+            hydrator: $this->hydrator ?? new ModelHydrator,
         ));
 
         return [

@@ -16,9 +16,10 @@ use Throwable;
  * The seam survives the fold. Until 2026-09-05 this was where two resolver
  * contracts met — HasFeedMedia::feedMedia() winning over the older
  * Feedable::toFeedLink() — and it stays the single call site so that when
- * the contract next grows (a hydrated model, issue #4) both surfaces pick
- * it up at once. Neither caller has ever known which method answered, and
- * neither needs to now that only one can.
+ * the contract grows both surfaces pick it up at once. It did, with issue
+ * #4: FeedContext::model() arrived as a constructor argument that
+ * each caller passes and this class never reads. Neither caller has ever
+ * known which method answered, and neither needs to now that only one can.
  */
 class LinkResolver
 {

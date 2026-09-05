@@ -216,6 +216,28 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Model Hydration
+    |--------------------------------------------------------------------------
+    |
+    | Whether a resolver may load its live model through $context->model().
+    | On, the cost is one query per class per page: the presenter seeds an
+    | identity map with every entity the page holds, and the first entity of
+    | a class to ask loads the whole class. A resolver that never calls it
+    | costs nothing either way.
+    |
+    | Off, model() returns null — silently, with no query and no exception —
+    | for an application that needs a no-queries guarantee on a hot surface.
+    | Links minted from the model degrade to the resolver's null branch; the
+    | activity still renders. The read path never throws over this.
+    |
+    */
+
+    'hydration' => [
+        'enabled' => true,
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | AS2.0 Routes
     |--------------------------------------------------------------------------
     |

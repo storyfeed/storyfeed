@@ -50,6 +50,38 @@ and one of them turned out to be returning `null` from all of them — folded in
 
 ### Added
 
+- **The door the pilots did not need.** `FeedContext::model()` hands a resolver its
+  live model — lazy, and batched per class across the page. Neither production
+  consumer reads anything outside `$data` today, and it is added anyway, on sixteen
+  years of having wanted it: a snapshot is per-row storage, so a fact copied into it
+  to save a query goes stale and has to be trickled, and the model itself was only
+  ever withheld on cost. The cost is now flat. The presenter already holds a snapshot
+  for every entity on the page, so it seeds an identity map with the complete
+  `(type, id)` set before any resolver runs; the first Customer to ask loads every
+  Customer on the page in one `whereKey()`, every later one is a map hit, and a
+  resolver that never asks pays nothing. Measured on a twenty-node page across three
+  classes: one hydrating class is one extra query, two is two, `with: ['customer']`
+  on top is three, and the same relation read without `with:` is thirteen — the
+  nested-access footgun the docblock warns about, priced. (#4)
+
+  An accessor, not an injected parameter: a signature that quietly hydrated would
+  make a page slower with nothing at the call site to say so, and a signature cannot
+  express `with:`. Every way it cannot resolve is `null` and none of them throws —
+  row gone, soft-deleted (`withTrashed: true` opts in, on classes that soft-delete),
+  unresolvable alias, a batch that threw (reported once), or hydration switched off
+  with the new `storyfeed.hydration.enabled = false` for a surface that needs a
+  no-queries guarantee. The AS2 serializer resolves one activity at a time and has
+  no page to seed from, so there the call is a single lookup: correct, not amortised,
+  and stated in its docblock so nobody benchmarks it as a regression. The map is per
+  payload build — `NodePresenter::forPage()` is a copy, for the reason `forFeed()`
+  is — so a singleton-bound presenter cannot serve one page's models to the next.
+
+  One consequence, documented rather than discovered: the label comes from the
+  snapshot and the link from the live row, so after a rename a node can read with
+  the old name while linking to the new record. A resolver that has paid for the
+  model can close that gap by returning a `label:` from it. `docs/payload.md`
+  carries the whole statement.
+
 - **The array that could not grow.** `Feedable::toFeedLink(array $data)` had
   stopped being about links — it returns a url, a label override, link
   attributes and a modal hint — and it could not learn anything new, because in

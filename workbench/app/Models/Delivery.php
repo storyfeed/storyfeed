@@ -17,6 +17,7 @@ use Storyfeed\FeedMedia;
  * @property int|null $customer_id
  * @property string|null $tracking_number
  * @property string $status
+ * @property-read Customer|null $customer
  */
 class Delivery extends Model implements Feedable, HasFeedShapeVersion
 {
@@ -31,6 +32,15 @@ class Delivery extends Model implements Feedable, HasFeedShapeVersion
 
     /** Test hook: declared semantic version (HasFeedShapeVersion escape hatch). */
     public static int $feedShapeVersion = 1;
+
+    /** Test hook: make the resolver ask for its live model (issue #4). */
+    public static bool $hydrates = false;
+
+    /** Test hook: relations passed as `with:` when hydrating. */
+    public static array $hydratesWith = [];
+
+    /** Test hook: read the customer relation off the hydrated model (the nested-access footgun). */
+    public static bool $readsCustomer = false;
 
     protected $guarded = [];
 
@@ -61,6 +71,22 @@ class Delivery extends Model implements Feedable, HasFeedShapeVersion
     public static function feedMedia(FeedContext $context): ?FeedMedia
     {
         static::$feedMediaCalls++;
+
+        if (static::$hydrates) {
+            $model = $context->model(with: static::$hydratesWith);
+
+            if (! $model instanceof self) {
+                return null;
+            }
+
+            $attributes = ['data-status' => $model->status];
+
+            if (static::$readsCustomer) {
+                $attributes['data-customer'] = $model->customer?->name;
+            }
+
+            return FeedMedia::make("/deliveries/{$model->id}", attributes: $attributes);
+        }
 
         // Deliberately strict about the raw array — a naive real-world
         // implementation looks like this, and the package must never call

@@ -25,8 +25,8 @@ use Storyfeed\FeedMedia;
  * while that renderer is running.
  *
  * feedMedia() receives a FeedContext rather than the bare snapshot array
- * so the contract can grow by accessor — feed(), and a hydrated model next
- * (issue #4) — without a parameter that breaks every implementation. This
+ * so the contract can grow by accessor — feed() (issue #3), model() (issue
+ * #4) — without a parameter that breaks every implementation. This
  * interface freezes only the part we are confident about; everything still
  * open arrives on the context or as a slot on FeedMedia.
  *
@@ -56,9 +56,13 @@ interface Feedable
      * CHEAP AND SIDE-EFFECT-FREE. This may be called for entities that are
      * never rendered as links: a group node's `exemplars` go through the
      * same presenter path as a singular entity, so a grouped feed can mint
-     * URLs it never paints. Nothing here should hit the database, write,
-     * or assume the result will be shown — it is a pure function of the
-     * context, and a slow one is paid for on every node of every page.
+     * URLs it never paints. Nothing here should write, or assume the
+     * result will be shown — it is a pure function of the context, and a
+     * slow one is paid for on every node of every page. The one sanctioned
+     * database touch is `$context->model()`, which is batched per class
+     * across the page so that it costs one query however many entities
+     * ask; read its docblock before calling it, and never reach for it to
+     * read what toFeed() already cached.
      *
      * `default => null` IS NOT OPTIONAL. A resolver that matches on
      * `$context->feed()` sees null for every ad-hoc builder and always in

@@ -37,8 +37,14 @@ final class FeedPage implements Arrayable, ArrayAccess, JsonSerializable, Respon
      */
     public function items(): array
     {
+        // One identity map per build, seeded with everything this page holds,
+        // so a resolver's first $context->model() loads its whole class at
+        // once. Rebuilt on every call: two calls are two builds, and neither
+        // may see the other's models.
+        $presenter = $this->presenter->forPage($this->slices);
+
         return $this->slices
-            ->map(fn (GroupSlice $slice) => $this->presenter->node($slice))
+            ->map(fn (GroupSlice $slice) => $presenter->node($slice))
             ->values()
             ->all();
     }
