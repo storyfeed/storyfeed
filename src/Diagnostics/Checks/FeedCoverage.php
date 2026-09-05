@@ -27,6 +27,21 @@ use Throwable;
  * only()/except() at all) contribute nothing to classification, and being
  * DENIED counts as classified — somebody looked at the verb and decided.
  *
+ * DECLARED UNRESTRICTED IS NOT OPEN (2026-09-05). A feed may say
+ * `->unrestricted()`: the audience decision was "everyone", and an operations
+ * portal whose world feed quietly dropped a verb would be lying about being one.
+ * That feed was carrying eleven permanent "nobody decided" warnings for a
+ * decision that WAS made. So a verb classified by no restricted feed is
+ * reported as `feeds.unrestricted`, Info, when some feed declared itself the
+ * world — instead of `feeds.unclassified`, Warning. Still on every run, so the
+ * twelfth verb still surfaces and is still seen; it stops failing CI and stops
+ * reading as an open problem. It does NOT count as decided, and that is the
+ * whole design: the declaration would auto-decide every verb that does not
+ * exist yet, and the check's value is firing for the person who did not write
+ * it. Severity changes; silence does not. Omitting an allowlist is still the
+ * Warning, because forgetting is not the same act as declaring. The precedent
+ * is `aggregates.latent`: reported, no Fix, Info not Warning.
+ *
  * The universe is the declared vocabulary UNION the verbs actually recorded.
  * The union is not belt-and-braces: the leak this exists for is a verb nobody
  * ever declared, so a declaration-only universe misses exactly the case.
@@ -62,6 +77,7 @@ class FeedCoverage extends Check
 
         $filters = [];
         $sources = [];
+        $unrestricted = [];
 
         foreach ($feeds as $name => $definition) {
             $sources[$name] = $definition->source;
@@ -76,7 +92,15 @@ class FeedCoverage extends Check
             // can still read what the class DECLARED, which is the whole reason
             // define() and scope() are separate hooks.
             try {
-                $filters[$name] = $definition->inspect()->declaredVerbFilter();
+                $builder = $definition->inspect();
+                $filters[$name] = $builder->declaredVerbFilter();
+
+                // Only an OPEN feed's word counts. A feed cannot both filter
+                // and be the world, and the builder already refuses the
+                // declaration that says so.
+                if ($filters[$name]->isEmpty() && $builder->declaredUnrestricted()) {
+                    $unrestricted[] = $name;
+                }
             } catch (Throwable $e) {
                 yield Finding::warning(
                     'feeds.preset_failed',
@@ -129,6 +153,22 @@ class FeedCoverage extends Check
             }
 
             if ($classified) {
+                continue;
+            }
+
+            if ($unrestricted !== []) {
+                $world = implode('`, `', $unrestricted);
+
+                yield Finding::info(
+                    'feeds.unrestricted',
+                    "Verb `{$verb}` is named by no restricted feed, and `{$world}` declares itself unrestricted, "
+                    .'so it is world-visible by declaration rather than by omission. Reported anyway: the feed '
+                    .'that carries everything carries this too, and a verb recorded next year lands here without '
+                    .'anyone looking. Name it in the allowlist or the denylist of a restricted feed if not '
+                    .'everyone should see it.',
+                    ['verb' => $verb, 'feeds' => implode(',', $unrestricted)],
+                );
+
                 continue;
             }
 

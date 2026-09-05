@@ -3,6 +3,7 @@
 use Illuminate\Support\Collection;
 use Storyfeed\ActivityStreams\ActivityType;
 use Storyfeed\Diagnostics\Severity;
+use Storyfeed\Exceptions\FeedMisconfigured;
 use Storyfeed\Facades\Storyfeed;
 use Storyfeed\FeedBuilder;
 use Workbench\App\Enums\ActivityVerb;
@@ -302,4 +303,109 @@ it('reports a typo in a single verb() feed, as it does for an allowlist', functi
 
     expect(collect(Storyfeed::doctor(['feeds'])->all())->pluck('code')->all())
         ->toContain('feeds.unknown_verb');
+});
+
+it('reports a verb carried only by a declared-unrestricted feed as Info, not Warning', function () {
+    // An operations portal carried eleven permanent "nobody decided" warnings
+    // for a decision that WAS made — the decision was "everyone". Saying so
+    // in code changes the severity and nothing else.
+    Storyfeed::verbs(ActivityVerb::class);
+
+    Storyfeed::feeds([
+        'customer' => fn (FeedBuilder $feed) => $feed->only(['confirm', 'upload']),
+        'portal' => fn (FeedBuilder $feed) => $feed->unrestricted()->summary(),
+    ]);
+
+    $finding = feedFindings()->firstWhere('subject.verb', 'comment');
+
+    expect($finding['code'])->toBe('feeds.unrestricted')
+        ->and($finding['severity'])->toBe(Severity::Info->value)
+        ->and($finding['subject']['feeds'])->toBe('portal')
+        ->and($finding['message'])->toContain('by declaration rather than by omission')
+        ->and(feedCodes())->not->toContain('feeds.unclassified');
+});
+
+it('keeps an OMITTED allowlist a Warning even beside a declared-unrestricted feed', function () {
+    // Declaring is an act; forgetting is not. `->unrestricted()` speaks only
+    // for the feed it is written on, so the open `admin` feed here decides
+    // nothing — and the verbs are still Info, because the WORLD feed carries
+    // them by declaration. What must not happen is the two collapsing into
+    // each other in the other direction: an open feed alone stays a Warning.
+    Storyfeed::verbs(ActivityVerb::class);
+
+    Storyfeed::feeds([
+        'customer' => fn (FeedBuilder $feed) => $feed->only(['confirm']),
+        'admin' => fn (FeedBuilder $feed) => $feed,
+    ]);
+
+    expect(feedFindings()->firstWhere('subject.verb', 'comment')['severity'])
+        ->toBe(Severity::Warning->value);
+});
+
+it('still surfaces a verb recorded after the declaration — unrestricted decides nothing', function () {
+    // The hole the docblock was written around: a declaration that made
+    // covered verbs DECIDED would be green on day one and green on the day
+    // someone records `order.margin_note`. So the twelfth verb is reported on
+    // every run, just not as an open problem.
+    Storyfeed::verbs(ActivityVerb::class);
+
+    Storyfeed::feeds([
+        'customer' => fn (FeedBuilder $feed) => $feed->only(['confirm', 'upload', 'comment', 'create']),
+        'portal' => fn (FeedBuilder $feed) => $feed->unrestricted(),
+    ]);
+
+    expect(feedCodes())->toBe([]);
+
+    Storyfeed::activity('order.margin_note', Delivery::create(['tracking_number' => 'TN-1']))->publish();
+
+    $finding = feedFindings()->firstWhere('subject.verb', 'order.margin_note');
+
+    expect($finding['code'])->toBe('feeds.unrestricted')
+        ->and($finding['severity'])->toBe(Severity::Info->value);
+});
+
+it('stops failing CI under --fail-on=warning once the world feed says so', function () {
+    Storyfeed::verbs(ActivityVerb::class);
+
+    Storyfeed::feeds([
+        'customer' => fn (FeedBuilder $feed) => $feed->only(['confirm']),
+        'portal' => fn (FeedBuilder $feed) => $feed->unrestricted(),
+    ]);
+
+    $this->artisan('storyfeed:doctor --only=feeds --fail-on=warning')
+        ->expectsOutputToContain('declares itself unrestricted')
+        ->assertSuccessful();
+});
+
+it('refuses a declaration that contradicts itself', function () {
+    // `->only([...])->unrestricted()` is one declaration saying two things:
+    // the read path would honour the filter while doctor honoured the word.
+    expect(fn () => (new FeedBuilder)->only(['confirm'])->unrestricted())
+        ->toThrow(FeedMisconfigured::class, 'already declares only()/except()');
+
+    expect(fn () => (new FeedBuilder)->verb('confirm')->unrestricted())
+        ->toThrow(FeedMisconfigured::class);
+});
+
+it('still lets a call site narrow a declared-unrestricted feed', function () {
+    // Narrowing after the declaration is what a call site is for, and the
+    // filter is what the read path applies — declaredUnrestricted() is not a
+    // widening and never reaches SQL.
+    Storyfeed::feeds(['portal' => fn (FeedBuilder $feed) => $feed->unrestricted()]);
+
+    $builder = Storyfeed::feed('portal')->only(['confirm']);
+
+    expect($builder->isVerbRestricted())->toBeTrue()
+        ->and($builder->admits('comment'))->toBeFalse();
+});
+
+it('does not turn a registry with no restricted feed into a guardrail by declaring it', function () {
+    // One unrestricted feed among restricted ones is the case Info is right
+    // for. A registry that restricts NOTHING is a true statement about the
+    // app, and the existing Info already says it.
+    Storyfeed::verbs(ActivityVerb::class);
+
+    Storyfeed::feeds(['portal' => fn (FeedBuilder $feed) => $feed->unrestricted()]);
+
+    expect(feedCodes())->toBe(['feeds.none_restricted']);
 });

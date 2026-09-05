@@ -81,6 +81,12 @@ class FeedBuilder
     protected ?VerbFilter $verbFilter = null;
 
     /**
+     * Declared unrestricted — the audience decision was "everyone", said out
+     * loud. Not a filter: it changes no query, and only doctor reads it.
+     */
+    protected bool $unrestricted = false;
+
+    /**
      * Roles a Feed class bound as its subject, and may not be rebound.
      *
      * @var array<string, string> role => the class that bound it
@@ -261,6 +267,49 @@ class FeedBuilder
     }
 
     /**
+     * Declare that this feed carries EVERY verb, on purpose.
+     *
+     *   'portal' => fn (FeedBuilder $feed) => $feed->unrestricted()->summary(),
+     *
+     * Not a filter and not a widening: it changes no query, and a call site
+     * downstream can still narrow with only()/except() exactly as before. What
+     * it changes is what `storyfeed:doctor` can say. An OPEN feed — one that
+     * simply never called only() or except() — classifies nothing, because
+     * forgetting to decide is the hole the `feeds` check exists to catch. But
+     * a world feed is a real thing: an operations portal whose feed quietly
+     * dropped a verb would be lying about being one, and it was carrying
+     * eleven permanent "nobody decided" warnings for a decision that WAS made.
+     * The decision was "everything". This is where that gets written down,
+     * in code beside the feed rather than in a suppression list.
+     *
+     * DECLARING IS AN ACT; OMITTING STAYS A WARNING. The two must never
+     * collapse into each other, or `'admin' => fn ($feed) => $feed` becomes
+     * green forever again. And declaring does not make covered verbs
+     * DECIDED: a verb carried only by an unrestricted feed is still reported
+     * on every run, as Info rather than Warning, because the check's whole
+     * value is firing for the person who did not write this line — the one
+     * who records `order.margin_note` six months from now. This declaration
+     * would auto-decide every verb that does not exist yet, so it lowers the
+     * severity and nothing else. (The same shape as `aggregates.latent`.)
+     *
+     * Contradicting a verb constraint already declared on the same builder
+     * throws: `->only([...])->unrestricted()` is one declaration saying two
+     * things, and the read path would honour the filter while doctor honoured
+     * the word. The other order is not checked, because narrowing AFTER a
+     * declaration is exactly what a call site is allowed to do.
+     */
+    public function unrestricted(): static
+    {
+        if ($this->isVerbRestricted()) {
+            throw FeedMisconfigured::unrestrictedButFiltered($this->declaredVerbFilter()->patterns());
+        }
+
+        $this->unrestricted = true;
+
+        return $this;
+    }
+
+    /**
      * Pin the role a Feed class declared as its subject.
      *
      * @internal Called by FeedDefinition::buildFor() and nowhere else.
@@ -373,6 +422,19 @@ class FeedBuilder
     public function isVerbRestricted(): bool
     {
         return ! $this->declaredVerbFilter()->isEmpty();
+    }
+
+    /**
+     * Whether this feed said, in code, that carrying every verb is the point.
+     *
+     * @internal The third read-back seam, beside declaredVerbFilter() and
+     * declaredMode(). Read by FeedCoverage only — and only for a feed whose
+     * filter is empty, since a restricted feed is restricted whatever else it
+     * says about itself.
+     */
+    public function declaredUnrestricted(): bool
+    {
+        return $this->unrestricted;
     }
 
     /**

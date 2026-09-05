@@ -47,6 +47,24 @@ class FeedMisconfigured extends InvalidArgumentException
     }
 
     /**
+     * A declaration saying two things. The read path would apply the filter
+     * and doctor would believe the word, and the person reading the feed
+     * class could not tell which one the surface actually does.
+     *
+     * @param  list<string>  $patterns
+     */
+    public static function unrestrictedButFiltered(array $patterns): self
+    {
+        return new self(
+            'unrestricted() was called on a feed that already declares only()/except() ('
+            .implode(', ', $patterns).'). A feed is restricted or it is not: drop the verb '
+            .'constraint if this really is the world feed, or drop unrestricted() if it is not. '
+            .'Narrowing a declared-unrestricted feed at a call site is still fine — only the '
+            .'declaration itself may not contradict itself.'
+        );
+    }
+
+    /**
      * Rebinding a Feed's scope at the call site.
      *
      * The verb allowlist is unwidenable for free — only(A) then only(B) is

@@ -55,10 +55,11 @@ it('pluralises an unpinned role instead of throwing the sentence away', function
     $item = Storyfeed::feed()->get()->toArray()['items'][0];
 
     // The repeat axis pins :actor (and the object's KIND) but not the object
-    // itself. "Sally uploaded 3 files" — true of every member, no authoring.
-    // Before the rung this whole sentence was discarded for one token.
+    // itself. "Sally uploaded files" — true of every member, no authoring.
+    // Before the rung this whole sentence was discarded for one token; and
+    // the sentence carries no number (see the DISTINCT test below for why).
     expect($item['axis'])->toBe('repeat')
-        ->and($item['headline_template'])->toBe(':actor uploaded 3 files')
+        ->and($item['headline_template'])->toBe(':actor uploaded files')
         ->and($item['headline'])->toBeNull();
 });
 
@@ -77,13 +78,20 @@ it('leaves :actor a token so the renderer can still link it', function () {
         ->and($item)->not->toHaveKey('headline_parts');
 });
 
-it('counts DISTINCT objects, not member activities', function () {
+it('selects the plural by DISTINCT objects, and prints neither number', function () {
     onlyRepeatGroups();
 
     $project = Customer::create(['name' => 'Concur']);
 
-    // Five uploads across two files. "5 files" would assert into existence
-    // three files that do not exist — the lie of number this ladder refuses.
+    // Five uploads across two files. The rung shipped saying "2 files" — the
+    // most truthful number available, since "5 files" would assert three
+    // files into existence. Then production put "updated 2 terms sheets"
+    // directly above a disclosure reading "Show all 5", and two readers who
+    // knew the mechanism both read it as a bug: nothing on screen says one
+    // number counts sheets and the other counts acts. So the distinct count
+    // survives only to choose "files" over "file", the sentence carries no
+    // number for the disclosure to disagree with, and BOTH counts stay in
+    // the payload — this is a presentation change, not a contract change.
     sallyUploads($project, ['a.docx', 'a.docx', 'a.docx', 'b.docx', 'b.docx']);
 
     $item = Storyfeed::feed()->get()->toArray()['items'][0];
@@ -91,12 +99,12 @@ it('counts DISTINCT objects, not member activities', function () {
     expect($item['axis'])->toBe('repeat')
         ->and($item['count'])->toBe(5)
         ->and($item['distinct']['objects'])->toBe(2)
-        ->and($item['headline_template'])->toBe(':actor uploaded 2 files')
-        ->and($item['headline_template'])->not->toContain('5 files');
+        ->and($item['headline_template'])->toBe(':actor uploaded files')
+        ->and($item['headline_template'])->not->toMatch('/\d/');
 });
 
-it('counts objects it cannot see, not just the ones nested in children', function () {
-    config()->set('storyfeed.grouping.children_limit', 2);
+it('pluralises by the objects it cannot see, not just the ones nested in children', function () {
+    config()->set('storyfeed.grouping.children_limit', 1);
 
     $project = Customer::create(['name' => 'Concur']);
 
@@ -104,13 +112,16 @@ it('counts objects it cannot see, not just the ones nested in children', functio
 
     $item = Storyfeed::feed()->get()->toArray()['items'][0];
 
-    // The in-page count is capped; the sentence must use the TRUE distinct
-    // total. A floor is fine for an exemplar list that admits to "and N
-    // others" — it is not fine for a number a sentence asserts outright.
-    expect($item['children'])->toHaveCount(2)
+    // The in-page count is capped at ONE here, so counting loaded members
+    // would say "1 distinct object" and leave `:object` alone for the
+    // renderer to name a.docx — one file standing in for five. The plural
+    // form must come from the TRUE distinct total. A floor is fine for an
+    // exemplar list that admits to "and N others"; it is not fine for the
+    // form a sentence asserts outright.
+    expect($item['children'])->toHaveCount(1)
         ->and($item['children_truncated'])->toBeTrue()
-        ->and($item['headline_template'])->toBe(':actor uploaded 5 files')
-        ->and($item['headline_template'])->not->toContain('2 files');
+        ->and($item['distinct']['objects'])->toBe(5)
+        ->and($item['headline_template'])->toBe(':actor uploaded files');
 });
 
 it('names a role shared by every member rather than saying "1 file"', function () {
@@ -184,9 +195,9 @@ it('renders a generic noun rather than skipping the rung', function () {
 
     $item = Storyfeed::feed()->get()->toArray()['items'][0];
 
-    // "Sally uploaded 3 items" is bland, and bland is still a sentence. The
+    // "Sally uploaded items" is bland, and bland is still a sentence. The
     // screen belongs to the reader; the nagging belongs on the terminal.
-    expect($item['headline_template'])->toBe(':actor uploaded 3 items');
+    expect($item['headline_template'])->toBe(':actor uploaded items');
 });
 
 it('does not eat the plural token that shares a prefix', function () {
@@ -200,7 +211,23 @@ it('does not eat the plural token that shares a prefix', function () {
 
     // `:objects` is universal — legal on every axis — so it must survive
     // the substitution of `:object` intact.
-    expect($item['headline_template'])->toBe(':actor uploaded 2 files of :objects');
+    expect($item['headline_template'])->toBe(':actor uploaded files of :objects');
+});
+
+it('still picks the form by count in a locale with more than two of them', function () {
+    // The number left the sentence; the count did not leave the decision.
+    // Polish "klauzule" (2–4) and "klauzul" (5+) are a fact about how many
+    // there really are, and only the true distinct count can choose.
+    app()->setLocale('pl');
+    Storyfeed::grammar(['delivery.upload' => ':actor wgrał :object']);
+    Storyfeed::nouns(['delivery' => 'klauzula|klauzule|klauzul']);
+
+    $project = Customer::create(['name' => 'Concur']);
+
+    sallyUploads($project, ['a.docx', 'b.docx', 'c.docx', 'd.docx', 'e.docx']);
+
+    expect(Storyfeed::feed()->get()->toArray()['items'][0]['headline_template'])
+        ->toBe(':actor wgrał klauzul');
 });
 
 it('accepts a translated noun through the wrapper', function () {
@@ -213,7 +240,7 @@ it('accepts a translated noun through the wrapper', function () {
     sallyUploads($project, ['a.docx', 'b.docx']);
 
     expect(Storyfeed::feed()->get()->toArray()['items'][0]['headline_template'])
-        ->toBe(':actor uploaded 2 files');
+        ->toBe(':actor uploaded files');
 });
 
 it('still suppresses a fallback whose role KIND the axis does not pin', function () {
@@ -242,7 +269,7 @@ it('still suppresses a fallback whose role KIND the axis does not pin', function
         ->and($item['headline_template'])->toBeNull();
 });
 
-it('will not assert a number over a slice that carries no true counts', function () {
+it('will not pluralise over a slice that carries no true counts', function () {
     $project = Customer::create(['name' => 'Concur']);
 
     sallyUploads($project, ['a.docx', 'b.docx', 'c.docx']);
@@ -253,8 +280,10 @@ it('will not assert a number over a slice that carries no true counts', function
 
     // A slice built without the aggregate counts — by a custom caller, or a
     // future read model — can only see the members it loaded, and that list
-    // is capped. Counting them would understate the truth, so the rung
-    // declines rather than assert a number it cannot stand behind.
+    // is capped. Counting them would understate the truth — down to a
+    // singular that names one object for many — so the rung declines rather
+    // than choose a form it cannot stand behind. No number is printed either
+    // way; the count is still what picks the form.
     $node = app(NodePresenter::class)->groupNode(
         GroupSlice::group('repeat', 'h', 9, $members),
     );
@@ -267,5 +296,5 @@ it('will not assert a number over a slice that carries no true counts', function
         GroupSlice::group('repeat', 'h', 9, $members, ['object' => 7]),
     );
 
-    expect($told['headline_template'])->toBe(':actor uploaded 7 files');
+    expect($told['headline_template'])->toBe(':actor uploaded files');
 });

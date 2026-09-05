@@ -50,6 +50,30 @@ and one of them turned out to be returning `null` from all of them — folded in
 
 ### Added
 
+- **`unrestricted()` — a world feed says so, and doctor believes it at the right
+  volume.** An operations portal carried eleven permanent `feeds.unclassified`
+  warnings, unresolvable by design: its portal feed declares no allowlist on
+  purpose, because a world feed that quietly dropped a verb would be lying about
+  being one. Technically right, practically noise — the audience decision *was*
+  made, and it was "everyone". A feed can now write that down:
+  `fn ($feed) => $feed->unrestricted()->summary()`. It is not a filter and not a
+  widening; it changes no query, and a call site can still narrow downstream.
+  What it changes is severity: a verb named by no restricted feed is reported as
+  **`feeds.unrestricted`, Info**, when a registered feed declares itself the
+  world, instead of `feeds.unclassified`, Warning. It stops failing
+  `--fail-on=warning`; it does not stop being reported.
+
+  What was asked for first, and refused by the consumer themselves once they saw
+  it: a declaration that made covered verbs *decided*. That reintroduces the hole
+  the `feeds` check was written around — green on day one and green on the day
+  someone records `order.margin_note` — because it would auto-decide every verb
+  that does not exist yet, and the check's whole value is firing for the person
+  who did not write it. So declaring changes the severity and never the silence.
+  Omitting an allowlist stays a Warning, since forgetting is not the same act as
+  declaring, and `->only([...])->unrestricted()` throws at boot rather than
+  letting the read path honour the filter while doctor honours the word. Same
+  shape as `aggregates.latent`: reported, no Fix, Info not Warning.
+
 - **`hydration` — every Feedable whose resolver loads its model, named.**
   `$context->model()` is a real capability with a real bill, and the bill was
   invisible: nothing in a payload, a test or a page said that a feed loads
@@ -330,6 +354,32 @@ and one of them turned out to be returning `null` from all of them — folded in
   does with its exemplars' previews is deliberately not designed yet.
 
 ### Changed
+
+- **The noun rung no longer prints a number. Rendered output changes.** A group
+  headline the rung generated used to read "Jasper Tey updated 2 terms sheets to
+  current doctrine"; it now reads "Jasper Tey updated terms sheets to current
+  doctrine". Same rows, same payload, different sentence — if a test or a
+  screenshot of yours pins the old text, it changes.
+
+  Why: in production that sentence rendered directly above a disclosure reading
+  "Show all 5". The 2 counts sheets, the 5 counts acts, and nothing on screen says
+  so. Two readers who knew the mechanism both read it as a bug, and a second
+  reader reproduced the verdict independently on a 7-versus-9 case. The distinct
+  count is the most truthful number available and the worst one to display. On
+  the same screen a fully-pinned row with *no* number in the sentence, over
+  "Show all 9", read perfectly. A sentence with no count over a counted
+  disclosure reads clean; a sentence with a *different* count reads broken.
+
+  The count survives only to select the plural form — "terms sheets" over "terms
+  sheet", and in a three-form locale the right one of three — which is still a
+  fact about how many there are. `count` and `distinct` in the payload are
+  untouched; this is presentation, not contract. **Authored templates are
+  untouched**: `:count` in your own aggregate grammar still prints and is still
+  formatted by the renderer, at the end of the clause where an author puts it —
+  the mid-sentence substitution the rung performs is what cannot carry a number.
+  `Support\Noun::form()` is the number-free selection the rung now uses;
+  `Noun::phrase()` keeps producing "1,204 clauses" for a caller that wants the
+  number said.
 
 - **`aggregates` asks whether anything can actually read the pair.**
   `AggregateCoverage` warned for every clustered `(axis, verb)` pair with no

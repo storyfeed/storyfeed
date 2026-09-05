@@ -219,9 +219,10 @@ class NodePresenter
      * :object in the clause library" over nine activities was thrown away
      * whole for the sake of one token, and the reader got "Clause reworded ·
      * 9 times". Every member agrees that Jasper reworded SOMETHING; the
-     * something is seven clauses; so the sentence is available and true:
+     * something is a plurality of clauses; so the sentence is available and
+     * true:
      *
-     *     ":actor reworded 7 clauses in the clause library"
+     *     ":actor reworded clauses in the clause library"
      *
      * WHAT COMES BACK IS A TEMPLATE, NOT A HEADLINE. Only the unpinned
      * tokens are substituted; `:actor` stays a token, because it is a real
@@ -229,10 +230,22 @@ class NodePresenter
      * destroy that. It rides home through the existing [$template, null]
      * channel: no payload shape change, no new node key, no renderer change.
      *
-     * THE COUNT IS `distinct`, NEVER THE MEMBER COUNT. Nine activities
-     * across seven clauses is "7 clauses". "9 clauses" would assert into
-     * existence two clauses that do not exist — a lie of number, and exactly
-     * the class of error this whole ladder was built to refuse.
+     * THE COUNT IS `distinct`, NEVER THE MEMBER COUNT — AND IT IS NOT
+     * PRINTED (2026-09-05). The rung shipped saying "7 clauses", the most
+     * truthful number available: nine activities across seven clauses, and
+     * "9 clauses" would assert two clauses into existence. Then production
+     * put "updated 2 terms sheets" directly above a disclosure reading "Show
+     * all 5", and two readers who knew the mechanism both read it as a bug.
+     * Nothing on the screen says one number counts sheets and the other
+     * counts acts. On the same screen the fully-pinned row — "updated
+     * Travnett Retainer — Terms of Engagement" over "Show all 9" — read
+     * perfectly, with no number in the sentence at all. So the distinct
+     * count survives only to SELECT THE PLURAL FORM (Noun::form()), which is
+     * still a truth about the world and still locale-sensitive, and the
+     * sentence carries no number for the disclosure to disagree with.
+     * Authored templates are untouched: an author who writes `:count` gets
+     * the act count the renderer already formats, at the end of the clause
+     * where an author would put it. A substitution mid-sentence cannot.
      *
      * WHERE IT DECLINES, AND WHY EACH REFUSAL IS THE RIGHT ANSWER:
      *
@@ -300,8 +313,8 @@ class NodePresenter
 
             // The type is pinned by construction, so the head member's alias
             // is every member's alias — the licence for one noun to speak
-            // for all of them.
-            $phrase = Noun::phrase(
+            // for all of them. The count picks the form; it is never printed.
+            $phrase = Noun::form(
                 $this->storyfeed->noun($first->{"{$role}_type"}, (string) $first->verb),
                 $count,
             );
