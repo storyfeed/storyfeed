@@ -53,7 +53,7 @@ it('digests keys that exceed the length threshold', function () {
         'verb' => str_repeat('extremely-long-verb-', 15),
     ]));
 
-    // Silent truncation over-groups (the tackler scar); long keys become a
+    // Silent truncation over-groups (an earlier implementation's scar); long keys become a
     // fixed-width digest instead — still derived, still recomputable.
     expect(strlen($hash))->toBe(40)
         ->and($hash)->toMatch('/^[0-9a-f]{40}$/');

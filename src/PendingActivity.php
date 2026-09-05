@@ -292,15 +292,7 @@ class PendingActivity
             $this->writeGroupings();
 
             if ($this->replace && $this->activity->object_id !== null) {
-                $superseded = $this->activity->newQuery()
-                    ->whereKeyNot($this->activity->getKey())
-                    ->where('object_type', $this->activity->object_type)
-                    ->where('object_id', $this->activity->object_id)
-                    ->where('verb', $this->activity->verb);
-
-                SyncParticipants::forget(...$superseded->pluck('id')->all());
-
-                $superseded->delete();
+                $this->supersede();
             }
 
             return $this->activity;
@@ -309,6 +301,69 @@ class PendingActivity
         ActivityPublished::dispatch($activity);
 
         return $activity;
+    }
+
+    /**
+     * Retire every earlier activity with this one's (object, verb), inside the
+     * publish transaction. Bulk queries on purpose: the superseded set is
+     * "everything that matches", not a list of models, and Eloquent's
+     * per-model delete would fire ActivityDeleted once per row for a change
+     * curation cannot see anyway (the survivor keeps the cluster's hashes).
+     *
+     * The default is a SOFT delete, and that is deliberate. A superseded row
+     * is history — "this was true and is not any more" — and the operator
+     * who supersedes a status tick fifty times a day still wants to be able
+     * to answer "what did it say at 14:02?". The rows leave the feed and
+     * every package query through the SoftDeletes scope; their grouping rows
+     * stay because nothing reaches a grouping except through the live
+     * activity it points at, so they are inert, and `storyfeed:prune` sweeps
+     * them with their activity. Participant rows go now, under both modes:
+     * `involving()` is an index over rows that exist, and a superseded row
+     * must not be findable by an entity it involved.
+     *
+     * `storyfeed.replace.delete = 'force'` hard-deletes instead, and then the
+     * grouping rows must go too — there is no DB-level cascade, by design,
+     * and a hard-deleted activity may leave nothing behind that points at it.
+     *
+     * The mode is validated before the query, not after: a typo that only
+     * threw once there was something to supersede would pass every first
+     * publish, and the suite that never supersedes twice would ship it.
+     */
+    private function supersede(): void
+    {
+        $mode = config('storyfeed.replace.delete', 'soft');
+
+        if ($mode !== 'soft' && $mode !== 'force') {
+            throw new InvalidArgumentException(
+                "storyfeed.replace.delete must be 'soft' or 'force', got [".var_export($mode, true).'].',
+            );
+        }
+
+        $superseded = $this->activity->newQuery()
+            ->whereKeyNot($this->activity->getKey())
+            ->where('object_type', $this->activity->object_type)
+            ->where('object_id', $this->activity->object_id)
+            ->where('verb', $this->activity->verb);
+
+        $ids = $superseded->pluck('id')->all();
+
+        if ($ids === []) {
+            return;
+        }
+
+        SyncParticipants::forget(...$ids);
+
+        if ($mode === 'force') {
+            $grouping = config('storyfeed.models.grouping', Grouping::class);
+
+            $grouping::query()->whereIn('activity_id', $ids)->delete();
+
+            $superseded->forceDelete();
+
+            return;
+        }
+
+        $superseded->delete();
     }
 
     /**

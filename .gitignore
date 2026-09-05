@@ -33,3 +33,6 @@ testbench.yaml
 
 # Internal planning spec — remove from here when taking the spec public
 /SPEC.md
+
+# The client-name list behind the CLAUDE.md rule — local only, never public
+/CLIENT-NAMES.md

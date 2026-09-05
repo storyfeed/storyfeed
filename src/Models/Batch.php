@@ -10,8 +10,8 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Support\Carbon;
 
 /**
- * An inferred burst of activity by one actor — travnett2's open-window
- * pattern generalized. Opened implicitly on publish, closed by inactivity
+ * An inferred burst of activity by one actor — an earlier implementation's
+ * open-window pattern, generalized. Opened implicitly on publish, closed by inactivity
  * (lazily at the actor's next publish, or promptly by storyfeed:close-batches).
  *
  * Batches are INFRASTRUCTURE: recorded and queryable, with BatchClosed as

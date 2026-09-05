@@ -278,6 +278,39 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Replace
+    |--------------------------------------------------------------------------
+    |
+    | What `->replace()` / `publishAndReplace()` does to the rows it
+    | supersedes. Superseding is the shape for repeatable verbs — a status
+    | tick, a re-save — where only the latest row should read as the story.
+    |
+    | 'soft' (the default) SOFT-deletes the superseded rows: they leave the
+    | feed and every query the package makes, but stay in the activities
+    | table with `deleted_at` set. Deliberate, not an accident of the trait:
+    | a superseded activity is history, and history is kept — "this was true
+    | and is not any more" is a fact about the world, and an audit wants it.
+    | Their participant rows are removed; their grouping rows stay, inert,
+    | because curation and the read path only ever reach groupings through
+    | the live-activity query. `storyfeed:prune` retires them with the rest.
+    |
+    | 'force' HARD-deletes them, grouping rows and participant rows included,
+    | inside the publish transaction. For an app where a busy repeatable verb
+    | would otherwise accumulate soft-deleted rows for the life of the table
+    | and nothing ever reads them back. Nothing else is touched: snapshots
+    | are per-entity, and a batch's `activities_count` is a running total of
+    | what was recorded, under either setting.
+    |
+    | Any other value throws at publish time rather than guessing.
+    |
+    */
+
+    'replace' => [
+        'delete' => 'soft',
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Pruning
     |--------------------------------------------------------------------------
     */

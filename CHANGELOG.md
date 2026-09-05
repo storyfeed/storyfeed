@@ -4,7 +4,8 @@
 
 Two doctor checks, both from the same discovery: a check can be entirely right
 about the database and still wrong about what the reader will do next. A switch,
-from the first upstream issue a consumer filed. And a new read-time resolver
+from the first upstream issue a consumer filed. A second switch, from a doc
+that described a deletion the code had never done. And a new read-time resolver
 contract, which exists because two consumers read out every `Feedable` they had
 and one of them turned out to be returning `null` from all of them — folded into
 `Feedable` itself before this release, so the interim never ships.
@@ -72,6 +73,43 @@ and one of them turned out to be returning `null` from all of them — folded in
   `Number::format($n).' '.FeedNoun::form($noun, $n)`. One break, not two.
 
 ### Added
+
+- **Superseding keeps history, and now says so — `storyfeed.replace.delete`.**
+  `publishAndReplace()` retires the earlier rows for its `(object, verb)` with a
+  plain `delete()` on a model that soft-deletes, so a superseded activity has
+  always stayed in the table with `deleted_at` set. The published docs said
+  hard-deleted. The docs lane found the disagreement while drafting the
+  "latest wins" page, and asked the right question: which one was intended?
+
+  The soft delete was, and it stays the default. A superseded row is history —
+  "this was true and is not any more" — and an operations vault that
+  supersedes a status tick fifty times a day still wants to answer "what did it
+  say at 14:02?". The row leaves the feed and every query the package makes;
+  its participant rows go with it, because `involving()` is an index over rows
+  that exist; its grouping rows stay, inert, because curation and the read path
+  only ever reach a grouping through the live activity it points at, and
+  `storyfeed:prune` sweeps them with the activity. Nothing about that changes
+  for an app that sets nothing.
+
+  What is new is the choice. `'replace' => ['delete' => 'force']` hard-deletes
+  the superseded rows inside the publish transaction, grouping rows and
+  participant rows included — there is no DB-level cascade, by design, and a
+  hard-deleted activity may leave nothing behind pointing at it. It is for the
+  app where a busy repeatable verb would otherwise accumulate trashed rows for
+  the life of the table and nothing ever reads them back. Same idiom as
+  `recording.enabled` and `trickle.prune`: the keeping default is on
+  everywhere, the destructive one is an explicit word in config, never an env
+  flip. Any other value throws on the first `publishAndReplace()` rather than
+  guessing — before anything is written, and whether or not there is yet
+  anything to supersede, because a typo that only bit on the second publish
+  would ship.
+
+  Two questions the finding raised, answered while in there and needing no
+  change: the trickle does **not** walk soft-deleted rows (it queries through
+  the default scope, so a superseded row can neither be re-snapshotted nor
+  counted as an orphan), and nothing on the read path reaches them with
+  `withTrashed()` — the only callers are prune, the participants backfill, the
+  demo seeder's reset, and `forceDeleteFromFeed()`, all of which mean it.
 
 - **`unrestricted()` — a world feed says so, and doctor believes it at the right
   volume.** An operations portal carried eleven permanent `feeds.unclassified`

@@ -238,7 +238,7 @@ class NodePresenter
      * all 5", and two readers who knew the mechanism both read it as a bug.
      * Nothing on the screen says one number counts sheets and the other
      * counts acts. On the same screen the fully-pinned row — "updated
-     * Travnett Retainer — Terms of Engagement" over "Show all 9" — read
+     * Acme Retainer — Terms of Engagement" over "Show all 9" — read
      * perfectly, with no number in the sentence at all. So the distinct
      * count survives only to SELECT THE PLURAL FORM (FeedNoun::form()), which is
      * still a truth about the world and still locale-sensitive, and the

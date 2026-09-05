@@ -52,8 +52,11 @@ Write it while it's fresh; never reconstruct after the fact. See
 - Support policy: rolling current + previous Laravel major; PHP ^8.4 only,
   lean into 8.4 idioms. Dev tooling may dual-constrain (Pest ^4||^5) where the
   older Laravel lane's harness requires it.
-- No client names (kec/woodrill/hal) in anything tracked/public — collective
-  "past experience" framing only.
+- No client names in anything tracked/public — collective "past experience"
+  framing only. This repo is public, so the list itself is not written here:
+  it lives in `CLIENT-NAMES.md` (gitignored, local only). **Read it before
+  touching prior-implementation source or writing about it**, so you can
+  recognise a name when you see one.
 
 ## Workflow
 

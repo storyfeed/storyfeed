@@ -9,9 +9,9 @@ use Storyfeed\Models\Batch;
 use Storyfeed\Models\Grouping;
 
 /**
- * Link a just-published activity to its actor's current batch — the
- * travnett2 open-window pattern, generalized. Called inside the publish
- * transaction; the developer never sees it (atomic activities are
+ * Link a just-published activity to its actor's current batch — an earlier
+ * implementation's open-window pattern, generalized. Called inside the
+ * publish transaction; the developer never sees it (atomic activities are
  * recorded, the rest is handled).
  *
  * The quiet window is enforced HERE, lazily: if the actor's open batch has
