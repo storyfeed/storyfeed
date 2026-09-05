@@ -15,11 +15,22 @@ and one of them turned out to be returning `null` from all of them — folded in
 - **One contract.** `Feedable` is now `toFeed()` + `static feedMedia(FeedContext):
   ?FeedMedia`. `Contracts\HasFeedMedia`, `Feedable::toFeedLink(array)`, `FeedLink`
   and `FeedMedia::fromLink()` are **removed**, and `Support\LinkResolver` no longer
-  falls back. **Every `Feedable` that still declares `toFeedLink()` stops satisfying
-  the interface** — a fatal at class load, not a quiet degradation — until the
-  method is renamed and its body reads `$context->data(...)` instead of `$data[...]`
-  and returns a `FeedMedia`. Mechanical, not subtle; roughly thirteen classes
-  across the two pilots plus the reference renderer. (#6)
+  falls back. Rename the method to `feedMedia()`, read `$context->data(...)` instead
+  of `$data[...]`, and return a `FeedMedia`. Roughly thirteen classes across the two
+  pilots plus the reference renderer. (#6)
+
+  **THIS BREAK IS SILENT, NOT FATAL — read this before you upgrade.** An earlier
+  draft of this entry promised a fatal at class load. That is wrong, and the
+  reference renderer proved it on six models. `Concerns\InteractsWithFeed` supplies
+  a default `feedMedia()` returning null, so a model that still declares
+  `toFeedLink()` **satisfies the interface perfectly well** — the old method simply
+  becomes dead code nobody calls, and every `entity.url` for that model goes
+  **null** while the suite stays green. Nothing throws.
+
+  So the upgrade check is not "did it boot". It is: **assert a URL.** A suite that
+  never asserted one — which the reference renderer's did not, in its entire
+  history — will not notice. `phpstan` does report the stale method, but on a
+  project carrying pre-existing errors the signal is invisible in the noise.
 
   The interim was announced as additive until v1. It is folded now because two
   contracts were a DX cost every consumer paid for months to buy a migration that
