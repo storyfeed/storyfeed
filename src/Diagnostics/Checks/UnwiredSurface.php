@@ -111,28 +111,4 @@ class UnwiredSurface extends Check
             );
         }
     }
-
-    /**
-     * Aliases that appear in ANY role, not just as the object.
-     *
-     * A model used only as an actor or a target — a User, a Customer — is
-     * obviously wired into the feed. Checking `object_type` alone would report
-     * every one of them as unwired, which is the noise that gets a report
-     * ignored, and it is a nastier mistake than missing a real gap.
-     *
-     * @return array<int, string>
-     */
-    protected function recordedAliases(): array
-    {
-        $aliases = [];
-
-        foreach (['actor', 'object', 'target', 'context'] as $role) {
-            $aliases = [
-                ...$aliases,
-                ...$this->activities()->distinct()->toBase()->pluck("{$role}_type")->filter()->all(),
-            ];
-        }
-
-        return array_values(array_unique($aliases));
-    }
 }

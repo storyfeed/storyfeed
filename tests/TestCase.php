@@ -59,6 +59,13 @@ class TestCase extends Orchestra
         // correctly find nothing and every surface assertion would pass
         // vacuously — the failure mode those assertions exist to prevent.
         config()->set('storyfeed.discovery.paths', [__DIR__.'/../workbench/app']);
+
+        // The workbench User is the app's User. Testbench's skeleton points
+        // the auth provider at Illuminate\Foundation\Auth\User, which is not
+        // Feedable — exactly the condition the `entities` check exists to
+        // report, so left alone it would warn on every doctor run in the
+        // suite. The workbench is the app under test; its User is the actor.
+        config()->set('auth.providers.users.model', User::class);
     }
 
     protected function defineDatabaseMigrations(): void

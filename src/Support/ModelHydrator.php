@@ -107,6 +107,10 @@ final class ModelHydrator
      */
     public function model(string $type, int|string|null $id, array $with = [], bool $withTrashed = false): ?Model
     {
+        // Recorded BEFORE the switch is consulted, on purpose. The doctor's
+        // `hydration` check probes every resolver with a map built disabled,
+        // so it can learn who asks without paying for an answer; a request
+        // that was only noted when it was honoured would be invisible to it.
         $this->requested[$type] = true;
 
         if (! $this->enabled || $id === null) {

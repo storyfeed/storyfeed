@@ -42,6 +42,33 @@ abstract class Check implements DiagnosticCheck
         return $model::query();
     }
 
+    /**
+     * Morph aliases that fill ANY role on any activity, or one role when named.
+     *
+     * Shared because three checks reason about "what appears in the feed" and
+     * must agree on what that means: a model used only as an actor or a target
+     * — a User, a Customer — is wired into the feed exactly as much as one used
+     * as the object. Checking `object_type` alone would report every one of
+     * them as unwired, which is the noise that gets a report ignored, and it
+     * is a nastier mistake than missing a real gap.
+     *
+     * @param  'actor'|'object'|'target'|'context'|null  $role
+     * @return list<string>
+     */
+    protected function recordedAliases(?string $role = null): array
+    {
+        $aliases = [];
+
+        foreach ($role === null ? ['actor', 'object', 'target', 'context'] : [$role] as $each) {
+            $aliases = [
+                ...$aliases,
+                ...$this->activities()->distinct()->toBase()->pluck("{$each}_type")->filter()->all(),
+            ];
+        }
+
+        return array_values(array_unique($aliases));
+    }
+
     protected function lengthExpression(string $column): string
     {
         return match (Schema::getConnection()->getDriverName()) {

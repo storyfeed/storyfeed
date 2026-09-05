@@ -39,6 +39,8 @@ class Doctor
         Checks\FeedStale::class,
         Checks\ManifestStale::class,
         Checks\UnwiredSurface::class,
+        Checks\Entities::class,
+        Checks\Hydration::class,
         Checks\Parties::class,
         Checks\Participants::class,
     ];

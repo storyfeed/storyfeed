@@ -50,6 +50,79 @@ and one of them turned out to be returning `null` from all of them — folded in
 
 ### Added
 
+- **`hydration` — every Feedable whose resolver loads its model, named.**
+  `$context->model()` is a real capability with a real bill, and the bill was
+  invisible: nothing in a payload, a test or a page said that a feed loads
+  models. It would have shown up as a slow surface months later, blamed on
+  whatever shipped most recently. Doctor now names the classes that pay, as
+  **Info** — hydrating is a legitimate choice, not a defect, and a report that
+  warns about a decision the author made on purpose is the report people stop
+  reading. On an app where no resolver asks, the check says nothing.
+
+  **How it knows.** Three detection strategies were on the table (#5). Static
+  analysis of the resolver body loses the first time a resolver delegates to a
+  helper. A declared marker relies on the author remembering, and the whole
+  point is the author forgetting. The runtime flag `ModelHydrator::requested()`
+  is accurate, but a page's map dies with the page, so doctor would only ever
+  see what happened to render before it ran. So doctor **runs the resolver
+  itself**: each Feedable is handed a `FeedContext` whose identity map was built
+  disabled and asked for its media once per registered feed plus once unnamed,
+  the way an ad-hoc builder and the AS2 serializer ask. A disabled map records
+  the request before it consults the switch, so the probe learns who asks with
+  no query and nothing loaded. That is read-only by contract, not by hope —
+  `feedMedia()` is documented as a pure function of its context and is already
+  called for group exemplars that are never painted.
+
+  The probe uses the newest snapshot recorded for the alias as its
+  representative row. A class with no snapshot yet is probed with an empty one,
+  and a resolver that throws on *that* is passed over in silence — it has never
+  run, and a naive `$data['id']` throwing on nothing is not evidence. A resolver
+  that throws on its **own** snapshot is `hydration.opaque`, Info: an unanswered
+  question is not a clean answer. `hydration.model` names the class, the alias
+  and the feeds it was seen hydrating under, and says so when
+  `storyfeed.hydration.enabled` is off. `hydration.page` reads the most recent
+  default page of activities and counts the hydrating classes on it — one query
+  each — because a page's cost is per page, not per app, and "this page pays
+  two" is a number an operator can hold against a slow-query log. What no probe
+  can count is nested access past a hydrated model; the `model()` docblock
+  already calls that the N+1 it is.
+
+- **`entities` — a model that fills a feed role and cannot be resolved, named
+  row by row.** `surface` checks a model that *implements* Feedable and never
+  appears. Nothing checked the mirror: a model that *does* appear and implements
+  nothing. The sharpest case is the host app's own `User` — the package fills the
+  actor role from the authenticated user automatically, so it is the one model an
+  integrator never wires up by hand and was never told about. An operations
+  portal found every action its operator had taken rendering degraded in their
+  own audit vault, and the trickle counting the rows as unresolved on every run.
+
+  Four causes, four codes, because the fix differs each time:
+  `entities.unresolvable` (the alias resolves to no class), `entities.not_model`
+  (it resolves to something that is not Eloquent), `entities.unfeedable` (a model
+  with no `Feedable`), and `entities.missing` (a Feedable whose row is gone, or
+  hidden by a global scope — the same verdict the trickle reaches, so the rows
+  named are exactly the rows it counts, and would delete with pruning on). Each
+  names the role, the alias, the class, the activity count and example activities
+  to go and look at — "8 entities, 1 missing" was accurate and unactionable, and
+  the consumer had already built the named version for themselves. The row-level
+  cause is sampled, never scanned: fifty uncached ids per role and alias, one
+  `whereKey()` per class. A row that is present and uncached is `backlog`'s
+  business and is left to it.
+
+  `entities.auth_model` needs no table and no traffic: if the configured
+  authentication model is not Feedable, the first doctor run says so, not the
+  day after go-live. It is skipped when `storyfeed.actor_resolver` is configured,
+  because then the auth model may never be the actor; a runtime
+  `resolveActorUsing()` closure is not visible to it, and the recorded-alias pass
+  catches whatever that closure chooses once it runs. This is the one finding a
+  fresh install may meet before writing a line — deliberately, since it is the
+  line it needs to write.
+
+  Both checks are additive, never throw, never write, and degrade to silence on
+  a database that is not there. Both are `--only=`-able by name, and both are
+  the same idea as the read-mode checks before them: report what a feed actually
+  does, so a surface's behaviour is a fact someone can read rather than infer.
+
 - **The door the pilots did not need.** `FeedContext::model()` hands a resolver its
   live model — lazy, and batched per class across the page. Neither production
   consumer reads anything outside `$data` today, and it is added anyway, on sixteen
