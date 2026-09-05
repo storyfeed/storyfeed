@@ -26,7 +26,7 @@ it('emits the same payload shape as before the recording API change', function (
         'icon', 'actor', 'object', 'target', 'context', 'data',
     ]);
     expect(array_keys($payload['items'][0]['object']))->toBe([
-        'type', 'id', 'label', 'url', 'attributes', 'modal', 'component', 'data',
+        'type', 'id', 'label', 'url', 'attributes', 'modal', 'component', 'data', 'media',
     ]);
 });
 

@@ -30,6 +30,17 @@ enum Property: string implements VocabularyTerm
     case Name = 'name';
     case Url = 'url';
 
+    // The media slots and the Link properties they carry (docs/payload.md,
+    // `entity.media`). `name` doubles as a Link's accessible name — what a
+    // renderer calls alt — so it needs no second case.
+    case Icon = 'icon';
+    case Image = 'image';
+    case Preview = 'preview';
+    case Href = 'href';
+    case MediaType = 'mediaType';
+    case Width = 'width';
+    case Height = 'height';
+
     public function iri(): string
     {
         // orderedItems is the JSON-LD list alias for as:items, not a

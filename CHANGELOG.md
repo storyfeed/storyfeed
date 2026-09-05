@@ -158,6 +158,33 @@ and one of them turned out to be returning `null` from all of them.
   to see its own broken sentences — the surface was doing this check informally,
   the package took it away, so doctor owes it deliberately.
 
+- **The slot is the meaning.** The first image any consumer put in a snapshot
+  was a dish photo, and the story was meant to LEAD with it rather than describe
+  it. `FeedMedia` now carries four image slots — `icon`, `image`, `preview`, and
+  `url` itself, which accepts a `FeedImage` as well as a string — and the slots
+  are Activity Streams 2.0's own property names with AS2's own definitions. A
+  photo object is `url` (the full image) plus `preview` (the derivative you paint
+  in a list). Two URLs, on purpose: a single anonymous "media" field would have
+  made every dense feed fetch the full image, and every renderer guess from the
+  role what the picture was for.
+
+  `FeedImage` is `src`, `mediaType`, `width`, `height`, `alt`. The snapshot
+  carries the intrinsic facts and the resolver mints the `src` live, so nothing
+  already recorded needs re-recording. Named arguments and fluent setters both
+  work — `FeedMedia::make(url: $full, preview: $thumb)` or
+  `FeedMedia::make($href)->preview($thumb)` — and the properties are
+  `private(set)`, so the value is still immutable from outside.
+
+  On the payload this is **`entity.media`, additive**: `null` when no slot is
+  set (which is every resolver written before today), otherwise an object with
+  all four keys. `entity.url` keeps its frozen string shape; when the resource
+  is itself an image, `media.url` says so with its dimensions. On the AS2
+  document each slot is a `Link` object carrying `mediaType`, `width` and
+  `height` — the reason `Property` grew seven cases and `ns.storyfeed.dev` grew
+  none. Degradation is unchanged: no snapshot, no resolver call, no media; a
+  throw is reported and the entity arrives with nothing. What a grouped node
+  does with its exemplars' previews is deliberately not designed yet.
+
 ### Changed
 
 - **`aggregates` asks whether anything can actually read the pair.**

@@ -4,7 +4,10 @@ namespace Storyfeed\Serialization;
 
 use Storyfeed\ActivityStreams\ActivityType;
 use Storyfeed\ActivityStreams\Context;
+use Storyfeed\ActivityStreams\CoreType;
+use Storyfeed\ActivityStreams\Property;
 use Storyfeed\FeedContext;
+use Storyfeed\FeedImage;
 use Storyfeed\Models\Activity;
 use Storyfeed\Models\Grouping;
 use Storyfeed\Models\Snapshot;
@@ -157,14 +160,15 @@ class ActivitySerializer
         // No feed, on purpose. A federation document describes an activity,
         // not a surface, and must read the same whoever fetched it — so the
         // resolver is told there is no feed and answers from its default arm.
-        $url = $snapshot === null ? null : LinkResolver::resolve(new FeedContext(
+        $media = $snapshot === null ? null : LinkResolver::resolve(new FeedContext(
             type: $alias,
             id: $snapshot->model_id,
             label: $snapshot->label,
             data: $data,
             feed: null,
-        ))?->url;
-        $absolute = $url === null ? null : url($url);
+        ));
+        $href = $media?->href();
+        $absolute = $href === null ? null : url($href);
 
         return array_filter([
             'type' => $type,
@@ -172,8 +176,50 @@ class ActivitySerializer
             // `id` for actors (AS2 actors want identity) and `url` for the
             // other roles, matching the document-shape examples.
             'id' => $actor ? $absolute : null,
-            'name' => $snapshot?->label,
-            'url' => $actor ? null : $absolute,
+            Property::Name->value => $snapshot?->label,
+            // A url the resolver typed as an image becomes a Link object so
+            // its mediaType and dimensions travel; a plain href stays the
+            // bare string it always was. Both are legal values for as:url.
+            Property::Url->value => match (true) {
+                $actor => null,
+                $media?->url instanceof FeedImage => $this->link($media->url),
+                default => $absolute,
+            },
+            // The remaining slots are AS2's own properties with AS2's own
+            // meanings, which is the whole reason FeedMedia names them that
+            // way — nothing to translate, only to spell out.
+            Property::Icon->value => $this->link($media?->icon),
+            Property::Image->value => $this->link($media?->image),
+            Property::Preview->value => $this->link($media?->preview),
+        ], fn ($value) => $value !== null);
+    }
+
+    /**
+     * A FeedImage as an AS2 Link object.
+     *
+     * One shape for every slot, chosen because it is the one shape all four
+     * accept: `url` takes a Link, `preview` takes Object|Link, `icon` and
+     * `image` take Image|Link. A Link is also the only AS2 term that carries
+     * `width` and `height` in the REC, which is where a renderer's aspect
+     * reservation comes from. `src` and `alt` are spelled `href` and `name`
+     * here and nowhere else; absent facts are absent keys, never null, so a
+     * peer reading `width` cannot mistake "unknown" for a value.
+     *
+     * @return array<string, mixed>|null
+     */
+    protected function link(?FeedImage $image): ?array
+    {
+        if ($image === null) {
+            return null;
+        }
+
+        return array_filter([
+            'type' => CoreType::Link->value,
+            Property::Href->value => url($image->src),
+            Property::MediaType->value => $image->mediaType,
+            Property::Name->value => $image->alt,
+            Property::Width->value => $image->width,
+            Property::Height->value => $image->height,
         ], fn ($value) => $value !== null);
     }
 

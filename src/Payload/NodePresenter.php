@@ -412,11 +412,15 @@ class NodePresenter
             'type' => $type,
             'id' => $id === null ? null : (string) $id,
             'label' => $link->label ?? $snapshot?->label,
-            'url' => $link?->url,
+            'url' => $link?->href(),
             'attributes' => $link->attributes ?? [],
             'modal' => $link->modal ?? false,
             'component' => $snapshot?->component,
             'data' => $data,
+            // Additive (2026-09-05): the typed image slots, or null. `url`
+            // above stays the string it was frozen as; when the resource
+            // itself is an image its dimensions ride here as `media.url`.
+            'media' => $link?->media(),
         ];
     }
 }
