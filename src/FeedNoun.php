@@ -1,13 +1,26 @@
 <?php
 
-namespace Storyfeed\Support;
+namespace Storyfeed;
 
 use Illuminate\Translation\MessageSelector;
 use InvalidArgumentException;
 
 /**
  * The plural forms of the thing a role holds — "clause|clauses" — and the
- * form selected for a count ("clauses"), or the counted phrase ("7 clauses").
+ * form selected for a count ("clauses").
+ *
+ * WHY THE `Feed` PREFIX AND THE ROOT NAMESPACE (2026-09-05, issue #7). This
+ * is consumer-facing: `FeedNoun::trans('nouns.delivery')` is the documented
+ * way to register a translated noun, and it sits in an application's
+ * service provider next to `FeedEntity` and `FeedMedia`. A value object on
+ * the contract surface carries the `Feed` prefix so that its `use` line
+ * says whose it is — an unprefixed `Noun` reads like something the
+ * framework provides — and it lives at the root because `Support\` reads
+ * like plumbing, which tells the importer the wrong thing about what they
+ * hold. A transcription under `ActivityStreams\` keeps W3C's bare spelling;
+ * that is the other half of the same convention. It was `Support\Noun`
+ * before the convention existed, and the break was taken while it cost one
+ * `use` line.
  *
  * WHY A WRAPPER AND NOT A CONVENTION. A registry value is EITHER literal
  * plural forms or a translation key, and nothing about the string itself
@@ -19,16 +32,26 @@ use InvalidArgumentException;
  *
  *     Storyfeed::nouns([
  *         'clause' => 'clause|clauses',
- *         'document' => Noun::trans('nouns.document'),
+ *         'document' => FeedNoun::trans('nouns.document'),
  *     ]);
  *
  * Literal forms go through Laravel's MessageSelector rather than an English
  * `Str::plural()`, so a locale with more than two forms is served by adding
  * segments: Polish `klauzula|klauzule|klauzul` selects correctly at
- * n = 1 / 2 / 5 / 22 (NounTest proves it). Hand-rolled pluralisation could
- * never do that, and would be wrong in English soon enough anyway.
+ * n = 1 / 2 / 5 / 22 (FeedNounTest proves it). Hand-rolled pluralisation
+ * could never do that, and would be wrong in English soon enough anyway.
+ *
+ * THERE IS NO COUNTED PHRASE. `phrase()` — "1,204 clauses" — was removed
+ * with the rename. The rung stopped printing a number (see form()), which
+ * left it with no caller in core, and nothing in the docs ever taught it.
+ * Its one claim to stay was the thousands grouping, and that grouping was
+ * `number_format()`: "1,204" is right in English and wrong in Polish
+ * ("1 204") and German ("1.204"), an English guess shipped on the app's
+ * behalf — the exact thing this class refuses to do for plurals. An app
+ * that wants the number said composes it with its own locale-aware
+ * formatter: `Number::format($n).' '.FeedNoun::form($noun, $n)`.
  */
-final class Noun
+final class FeedNoun
 {
     /**
      * The noun used when a type has none registered.
@@ -67,7 +90,7 @@ final class Noun
                 "The noun [{$forms}] has only one form. Storyfeed never inflects — English "
                 .'inflection is wrong often enough to matter and wrong everywhere else by '
                 ."default — so give it both: ['{$forms}|{$forms}s']. Locales needing more "
-                .'forms take more segments, and a translation key goes behind Noun::trans().',
+                .'forms take more segments, and a translation key goes behind FeedNoun::trans().',
             );
         }
 
@@ -88,11 +111,11 @@ final class Noun
         }
 
         /*
-         * `:count` IS SUPPRESSED, not passed through. A noun is a noun — if a
-         * number belongs anywhere it is prepended by phrase(), and the rung
-         * that renders this into a headline prints no number at all. But
-         * Laravel's trans_choice() adds `count` to the replacements for free,
-         * so a translator who reasonably writes ":count clauses" used to get
+         * `:count` IS SUPPRESSED, not passed through. A noun is a noun — the
+         * rung that renders this into a headline prints no number at all,
+         * and a caller who wants one prepends it themselves. But Laravel's
+         * trans_choice() adds `count` to the replacements for free, so a
+         * translator who reasonably writes ":count clauses" used to get
          * "7 7 clauses" on the page. Overriding it with an empty string makes
          * that line render the noun alone instead of doubling the number, and
          * the collapse below removes the space it leaves behind.
@@ -134,19 +157,5 @@ final class Noun
         };
 
         return $noun->forCount($count);
-    }
-
-    /**
-     * "7 clauses" — the counted phrase, thousands grouped, for a caller that
-     * wants the number said.
-     *
-     * No longer what the rung substitutes into a headline (see form()), and
-     * kept on purpose: the grouping is here so that a number a person reads
-     * is "1,204 clauses" and not "1204 clauses", and an app composing its own
-     * count phrase from a registered noun should not have to rediscover that.
-     */
-    public static function phrase(string|self|null $noun, int $count): string
-    {
-        return number_format($count).' '.self::form($noun, $count);
     }
 }

@@ -48,6 +48,29 @@ and one of them turned out to be returning `null` from all of them — folded in
   payload is cached per feed or not at all. `docs/payload.md` carries that last
   one in full.
 
+- **`Support\Noun` is now `Storyfeed\FeedNoun`, and `phrase()` is gone.** The class
+  is consumer-facing — `FeedNoun::trans('nouns.delivery')` is the documented way to
+  register a translated noun — so it follows the convention every other value object
+  on the contract surface already follows: `FeedEntity`, `FeedContext`, `FeedMedia`,
+  `FeedImage`. The prefix is provenance before collision: an unprefixed `Noun` in an
+  application's `use` block reads like something the framework provides, and
+  `Support\` reads like plumbing, which tells the importer the wrong thing about what
+  they hold. Transcriptions under `ActivityStreams\` keep W3C's bare spelling on
+  purpose; that is the other half of the same convention. **The migration is one
+  line**: `use Storyfeed\Support\Noun;` becomes `use Storyfeed\FeedNoun;` and every
+  `Noun::` becomes `FeedNoun::`. There is no alias — the break is taken now, while it
+  costs one `use` line, rather than after the surface is documented further. (#7)
+
+  **`phrase()` — "1,204 clauses" — is removed in the same breath.** The rung stopped
+  printing its number (below), which left it with no caller in core, and nothing in
+  the docs ever taught it: `of()` and `trans()` are the registration surface,
+  `form()` the selection. Its one claim to stay was the thousands grouping, and that
+  grouping was `number_format()` — right in English, wrong in Polish ("1 204") and
+  German ("1.204"), an English guess shipped on the app's behalf, which is exactly
+  what this class refuses to do for plurals. An app that wants the number said
+  composes it with its own locale-aware formatter:
+  `Number::format($n).' '.FeedNoun::form($noun, $n)`. One break, not two.
+
 ### Added
 
 - **`unrestricted()` — a world feed says so, and doctor believes it at the right
@@ -377,9 +400,9 @@ and one of them turned out to be returning `null` from all of them — folded in
   untouched**: `:count` in your own aggregate grammar still prints and is still
   formatted by the renderer, at the end of the clause where an author puts it —
   the mid-sentence substitution the rung performs is what cannot carry a number.
-  `Support\Noun::form()` is the number-free selection the rung now uses;
-  `Noun::phrase()` keeps producing "1,204 clauses" for a caller that wants the
-  number said.
+  `FeedNoun::form()` is the number-free selection the rung now uses; `phrase()`,
+  which used to produce "1,204 clauses", was kept at first for a caller that wanted
+  the number said and then removed with the rename (see Breaking).
 
 - **`aggregates` asks whether anything can actually read the pair.**
   `AggregateCoverage` warned for every clustered `(axis, verb)` pair with no

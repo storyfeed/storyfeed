@@ -5,12 +5,12 @@ namespace Storyfeed\Payload;
 use Closure;
 use Illuminate\Support\Collection;
 use Storyfeed\FeedContext;
+use Storyfeed\FeedNoun;
 use Storyfeed\Models\Activity;
 use Storyfeed\Models\Snapshot;
 use Storyfeed\StoryfeedManager;
 use Storyfeed\Support\LinkResolver;
 use Storyfeed\Support\ModelHydrator;
-use Storyfeed\Support\Noun;
 use Throwable;
 
 /**
@@ -240,7 +240,7 @@ class NodePresenter
      * counts acts. On the same screen the fully-pinned row — "updated
      * Travnett Retainer — Terms of Engagement" over "Show all 9" — read
      * perfectly, with no number in the sentence at all. So the distinct
-     * count survives only to SELECT THE PLURAL FORM (Noun::form()), which is
+     * count survives only to SELECT THE PLURAL FORM (FeedNoun::form()), which is
      * still a truth about the world and still locale-sensitive, and the
      * sentence carries no number for the disclosure to disagree with.
      * Authored templates are untouched: an author who writes `:count` gets
@@ -314,7 +314,7 @@ class NodePresenter
             // The type is pinned by construction, so the head member's alias
             // is every member's alias — the licence for one noun to speak
             // for all of them. The count picks the form; it is never printed.
-            $phrase = Noun::form(
+            $phrase = FeedNoun::form(
                 $this->storyfeed->noun($first->{"{$role}_type"}, (string) $first->verb),
                 $count,
             );

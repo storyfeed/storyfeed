@@ -13,5 +13,5 @@ arch('contracts are interfaces')
     ->toBeInterfaces();
 
 arch('value objects are final')
-    ->expect(['Storyfeed\FeedEntity', 'Storyfeed\FeedContext', 'Storyfeed\FeedMedia', 'Storyfeed\FeedImage'])
+    ->expect(['Storyfeed\FeedEntity', 'Storyfeed\FeedContext', 'Storyfeed\FeedMedia', 'Storyfeed\FeedImage', 'Storyfeed\FeedNoun'])
     ->toBeFinal();

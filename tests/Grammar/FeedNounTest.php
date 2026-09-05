@@ -1,20 +1,27 @@
 <?php
 
 use Storyfeed\Facades\Storyfeed;
-use Storyfeed\Support\Noun;
+use Storyfeed\FeedNoun;
 
 it('selects the English plural forms by count', function () {
-    expect(Noun::phrase('clause|clauses', 1))->toBe('1 clause')
-        ->and(Noun::phrase('clause|clauses', 7))->toBe('7 clauses');
+    expect(FeedNoun::form('clause|clauses', 1))->toBe('clause')
+        ->and(FeedNoun::form('clause|clauses', 7))->toBe('clauses');
 });
 
 it('falls back to a generic noun when none is registered', function () {
-    expect(Noun::phrase(null, 7))->toBe('7 items')
-        ->and(Noun::phrase(null, 1))->toBe('1 item');
+    expect(FeedNoun::form(null, 7))->toBe('items')
+        ->and(FeedNoun::form(null, 1))->toBe('item');
 });
 
-it('groups the thousands, because a headline is read by a person', function () {
-    expect(Noun::phrase('clause|clauses', 1204))->toBe('1,204 clauses');
+it('never prints the number itself', function () {
+    // phrase() used to hand back "1,204 clauses". The grouping in it was
+    // number_format() — right in English, wrong in Polish ("1 204") and
+    // German ("1.204") — an English guess of exactly the kind this class
+    // refuses to make for plurals. The count selects the form and stays
+    // out of the string; an app that wants it said formats it with its own
+    // locale-aware helper and prepends it.
+    expect(FeedNoun::form('clause|clauses', 1204))->toBe('clauses')
+        ->and(method_exists(FeedNoun::class, 'phrase'))->toBeFalse();
 });
 
 it('serves locales with more than two plural forms', function () {
@@ -25,10 +32,10 @@ it('serves locales with more than two plural forms', function () {
 
     $forms = 'klauzula|klauzule|klauzul';
 
-    expect(Noun::phrase($forms, 1))->toBe('1 klauzula')
-        ->and(Noun::phrase($forms, 2))->toBe('2 klauzule')
-        ->and(Noun::phrase($forms, 5))->toBe('5 klauzul')
-        ->and(Noun::phrase($forms, 22))->toBe('22 klauzule');
+    expect(FeedNoun::form($forms, 1))->toBe('klauzula')
+        ->and(FeedNoun::form($forms, 2))->toBe('klauzule')
+        ->and(FeedNoun::form($forms, 5))->toBe('klauzul')
+        ->and(FeedNoun::form($forms, 22))->toBe('klauzule');
 });
 
 it('resolves a translation key only behind the explicit wrapper', function () {
@@ -37,8 +44,8 @@ it('resolves a translation key only behind the explicit wrapper', function () {
     // The same string as a plain value is never looked up — otherwise
     // adding a lang file could silently rewrite a headline. It is read as
     // literal forms, and having only one of them is an error.
-    expect(Noun::phrase(Noun::trans('nouns.clause'), 7))->toBe('7 clauses')
-        ->and(fn () => Noun::phrase('nouns.clause', 7))
+    expect(FeedNoun::form(FeedNoun::trans('nouns.clause'), 7))->toBe('clauses')
+        ->and(fn () => FeedNoun::form('nouns.clause', 7))
         ->toThrow(InvalidArgumentException::class, 'has only one form');
 });
 
@@ -51,7 +58,7 @@ it('refuses to inflect, and says so where the developer is looking', function ()
 
     Storyfeed::nouns(['terms_sheet' => 'terms sheet|terms sheets']);
 
-    expect(Noun::phrase(Storyfeed::noun('terms_sheet', 'sign'), 4))->toBe('4 terms sheets');
+    expect(FeedNoun::form(Storyfeed::noun('terms_sheet', 'sign'), 4))->toBe('terms sheets');
 });
 
 it('looks nouns up by type, then by type and verb', function () {
@@ -69,7 +76,7 @@ it('looks nouns up by type, then by type and verb', function () {
 it('lets a generic entry stand in for every unregistered type', function () {
     Storyfeed::nouns(['*' => 'record|records']);
 
-    expect(Noun::phrase(Storyfeed::noun('anything', 'upload'), 3))->toBe('3 records');
+    expect(FeedNoun::form(Storyfeed::noun('anything', 'upload'), 3))->toBe('records');
 });
 
 it('refuses a list where a map of nouns was meant', function () {
@@ -80,10 +87,10 @@ it('refuses a list where a map of nouns was meant', function () {
 it('suppresses :count inside a translated noun rather than doubling the number', function () {
     // trans_choice() adds `count` to the replacements for free, so a
     // translator who writes ":count clauses" — an entirely reasonable thing to
-    // write — used to put "7 7 clauses" on the page. The number belongs to
-    // phrase(); the key supplies the noun.
+    // write — used to put "7 7 clauses" on the page. The key supplies the
+    // noun and nothing else; no number is printed anywhere.
     app('translator')->addLines(['test.clause' => '{1} :count clause|[2,*] :count clauses'], 'en');
 
-    expect(Noun::phrase(Noun::trans('test.clause'), 7))->toBe('7 clauses')
-        ->and(Noun::phrase(Noun::trans('test.clause'), 1))->toBe('1 clause');
+    expect(FeedNoun::form(FeedNoun::trans('test.clause'), 7))->toBe('clauses')
+        ->and(FeedNoun::form(FeedNoun::trans('test.clause'), 1))->toBe('clause');
 });

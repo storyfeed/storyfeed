@@ -24,7 +24,7 @@ use Storyfeed\Testing\StoryfeedFake;
  * @method static \Storyfeed\StoryfeedManager grammar(array $grammar, bool $merge = true)
  * @method static \Storyfeed\StoryfeedManager icons(array $icons, bool $merge = true)
  * @method static \Storyfeed\StoryfeedManager nouns(array $nouns, bool $merge = true)
- * @method static string|\Storyfeed\Support\Noun|null noun(?string $type, string $verb)
+ * @method static string|\Storyfeed\FeedNoun|null noun(?string $type, string $verb)
  * @method static array registeredNouns()
  * @method static \Storyfeed\StoryfeedManager verbs(array|string $verbs, bool $merge = true)
  * @method static \Storyfeed\StoryfeedManager objectTypes(array $objectTypes, bool $merge = true)

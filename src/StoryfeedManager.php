@@ -26,7 +26,6 @@ use Storyfeed\Grouping\Axis;
 use Storyfeed\Models\Activity;
 use Storyfeed\Models\Party;
 use Storyfeed\Support\MorphResolver;
-use Storyfeed\Support\Noun;
 use Throwable;
 
 class StoryfeedManager
@@ -53,7 +52,7 @@ class StoryfeedManager
     protected array $icons = [];
 
     /**
-     * @var array<string, string|Noun> plural forms keyed 'type' or 'type.verb'
+     * @var array<string, string|FeedNoun> plural forms keyed 'type' or 'type.verb'
      */
     protected array $nouns = [];
 
@@ -999,7 +998,7 @@ class StoryfeedManager
      *   Storyfeed::nouns([
      *       'clause' => 'clause|clauses',        // per TYPE
      *       'document.upload' => 'file|files',   // per (type, verb)
-     *       'delivery' => Noun::trans('nouns.delivery'),
+     *       'delivery' => FeedNoun::trans('nouns.delivery'),
      *   ]);
      *
      * Keys are MORPH ALIASES — the value stored in `object_type` — never
@@ -1015,11 +1014,11 @@ class StoryfeedManager
      *
      * BOTH FORMS ARE REQUIRED — 'terms sheet|terms sheets'. The core never
      * inflects, so a single-form value throws here rather than rendering
-     * "7 terms sheet" to somebody's customer. See Noun::of().
+     * "7 terms sheet" to somebody's customer. See FeedNoun::of().
      *
      * Typed loosely on the KEY on purpose — see assertKeyed().
      *
-     * @param  array<array-key, string|Noun>  $nouns
+     * @param  array<array-key, string|FeedNoun>  $nouns
      */
     public function nouns(array $nouns, bool $merge = true): static
     {
@@ -1029,7 +1028,7 @@ class StoryfeedManager
         // authoring mistake, and the core never inflects to cover it.
         foreach ($nouns as $noun) {
             if (is_string($noun)) {
-                Noun::of($noun);
+                FeedNoun::of($noun);
             }
         }
 
@@ -1042,7 +1041,7 @@ class StoryfeedManager
      * The noun registered for a type (optionally refined by verb), or null
      * when none is — which the caller renders as the generic noun.
      */
-    public function noun(?string $type, string $verb): string|Noun|null
+    public function noun(?string $type, string $verb): string|FeedNoun|null
     {
         if ($type !== null && array_key_exists("{$type}.{$verb}", $this->nouns)) {
             return $this->nouns["{$type}.{$verb}"];
@@ -1055,7 +1054,7 @@ class StoryfeedManager
         return $this->nouns['*'] ?? null;
     }
 
-    /** @return array<string, string|Noun> */
+    /** @return array<string, string|FeedNoun> */
     public function registeredNouns(): array
     {
         return $this->nouns;

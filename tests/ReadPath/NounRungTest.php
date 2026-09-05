@@ -1,10 +1,10 @@
 <?php
 
 use Storyfeed\Facades\Storyfeed;
+use Storyfeed\FeedNoun;
 use Storyfeed\Models\Activity;
 use Storyfeed\Payload\GroupSlice;
 use Storyfeed\Payload\NodePresenter;
-use Storyfeed\Support\Noun;
 use Workbench\App\Models\Customer;
 use Workbench\App\Models\Delivery;
 use Workbench\App\Models\User;
@@ -233,7 +233,7 @@ it('still picks the form by count in a locale with more than two of them', funct
 it('accepts a translated noun through the wrapper', function () {
     app('translator')->addLines(['nouns.delivery' => 'file|files'], 'en');
 
-    Storyfeed::nouns(['delivery' => Noun::trans('nouns.delivery')]);
+    Storyfeed::nouns(['delivery' => FeedNoun::trans('nouns.delivery')]);
 
     $project = Customer::create(['name' => 'Concur']);
 
