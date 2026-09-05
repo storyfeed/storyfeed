@@ -3,7 +3,6 @@
 namespace Storyfeed\Support;
 
 use Storyfeed\Contracts\Feedable;
-use Storyfeed\Contracts\HasFeedMedia;
 use Storyfeed\FeedContext;
 use Storyfeed\FeedMedia;
 use Throwable;
@@ -14,10 +13,12 @@ use Throwable;
  * drift. One broken resolver never breaks a feed: failures are reported
  * and degrade to null.
  *
- * This is also the single point where the two resolver contracts meet.
- * HasFeedMedia::feedMedia() wins when a class implements it; otherwise
- * Feedable::toFeedLink() answers, indefinitely. Both call sites see only a
- * FeedMedia, so neither knows which contract spoke.
+ * The seam survives the fold. Until 2026-09-05 this was where two resolver
+ * contracts met — HasFeedMedia::feedMedia() winning over the older
+ * Feedable::toFeedLink() — and it stays the single call site so that when
+ * the contract next grows (a hydrated model, issue #4) both surfaces pick
+ * it up at once. Neither caller has ever known which method answered, and
+ * neither needs to now that only one can.
  */
 class LinkResolver
 {
@@ -25,20 +26,12 @@ class LinkResolver
     {
         $class = MorphResolver::classFor($context->type());
 
-        if ($class === null) {
+        if ($class === null || ! is_a($class, Feedable::class, true)) {
             return null;
         }
 
         try {
-            if (is_a($class, HasFeedMedia::class, true)) {
-                return $class::feedMedia($context);
-            }
-
-            if (is_a($class, Feedable::class, true)) {
-                $link = $class::toFeedLink($context->data());
-
-                return $link === null ? null : FeedMedia::fromLink($link);
-            }
+            return $class::feedMedia($context);
         } catch (Throwable $e) {
             report($e);
         }

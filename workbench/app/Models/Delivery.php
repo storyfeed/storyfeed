@@ -8,8 +8,9 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Storyfeed\Concerns\InteractsWithFeed;
 use Storyfeed\Contracts\Feedable;
 use Storyfeed\Contracts\HasFeedShapeVersion;
+use Storyfeed\FeedContext;
 use Storyfeed\FeedEntity;
-use Storyfeed\FeedLink;
+use Storyfeed\FeedMedia;
 
 /**
  * @property int $id
@@ -22,8 +23,8 @@ class Delivery extends Model implements Feedable, HasFeedShapeVersion
     use InteractsWithFeed;
     use SoftDeletes;
 
-    /** Test spy: how often the package asked for a live link. */
-    public static int $feedLinkCalls = 0;
+    /** Test spy: how often the package asked for live media. */
+    public static int $feedMediaCalls = 0;
 
     /** Test hook: simulate a deployed change to toFeed()'s data shape. */
     public static bool $extendedFeedShape = false;
@@ -57,13 +58,15 @@ class Delivery extends Model implements Feedable, HasFeedShapeVersion
         return static::$feedShapeVersion;
     }
 
-    public static function toFeedLink(array $data): ?FeedLink
+    public static function feedMedia(FeedContext $context): ?FeedMedia
     {
-        static::$feedLinkCalls++;
+        static::$feedMediaCalls++;
 
-        // Deliberately strict about $data['id'] — a naive real-world
+        // Deliberately strict about the raw array — a naive real-world
         // implementation looks like this, and the package must never call
         // it with empty data (see FrictionRegressionTest).
-        return FeedLink::make("/deliveries/{$data['id']}", attributes: ['data-status' => $data['status'] ?? null]);
+        $data = $context->data();
+
+        return FeedMedia::make("/deliveries/{$data['id']}", attributes: ['data-status' => $data['status'] ?? null]);
     }
 }

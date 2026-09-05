@@ -6,12 +6,11 @@ namespace Storyfeed;
  * What a resolver knows about an entity at read time that its snapshot
  * cannot cache: a fresh url, an optional label override, link attributes,
  * a modal hint, and the images that go with it. Returned by
- * HasFeedMedia::feedMedia().
+ * Feedable::feedMedia().
  *
- * Subsumes FeedLink, which stopped being "a link" once it grew a label and
- * a modal flag. A FeedLink from the older contract converts losslessly via
- * fromLink(), so the read path only ever handles one shape. Part of the
- * versioned payload contract.
+ * Replaced FeedLink, which stopped being "a link" once it grew a label and
+ * a modal flag, and which was removed with the older toFeedLink() contract
+ * on 2026-09-05 (journal 057). Part of the versioned payload contract.
  *
  * ## The slots are AS2's property names, and the slot IS the meaning
  *
@@ -91,15 +90,6 @@ final class FeedMedia
     public static function modal(FeedImage|string|null $url = null, ?string $label = null, array $attributes = []): self
     {
         return new self($url, $label, $attributes, modal: true);
-    }
-
-    /**
-     * Lift a toFeedLink() result into the current shape, so the presenter
-     * and serializer never branch on which contract answered.
-     */
-    public static function fromLink(FeedLink $link): self
-    {
-        return new self($link->url, $link->label, $link->attributes, $link->modal);
     }
 
     public function url(FeedImage|string|null $url): self

@@ -8,8 +8,9 @@ use Storyfeed\Actions\SnapshotEntity;
 use Storyfeed\ActivityStreams\ObjectType;
 use Storyfeed\Contracts\Feedable;
 use Storyfeed\Contracts\HasActivityStreamsType;
+use Storyfeed\FeedContext;
 use Storyfeed\FeedEntity;
-use Storyfeed\FeedLink;
+use Storyfeed\FeedMedia;
 
 /**
  * A named participant that lives only in the feed: an external system, the
@@ -113,9 +114,15 @@ class Party extends Model implements Feedable, HasActivityStreamsType
         );
     }
 
-    public static function toFeedLink(array $data): ?FeedLink
+    /**
+     * Parties have no canonical URL in the host application. Written out
+     * rather than taken from InteractsWithFeed because Party does not use
+     * the trait: it keeps its own saved hook and deliberately no delete
+     * cascade (history outlives a retired integration).
+     */
+    public static function feedMedia(FeedContext $context): ?FeedMedia
     {
-        return null; // Parties have no canonical URL in the host application.
+        return null;
     }
 
     /**

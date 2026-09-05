@@ -5,8 +5,9 @@ namespace Workbench\App\Models;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Storyfeed\Concerns\InteractsWithFeed;
 use Storyfeed\Contracts\Feedable;
+use Storyfeed\FeedContext;
 use Storyfeed\FeedEntity;
-use Storyfeed\FeedLink;
+use Storyfeed\FeedMedia;
 
 /**
  * @property int $id
@@ -27,8 +28,8 @@ class User extends Authenticatable implements Feedable
         );
     }
 
-    public static function toFeedLink(array $data): ?FeedLink
+    public static function feedMedia(FeedContext $context): ?FeedMedia
     {
-        return FeedLink::make("/users/{$data['id']}");
+        return FeedMedia::make("/users/{$context->data('id')}");
     }
 }

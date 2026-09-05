@@ -1,15 +1,17 @@
 <?php
 
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\Facades\Exceptions;
+use Storyfeed\Concerns\InteractsWithFeed;
 use Storyfeed\Contracts\Feedable;
-use Storyfeed\Contracts\HasFeedMedia;
 use Storyfeed\Facades\Storyfeed;
 use Storyfeed\FeedBuilder;
 use Storyfeed\FeedContext;
-use Storyfeed\FeedLink;
+use Storyfeed\FeedEntity;
 use Storyfeed\FeedMedia;
 use Storyfeed\Models\Activity;
+use Storyfeed\Models\Party;
 use Storyfeed\Support\LinkResolver;
 use Workbench\App\Feeds\AdminFeed;
 use Workbench\App\Feeds\CustomerFeed;
@@ -18,16 +20,25 @@ use Workbench\App\Models\Delivery;
 use Workbench\App\Models\User;
 
 /*
- * The resolver seam (issue #2): feedMedia(FeedContext) is preferred over
- * toFeedLink(array), and the older contract keeps working unchanged.
+ * The resolver contract (issues #2 and #6): Feedable::feedMedia(FeedContext)
+ * is the one resolver. HasFeedMedia, toFeedLink(array) and FeedLink were
+ * folded away on 2026-09-05 (journal 057), and the trait supplies the null
+ * default so the fold does not redline a model that has nowhere to point.
  */
 
 beforeEach(function () {
-    Customer::$feedLinkCalls = 0;
     Customer::$lastContext = null;
 });
 
-it('prefers feedMedia() over toFeedLink() when a model implements both', function () {
+it('has one contract: feedMedia() lives on Feedable and the interim pieces are gone', function () {
+    expect(method_exists(Feedable::class, 'feedMedia'))->toBeTrue()
+        ->and(method_exists(Feedable::class, 'toFeedLink'))->toBeFalse()
+        ->and(interface_exists('Storyfeed\\Contracts\\HasFeedMedia'))->toBeFalse()
+        ->and(class_exists('Storyfeed\\FeedLink'))->toBeFalse()
+        ->and(method_exists(FeedMedia::class, 'fromLink'))->toBeFalse();
+});
+
+it('answers through Feedable::feedMedia() for every model on the contract', function () {
     $customer = Customer::create(['name' => 'Acme']);
 
     Storyfeed::activity('onboard', $customer)->publish();
@@ -35,7 +46,7 @@ it('prefers feedMedia() over toFeedLink() when a model implements both', functio
     $item = Storyfeed::feed()->get()->toArray()['items'][0];
 
     expect($item['object']['url'])->toBe("/customers/{$customer->id}")
-        ->and(Customer::$feedLinkCalls)->toBe(0);
+        ->and(Customer::$lastContext)->toBeInstanceOf(FeedContext::class);
 });
 
 it('hands feedMedia() the snapshot as a context, not a bare array', function () {
@@ -63,7 +74,9 @@ it('degrades a missing context value to the default instead of warning', functio
         ->and($context->label())->toBeNull();
 });
 
-it('still answers through toFeedLink() for models that have not moved', function () {
+it('carries url, attributes and the modal hint from a migrated resolver without losing a slot', function () {
+    // Delivery was the last workbench model on toFeedLink(); the fold moved
+    // it. Everything a FeedLink used to carry still arrives on the node.
     $delivery = Delivery::create(['tracking_number' => 'TN-1', 'status' => 'draft']);
 
     Storyfeed::activity('confirm', $delivery)->publish();
@@ -75,14 +88,47 @@ it('still answers through toFeedLink() for models that have not moved', function
         ->and($item['object']['modal'])->toBeFalse();
 });
 
-it('lifts a FeedLink into FeedMedia without losing a slot', function () {
-    $media = FeedMedia::fromLink(FeedLink::modal('/x', 'Label', ['target' => '_blank']));
+it('compiles a bare Feedable with only toFeed() written, and links nothing', function () {
+    // The DX promise of the fold: `implements Feedable` + `use InteractsWithFeed`
+    // is green on first save, because the trait answers feedMedia() with null.
+    $model = new class extends Model implements Feedable
+    {
+        use InteractsWithFeed;
 
-    expect($media)->toBeInstanceOf(FeedMedia::class)
-        ->and($media->url)->toBe('/x')
-        ->and($media->label)->toBe('Label')
-        ->and($media->attributes)->toBe(['target' => '_blank'])
-        ->and($media->modal)->toBeTrue();
+        protected $table = 'customers';
+
+        protected $guarded = [];
+
+        public function toFeed(): FeedEntity
+        {
+            return FeedEntity::make(label: 'Bare');
+        }
+    };
+
+    Relation::morphMap(['bare' => $model::class]);
+
+    expect($model::feedMedia(new FeedContext(type: 'bare', id: 1)))->toBeNull()
+        ->and(LinkResolver::resolve(new FeedContext(type: 'bare', id: 1, data: ['id' => 1])))->toBeNull();
+
+    $bare = $model::create(['name' => 'Bare']);
+
+    Storyfeed::activity('onboard', $bare)->publish();
+
+    $item = Storyfeed::feed()->get()->toArray()['items'][0];
+
+    expect($item['object']['label'])->toBe('Bare')
+        ->and($item['object']['url'])->toBeNull()
+        ->and($item['object']['media'])->toBeNull();
+});
+
+it('defaults feedMedia() in the trait and deliberately not toFeed()', function () {
+    // A missing link is a state; a missing label is a defect. The trait
+    // satisfies only the method where "nothing" is a real answer.
+    $trait = new ReflectionClass(InteractsWithFeed::class);
+
+    expect($trait->hasMethod('feedMedia'))->toBeTrue()
+        ->and($trait->getMethod('feedMedia')->isStatic())->toBeTrue()
+        ->and($trait->hasMethod('toFeed'))->toBeFalse();
 });
 
 it('lets feedMedia() override the cached label and hint a modal', function () {
@@ -126,7 +172,7 @@ it('reports a throwing feedMedia() and degrades to null', function () {
     Exceptions::assertReported(RuntimeException::class);
 });
 
-it('returns null for an alias whose class implements neither contract', function () {
+it('returns null for an alias whose class is not Feedable, and for an alias that resolves to nothing', function () {
     Relation::morphMap(['plain' => Activity::class]);
 
     expect(LinkResolver::resolve(new FeedContext(type: 'plain', data: ['id' => 1])))->toBeNull()
@@ -179,10 +225,15 @@ it('hands the same entity id to the resolver from both surfaces', function () {
         ->and($activity->fresh()->cachedObject?->model_id)->toBe($presented?->id());
 });
 
-it('keeps the contracts optional and interface-shaped', function () {
-    expect(Customer::class)->toImplement(HasFeedMedia::class)
-        ->and(Delivery::class)->toImplement(Feedable::class)
-        ->and(Delivery::class)->not->toImplement(HasFeedMedia::class);
+it('puts every model on the same contract, package-owned ones included', function () {
+    foreach ([Customer::class, Delivery::class, User::class, Party::class] as $class) {
+        expect($class)->toImplement(Feedable::class)
+            ->and(method_exists($class, 'feedMedia'))->toBeTrue();
+    }
+
+    // Party has no canonical URL and does not use the trait (it keeps its
+    // own saved hook and no delete cascade), so it answers null itself.
+    expect(Party::feedMedia(new FeedContext(type: 'storyfeed.party', id: 1)))->toBeNull();
 });
 
 /*

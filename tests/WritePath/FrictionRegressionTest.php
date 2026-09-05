@@ -23,8 +23,8 @@ it('publishes with a timestamp even when model events are muted', function () {
         ->and(Storyfeed::feed()->get()->toArray()['items'])->toHaveCount(1);
 });
 
-it('never calls toFeedLink for un-snapshotted entities', function () {
-    Delivery::$feedLinkCalls = 0;
+it('never calls feedMedia() for un-snapshotted entities', function () {
+    Delivery::$feedMediaCalls = 0;
 
     Activity::query()->create([
         'verb' => 'confirm',
@@ -36,8 +36,8 @@ it('never calls toFeedLink for un-snapshotted entities', function () {
     $item = Storyfeed::feed()->get()->toArray()['items'][0];
 
     // The contract promises degraded entities arrive with url: null; calling
-    // the app's toFeedLink([]) makes every naive implementation warn.
-    expect(Delivery::$feedLinkCalls)->toBe(0)
+    // the app's resolver with empty data makes every naive implementation warn.
+    expect(Delivery::$feedMediaCalls)->toBe(0)
         ->and($item['object']['url'])->toBeNull();
 });
 

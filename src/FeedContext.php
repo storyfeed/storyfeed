@@ -4,8 +4,8 @@ namespace Storyfeed;
 
 /**
  * Everything the read path knows about an entity at the moment a resolver
- * is asked for its media — handed to HasFeedMedia::feedMedia() in place of
- * the bare snapshot array toFeedLink() receives.
+ * is asked for its media — handed to Feedable::feedMedia() in place of the
+ * bare snapshot array the retired toFeedLink() used to receive.
  *
  * The object exists so the contract can grow. Adding a parameter to an
  * interface method breaks every implementation; adding an accessor here

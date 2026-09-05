@@ -2,11 +2,9 @@
 
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\Facades\Exceptions;
-use Storyfeed\Contracts\HasFeedMedia;
 use Storyfeed\Facades\Storyfeed;
 use Storyfeed\FeedContext;
 use Storyfeed\FeedImage;
-use Storyfeed\FeedLink;
 use Storyfeed\FeedMedia;
 use Storyfeed\Models\Activity;
 use Storyfeed\Serialization\ActivitySerializer;
@@ -104,7 +102,7 @@ it('degrades impossible dimensions to null rather than reserving a zero box', fu
 
 it('answers null media when no slot is set, and every slot key when one is', function () {
     expect(FeedMedia::make('/x')->media())->toBeNull()
-        ->and(FeedMedia::fromLink(FeedLink::make('/x'))->media())->toBeNull()
+        ->and(FeedMedia::make('/x', 'Label', ['target' => '_blank'], modal: true)->media())->toBeNull()
         ->and(FeedMedia::make()->media())->toBeNull();
 
     $media = FeedMedia::make(preview: '/thumb.jpg')->media();
@@ -234,7 +232,7 @@ it('keeps a plain href as a bare string url on the AS2 document', function () {
 });
 
 it('serializes an actor icon as a Link and keeps the actor id as its href', function () {
-    $model = new class extends User implements HasFeedMedia
+    $model = new class extends User
     {
         protected $table = 'users';
 

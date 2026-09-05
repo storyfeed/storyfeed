@@ -6,7 +6,47 @@ Two doctor checks, both from the same discovery: a check can be entirely right
 about the database and still wrong about what the reader will do next. A switch,
 from the first upstream issue a consumer filed. And a new read-time resolver
 contract, which exists because two consumers read out every `Feedable` they had
-and one of them turned out to be returning `null` from all of them.
+and one of them turned out to be returning `null` from all of them — folded into
+`Feedable` itself before this release, so the interim never ships.
+
+### Breaking
+
+- **One contract.** `Feedable` is now `toFeed()` + `static feedMedia(FeedContext):
+  ?FeedMedia`. `Contracts\HasFeedMedia`, `Feedable::toFeedLink(array)`, `FeedLink`
+  and `FeedMedia::fromLink()` are **removed**, and `Support\LinkResolver` no longer
+  falls back. **Every `Feedable` that still declares `toFeedLink()` stops satisfying
+  the interface** — a fatal at class load, not a quiet degradation — until the
+  method is renamed and its body reads `$context->data(...)` instead of `$data[...]`
+  and returns a `FeedMedia`. Mechanical, not subtle; roughly thirteen classes
+  across the two pilots plus the reference renderer. (#6)
+
+  The interim was announced as additive until v1. It is folded now because two
+  contracts were a DX cost every consumer paid for months to buy a migration that
+  had to happen anyway, and because folding early is *cheaper in total
+  migrations*: the second pilot had not moved at all and was waiting on an
+  upgrade guide, so it migrates once, against the final shape, instead of once to
+  the interim and again at v1. Everything still open — `$context->model()` (#4),
+  the viewer question, media expansion — arrives as an accessor on `FeedContext`
+  or a slot on `FeedMedia`; neither touches the interface again.
+
+  **`Concerns\InteractsWithFeed` now supplies `feedMedia()` returning `null`**, so
+  `implements Feedable` + `use InteractsWithFeed` compiles on first save with only
+  `toFeed()` left to write, and a model that has nowhere to point declares nothing.
+  It deliberately does *not* default `toFeed()`: a missing link is a state; a
+  missing label is a defect, and a guessed label would write a degraded snapshot
+  the reader could not tell from a bug. `Models\Party` answers `null` itself
+  because it does not use the trait.
+
+  Three things the contract now says in its docblock that it did not before, all
+  raised by a consumer running it in production: a resolver **may be called for
+  entities that are never rendered as links** (group exemplars go through the
+  same presenter), so it must stay cheap and side-effect-free; **`default =>
+  null` is not optional** for a resolver that matches on `$context->feed()`, because
+  an unhandled match on an ad-hoc builder or in the AS2 serializer degrades to no
+  link silently; and **a resolver's URL is per-feed authority** — a kitchen feed's
+  signed link is correct for that feed and must never be served on another, so a
+  payload is cached per feed or not at all. `docs/payload.md` carries that last
+  one in full.
 
 ### Added
 
@@ -20,13 +60,12 @@ and one of them turned out to be returning `null` from all of them.
   model because the same snapshot renders on three surfaces and the right URL
   depends on who is reading.
 
-  `Contracts\HasFeedMedia::feedMedia(FeedContext $context): ?FeedMedia` is the
-  successor. It is **opt-in and additive**: `Support\LinkResolver` — the one
-  seam the payload presenter and the AS2 serializer both route through, so they
-  cannot drift — prefers it when a class implements it and calls `toFeedLink()`
-  otherwise, indefinitely. A `FeedLink` is lifted into a `FeedMedia` at that
-  seam, so neither surface knows which contract answered. Migrate one model at a
-  time, or none. (#2)
+  `feedMedia(FeedContext $context): ?FeedMedia` is the successor. It landed as
+  an opt-in `Contracts\HasFeedMedia` with `toFeedLink()` kept as the fallback,
+  and was folded into `Feedable` before release — see **Breaking** above.
+  `Support\LinkResolver` is the one seam the payload presenter and the AS2
+  serializer both route through, so they cannot drift and neither knows more
+  than "a `FeedMedia` or null". (#2, #6)
 
   `FeedContext` is a value object rather than more parameters, so the next thing
   it carries costs an accessor instead of a break.

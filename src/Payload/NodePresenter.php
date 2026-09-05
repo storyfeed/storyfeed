@@ -15,10 +15,10 @@ use Throwable;
  * Builds Payload v1 nodes (docs/payload.md) from hydrated activities.
  *
  * Entities are self-describing: label/component/data come from the snapshot,
- * while the URL is regenerated live via the model's static resolver
- * (feedMedia(), or the older toFeedLink()) — wrapped so one broken link
- * never breaks the feed. Missing snapshots
- * degrade to placeholder entities; activities are never withheld.
+ * while the URL and media are regenerated live via the model's static
+ * feedMedia() resolver — wrapped so one broken link never breaks the feed.
+ * Missing snapshots degrade to placeholder entities; activities are never
+ * withheld.
  */
 class NodePresenter
 {

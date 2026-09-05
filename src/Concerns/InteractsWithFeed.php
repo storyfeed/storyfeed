@@ -4,6 +4,8 @@ namespace Storyfeed\Concerns;
 
 use Storyfeed\Actions\SnapshotEntity;
 use Storyfeed\FeedBuilder;
+use Storyfeed\FeedContext;
+use Storyfeed\FeedMedia;
 use Storyfeed\Models\Activity;
 use Storyfeed\Models\Builders\ActivityBuilder;
 use Storyfeed\StoryfeedManager;
@@ -12,6 +14,17 @@ use Storyfeed\StoryfeedManager;
  * Keeps a Feedable model's presence in the feed in sync with its lifecycle —
  * refreshes its snapshot on save, removes its activities on delete — and gives
  * the model a feed of its own.
+ *
+ * It also satisfies half of the Feedable contract, so that
+ *
+ *     class Delivery extends Model implements Feedable
+ *     {
+ *         use InteractsWithFeed;
+ *
+ * compiles on first save with only toFeed() left to write. Which half is
+ * the point, and it is not the half you would guess from "make it compile":
+ * the trait defaults feedMedia() and deliberately NOT toFeed(). See
+ * feedMedia() below for why.
  */
 trait InteractsWithFeed
 {
@@ -80,6 +93,33 @@ trait InteractsWithFeed
     public function updateFeedSnapshot(): void
     {
         (new SnapshotEntity)($this);
+    }
+
+    /**
+     * Not independently linkable, until you say otherwise.
+     *
+     * A MISSING LINK IS A STATE; A MISSING LABEL IS A DEFECT. Returning null
+     * here is honest and common — one consumer returns it from all four of
+     * its models on purpose, because the same snapshot renders on three
+     * surfaces and the right URL depends on who is reading. The feed renders
+     * the entity at full weight, just not clickable. So the trait answers
+     * for this method and the model overrides it when it has somewhere to
+     * point.
+     *
+     * toFeed() gets no such default. Whatever it guessed — the class name,
+     * the primary key — would write a DEGRADED snapshot, and the feed would
+     * quietly read as a placeholder instead of failing. A label the author
+     * never wrote is not a state the reader can tell from a bug, so the
+     * trait leaves toFeed() to redline until it is written. The trait
+     * satisfies only the method where "nothing" is a real answer.
+     *
+     * A doctor check reporting "this model appears in feeds and never
+     * resolves a link" as Info is the follow-on: making the null visible
+     * rather than forbidding it.
+     */
+    public static function feedMedia(FeedContext $context): ?FeedMedia
+    {
+        return null;
     }
 
     /**
