@@ -103,6 +103,8 @@ class AssignToBatch
         $batch->forceFill(['closed_at' => $now])->save();
 
         if ($batch->activities_count > 0) {
+            // Inside the publish transaction; the event is after-commit, so
+            // a digest listener runs against a batch whose close is durable.
             BatchClosed::dispatch($batch);
 
             // The burst is over — homogeneous collectable runs become

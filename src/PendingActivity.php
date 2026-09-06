@@ -346,6 +346,9 @@ class PendingActivity
             return $this->activity;
         });
 
+        // After the package's own transaction — and, because the event is
+        // after-commit, after the consumer's outermost one when publish()
+        // is called inside it. That inner transaction was only a savepoint.
         ActivityPublished::dispatch($activity);
 
         return $activity;

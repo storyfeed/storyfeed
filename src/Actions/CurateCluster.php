@@ -65,9 +65,15 @@ class CurateCluster
     {
         $hashes = $this->hashes($activity->getKey());
 
+        // ActivityDeleted is after-commit, so inside a consumer's transaction
+        // this runs once forceDelete() has already reset its transient flag.
+        // `exists` is the durable signal: SoftDeletes clears it on a hard
+        // delete before the deleted event fires, and never on a soft one.
+        $forced = $activity->isForceDeleting() || ! $activity->exists;
+
         // A force-deleted activity can never come back, so its candidate
         // hashes are orphans — the same cleanup PruneActivities does.
-        if ($activity->isForceDeleting()) {
+        if ($forced) {
             $this->groupings()->where('activity_id', $activity->getKey())->delete();
         }
 
@@ -81,7 +87,7 @@ class CurateCluster
 
         // A soft-deleted activity keeps its rows, and may be restored, so it
         // is re-decided like any other member.
-        if (! $activity->isForceDeleting()) {
+        if (! $forced) {
             $this->settle($activity->getKey(), $hashes);
         }
     }

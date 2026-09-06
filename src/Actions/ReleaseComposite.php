@@ -17,7 +17,11 @@ class ReleaseComposite
 {
     public function __invoke(Activity $activity): void
     {
-        if (! $activity->isForceDeleting()) {
+        // ActivityDeleted is after-commit, so inside a consumer's transaction
+        // this runs once forceDelete() has already reset its transient flag.
+        // `exists` is the durable signal: SoftDeletes clears it on a hard
+        // delete before the deleted event fires, and never on a soft one.
+        if (! $activity->isForceDeleting() && $activity->exists) {
             return;
         }
 

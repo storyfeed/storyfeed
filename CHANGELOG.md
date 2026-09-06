@@ -565,6 +565,35 @@ and one of them turned out to be returning `null` from all of them — folded in
 
 ### Fixed
 
+- **The package's own events now wait for the commit they describe, and a
+  queued listener's job no longer carries the actor's hidden attributes.**
+  `ActivityPublished`, `ActivityDeleted` and `BatchClosed` implement Laravel's
+  `ShouldDispatchAfterCommit` — the rule `Listeners\PublishFeedActivity` has
+  always stated for the consumer's event, applied to the package's three. With no
+  transaction open nothing changes: dispatch is immediate. Inside a consumer's
+  `DB::transaction()` the event waits for the *outermost* commit, and a rollback
+  fires nothing. Before, `publish()` inside a consumer's transaction dispatched at
+  a savepoint while the docblock said "committed", and the lazy batch close fired
+  `BatchClosed` from *inside* the publish transaction, so a queued digest listener
+  could run against a batch that was still open or whose close was rolled back.
+
+  Separately, a queued listener's `CallQueuedListener` serializes the event as-is,
+  and an Activity fresh from `publish()` carries the actor, object and target the
+  builder associated — `$hidden` governs `toArray()`, not `serialize()`. One
+  `ActivityPublished` job measured 6,760 bytes and contained the actor's email and
+  `remember_token`. The events now shed loaded relations in `__serialize()` only,
+  so the same job is 2,752 bytes and carries the Activity alone; a synchronous
+  listener is handed the same object it always was, relations intact and at no
+  query. Not `SerializesModels`, on purpose: re-fetching by key is exactly wrong
+  for `ActivityDeleted`, and the worker's copy of a pruned row would throw.
+
+  One consequence inside the package: the curation and composite-release
+  listeners on `ActivityDeleted` now run after the commit too, by which point
+  `forceDelete()` has reset its transient `isForceDeleting()` flag. Both actions
+  now also read `exists`, which `SoftDeletes` clears on a hard delete before the
+  event fires and never on a soft one, so a force delete inside a transaction still
+  releases and cleans up as one outside it always did.
+
 - **Force-deleting a `Feedable` no longer leaves grouping and participant rows
   pointing at activities that do not exist.** `InteractsWithFeed::forceDeleteFromFeed()`
   was a single bulk `forceDelete()`, and a bulk query fires no model events, so

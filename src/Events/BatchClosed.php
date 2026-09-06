@@ -2,7 +2,9 @@
 
 namespace Storyfeed\Events;
 
+use Illuminate\Contracts\Events\ShouldDispatchAfterCommit;
 use Illuminate\Foundation\Events\Dispatchable;
+use Storyfeed\Events\Concerns\SerializesWithoutRelations;
 use Storyfeed\Models\Batch;
 
 /**
@@ -13,10 +15,16 @@ use Storyfeed\Models\Batch;
  * Fired lazily when the actor's next publish closes a stale batch, and by
  * storyfeed:close-batches for actors who walked away — schedule that
  * command when prompt delivery matters.
+ *
+ * The lazy close happens INSIDE the publish transaction, so this event
+ * waits for that transaction's outermost commit: a digest listener never
+ * sees a batch whose close is still uncommitted, and a rolled-back publish
+ * closes nothing and sends nothing.
  */
-class BatchClosed
+class BatchClosed implements ShouldDispatchAfterCommit
 {
     use Dispatchable;
+    use SerializesWithoutRelations;
 
     public function __construct(public Batch $batch) {}
 }
