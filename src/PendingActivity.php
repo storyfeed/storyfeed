@@ -13,6 +13,7 @@ use Illuminate\Support\Traits\Conditionable;
 use InvalidArgumentException;
 use Storyfeed\Actions\AssignToBatch;
 use Storyfeed\Actions\CurateCluster;
+use Storyfeed\Actions\ForgetActivities;
 use Storyfeed\Actions\SnapshotEntity;
 use Storyfeed\Actions\SyncParticipants;
 use Storyfeed\Actions\WriteGroupings;
@@ -324,6 +325,8 @@ class PendingActivity
      * `storyfeed.replace.delete = 'force'` hard-deletes instead, and then the
      * grouping rows must go too — there is no DB-level cascade, by design,
      * and a hard-deleted activity may leave nothing behind that points at it.
+     * That is `ForgetActivities`, the same bookkeeping prune and
+     * `forceDeleteFromFeed()` do ahead of their bulk deletes.
      *
      * The mode is validated before the query, not after: a typo that only
      * threw once there was something to supersede would pass every first
@@ -351,17 +354,15 @@ class PendingActivity
             return;
         }
 
-        SyncParticipants::forget(...$ids);
-
         if ($mode === 'force') {
-            $grouping = config('storyfeed.models.grouping', Grouping::class);
-
-            $grouping::query()->whereIn('activity_id', $ids)->delete();
+            (new ForgetActivities)(...$ids);
 
             $superseded->forceDelete();
 
             return;
         }
+
+        SyncParticipants::forget(...$ids);
 
         $superseded->delete();
     }

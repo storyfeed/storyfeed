@@ -3,16 +3,16 @@
 namespace Storyfeed\Actions;
 
 use Storyfeed\Models\Activity;
-use Storyfeed\Models\Grouping;
 
 /**
  * Retire activities older than the configured retention window. Strictly
  * opt-in: with no age configured (and none given), nothing is deleted.
  *
  * Force-deletes in chunks — including soft-deleted rows accumulated by
- * replace semantics and cascade deletes — and removes their grouping rows
- * (no DB-level cascade exists, by design). Snapshots are untouched: they are
- * per-entity, and orphan cleanup is the trickle's job.
+ * replace semantics and cascade deletes — and removes their grouping and
+ * participant rows first, through `ForgetActivities` (no DB-level cascade
+ * exists, by design). Snapshots are untouched: they are per-entity, and
+ * orphan cleanup is the trickle's job.
  */
 class PruneActivities
 {
@@ -30,7 +30,7 @@ class PruneActivities
         $cutoff = now()->subDays((int) $days);
 
         $activity = config('storyfeed.models.activity', Activity::class);
-        $grouping = config('storyfeed.models.grouping', Grouping::class);
+        $forget = new ForgetActivities;
 
         $pruned = 0;
 
@@ -45,9 +45,7 @@ class PruneActivities
                 break;
             }
 
-            $grouping::query()->whereIn('activity_id', $ids)->delete();
-
-            SyncParticipants::forget(...$ids);
+            $forget(...$ids);
 
             $activity::query()->withTrashed()->whereKey($ids)->forceDelete();
 

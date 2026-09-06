@@ -3,7 +3,8 @@
 ## Unreleased
 
 Two doctor checks, both from the same discovery: a check can be entirely right
-about the database and still wrong about what the reader will do next. A switch,
+about the database and still wrong about what the reader will do next — and a
+third that counts rows nothing else will ever mention. A switch,
 from the first upstream issue a consumer filed. A second switch, from a doc
 that described a deletion the code had never done. And a new read-time resolver
 contract, which exists because two consumers read out every `Feedable` they had
@@ -84,6 +85,30 @@ and one of them turned out to be returning `null` from all of them — folded in
   `Number::format($n).' '.FeedNoun::form($noun, $n)`. One break, not two.
 
 ### Added
+
+- **`dangling` — a doctor check that counts grouping and participant rows whose
+  activity no longer exists, trashed included.** These rows are the residue of
+  the `forceDeleteFromFeed()` bug fixed below: a bulk hard delete fired no model
+  events, so the rows that pointed at those activities stayed behind. Nothing
+  will ever mention them otherwise. The read path reaches a grouping or a
+  participant row only through a live activity, so they are inert; `storyfeed:prune`
+  walks activities rather than their rows, so it never sees them either. Invisible
+  to the feed and invisible to the sweeper is the shape doctor exists for.
+
+  Reported as **Info, with no fix**, and both are decisions. Nothing renders wrong
+  because of a dead row — no feed is shorter, no entity page is missing anything —
+  and Warning is the level that fails `--fail-on=warning`; a dead row that will
+  never be read is not "something wrong or about to degrade". The only remedy
+  would be deleting them, and whether the package should ever do that is a
+  decision not yet made: the operator who surfaced this family of findings runs
+  an operations vault under a standing rule of no pruning. So the check counts,
+  says what the count means, and stops. The count is still worth having: it is
+  the evidence that the bulk paths are behaving, and a number that grows after
+  the fix means some other hard-delete path has started leaving rows behind.
+  Named `dangling` rather than `orphans` because the trickle already calls an
+  activity an orphan when its *entity* has gone, and `--prune` retires those; a
+  check using the same word for a different thing would point at the wrong
+  command. Silent on a healthy install.
 
 - **Superseding keeps history, and now says so — `storyfeed.replace.delete`.**
   `publishAndReplace()` retires the earlier rows for its `(object, verb)` with a
@@ -507,8 +532,11 @@ and one of them turned out to be returning `null` from all of them — folded in
   Existing installs may already carry orphans from this path. Nothing on the
   read path reaches a grouping or participant row except through a live
   activity, so they are inert; `storyfeed:prune` does not sweep them because it
-  walks activities, not their rows. A doctor check that counts them is the
-  natural follow-on and is not in this change.
+  walks activities, not their rows. The `dangling` doctor check (above) counts
+  them. `PruneActivities` and force-mode supersede now go through
+  `ForgetActivities` too, so the three bulk hard-delete paths share one
+  bookkeeping step rather than three copies of it; they already agreed on what
+  that step was, and nothing about what any of them removes has changed.
 
 ## v0.9.0 — Grouping says which day, and a group speaks for its members (2026-08-26)
 

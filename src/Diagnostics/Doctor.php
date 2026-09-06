@@ -43,6 +43,7 @@ class Doctor
         Checks\Hydration::class,
         Checks\Parties::class,
         Checks\Participants::class,
+        Checks\Dangling::class,
     ];
 
     /** @param list<DiagnosticCheck> $checks */
