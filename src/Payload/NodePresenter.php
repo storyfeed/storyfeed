@@ -6,6 +6,7 @@ use Closure;
 use Illuminate\Support\Collection;
 use Storyfeed\FeedContext;
 use Storyfeed\FeedNoun;
+use Storyfeed\FeedThread;
 use Storyfeed\Models\Activity;
 use Storyfeed\Models\Snapshot;
 use Storyfeed\StoryfeedManager;
@@ -97,6 +98,8 @@ class NodePresenter
     {
         [$template, $headline] = $this->headline($activity);
 
+        [$data, $thread] = $this->thread($activity);
+
         return [
             'kind' => 'activity',
             'id' => $activity->uid,
@@ -109,8 +112,37 @@ class NodePresenter
             'object' => $this->entity($activity->object_type, $activity->object_id, $activity->cachedObject),
             'target' => $this->entity($activity->target_type, $activity->target_id, $activity->cachedTarget),
             'context' => $this->entity($activity->context_type, $activity->context_id, $activity->cachedContext),
-            'data' => $activity->data,
+            'data' => $data,
+            // Additive (2026-09-06): the utterance this row is about and the
+            // size of the conversation around it, or null — which is every
+            // activity that has not opted in. See docs/payload.md, `thread`.
+            'thread' => $thread?->toArray(),
         ];
+    }
+
+    /**
+     * Split the stored `data` into the app's half and the reserved thread
+     * key, so `data` on the node is exactly what the recording call passed
+     * to `data()` and the thread arrives as its own typed key.
+     *
+     * A null `data` column stays null rather than becoming an empty map:
+     * the shape a pre-thread payload emitted is the shape it still emits.
+     *
+     * @return array{0: array<array-key, mixed>|null, 1: FeedThread|null}
+     */
+    protected function thread(Activity $activity): array
+    {
+        $data = $activity->data;
+
+        if (! is_array($data) || ! array_key_exists(FeedThread::KEY, $data)) {
+            return [$data, null];
+        }
+
+        $thread = FeedThread::fromArray($data[FeedThread::KEY]);
+
+        unset($data[FeedThread::KEY]);
+
+        return [$data, $thread];
     }
 
     /**

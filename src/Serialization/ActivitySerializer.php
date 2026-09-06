@@ -8,6 +8,7 @@ use Storyfeed\ActivityStreams\CoreType;
 use Storyfeed\ActivityStreams\Property;
 use Storyfeed\FeedContext;
 use Storyfeed\FeedImage;
+use Storyfeed\FeedThread;
 use Storyfeed\Models\Activity;
 use Storyfeed\Models\Grouping;
 use Storyfeed\Models\Snapshot;
@@ -61,8 +62,49 @@ class ActivitySerializer
                     ?? $this->entity($activity->object_type, $activity->cachedObject),
                 'target' => $this->entity($activity->target_type, $activity->cachedTarget),
                 'context' => $this->entity($activity->context_type, $activity->cachedContext),
+                Property::Replies->value => $this->replies($activity),
             ], fn (?array $entity) => $entity !== null),
             'published' => $activity->published_at?->utc()->format('Y-m-d\TH:i:s\Z'),
+        ];
+    }
+
+    /**
+     * The conversation around what this activity is about, as AS2's own
+     * `replies` — a Collection carrying `totalItems`.
+     *
+     * ONE HALF OF FeedThread TRAVELS, AND ONLY ONE. `replies` is an AS2
+     * property with exactly this meaning, so the count needs no translation
+     * and no extension term. The UTTERANCE does not travel: `content`
+     * belongs to an OBJECT, and `thread.text` is an activity's presentation
+     * of an object — a peer reading `content` on this document would take it
+     * for the activity's own body, which it is not. `by`, `kind` and
+     * `truncated` are presentation of the same kind and stay behind with it.
+     *
+     * NO `sf:` TERM WAS MINTED. `ns.storyfeed.dev` is add-only forever, and
+     * a term named for a shape we are still learning is a permanent
+     * commitment to this week's spelling. A conservative document that omits
+     * a fact is repairable; a published term is not.
+     *
+     * The Collection carries no `items`: the count is what is known, the
+     * responses themselves are the app's and this package never held them.
+     * `totalItems` without `items` is spec-legal — a Collection may be
+     * described without being enumerated.
+     *
+     * @return array<string, mixed>|null null when nobody counted
+     */
+    protected function replies(Activity $activity): ?array
+    {
+        $data = $activity->data;
+
+        $thread = FeedThread::fromArray(is_array($data) ? ($data[FeedThread::KEY] ?? null) : null);
+
+        if ($thread?->replies === null) {
+            return null;
+        }
+
+        return [
+            'type' => CoreType::Collection->value,
+            Property::TotalItems->value => $thread->replies,
         ];
     }
 

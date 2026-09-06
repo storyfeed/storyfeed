@@ -86,6 +86,55 @@ and one of them turned out to be returning `null` from all of them — folded in
 
 ### Added
 
+- **`FeedThread` — one home for the utterance a row is about and the size of the
+  conversation around it.** `->thread(FeedThread::make(text:, by:, kind:, replies:,
+  truncated:))` on the activity builder; a new `thread` key on every activity node
+  (and on a group's children), `null` until an activity opts in. Additive — a
+  renderer that ignores it behaves exactly as before.
+
+  **The bug it exists for.** A consumer's row read "· 1 reply" in its headline and
+  quoted, underneath, a passage that was not the reply — it was the thread's opening
+  question. The count came out of a grammar closure; the quote came out of a renderer
+  detail. Two homes, no shared truth, so they could disagree and did. Nothing about
+  either half was wrong on its own, which is why nobody found it until a reader did.
+
+  **It is ACTIVITY-scoped, and that is the load-bearing decision.** The utterance to
+  show differs per row for one and the same thread: the opened row shows the opening
+  question, the replied row shows the newest reply, the settled row shows the opening
+  again labelled as the question it answered. An entity-scoped object could not
+  express that — it would carry one utterance for every row about that thread, and
+  the first feed with two rows would make one of them wrong.
+
+  **Why core and not the renderer.** AS2 already has this vocabulary: `replies` is a
+  property of an Activity and `inReplyTo` is one too. Compare the Filament adapter's
+  `Detail\Excerpt`, `Change` and `Fields`, which have no AS2 term and are correctly
+  the renderer's. `Excerpt` is not replaced: it stays the generic one-passage form,
+  hung off an entity's snapshot. The tell for which you want is `replies` — no
+  conversation to count, no thread.
+
+  **`kind` is the consumer's word, not an enum** — 'asked', 'raised', 'flagged'. Core
+  cannot know which a domain uses, and a fixed vocabulary would be wrong in the first
+  app that needed a fourth word. Same doctrine as verbs staying free-form strings.
+
+  **Storage is the reserved `$thread` key inside the `data` column** — no migration,
+  `$`-prefixed as the adapter's `$detail` is, and stripped back out on the read path
+  so the payload's `data` is exactly what `data()` was given. `data()` and `thread()`
+  are order-independent; neither clobbers the other.
+
+  **AS2: `replies` only, and no `sf:` term was minted.** The count serializes as a
+  `Collection` carrying `totalItems` — AS2's own property with exactly this meaning.
+  The utterance does not travel: `content` belongs to an object, not to an activity's
+  presentation of one, and a peer reading `content` here would take it for the
+  activity's own body. `by`, `kind` and `truncated` stay behind with it.
+  `ns.storyfeed.dev` is add-only forever, and a term named for a shape we are still
+  learning is a permanent commitment to this week's spelling; a conservative document
+  that omits a fact is repairable.
+
+  Truncation is the consumer's — core has no business finding sentence ends in
+  someone else's prose, and `truncated` only tells a renderer whether to mark it.
+  Rendering is the renderer's, including suppressing `by` when it repeats the row's
+  actor, which needs the actor and so needs a presenter.
+
 - **`dangling` — a doctor check that counts grouping and participant rows whose
   activity no longer exists, trashed included.** These rows are the residue of
   the `forceDeleteFromFeed()` bug fixed below: a bulk hard delete fired no model

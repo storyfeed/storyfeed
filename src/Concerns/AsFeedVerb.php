@@ -6,6 +6,7 @@ use DateTimeInterface;
 use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Database\Eloquent\Model;
 use Storyfeed\ActivityStreams\ActivityType;
+use Storyfeed\FeedThread;
 use Storyfeed\Models\Activity;
 use Storyfeed\PendingActivity;
 
@@ -163,6 +164,11 @@ trait AsFeedVerb
     public function data(array|Arrayable $data): PendingActivity
     {
         return $this->activity()->data($data);
+    }
+
+    public function thread(FeedThread $thread): PendingActivity
+    {
+        return $this->activity()->thread($thread);
     }
 
     public function publishedAt(DateTimeInterface|string $date): PendingActivity
