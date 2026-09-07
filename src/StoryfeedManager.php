@@ -203,6 +203,7 @@ class StoryfeedManager
         DateTimeInterface|string|null $publishedAt = null,
         bool $replace = false,
         iterable $objects = [],
+        ?FeedThread $thread = null,
     ): Activity {
         return $this->activity($verb, $object)
             ->when($objects !== [], fn (PendingActivity $a) => $a->objects($objects))
@@ -210,6 +211,7 @@ class StoryfeedManager
             ->target($target)
             ->context($context)
             ->when($data !== [], fn (PendingActivity $a) => $a->data($data))
+            ->when($thread !== null, fn (PendingActivity $a) => $a->thread($thread))
             ->when($publishedAt !== null, fn (PendingActivity $a) => $a->publishedAt($publishedAt))
             ->replace($replace)
             ->publish();
