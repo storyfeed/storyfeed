@@ -124,7 +124,7 @@ class NodePresenter
             // Additive (2026-09-06): the utterance this row is about and the
             // size of the conversation around it, or null — which is every
             // activity that has not opted in. See docs/payload.md, `thread`.
-            'thread' => $thread?->toArray(),
+            'thread' => $thread?->toPayload(),
         ];
     }
 
@@ -132,6 +132,12 @@ class NodePresenter
      * Split the stored `data` into the app's half and the reserved thread
      * key, so `data` on the node is exactly what the recording call passed
      * to `data()` and the thread arrives as its own typed key.
+     *
+     * The stored value carries a version key; the node does not. `fromArray()`
+     * upgrades it to the current shape here, on the read path, so every
+     * renderer downstream is handed one shape forever and never branches on
+     * `$v` — see {@see FeedThread::upgrade()}. The version is stripped with
+     * the rest of the reserved key, so it reaches neither `thread` nor `data`.
      *
      * A null `data` column stays null rather than becoming an empty map:
      * the shape a pre-thread payload emitted is the shape it still emits.

@@ -86,6 +86,36 @@ and one of them turned out to be returning `null` from all of them — folded in
 
 ### Added
 
+- **The stored `$thread` map is versioned.** It now carries `"$v": 1` alongside its
+  five keys, and `FeedThread::fromArray()` normalizes a stored value to the current
+  shape at read time (`FeedThread::version()`, `versionOf()`, `upgrade()` — the same
+  contract the Filament adapter's `Detail` has had since its first commit). A
+  **missing `$v` is version 1, forever**: that is the definition of every row written
+  between `d992c13` and this change, not a fallback, and nothing is migrated or
+  backfilled. Those rows are correct; only their self-description was missing.
+
+  **The payload does not change.** `node.thread` still carries exactly its five keys
+  and no `$v`, and neither does `data` or the Activity Streams document. Core owns
+  `FeedThread` and upgrades before anyone downstream looks, so a renderer sees one
+  shape forever and never branches on a version — which is the whole reason the
+  version stays in storage. A `$v` on the node would be a sixth key every renderer
+  gains, none can act on, and, in a contract that freezes at v0.3, nobody can
+  take back.
+
+  **READ THIS BEFORE YOU BUMP: your feed will churn once.** A consumer whose healer
+  reruns periodically and replaces any activity whose payload "derives differently
+  now" will find that **every stored thread row differs from its rebuild** the first
+  time it runs against this core, because the rebuild writes `$v` and the stored row
+  does not. It will therefore replace all of them, once. **That churn is one-time and
+  convergent, not a defect** — the second pass finds nothing — but on a production
+  feed it looks alarming, so it is worth knowing before it happens rather than
+  after.
+
+  The one thing that legitimately breaks is a test asserting on the **column**:
+  `$activity->data['$thread']` gains a key, and any assertion comparing a node's
+  `thread` to that stored map now differs by `$v`. The stored side is the side that
+  changed; assert the node.
+
 - **`FeedThread` — one home for the utterance a row is about and the size of the
   conversation around it.** `->thread(FeedThread::make(text:, by:, kind:, replies:,
   truncated:))` on the activity builder; a new `thread` key on every activity node

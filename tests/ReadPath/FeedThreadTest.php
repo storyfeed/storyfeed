@@ -158,3 +158,104 @@ it('omits replies entirely when nobody counted', function () {
 
     expect(app(ActivitySerializer::class)->activity($activity))->not->toHaveKey('replies');
 });
+
+/*
+ * Versioning (2026-09-07). `Detail`'s rule 1, applied to the other value that
+ * lives in the same `data` column: a row recorded today outlives the class
+ * that recorded it. `FeedThread` shipped a day before this without a version,
+ * so the rows that prove the rule already exist — and the answer to "which
+ * version are they" has to be a definition, not a guess.
+ */
+
+it('writes the version into storage and never into the node', function () {
+    // THE WHOLE DECISION IN ONE TEST. Storage is versioned; the payload is
+    // not. Core upgrades on read, so a renderer is handed the current shape
+    // by construction and `node.thread` keeps the five keys it has always had.
+    $activity = threadActivity(FeedThread::make(text: 'Thursday works.', kind: 'replied', replies: 2));
+
+    expect($activity->fresh()->data[FeedThread::KEY])->toBe([
+        'text' => 'Thursday works.',
+        'by' => null,
+        'kind' => 'replied',
+        'replies' => 2,
+        'truncated' => false,
+        '$v' => 1,
+    ]);
+
+    $node = Storyfeed::feed()->get()->toArray()['items'][0];
+
+    expect($node['thread'])->toBe([
+        'text' => 'Thursday works.',
+        'by' => null,
+        'kind' => 'replied',
+        'replies' => 2,
+        'truncated' => false,
+    ])->and($node['thread'])->not->toHaveKey('$v')
+        ->and($node['data'])->toBe([]);
+});
+
+it('reads a row written before versioning exactly as it read yesterday', function () {
+    // A LITERAL array, not FeedThread::make() — the point is a payload this
+    // class never touched, of the shape that is in production right now.
+    $legacy = ['text' => 'Can we push to Thursday?', 'by' => 'Nayani', 'kind' => 'asked', 'replies' => 3, 'truncated' => true];
+
+    $activity = threadActivity(FeedThread::make(text: 'overwritten'), 'TN-LEGACY');
+    $activity->forceFill(['data' => ['ip' => '1.2.3.4', FeedThread::KEY => $legacy]])->save();
+
+    $node = Storyfeed::feed()->get()->toArray()['items'][0];
+
+    expect($node['thread'])->toBe($legacy)
+        ->and($node['data'])->toBe(['ip' => '1.2.3.4']);
+
+    // Nothing was rewritten on the way past: the row is still unversioned.
+    expect($activity->fresh()->data[FeedThread::KEY])->toBe($legacy);
+});
+
+it('defines a missing version as 1, forever', function () {
+    // Not a fallback. Every row written between 2026-09-06 and the commit
+    // that added `$v` carries no version key, and 1 is the only thing those
+    // rows can be. This is the assertion that fails if someone "simplifies"
+    // the default to FeedThread::version().
+    expect(FeedThread::versionOf(['text' => 'Hi']))->toBe(1)
+        ->and(FeedThread::versionOf([]))->toBe(1)
+        ->and(FeedThread::versionOf('not a thread'))->toBe(1)
+        // A `$v` that is not a version is not a version.
+        ->and(FeedThread::versionOf(['$v' => 'two']))->toBe(1)
+        ->and(FeedThread::versionOf(['$v' => 0]))->toBe(1)
+        // And a real one is read as itself.
+        ->and(FeedThread::versionOf(['$v' => 2]))->toBe(2)
+        ->and(FeedThread::versionOf(FeedThread::make(text: 'Hi')->toArray()))->toBe(FeedThread::version());
+});
+
+it('reads a row from a newer core without throwing and without losing what it recognises', function () {
+    // Total by contract, for `Detail`'s reason: an unrecognised `$from` is a
+    // row a newer writer put there, and it is in the database either way.
+    $future = ['text' => 'From the future.', 'by' => 'Sam', 'kind' => 'replied', 'replies' => 4, 'truncated' => false, '$v' => 99, 'tone' => 'wry'];
+
+    expect(FeedThread::upgrade($future, 99))->toBeArray();
+
+    $thread = FeedThread::fromArray($future);
+
+    expect($thread->text)->toBe('From the future.')
+        ->and($thread->replies)->toBe(4)
+        // And the shape handed on is this version's five keys, with no
+        // stowaways from a vocabulary this core does not know.
+        ->and($thread->toPayload())->toBe([
+            'text' => 'From the future.',
+            'by' => 'Sam',
+            'kind' => 'replied',
+            'replies' => 4,
+            'truncated' => false,
+        ]);
+});
+
+it('keeps the version out of the Activity Streams document', function () {
+    // A version is our storage's business, not a peer's. AS2 has no term for
+    // it and `ns.storyfeed.dev` is not minting one.
+    $activity = threadActivity(FeedThread::make(text: 'Shipped.', replies: 1), 'TN-AS2V');
+
+    $json = json_encode(app(ActivitySerializer::class)->activity($activity));
+
+    expect($json)->not->toContain('$v')
+        ->and($json)->not->toContain('"99"');
+});
