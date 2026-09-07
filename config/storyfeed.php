@@ -321,6 +321,21 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Curation Repair
+    |--------------------------------------------------------------------------
+    |
+    | Hourly full-history repair, with overlap protection. Laravel's scheduler
+    | must be running. Disable if you own the schedule or do not want repair.
+    | Large histories may need a consumer-owned cadence; a rolling window can
+    | leave old clusters stale forever. This does not control inline curation.
+    */
+
+    'curate' => [
+        'schedule' => true,
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Snapshot Trickle
     |--------------------------------------------------------------------------
     */

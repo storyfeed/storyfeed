@@ -2,6 +2,7 @@
 
 namespace Storyfeed;
 
+use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Route;
@@ -58,6 +59,15 @@ class StoryfeedServiceProvider extends PackageServiceProvider
 
     public function packageBooted(): void
     {
+        $this->app->booted(function () {
+            if (config('storyfeed.curate.schedule', true)) {
+                $this->app->make(Schedule::class)
+                    ->command('storyfeed:curate')
+                    ->hourly()
+                    ->withoutOverlapping();
+            }
+        });
+
         // Stories compile AFTER every provider has booted, so provider
         // ordering is irrelevant: compilation validates group axes against the
         // axis registry and reads the verb registry, and an app that calls
