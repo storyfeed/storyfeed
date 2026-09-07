@@ -9,6 +9,7 @@ use Storyfeed\ActivityStreams\CoreType;
 use Storyfeed\ActivityStreams\Property;
 use Storyfeed\FeedContext;
 use Storyfeed\FeedImage;
+use Storyfeed\FeedResource;
 use Storyfeed\FeedThread;
 use Storyfeed\Models\Activity;
 use Storyfeed\Models\Grouping;
@@ -360,6 +361,10 @@ class ActivitySerializer
             Property::Icon->value => $this->link($media?->icon),
             Property::Image->value => $this->link($media?->image),
             Property::Preview->value => $this->link($media?->preview),
+            'attachment' => $media?->attachment === null ? null : [
+                'type' => $media->attachment->type,
+                Property::Url->value => $this->link($media->attachment),
+            ],
         ], fn ($value) => $value !== null);
     }
 
@@ -376,10 +381,19 @@ class ActivitySerializer
      *
      * @return array<string, mixed>|null
      */
-    protected function link(?FeedImage $image): ?array
+    protected function link(FeedImage|FeedResource|null $image): ?array
     {
         if ($image === null) {
             return null;
+        }
+
+        if ($image instanceof FeedResource) {
+            return array_filter([
+                'type' => CoreType::Link->value,
+                Property::Href->value => url($image->href),
+                Property::MediaType->value => $image->mediaType,
+                Property::Name->value => $image->name,
+            ], fn ($value) => $value !== null);
         }
 
         return array_filter([

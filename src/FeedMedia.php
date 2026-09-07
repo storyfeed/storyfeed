@@ -33,6 +33,10 @@ namespace Storyfeed;
  * `media.url` and the AS2 serializer emit `url` as a Link with `mediaType`,
  * `width` and `height`.
  *
+ * Non-image resources use `attachment`: FeedResource carries AS2's href,
+ * mediaType and name with a Document (or extension) object type. This slot
+ * is emitted only when set; existing image slots retain their meaning.
+ *
  * ## Two ways to build one, both wanted
  *
  *     FeedMedia::make(url: $full, preview: $thumb)
@@ -57,6 +61,7 @@ final class FeedMedia
         public private(set) ?FeedImage $icon = null,
         public private(set) ?FeedImage $preview = null,
         public private(set) ?FeedImage $image = null,
+        public private(set) ?FeedResource $attachment = null,
     ) {}
 
     /**
@@ -70,6 +75,7 @@ final class FeedMedia
         FeedImage|string|null $icon = null,
         FeedImage|string|null $preview = null,
         FeedImage|string|null $image = null,
+        ?FeedResource $attachment = null,
     ): self {
         return new self(
             $url,
@@ -79,6 +85,7 @@ final class FeedMedia
             $icon === null ? null : FeedImage::from($icon),
             $preview === null ? null : FeedImage::from($preview),
             $image === null ? null : FeedImage::from($image),
+            $attachment,
         );
     }
 
@@ -95,6 +102,13 @@ final class FeedMedia
     public function url(FeedImage|string|null $url): self
     {
         $this->url = $url;
+
+        return $this;
+    }
+
+    public function attachment(?FeedResource $attachment): self
+    {
+        $this->attachment = $attachment;
 
         return $this;
     }
@@ -131,7 +145,7 @@ final class FeedMedia
     }
 
     /**
-     * The four slots as the payload carries them, or null when none is set.
+     * The image slots and optional attachment, or null when none is set.
      *
      * Null rather than four nulls so "does this entity have media at all" is
      * one check, the same one `url: null` answers for linkability. When it is
@@ -140,7 +154,7 @@ final class FeedMedia
      * typed form only: a string url is not media and appears solely as
      * `entity.url`.
      *
-     * @return array{icon: array<string, mixed>|null, image: array<string, mixed>|null, preview: array<string, mixed>|null, url: array<string, mixed>|null}|null
+     * @return array<string, array<string, mixed>|null>|null
      */
     public function media(): ?array
     {
@@ -151,10 +165,14 @@ final class FeedMedia
             'url' => $this->url instanceof FeedImage ? $this->url : null,
         ];
 
+        if ($this->attachment !== null) {
+            $slots['attachment'] = $this->attachment;
+        }
+
         if (array_filter($slots) === []) {
             return null;
         }
 
-        return array_map(fn (?FeedImage $image) => $image?->toArray(), $slots);
+        return array_map(fn (FeedImage|FeedResource|null $image) => $image?->toArray(), $slots);
     }
 }
