@@ -155,8 +155,9 @@ class TrickleSnapshots
      * The shape phase, within the run's remaining budget: per snapshotted
      * model type, compute the CURRENT signature from one live model, then
      * re-snapshot rows whose stored fingerprint differs (null = pre-shape
-     * rows, also stale). Models that no longer exist are skipped — the
-     * activity-orphan path prunes their stories.
+     * rows, also stale). Models that no longer exist are skipped; their
+     * snapshots are retained. The activity-orphan path only checks uncached
+     * roles and soft-deletes activities only when pruning is enabled.
      */
     protected function convergeShapes(int $budget): int
     {

@@ -13,8 +13,10 @@ use Storyfeed\Models\Party;
  * Package-owned aliases resolve independently of the application's morph
  * map. That is not a convenience: an app calling Relation::enforceMorphMap()
  * without our aliases would otherwise leave them unresolvable, and
- * TrickleSnapshots treats an unresolvable role as an orphan and deletes the
- * activity. Package models must never depend on the host app's map.
+ * TrickleSnapshots counts activities with an uncached, unresolvable role as
+ * unresolved by default. It soft-deletes them only when pruning is enabled
+ * via `storyfeed.trickle.prune` or `storyfeed:trickle --prune`.
+ * Package models must never depend on the host app's map.
  */
 class MorphResolver
 {

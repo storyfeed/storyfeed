@@ -11,8 +11,8 @@ use Storyfeed\Models\Activity;
  * Force-deletes in chunks — including soft-deleted rows accumulated by
  * replace semantics and cascade deletes — and removes their grouping and
  * participant rows first, through `ForgetActivities` (no DB-level cascade
- * exists, by design). Snapshots are untouched: they are per-entity, and
- * orphan cleanup is the trickle's job.
+ * exists, by design). Snapshots are untouched: they are per-entity.
+ * The trickle does not delete orphaned snapshots either.
  */
 class PruneActivities
 {

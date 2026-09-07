@@ -24,8 +24,8 @@ use Storyfeed\Models\Grouping;
  * already the one place that knows the participants table; grouping rows
  * are deleted here because no action owned that yet.
  *
- * Snapshots are untouched on purpose: they are per-entity, not per-activity,
- * and orphan cleanup there is the trickle's job.
+ * Snapshots are untouched on purpose: they are per-entity, not per-activity.
+ * The trickle does not delete orphaned snapshots either.
  */
 class ForgetActivities
 {
