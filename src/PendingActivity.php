@@ -57,6 +57,8 @@ class PendingActivity
 
     protected ?FeedThread $thread = null;
 
+    protected ?FeedChange $change = null;
+
     public function __construct(string|FeedVerb|BackedEnum|null $verb = null, Model|string|null $object = null)
     {
         $model = config('storyfeed.models.activity', Activity::class);
@@ -214,7 +216,7 @@ class PendingActivity
     }
 
     /**
-     * The activity's own payload — the app's, never read by this package.
+     * The activity's data map: app values plus explicitly authored core reserved keys.
      *
      * An `Arrayable` is accepted so a typed DTO can be the authoring surface:
      * `->data(LinkFetch::from($request))` with a spatie/laravel-data object, or
@@ -233,6 +235,7 @@ class PendingActivity
         $this->activity->data = $data instanceof Arrayable ? $data->toArray() : $data;
 
         $this->writeThread();
+        $this->writeChange();
 
         return $this;
     }
@@ -278,6 +281,22 @@ class PendingActivity
             ...($this->activity->data ?? []),
             FeedThread::KEY => $this->thread->toArray(),
         ];
+    }
+
+    /** Set the activity's before/after facts; order-independent with data(). */
+    public function change(FeedChange $change): static
+    {
+        $this->change = $change;
+        $this->writeChange();
+
+        return $this;
+    }
+
+    private function writeChange(): void
+    {
+        if ($this->change !== null) {
+            $this->activity->data = $this->change->toData($this->activity->data ?? []);
+        }
     }
 
     public function publishedAt(DateTimeInterface|string $date): static

@@ -17,7 +17,7 @@ use Workbench\App\Models\User;
  * A well-meaning "strip every `$`-prefixed key" on the read path would pass
  * every FeedThread test and delete a paying customer's payload — a detail
  * carrying `$detail`/`$v`, a key another package reserved, a key the app
- * chose for itself. Core owns `$thread` and nothing else.
+ * chose for itself. Core owns `$thread` and `$change`.
  */
 
 function recordWithReservedKeys(array $data, ?FeedThread $thread = null, string $tracking = 'TN-R'): Activity

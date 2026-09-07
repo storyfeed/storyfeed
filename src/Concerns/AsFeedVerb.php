@@ -6,6 +6,7 @@ use DateTimeInterface;
 use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Database\Eloquent\Model;
 use Storyfeed\ActivityStreams\ActivityType;
+use Storyfeed\FeedChange;
 use Storyfeed\FeedThread;
 use Storyfeed\Models\Activity;
 use Storyfeed\PendingActivity;
@@ -164,6 +165,11 @@ trait AsFeedVerb
     public function data(array|Arrayable $data): PendingActivity
     {
         return $this->activity()->data($data);
+    }
+
+    public function change(FeedChange $change): PendingActivity
+    {
+        return $this->activity()->change($change);
     }
 
     public function thread(FeedThread $thread): PendingActivity

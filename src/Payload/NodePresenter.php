@@ -4,6 +4,7 @@ namespace Storyfeed\Payload;
 
 use Closure;
 use Illuminate\Support\Collection;
+use Storyfeed\FeedChange;
 use Storyfeed\FeedContext;
 use Storyfeed\FeedNoun;
 use Storyfeed\FeedThread;
@@ -107,6 +108,10 @@ class NodePresenter
         [$template, $headline] = $this->headline($activity);
 
         [$data, $thread] = $this->thread($activity);
+        $change = FeedChange::fromArray($data[FeedChange::KEY] ?? null);
+        if (is_array($data)) {
+            unset($data[FeedChange::KEY]);
+        }
 
         return [
             'kind' => 'activity',
@@ -129,6 +134,7 @@ class NodePresenter
             // size of the conversation around it, or null — which is every
             // activity that has not opted in. See docs/payload.md, `thread`.
             'thread' => $thread?->toPayload(),
+            'change' => $change?->toPayload(),
         ];
     }
 

@@ -23,7 +23,7 @@ it('emits the same payload shape as before the recording API change', function (
     expect(array_keys($payload))->toBe(['payload_version', 'items', 'next_cursor', 'sync_token']);
     expect(array_keys($payload['items'][0]))->toBe([
         'kind', 'id', 'verb', 'published_at', 'headline_template', 'headline',
-        'glyph', 'actor', 'object', 'target', 'context', 'data', 'thread',
+        'glyph', 'actor', 'object', 'target', 'context', 'data', 'thread', 'change',
     ]);
     expect(array_keys($payload['items'][0]['object']))->toBe([
         'type', 'id', 'label', 'url', 'attributes', 'modal', 'component', 'data', 'media',
@@ -68,7 +68,7 @@ it('emits the frozen group-node shape', function () {
     // a group is many of them.
     expect(array_keys($item['children'][0]))->toBe([
         'kind', 'id', 'verb', 'published_at', 'headline_template', 'headline',
-        'glyph', 'actor', 'object', 'target', 'context', 'data', 'thread',
+        'glyph', 'actor', 'object', 'target', 'context', 'data', 'thread', 'change',
     ]);
 });
 
