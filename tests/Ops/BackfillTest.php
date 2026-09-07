@@ -58,7 +58,7 @@ it('buckets backdated activities by the day they happened, not the day they were
         ->and($hashes->unique())->toHaveCount(5);
 });
 
-it('collapses a bulk backdated import into ONE batch, because batches are stamped against the wall clock', function () {
+it('separates a bulk backdated import into event-time batches', function () {
     foreach (range(1, 6) as $i) {
         Storyfeed::activity()->actor($this->ines)
             ->verb("order.step{$i}", $this->order)
@@ -66,11 +66,10 @@ it('collapses a bulk backdated import into ONE batch, because batches are stampe
             ->publish();
     }
 
-    expect(DB::table('feed_batches')->count())->toBe(1)
+    expect(DB::table('feed_batches')->count())->toBe(6)
         ->and(DB::table('feed_groupings')->where('bucket', 'batch')->count())->toBe(6);
 
-    // …and the guide's mitigation for the fact above: the rendered feed is
-    // unaffected, because `batch` is not in the curation policy.
+    // Batch membership remains outside the feed's curation policy.
     $winners = DB::table('feed_groupings')->where('winner', true)->pluck('bucket')->unique();
 
     expect($winners->all())->toBe(['repeat'])

@@ -257,17 +257,35 @@ it('partitions backfilled runs by day — a giant seeded batch never merges days
     Storyfeed::collectables(['delivery']);
     config()->set('storyfeed.grouping.composite.auto', false);
 
-    // A seeder's shape: one actor, uploads spread across two DAYS, all
-    // landing in one batch (batch windows key on wall-clock, not
-    // publishedAt).
+    // Explicitly seed the legacy wall-clock shape. New writes now separate
+    // event-time windows, but historical multi-day batches still need this
+    // day-partitioning safeguard.
+    config()->set('storyfeed.grouping.batch.enabled', false);
+    $members = [];
     foreach ([now()->subDays(2), now()->subDay()] as $day) {
         foreach (range(1, 3) as $i) {
-            Storyfeed::activity()
+            $members[] = Storyfeed::activity()
                 ->actor(tomas())
                 ->verb('upload', Delivery::create(['tracking_number' => "D{$day->day}-{$i}"]))
                 ->publishedAt($day->copy()->addMinutes($i))
                 ->publish();
         }
+    }
+
+    $batch = Batch::query()->create([
+        'actor_type' => tomas()->getMorphClass(),
+        'actor_id' => tomas()->getKey(),
+        'opened_at' => now(),
+        'last_activity_at' => now(),
+        'activities_count' => count($members),
+    ]);
+
+    foreach ($members as $member) {
+        Grouping::query()->create([
+            'activity_id' => $member->id,
+            'bucket' => 'batch',
+            'hash' => $batch->uid,
+        ]);
     }
 
     expect(Batch::query()->count())->toBe(1);

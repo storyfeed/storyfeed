@@ -10,13 +10,13 @@ use Storyfeed\Models\Batch;
 use Storyfeed\Models\Grouping;
 
 /**
- * Link a just-published activity to its actor's current batch — an earlier
+ * Link a just-published activity to its actor's event-time batch — an earlier
  * implementation's open-window pattern, generalized. Called inside the
  * publish transaction; the developer never sees it (atomic activities are
  * recorded, the rest is handled).
  *
- * The quiet window is enforced HERE, lazily: if the actor's open batch has
- * been quiet longer than the window, it is closed (firing BatchClosed) and
+ * The quiet window is enforced HERE, lazily: if the next event is beyond
+ * an open batch's event-time window, it is closed (firing BatchClosed) and
  * a fresh one opened. Feeds and batch membership are therefore correct
  * with zero scheduling; storyfeed:close-batches exists only so BatchClosed
  * fires promptly for actors who walked away.
@@ -40,9 +40,9 @@ class AssignToBatch
             return null;
         }
 
-        $now = Carbon::now();
+        $publishedAt = $activity->published_at;
 
-        $batch = $this->resolveOpenBatch($activity, $now);
+        $batch = $this->resolveOpenBatch($activity, $publishedAt);
 
         $grouping = config('storyfeed.models.grouping', Grouping::class);
 
@@ -53,50 +53,53 @@ class AssignToBatch
 
         $batch->forceFill([
             'activities_count' => $batch->activities_count + 1,
-            'last_activity_at' => $now,
+            // Out-of-order members must not move the window backwards.
+            'last_activity_at' => $batch->last_activity_at?->max($publishedAt) ?? $publishedAt,
         ])->save();
 
         return $batch;
     }
 
-    protected function resolveOpenBatch(Activity $activity, Carbon $now): Batch
+    protected function resolveOpenBatch(Activity $activity, Carbon $publishedAt): Batch
     {
         $model = config('storyfeed.models.batch', Batch::class);
 
-        // lockForUpdate so two concurrent publishes by the same actor
-        // cannot mint two open batches — we are already inside the publish
-        // transaction.
+        // Lock an existing candidate inside the publish transaction. Late
+        // arrivals never reopen closed batches or move an opening backwards;
+        // without a compatible open window, they start a separate batch.
         /** @var Batch|null $open */
         $open = $model::query()
             ->open()
             ->where('actor_type', $activity->actor_type)
             ->where('actor_id', $activity->actor_id)
+            ->where('opened_at', '<=', $publishedAt)
             ->lockForUpdate()
             ->latest('opened_at')
+            ->latest('id')
             ->first();
 
-        if ($open !== null && $this->withinWindow($open, $now)) {
+        if ($open !== null && $this->withinWindow($open, $publishedAt)) {
             return $open;
         }
 
         if ($open !== null) {
-            $this->close($open, $now);
+            $this->close($open, Carbon::now());
         }
 
         return $model::query()->create([
             'actor_type' => $activity->actor_type,
             'actor_id' => $activity->actor_id,
-            'opened_at' => $now,
+            'opened_at' => $publishedAt,
         ]);
     }
 
-    protected function withinWindow(Batch $batch, Carbon $now): bool
+    protected function withinWindow(Batch $batch, Carbon $publishedAt): bool
     {
         $quiet = (int) config('storyfeed.grouping.batch.quiet_minutes', 10);
 
         $lastSeen = $batch->last_activity_at ?? $batch->opened_at;
 
-        return $lastSeen->gt($now->copy()->subMinutes($quiet));
+        return $lastSeen->gt($publishedAt->copy()->subMinutes($quiet));
     }
 
     protected function close(Batch $batch, Carbon $now): void

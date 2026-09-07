@@ -26,10 +26,10 @@ use Illuminate\Support\Carbon;
  * @property string $uid
  * @property string|null $actor_type
  * @property int|string|null $actor_id
- * @property Carbon $opened_at
- * @property Carbon|null $closed_at
+ * @property Carbon $opened_at Event time of the first assigned activity; never moved backwards
+ * @property Carbon|null $closed_at Wall-clock time the batch was closed
  * @property int $activities_count
- * @property Carbon|null $last_activity_at
+ * @property Carbon|null $last_activity_at Greatest assigned publication time
  * @property array<array-key, mixed>|null $meta
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at

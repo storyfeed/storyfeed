@@ -26,6 +26,9 @@ class CloseBatches
     {
         $quiet = $quietMinutes ?? (int) config('storyfeed.grouping.batch.quiet_minutes', 10);
 
+        // Membership uses event time. The sweep asks whether that event-time
+        // window has elapsed as of now; closed_at records the actual close.
+        // A drained historical window is therefore eligible immediately.
         $now = Carbon::now();
         $cutoff = $now->copy()->subMinutes($quiet);
 
