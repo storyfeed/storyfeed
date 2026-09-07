@@ -44,8 +44,9 @@ Write it while it's fresh; never reconstruct after the fact. See
 - **Anonymous ≠ system.** A null actor means the actor is genuinely unknown;
   a named non-model participant is a `Party` (any role). Never conflate them.
 - Package-owned morph aliases must resolve via `Support\MorphResolver`,
-  independently of the app's morph map — the trickle deletes activities whose
-  role alias won't resolve.
+  independently of the app's morph map — the trickle counts activities with
+  uncached, unresolvable roles by default and soft-deletes them only when
+  `storyfeed.trickle.prune` is enabled or `storyfeed:trickle --prune` is used.
 - Verbs stay free-form strings in storage. Enums are an authoring convenience;
   AS2.0 enums are pure vocabulary transcriptions that never throw and never
   gate validation. Unknown/extension types are preserved verbatim, never dropped.
