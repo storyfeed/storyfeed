@@ -4,10 +4,12 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Schema;
+use Storyfeed\Actions\CloseBatches;
 use Storyfeed\Events\ActivityDeleted;
 use Storyfeed\Events\ActivityPublished;
 use Storyfeed\Events\BatchClosed;
 use Storyfeed\Facades\Storyfeed;
+use Storyfeed\Models\Activity;
 use Storyfeed\Models\Batch;
 use Storyfeed\Tests\Events\Fixtures\QueuedActivityListener;
 use Workbench\App\Models\Customer;
@@ -55,98 +57,132 @@ function publishConfirmation(): array
     return [$activity, $user, $delivery];
 }
 
-it('keeps the relation graph and the actor\'s hidden attributes off the queue', function () {
+it('keeps models and private attributes off the queue while retaining feed labels', function () {
     Event::listen(ActivityPublished::class, QueuedActivityListener::class);
-
     [$activity] = publishConfirmation();
-
     expect(DB::table('jobs')->count())->toBe(1);
-
-    // The serialized CallQueuedListener inside the JSON envelope.
     $command = (string) json_decode((string) DB::table('jobs')->value('payload'))->data->command;
-
-    expect($command)
-        ->toContain('Storyfeed\Models\Activity')
-        ->toContain($activity->uid)
-        ->not->toContain('Workbench\App\Models\User')
-        ->not->toContain('Workbench\App\Models\Delivery')
-        ->not->toContain('Workbench\App\Models\Customer')
+    expect($command)->toContain($activity->uid)
+        ->not->toContain('Storyfeed\\Models\\Activity')
+        ->not->toContain('Workbench\\App\\Models\\User')
         ->not->toContain('sally@example.com')
         ->not->toContain('rt-secret-token')
-        ->not->toContain('TN-1')
-        // The measured 6,760 bytes before; an Activity alone is under half.
-        ->and(strlen($command))->toBeLessThan(3500);
+        ->toContain('TN-1');
 });
 
-it('hands the worker a detached copy that can still reach its object', function () {
+it('delivers the published facts after the activity and entities change or disappear', function () {
     Event::listen(ActivityPublished::class, QueuedActivityListener::class);
-
-    [$activity] = publishConfirmation();
-
-    app('queue')->connection('database')->pop()->fire();
-
-    expect(QueuedActivityListener::$seen)->toBe([[
-        'uid' => $activity->uid,
-        'exists' => true,
-        'relations' => [],
-        'object_tracking_number' => 'TN-1',
-    ]]);
+    [$activity, $user, $delivery] = publishConfirmation();
+    $delivery->update(['tracking_number' => 'CHANGED']);
+    $activity->forceDelete();
+    $job = app('queue')->connection('database')->pop();
+    DB::enableQueryLog();
+    DB::flushQueryLog();
+    $job->fire();
+    // Database queue acknowledgement reads/deletes its own job; no domain query is allowed.
+    $queries = array_values(array_filter(DB::getQueryLog(),
+        fn ($query) => ! in_array($query['query'], [
+            'select * from "jobs" where "id" = ? limit 1',
+            'delete from "jobs" where "id" = ?',
+        ], true)));
+    DB::disableQueryLog();
+    expect(QueuedActivityListener::$seen[0]['object']['label'])->toBe('Delivery #TN-1')
+        ->and(QueuedActivityListener::$seen[0]['uid'])->toBe($activity->uid)
+        ->and($queries)->toBe([]);
 });
 
-it('hands a synchronous listener the loaded graph, at no query', function () {
-    // A naive withoutRelations() on the model handed to the event would
-    // pass the test above and turn every sync listener's ->object into a
-    // lazy load. The relations must survive the in-process dispatch.
+it('reads the same plain facts synchronously without queries', function () {
+    $seen = null;
     $queries = null;
-    $email = null;
-
-    Event::listen(ActivityPublished::class, function (ActivityPublished $event) use (&$queries, &$email) {
+    Event::listen(ActivityPublished::class, function (ActivityPublished $event) use (&$seen, &$queries) {
         DB::enableQueryLog();
         DB::flushQueryLog();
-
-        $email = $event->activity->actor->email;
-        $tracking = $event->activity->object->tracking_number;
-        $target = $event->activity->target->name;
-
-        $queries = count(DB::getQueryLog());
+        $seen = $event->activity->toArray();
+        $queries = DB::getQueryLog();
         DB::disableQueryLog();
     });
-
     publishConfirmation();
-
-    expect($email)->toBe('sally@example.com')
-        ->and($queries)->toBe(0);
+    expect($seen['actor']['label'])->toBe('Sally')
+        ->and($seen['object']['label'])->toBe('Delivery #TN-1')
+        ->and($seen['target']['label'])->toBe('Acme Co.')
+        ->and($queries)->toBe([]);
 });
 
-it('serializes a copy and leaves the in-memory event\'s relations intact', function () {
+it('queues deletion facts even after a force delete removes the row', function (bool $force) {
+    Event::listen(ActivityDeleted::class, QueuedActivityListener::class);
     [$activity] = publishConfirmation();
+    $force ? $activity->forceDelete() : $activity->delete();
+    $job = app('queue')->connection('database')->pop();
+    DB::enableQueryLog();
+    DB::flushQueryLog();
+    $job->fire();
+    // Database queue acknowledgement reads/deletes its own job; no domain query is allowed.
+    $queries = array_values(array_filter(DB::getQueryLog(),
+        fn ($query) => ! in_array($query['query'], [
+            'select * from "jobs" where "id" = ? limit 1',
+            'delete from "jobs" where "id" = ?',
+        ], true)));
+    DB::disableQueryLog();
+    expect(QueuedActivityListener::$seen[0]['uid'])->toBe($activity->uid)
+        ->and(QueuedActivityListener::$seen[0]['forceDeleted'])->toBe($force)
+        ->and(QueuedActivityListener::$seen[0]['object']['label'])->toBe('Delivery #TN-1')
+        ->and($queries)->toBe([]);
+})->with([true, false]);
 
-    $event = new ActivityPublished($activity);
-
-    $copy = unserialize(serialize($event));
-
-    expect($event->activity->getRelations())->toHaveKeys(['actor', 'object', 'target'])
-        ->and($copy->activity->getRelations())->toBe([])
-        ->and($copy->activity->is($activity))->toBeTrue()
-        ->and($copy->activity->uid)->toBe($activity->uid);
+it('queues batch members before bundling and retains them after deletion', function () {
+    Event::listen(BatchClosed::class, QueuedActivityListener::class);
+    [$activity] = publishConfirmation();
+    $this->travel(11)->minutes();
+    (new CloseBatches)();
+    $activity->forceDelete();
+    Batch::query()->delete();
+    $job = app('queue')->connection('database')->pop();
+    DB::enableQueryLog();
+    DB::flushQueryLog();
+    $job->fire();
+    // Database queue acknowledgement reads/deletes its own job; no domain query is allowed.
+    $queries = array_values(array_filter(DB::getQueryLog(),
+        fn ($query) => ! in_array($query['query'], [
+            'select * from "jobs" where "id" = ? limit 1',
+            'delete from "jobs" where "id" = ?',
+        ], true)));
+    DB::disableQueryLog();
+    expect(QueuedActivityListener::$seen[0]['activities'][0]['uid'])->toBe($activity->uid)
+        ->and(QueuedActivityListener::$seen[0]['activities'][0]['object']['label'])->toBe('Delivery #TN-1')
+        ->and($queries)->toBe([]);
 });
 
-it('does the same for ActivityDeleted and BatchClosed', function () {
-    [$activity, $user] = publishConfirmation();
+it('rejects old model constructors loudly', function () {
+    [$activity] = publishConfirmation();
+    expect(fn () => new ActivityPublished($activity))->toThrow(TypeError::class)
+        ->and(fn () => new ActivityDeleted($activity))->toThrow(TypeError::class)
+        ->and(fn () => new BatchClosed(Batch::firstOrFail()))->toThrow(TypeError::class);
+});
 
-    $activity->delete();
+it('still invokes old listeners and errors at their model typed boundary', function () {
+    Event::listen(ActivityPublished::class, function (ActivityPublished $event) {
+        (function (Activity $activity) {})($event->activity);
+    });
+    expect(fn () => publishConfirmation())->toThrow(TypeError::class);
+});
 
-    $deleted = unserialize(serialize(new ActivityDeleted($activity)));
-
-    expect($deleted->activity->getRelations())->toBe([])
-        ->and($deleted->activity->trashed())->toBeTrue()
-        ->and(serialize(new ActivityDeleted($activity)))->not->toContain('rt-secret-token');
-
-    $batch = Batch::query()->firstOrFail()->load('activities');
-
-    $closed = unserialize(serialize(new BatchClosed($batch)));
-
-    expect($batch->relationLoaded('activities'))->toBeTrue()
-        ->and($closed->batch->getRelations())->toBe([])
-        ->and($closed->batch->is($batch))->toBeTrue();
+it('freezes before the outer commit and rejects nested mutation', function () {
+    $seen = null;
+    Event::listen(ActivityPublished::class, function (ActivityPublished $event) use (&$seen) {
+        $seen = $event;
+    });
+    DB::transaction(function () {
+        [$activity] = publishConfirmation();
+        $activity->verb = 'changed';
+        $activity->save();
+    });
+    $copy = unserialize(serialize($seen));
+    expect($seen->activity->verb)->toBe('confirm')
+        ->and($copy->activity->toPayload())->toBe($seen->activity->toArray());
+    expect(function () use ($seen) {
+        $seen->activity->object['label'] = 'changed';
+    })->toThrow(Error::class);
+    expect(function () use ($seen) {
+        $seen->activity = $seen->activity;
+    })->toThrow(Error::class);
 });

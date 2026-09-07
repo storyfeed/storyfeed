@@ -107,7 +107,7 @@ it('dispatches BatchClosed only once the publish that closed the batch has commi
     Event::listen(BatchClosed::class, function (BatchClosed $event) use (&$seen) {
         $seen[] = [
             'level' => DB::transactionLevel(),
-            'closed_in_db' => $event->batch->fresh()->closed_at !== null,
+            'closed_in_db' => Batch::findOrFail($event->batch->id)->closed_at !== null,
         ];
     });
 

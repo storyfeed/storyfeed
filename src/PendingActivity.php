@@ -20,6 +20,7 @@ use Storyfeed\Actions\WriteGroupings;
 use Storyfeed\Contracts\Feedable;
 use Storyfeed\Contracts\FeedVerb;
 use Storyfeed\Events\ActivityPublished;
+use Storyfeed\Events\Snapshots\ActivitySnapshot;
 use Storyfeed\Exceptions\IncompleteActivity;
 use Storyfeed\Exceptions\UnauthoredActivity;
 use Storyfeed\Exceptions\UnknownVerb;
@@ -368,7 +369,7 @@ class PendingActivity
         // After the package's own transaction — and, because the event is
         // after-commit, after the consumer's outermost one when publish()
         // is called inside it. That inner transaction was only a savepoint.
-        ActivityPublished::dispatch($activity);
+        ActivityPublished::dispatch(ActivitySnapshot::fromModel($activity));
 
         return $activity;
     }
@@ -500,7 +501,7 @@ class PendingActivity
             return $this->activity;
         });
 
-        ActivityPublished::dispatch($parent);
+        ActivityPublished::dispatch(ActivitySnapshot::fromModel($parent));
 
         return $parent;
     }

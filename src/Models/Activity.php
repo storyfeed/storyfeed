@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Carbon;
 use Storyfeed\Events\ActivityDeleted;
+use Storyfeed\Events\Snapshots\ActivitySnapshot;
 use Storyfeed\Models\Builders\ActivityBuilder;
 use Storyfeed\StoryfeedManager;
 
@@ -86,7 +87,7 @@ class Activity extends Model
         });
 
         static::deleted(function (self $activity) {
-            ActivityDeleted::dispatch($activity);
+            ActivityDeleted::dispatch(ActivitySnapshot::fromModel($activity));
         });
     }
 

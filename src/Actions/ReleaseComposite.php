@@ -2,6 +2,7 @@
 
 namespace Storyfeed\Actions;
 
+use Storyfeed\Events\Snapshots\ActivitySnapshot;
 use Storyfeed\Models\Activity;
 use Storyfeed\Models\Grouping;
 
@@ -15,20 +16,18 @@ use Storyfeed\Models\Grouping;
  */
 class ReleaseComposite
 {
-    public function __invoke(Activity $activity): void
+    public function __invoke(Activity|ActivitySnapshot $activity): void
     {
-        // ActivityDeleted is after-commit, so inside a consumer's transaction
-        // this runs once forceDelete() has already reset its transient flag.
-        // `exists` is the durable signal: SoftDeletes clears it on a hard
-        // delete before the deleted event fires, and never on a soft one.
-        if (! $activity->isForceDeleting() && $activity->exists) {
+        // Event listeners use the captured flag; direct model callers retain
+        // the existing transient-flag/exists behavior.
+        if (! ($activity instanceof ActivitySnapshot ? $activity->forceDeleted : $activity->isForceDeleting() || ! $activity->exists)) {
             return;
         }
 
         $grouping = config('storyfeed.models.grouping', Grouping::class);
 
         $isParent = $grouping::query()
-            ->where('activity_id', $activity->getKey())
+            ->where('activity_id', $activity->id)
             ->where('bucket', 'composite')
             ->where('hash', $activity->uid)
             ->exists();
@@ -40,7 +39,7 @@ class ReleaseComposite
         $memberIds = $grouping::query()
             ->where('bucket', 'composite')
             ->where('hash', $activity->uid)
-            ->where('activity_id', '!=', $activity->getKey())
+            ->where('activity_id', '!=', $activity->id)
             ->pluck('activity_id');
 
         // Claims released first, so WriteGroupings' claimed-guard passes.

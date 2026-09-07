@@ -5,6 +5,7 @@ namespace Storyfeed\Actions;
 use Illuminate\Database\Query\JoinClause;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Storyfeed\Events\Snapshots\ActivitySnapshot;
 use Storyfeed\Models\Activity;
 use Storyfeed\Models\Builders\ActivityBuilder;
 use Storyfeed\Models\Grouping;
@@ -61,25 +62,23 @@ class CurateCluster
      * remaining members must be re-decided — the one case where winners are
      * not monotone.
      */
-    public function afterDelete(Activity $activity): void
+    public function afterDelete(Activity|ActivitySnapshot $activity): void
     {
-        $hashes = $this->hashes($activity->getKey());
+        $hashes = $this->hashes($activity->id);
 
-        // ActivityDeleted is after-commit, so inside a consumer's transaction
-        // this runs once forceDelete() has already reset its transient flag.
-        // `exists` is the durable signal: SoftDeletes clears it on a hard
-        // delete before the deleted event fires, and never on a soft one.
-        $forced = $activity->isForceDeleting() || ! $activity->exists;
+        // Event listeners use the captured flag; direct model callers retain
+        // the existing transient-flag/exists behavior.
+        $forced = ($activity instanceof ActivitySnapshot ? $activity->forceDeleted : $activity->isForceDeleting() || ! $activity->exists);
 
         // A force-deleted activity can never come back, so its candidate
         // hashes are orphans — the same cleanup PruneActivities does.
         if ($forced) {
-            $this->groupings()->where('activity_id', $activity->getKey())->delete();
+            $this->groupings()->where('activity_id', $activity->id)->delete();
         }
 
         foreach ($hashes as $axis => $hash) {
             foreach ($this->memberIds($axis, $hash) as $id) {
-                if ($id !== $activity->getKey()) {
+                if ($id !== $activity->id) {
                     $this->settle($id, $this->hashes($id));
                 }
             }
@@ -88,7 +87,7 @@ class CurateCluster
         // A soft-deleted activity keeps its rows, and may be restored, so it
         // is re-decided like any other member.
         if (! $forced) {
-            $this->settle($activity->getKey(), $hashes);
+            $this->settle($activity->id, $hashes);
         }
     }
 

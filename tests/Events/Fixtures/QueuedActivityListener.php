@@ -3,7 +3,9 @@
 namespace Storyfeed\Tests\Events\Fixtures;
 
 use Illuminate\Contracts\Queue\ShouldQueue;
+use Storyfeed\Events\ActivityDeleted;
 use Storyfeed\Events\ActivityPublished;
+use Storyfeed\Events\BatchClosed;
 
 /**
  * A queued listener, as a consumer would write one for broadcasting or
@@ -16,17 +18,10 @@ class QueuedActivityListener implements ShouldQueue
     /** @var array<int, array<string, mixed>> */
     public static array $seen = [];
 
-    public function handle(ActivityPublished $event): void
+    public function handle(ActivityPublished|ActivityDeleted|BatchClosed $event): void
     {
-        $activity = $event->activity;
-
-        static::$seen[] = [
-            'uid' => $activity->uid,
-            'exists' => $activity->exists,
-            'relations' => array_keys($activity->getRelations()),
-            // Reading a relation on the detached copy lazy-loads it from
-            // the live database — the worker can still reach the object.
-            'object_tracking_number' => $activity->object?->tracking_number,
-        ];
+        static::$seen[] = $event instanceof BatchClosed
+            ? $event->batch->toPayload()
+            : $event->activity->toPayload();
     }
 }

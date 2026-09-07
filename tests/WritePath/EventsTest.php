@@ -13,7 +13,7 @@ it('dispatches ActivityPublished after publish', function () {
 
     Event::assertDispatched(
         ActivityPublished::class,
-        fn (ActivityPublished $event) => $event->activity->is($activity),
+        fn (ActivityPublished $event) => $event->activity->id === $activity->id,
     );
 });
 
@@ -27,6 +27,6 @@ it('dispatches ActivityDeleted when an activity is deleted', function () {
 
     Event::assertDispatched(
         ActivityDeleted::class,
-        fn (ActivityDeleted $event) => $event->activity->is($activity),
+        fn (ActivityDeleted $event) => $event->activity->id === $activity->id,
     );
 });

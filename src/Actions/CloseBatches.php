@@ -4,6 +4,7 @@ namespace Storyfeed\Actions;
 
 use Illuminate\Support\Carbon;
 use Storyfeed\Events\BatchClosed;
+use Storyfeed\Events\Snapshots\BatchSnapshot;
 use Storyfeed\Models\Batch;
 
 /**
@@ -45,7 +46,7 @@ class CloseBatches
                     $batch->forceFill(['closed_at' => $now])->save();
 
                     if ($batch->activities_count > 0) {
-                        BatchClosed::dispatch($batch);
+                        BatchClosed::dispatch(BatchSnapshot::fromModel($batch));
 
                         if (config('storyfeed.grouping.composite.auto', true)) {
                             (new BundleComposites)($batch);
