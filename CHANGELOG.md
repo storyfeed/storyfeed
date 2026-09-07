@@ -86,6 +86,53 @@ and one of them turned out to be returning `null` from all of them — folded in
 
 ### Added
 
+- **`Contracts\FeedDetail` — the spec for a value an app records inside `data`, so
+  any renderer can draw one without depending on the package that defined it.** A
+  **detail** is app data with a conventional form: a field change, a quoted passage,
+  a file's facts, written once at record time where the domain knowledge is. It
+  carries two reserved keys of its own — `$detail`, the form's name, and `$v`, its
+  version — and lands at the app's own key inside the app's own map.
+
+  **Core owns the spec and ships no implementation, now or later.** There is no DTO
+  here, no registry, no reserved payload key, no `record()` parameter and no Activity
+  Streams mapping. Core never reads a detail, strips one, upgrades one or validates a
+  name against anything. An activity recorded from a detail is indistinguishable from
+  one recorded from the array that detail produces, which is exactly what lets the
+  vocabulary evolve on a library's timeline instead of being frozen with a payload
+  that is about to freeze at v0.3. The first library of prefabricated forms is
+  `storyfeed/ui` (free, MIT); the paid Filament adapter renders any conforming detail
+  by shape; an app may write its own and owe nothing to either.
+
+  **The versioning rule is the OPPOSITE of `FeedThread`'s, and the difference is
+  structural rather than a preference.** Read side by side they look like an
+  inconsistency, so the branch is written into the interface's docblock where someone
+  about to "fix" one of them will see it: **does core own the key?** Core owns
+  `$thread`, so core finds it, upgrades it and strips its `$v` — a renderer never
+  learns core versions anything. Core does not own a detail's key and cannot even
+  find it without walking the app's map, so `$v` travels to the renderer and **the
+  renderer upgrades**. Same rule, two keys, two answers.
+
+- **A `details` doctor check: which forms are actually in the column, and the two
+  ways one can be malformed without anything failing out loud.** `details.form` is
+  Info — a census of the vocabularies an app is storing and where, which is the
+  thing you want before migrating one. `details.unversioned` is also Info: a missing
+  `$v` is version 1 **by definition**, so those rows read correctly today and will
+  keep doing so; emit the key anyway, because later the unversioned rows already
+  exist. The two Warnings are the silent failures — `details.version_ambiguous`,
+  where a form declares version 2 on some rows and nothing on others so the
+  unversioned ones take an upgrade path meant for an older shape and render
+  plausible, wrong output; and `details.untokenized` / `details.malformed_token`,
+  a map that meant to be a detail and carries no usable name, so no renderer ever
+  draws it and nothing anywhere says so.
+
+  **Nothing it reports is an Error and the exit code is unchanged.** A malformed
+  detail is fail-open by design — the activity still renders, minus a preview — and
+  a diagnostic that turned that into a failed build would contradict the rule it is
+  checking. It is also silent on an app that records no details, and it deliberately
+  does **not** report an unknown form or a payload that mismatches its version:
+  both would require core to learn a vocabulary, which is the thing `FeedDetail`
+  exists to avoid.
+
 - **The stored `$thread` map is versioned.** It now carries `"$v": 1` alongside its
   five keys, and `FeedThread::fromArray()` normalizes a stored value to the current
   shape at read time (`FeedThread::version()`, `versionOf()`, `upgrade()` — the same
