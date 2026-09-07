@@ -527,8 +527,8 @@ class NodePresenter
             // while an explicitly empty string remains authored content.
             ...array_filter([
                 'content' => $snapshot?->content,
-                'mediaType' => $snapshot?->mediaType,
-                'attributedTo' => $snapshot?->attributedTo,
+                'mediaType' => $snapshot?->media_type,
+                'attributedTo' => $snapshot?->attributed_to,
             ], fn ($value) => $value !== null),
         ];
     }

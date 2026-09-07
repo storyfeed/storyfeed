@@ -46,8 +46,8 @@ it('persists an authored note and emits its body without a thread or an inferred
 
     $snapshot = Snapshot::where('model_type', 'note')->where('model_id', $note->id)->firstOrFail();
     expect($snapshot->content)->toBe($note->name)
-        ->and($snapshot->mediaType)->toBe('text/markdown')
-        ->and($snapshot->attributedTo)->toBe('https://example.test/authors/original')
+        ->and($snapshot->media_type)->toBe('text/markdown')
+        ->and($snapshot->attributed_to)->toBe('https://example.test/authors/original')
         ->and($snapshot->data)->toBe(['content' => 'app-owned', '$content' => 'also app-owned']);
 
     $item = Storyfeed::feed()->get()->toArray()['items'][0];
@@ -65,8 +65,8 @@ it('persists an authored note and emits its body without a thread or an inferred
     $note->update(['name' => 'cleared']);
     $item = Storyfeed::feed()->get()->toArray()['items'][0];
     expect($snapshot->fresh()->content)->toBeNull()
-        ->and($snapshot->fresh()->mediaType)->toBeNull()
-        ->and($snapshot->fresh()->attributedTo)->toBeNull()
+        ->and($snapshot->fresh()->media_type)->toBeNull()
+        ->and($snapshot->fresh()->attributed_to)->toBeNull()
         ->and($item['object'])->not->toHaveKeys(['content', 'mediaType', 'attributedTo'])
         ->and(serialize_one($activity)['object'])->not->toHaveKeys(['content', 'mediaType', 'attributedTo']);
 });

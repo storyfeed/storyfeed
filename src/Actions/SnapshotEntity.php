@@ -31,8 +31,8 @@ class SnapshotEntity
                 'component' => $entity->component,
                 'data' => $entity->data,
                 'content' => $entity->content,
-                'mediaType' => $entity->mediaType,
-                'attributedTo' => $entity->attributedTo,
+                'media_type' => $entity->mediaType,
+                'attributed_to' => $entity->attributedTo,
                 'shape' => ShapeSignature::for($entity, $model::class),
             ],
         );

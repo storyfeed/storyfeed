@@ -40,8 +40,8 @@ class ShapeSignature
         // changing its words, encoding or author is a value change only.
         $body = array_filter([
             'content' => $entity->content,
-            'mediaType' => $entity->mediaType,
-            'attributedTo' => $entity->attributedTo,
+            'media_type' => $entity->mediaType,
+            'attributed_to' => $entity->attributedTo,
         ], fn ($value) => $value !== null);
 
         if ($body !== []) {

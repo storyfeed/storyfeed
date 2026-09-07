@@ -348,8 +348,8 @@ class ActivitySerializer
             'id' => $actor ? $absolute : null,
             Property::Name->value => $snapshot?->label,
             'content' => $snapshot?->content,
-            Property::MediaType->value => $snapshot?->mediaType,
-            'attributedTo' => $snapshot?->attributedTo,
+            Property::MediaType->value => $snapshot?->media_type,
+            'attributedTo' => $snapshot?->attributed_to,
             // A url the resolver typed as an image becomes a Link object so
             // its mediaType and dimensions travel; a plain href stays the
             // bare string it always was. Both are legal values for as:url.

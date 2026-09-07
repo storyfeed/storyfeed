@@ -10,7 +10,7 @@ return new class extends Migration
     {
         $table = config('storyfeed.tables.snapshots', 'feed_snapshots');
 
-        foreach (['content', 'mediaType', 'attributedTo'] as $column) {
+        foreach (['content', 'media_type', 'attributed_to'] as $column) {
             if (! Schema::hasColumn($table, $column)) {
                 Schema::table($table, function (Blueprint $blueprint) use ($column) {
                     $blueprint->text($column)->nullable();
@@ -23,7 +23,7 @@ return new class extends Migration
     {
         $table = config('storyfeed.tables.snapshots', 'feed_snapshots');
 
-        foreach (['content', 'mediaType', 'attributedTo'] as $column) {
+        foreach (['content', 'media_type', 'attributed_to'] as $column) {
             if (Schema::hasColumn($table, $column)) {
                 Schema::table($table, function (Blueprint $blueprint) use ($column) {
                     $blueprint->dropColumn($column);

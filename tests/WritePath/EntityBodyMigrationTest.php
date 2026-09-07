@@ -24,14 +24,14 @@ it('adds only nullable body columns to existing snapshots without rewriting rows
         expect(strtolower(ltrim($query['query'])))->not->toStartWith('update ');
     }
     $row = (array) DB::table($table)->first();
-    expect($row)->toBe([...$before, 'content' => null, 'mediaType' => null, 'attributedTo' => null]);
+    expect($row)->toBe([...$before, 'content' => null, 'media_type' => null, 'attributed_to' => null]);
 
-    DB::table($table)->where('id', 1)->update(['content' => str_repeat('words ', 1000), 'mediaType' => 'text/plain', 'attributedTo' => 'urn:author:1']);
+    DB::table($table)->where('id', 1)->update(['content' => str_repeat('words ', 1000), 'media_type' => 'text/plain', 'attributed_to' => 'urn:author:1']);
     expect(DB::table($table)->value('content'))->toBe(str_repeat('words ', 1000));
     $migration->down();
     $migration->down();
     expect((array) DB::table($table)->first())->toBe($before)
         ->and(Schema::hasColumn($table, 'content'))->toBeFalse()
-        ->and(Schema::hasColumn($table, 'mediaType'))->toBeFalse()
-        ->and(Schema::hasColumn($table, 'attributedTo'))->toBeFalse();
+        ->and(Schema::hasColumn($table, 'media_type'))->toBeFalse()
+        ->and(Schema::hasColumn($table, 'attributed_to'))->toBeFalse();
 });
