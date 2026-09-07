@@ -4,6 +4,7 @@ namespace Storyfeed\Serialization;
 
 use Illuminate\Contracts\Pagination\CursorPaginator;
 use Storyfeed\Models\Activity;
+use Storyfeed\Support\LinkResolver;
 
 /**
  * Serializes a page of activities as an AS2.0 OrderedCollection /
@@ -46,8 +47,14 @@ class CollectionSerializer
      */
     public function collection(CursorPaginator $page, string $iri, ?string $cursor = null): array
     {
+        // One report scope for the whole page (issue #9): a collection page
+        // of a hundred activities about one broken resolver writes one
+        // report, and the next page rendered in the same worker writes its
+        // own — the scope is this call, and dies with it.
+        $links = new LinkResolver;
+
         $items = collect($page->items())
-            ->map(fn (Activity $activity) => $this->activities->activity($activity, root: false))
+            ->map(fn (Activity $activity) => $this->activities->activity($activity, root: false, links: $links))
             ->all();
 
         $next = $page->nextCursor()?->encode();

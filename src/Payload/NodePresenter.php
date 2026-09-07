@@ -33,6 +33,7 @@ class NodePresenter
         protected StoryfeedManager $storyfeed,
         protected ?string $feed = null,
         protected ?ModelHydrator $hydrator = null,
+        protected ?LinkResolver $links = null,
     ) {}
 
     /**
@@ -67,6 +68,12 @@ class NodePresenter
      * back to a private, unseeded map, which makes model() a single lookup.
      * Correct, only not amortised; the seam FeedPage::items() exists to close.
      *
+     * The page's LinkResolver rides along for the same reason and with the
+     * same lifetime: it is what makes a resolver that throws for a whole
+     * class reported once for this page rather than once per entity on it
+     * (issue #9), and a memo that outlived the page would report the second
+     * page's failures not at all.
+     *
      * @param  Collection<int, GroupSlice>  $slices
      */
     public function forPage(Collection $slices): static
@@ -83,6 +90,7 @@ class NodePresenter
 
         $presenter = clone $this;
         $presenter->hydrator = $hydrator;
+        $presenter->links = new LinkResolver;
 
         return $presenter;
     }
@@ -483,7 +491,7 @@ class NodePresenter
         // No snapshot ⇒ no link regeneration: the contract promises degraded
         // entities arrive with url: null, and calling the app's resolver
         // with empty data makes every naive implementation warn.
-        $link = $snapshot === null ? null : LinkResolver::resolve(new FeedContext(
+        $link = $snapshot === null ? null : ($this->links ?? new LinkResolver)->resolve(new FeedContext(
             type: $type,
             id: $id,
             label: $snapshot->label,

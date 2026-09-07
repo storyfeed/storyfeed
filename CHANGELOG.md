@@ -565,6 +565,32 @@ and one of them turned out to be returning `null` from all of them — folded in
 
 ### Fixed
 
+- **A resolver that throws for a whole class is now reported once per page, not
+  once per entity on it.** `Support\LinkResolver` caught a throwing
+  `feedMedia()` and called `report()` every time, and a resolver that throws
+  almost never throws for one row — it reached for a panel, or the
+  authenticated user, and a queued digest has neither. A worker rendering a
+  hundred rows about one broken class wrote a hundred identical reports, and if
+  the listener then failed, a hundred copies of its exception landed in
+  `failed_jobs` with them. The first failure of a class is reported; every later
+  entity of that class degrades in silence, and a SECOND broken class still
+  reports, because the second class is news. (#9)
+
+  **`LinkResolver::resolve()` is no longer static.** The dedupe needed a scope,
+  and `once` is only right if the thing that remembers dies with the page —
+  a static memo would have made the second digest about the same broken class
+  report *nothing at all*, which is a different bug. So the class takes its
+  scope where `ModelHydrator` takes its identity map: `NodePresenter::forPage()`
+  holds one for the page it presents, `ActivitySerializer::activity()` takes one
+  per document (threaded as an optional argument, because that serializer is
+  resolved from the container and must not keep a memo between calls), and
+  `CollectionSerializer` passes one across the page of documents it builds. A
+  presenter run and a serializer run therefore never share one. Nothing else in
+  the read path moves: a broken resolver still returns null, the entity still
+  arrives labelled and unlinked, and the activity is still never withheld.
+  Consumers calling `LinkResolver::resolve()` directly — it is a `Support`
+  internal, and nothing in the payload contract names it — construct one first.
+
 - **The package's own events now wait for the commit they describe, and a
   queued listener's job no longer carries the actor's hidden attributes.**
   `ActivityPublished`, `ActivityDeleted` and `BatchClosed` implement Laravel's

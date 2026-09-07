@@ -108,7 +108,7 @@ it('compiles a bare Feedable with only toFeed() written, and links nothing', fun
     Relation::morphMap(['bare' => $model::class]);
 
     expect($model::feedMedia(new FeedContext(type: 'bare', id: 1)))->toBeNull()
-        ->and(LinkResolver::resolve(new FeedContext(type: 'bare', id: 1, data: ['id' => 1])))->toBeNull();
+        ->and((new LinkResolver)->resolve(new FeedContext(type: 'bare', id: 1, data: ['id' => 1])))->toBeNull();
 
     $bare = $model::create(['name' => 'Bare']);
 
@@ -144,7 +144,7 @@ it('lets feedMedia() override the cached label and hint a modal', function () {
 
     Relation::morphMap(['fresh' => $model::class]);
 
-    $media = LinkResolver::resolve(new FeedContext(type: 'fresh', id: 7, label: 'Acme'));
+    $media = (new LinkResolver)->resolve(new FeedContext(type: 'fresh', id: 7, label: 'Acme'));
 
     expect($media?->url)->toBe('/m/7')
         ->and($media?->label)->toBe('Fresh Acme')
@@ -166,7 +166,7 @@ it('reports a throwing feedMedia() and degrades to null', function () {
 
     Relation::morphMap(['boom' => $model::class]);
 
-    $media = LinkResolver::resolve(new FeedContext(type: 'boom', id: 1, data: ['id' => 1]));
+    $media = (new LinkResolver)->resolve(new FeedContext(type: 'boom', id: 1, data: ['id' => 1]));
 
     expect($media)->toBeNull();
     Exceptions::assertReported(RuntimeException::class);
@@ -175,8 +175,8 @@ it('reports a throwing feedMedia() and degrades to null', function () {
 it('returns null for an alias whose class is not Feedable, and for an alias that resolves to nothing', function () {
     Relation::morphMap(['plain' => Activity::class]);
 
-    expect(LinkResolver::resolve(new FeedContext(type: 'plain', data: ['id' => 1])))->toBeNull()
-        ->and(LinkResolver::resolve(new FeedContext(type: 'unknown-alias')))->toBeNull();
+    expect((new LinkResolver)->resolve(new FeedContext(type: 'plain', data: ['id' => 1])))->toBeNull()
+        ->and((new LinkResolver)->resolve(new FeedContext(type: 'unknown-alias')))->toBeNull();
 });
 
 it('never calls feedMedia() for un-snapshotted entities', function () {

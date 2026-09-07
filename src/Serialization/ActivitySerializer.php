@@ -45,11 +45,25 @@ class ActivitySerializer
     ) {}
 
     /**
+     * @param  LinkResolver|null  $links  the scope a throwing resolver is
+     *                                    reported once within — one document
+     *                                    unless a caller passes its own
      * @return array<string, mixed>
      */
-    public function activity(Activity $activity, bool $root = true): array
+    public function activity(Activity $activity, bool $root = true, ?LinkResolver $links = null): array
     {
         $document = $root ? ['@context' => self::CONTEXT] : [];
+
+        // THE SCOPE IS THE DOCUMENT, AND IT IS AN ARGUMENT (issue #9). A
+        // resolver that throws for its whole class is reported once here
+        // rather than once per role, and CollectionSerializer passes one
+        // scope across the page of documents it builds — a page of a
+        // hundred activities about one broken class writes one report, not
+        // four hundred. It is threaded rather than held on `$this` because
+        // this serializer is resolved from the container: a memo stored on
+        // a singleton would outlive the document that filled it and silence
+        // the next one, which is a different bug from the one being fixed.
+        $links ??= new LinkResolver;
 
         return [
             ...$document,
@@ -57,11 +71,11 @@ class ActivitySerializer
             'type' => $this->type($activity),
             'sf:verb' => $activity->verb,
             ...array_filter([
-                'actor' => $this->entity($activity->actor_type, $activity->cachedActor, actor: true),
-                'object' => $this->collectionObject($activity)
-                    ?? $this->entity($activity->object_type, $activity->cachedObject),
-                'target' => $this->entity($activity->target_type, $activity->cachedTarget),
-                'context' => $this->entity($activity->context_type, $activity->cachedContext),
+                'actor' => $this->entity($activity->actor_type, $activity->cachedActor, $links, actor: true),
+                'object' => $this->collectionObject($activity, $links)
+                    ?? $this->entity($activity->object_type, $activity->cachedObject, $links),
+                'target' => $this->entity($activity->target_type, $activity->cachedTarget, $links),
+                'context' => $this->entity($activity->context_type, $activity->cachedContext, $links),
                 Property::Replies->value => $this->replies($activity),
             ], fn (?array $entity) => $entity !== null),
             'published' => $activity->published_at?->utc()->format('Y-m-d\TH:i:s\Z'),
@@ -140,7 +154,7 @@ class ActivitySerializer
      *
      * @return array<string, mixed>|null null for non-composite activities
      */
-    protected function collectionObject(Activity $activity): ?array
+    protected function collectionObject(Activity $activity, LinkResolver $links): ?array
     {
         if ($activity->object_type !== null) {
             return null;
@@ -171,7 +185,7 @@ class ActivitySerializer
             'type' => 'OrderedCollection',
             'totalItems' => $members->count(),
             'orderedItems' => $members
-                ->map(fn (Activity $member) => $this->entity($member->object_type, $member->cachedObject))
+                ->map(fn (Activity $member) => $this->entity($member->object_type, $member->cachedObject, $links))
                 ->filter()
                 ->values()
                 ->all(),
@@ -184,7 +198,7 @@ class ActivitySerializer
      *
      * @return array<string, mixed>|null
      */
-    protected function entity(?string $alias, ?Snapshot $snapshot, bool $actor = false): ?array
+    protected function entity(?string $alias, ?Snapshot $snapshot, LinkResolver $links, bool $actor = false): ?array
     {
         if ($alias === null) {
             return null;
@@ -211,7 +225,7 @@ class ActivitySerializer
         // with a hydrating resolver and report the difference as a
         // regression. A resolver that must stay query-free on this path can
         // branch on feed() === null, which is always true here.
-        $media = $snapshot === null ? null : LinkResolver::resolve(new FeedContext(
+        $media = $snapshot === null ? null : $links->resolve(new FeedContext(
             type: $alias,
             id: $snapshot->model_id,
             label: $snapshot->label,

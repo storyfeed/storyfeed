@@ -20,10 +20,38 @@ use Throwable;
  * #4: FeedContext::model() arrived as a constructor argument that
  * each caller passes and this class never reads. Neither caller has ever
  * known which method answered, and neither needs to now that only one can.
+ *
+ * REPORTED ONCE PER CLASS, NOT ONCE PER ENTITY (2026-09-06, issue #9). A
+ * resolver that throws usually throws for its whole class — it reached for
+ * a panel, or the authenticated user, and there is no request. Reporting
+ * that per entity means a queued digest rendering a hundred rows about one
+ * broken class writes a hundred identical reports, and if the listener then
+ * fails, a hundred copies land in `failed_jobs` with it. The first failure
+ * of a class is reported; every later entity of that class degrades in
+ * silence. A SECOND class still reports, because the second class is news.
+ *
+ * WHICH IS WHY THIS IS AN INSTANCE. `resolve()` was static, and a static
+ * memo would have outlived the page that filled it: a worker's second
+ * digest, about the same broken class, would report nothing at all, and
+ * "never" is a different bug from "once". ModelHydrator's docblock states
+ * the same rule for the same reason — a map that outlives a page serves one
+ * page's models to the next — and this class now takes its scope from the
+ * same place: NodePresenter::forPage() holds one for the page it is
+ * presenting, the AS2 serializer takes one per document, and
+ * CollectionSerializer passes one across the page of documents it builds.
+ * A resolver built without a scope gets one of its own, which reports every
+ * time: correct, only not deduped.
+ *
+ * NOT A CACHE. Only the fact that a class was reported is kept; the media
+ * itself is resolved fresh for every entity, because two entities of a
+ * class have two different links.
  */
 class LinkResolver
 {
-    public static function resolve(FeedContext $context): ?FeedMedia
+    /** @var array<class-string, true> classes whose resolver has thrown and been reported in this scope */
+    private array $reported = [];
+
+    public function resolve(FeedContext $context): ?FeedMedia
     {
         $class = MorphResolver::classFor($context->type());
 
@@ -34,7 +62,11 @@ class LinkResolver
         try {
             return $class::feedMedia($context);
         } catch (Throwable $e) {
-            report($e);
+            if (! isset($this->reported[$class])) {
+                $this->reported[$class] = true;
+
+                report($e);
+            }
         }
 
         return null;
