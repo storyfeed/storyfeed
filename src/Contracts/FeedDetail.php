@@ -3,6 +3,7 @@
 namespace Storyfeed\Contracts;
 
 use Illuminate\Contracts\Support\Arrayable;
+use Storyfeed\Concerns\HasPayload;
 use Storyfeed\FeedThread;
 
 /**
@@ -106,6 +107,26 @@ use Storyfeed\FeedThread;
  */
 interface FeedDetail extends Arrayable
 {
+    /**
+     * The node shape. Authors implement this and use {@see HasPayload} for
+     * toArray(), which defaults to toPayload(); only storage-only extras
+     * warrant overriding toArray(). The trait documents why this direction
+     * prevents permanent leaks into the frozen payload contract.
+     *
+     * This belongs on the published interface so every future detail DTO,
+     * including storyfeed/ui's, must supply a payload deliberately. A trait
+     * alone would leave that obligation optional; widening the interface is
+     * affordable before the v0.3 freeze, not after it.
+     *
+     * Include KEY and VERSION: a detail's version is NOT storage-only.
+     * Core passes details through unchanged and the renderer upgrades them,
+     * as the versioning rule above explains. Core does not call this method
+     * by walking data or reconstructing detail objects on the read path.
+     *
+     * @return array<string, mixed>
+     */
+    public function toPayload(): array;
+
     /**
      * The reserved key naming the form.
      *

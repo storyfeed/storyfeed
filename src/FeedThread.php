@@ -2,6 +2,8 @@
 
 namespace Storyfeed;
 
+use Storyfeed\Concerns\HasPayload;
+
 /**
  * The utterance a feed row is about, and the size of the conversation
  * around it.
@@ -76,6 +78,8 @@ namespace Storyfeed;
  */
 final class FeedThread
 {
+    use HasPayload;
+
     /**
      * The reserved key this rides under inside the activity's `data`
      * column, `$`-prefixed as the adapter's `$detail` is: `data` is the
@@ -256,6 +260,9 @@ final class FeedThread
     /**
      * The STORAGE shape: the five keys, plus the version that says which five
      * they are.
+     * This is the storage-only override of the rule in
+     * {@see HasPayload}: payload is the base, storage
+     * enriches it, and storage internals never become node keys by default.
      *
      * This is what goes into the `data` column under {@see KEY}, and the
      * version is in it from this commit on because storage is the thing that
