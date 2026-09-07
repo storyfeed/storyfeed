@@ -3,6 +3,7 @@
 namespace Storyfeed;
 
 use BackedEnum;
+use DateTimeInterface;
 use Illuminate\Database\Eloquent\Model;
 use Storyfeed\ActivityStreams\ActivityType;
 use Storyfeed\Contracts\FeedVerb;
@@ -151,6 +152,8 @@ abstract class Story
         array $data = [],
         bool $replace = false,
         iterable $objects = [],
+        DateTimeInterface|string|null $publishedAt = null,
+        ?FeedThread $thread = null,
     ): Activity {
         return static::activity($object)
             ->when($objects !== [], fn (PendingActivity $a) => $a->objects($objects))
@@ -158,6 +161,8 @@ abstract class Story
             ->target($target)
             ->context($context)
             ->when($data !== [], fn (PendingActivity $a) => $a->data($data))
+            ->when($thread !== null, fn (PendingActivity $a) => $a->thread($thread))
+            ->when($publishedAt !== null, fn (PendingActivity $a) => $a->publishedAt($publishedAt))
             ->replace($replace)
             ->publish();
     }
