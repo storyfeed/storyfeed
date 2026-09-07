@@ -43,7 +43,12 @@ function loadStorySubclass(string $objectTypeLine, string $verbLine): Process
 
 function docblockDeclarations(): array
 {
-    $source = file_get_contents(__DIR__.'/../../src/Story.php');
+    // Normalised because the two patterns below anchor on `$` under /m, which
+    // does not match across a CRLF — the file arrives with \r\n on a Windows
+    // checkout and every declaration silently reads as absent. This test was
+    // red on all seven Windows matrix cells, and green everywhere else, for
+    // days before anyone looked at CI.
+    $source = str_replace("\r\n", "\n", file_get_contents(__DIR__.'/../../src/Story.php'));
 
     preg_match('/^\s*\*\s+(public string\|array\|null \$objectType = .+;)$/m', $source, $objectType);
     preg_match('/^\s*\*\s+(public .+ \$verb = .+;)$/m', $source, $verb);
