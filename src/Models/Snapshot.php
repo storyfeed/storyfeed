@@ -14,6 +14,9 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
  * @property string $model_type
  * @property int|string $model_id
  * @property string|null $label
+ * @property string|null $content
+ * @property string|null $mediaType
+ * @property string|null $attributedTo
  * @property string|null $component
  * @property array<array-key, mixed>|null $data
  * @property string|null $shape shape fingerprint at write time (see ShapeSignature)

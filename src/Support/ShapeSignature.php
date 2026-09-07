@@ -29,11 +29,26 @@ class ShapeSignature
             ? $class::feedShapeVersion()
             : 1;
 
-        return sha1(json_encode([
+        $shape = [
             $entity->component,
             $version,
             self::keyPaths($entity->data ?? []),
-        ]));
+        ];
+
+        // Leave every pre-body fingerprint untouched. Opting into a body
+        // must still be detectable by the normal snapshot shape check;
+        // changing its words, encoding or author is a value change only.
+        $body = array_filter([
+            'content' => $entity->content,
+            'mediaType' => $entity->mediaType,
+            'attributedTo' => $entity->attributedTo,
+        ], fn ($value) => $value !== null);
+
+        if ($body !== []) {
+            $shape[] = self::keyPaths($body);
+        }
+
+        return sha1(json_encode($shape));
     }
 
     /**

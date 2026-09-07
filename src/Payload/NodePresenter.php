@@ -523,6 +523,13 @@ class NodePresenter
             // above stays the string it was frozen as; when the resource
             // itself is an image its dimensions ride here as `media.url`.
             'media' => $link?->media(),
+            // Omit only absent body fields: old snapshots keep their shape,
+            // while an explicitly empty string remains authored content.
+            ...array_filter([
+                'content' => $snapshot?->content,
+                'mediaType' => $snapshot?->mediaType,
+                'attributedTo' => $snapshot?->attributedTo,
+            ], fn ($value) => $value !== null),
         ];
     }
 }

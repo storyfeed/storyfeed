@@ -1,0 +1,34 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        $table = config('storyfeed.tables.snapshots', 'feed_snapshots');
+
+        foreach (['content', 'mediaType', 'attributedTo'] as $column) {
+            if (! Schema::hasColumn($table, $column)) {
+                Schema::table($table, function (Blueprint $blueprint) use ($column) {
+                    $blueprint->text($column)->nullable();
+                });
+            }
+        }
+    }
+
+    public function down(): void
+    {
+        $table = config('storyfeed.tables.snapshots', 'feed_snapshots');
+
+        foreach (['content', 'mediaType', 'attributedTo'] as $column) {
+            if (Schema::hasColumn($table, $column)) {
+                Schema::table($table, function (Blueprint $blueprint) use ($column) {
+                    $blueprint->dropColumn($column);
+                });
+            }
+        }
+    }
+};
