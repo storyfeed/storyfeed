@@ -6,7 +6,7 @@ use Storyfeed\ActivityStreams\VocabularyTerm;
 it('models only the AS2 properties currently emitted by the activity serializer', function () {
     expect(array_column(Property::cases(), 'value'))->toBe([
         'actor', 'object', 'target', 'context', 'published',
-        'totalItems', 'orderedItems', 'replies', 'name', 'url',
+        'totalItems', 'orderedItems', 'replies', 'summary', 'name', 'url',
         'icon', 'image', 'preview', 'href', 'mediaType', 'width', 'height',
     ]);
 });

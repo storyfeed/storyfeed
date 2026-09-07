@@ -2,6 +2,7 @@
 
 namespace Storyfeed\Serialization;
 
+use Closure;
 use Storyfeed\ActivityStreams\ActivityType;
 use Storyfeed\ActivityStreams\Context;
 use Storyfeed\ActivityStreams\CoreType;
@@ -14,6 +15,7 @@ use Storyfeed\Models\Grouping;
 use Storyfeed\Models\Snapshot;
 use Storyfeed\StoryfeedManager;
 use Storyfeed\Support\LinkResolver;
+use Throwable;
 
 /**
  * Serializes an Activity as an AS2.0 JSON-LD document
@@ -30,7 +32,9 @@ use Storyfeed\Support\LinkResolver;
  *    object — degrade, never drop.
  *  - Entities embed from snapshots; entities without snapshots serialize
  *    as bare references. Presentation extras (glyph, component, templates)
- *    never appear — they are meaningless to a federation peer.
+ *    never appear — they are meaningless to a federation peer. The
+ *    SENTENCE the template produces is not an extra: it is AS2's own
+ *    `summary`, and travels flattened (see summary()).
  */
 class ActivitySerializer
 {
@@ -71,13 +75,14 @@ class ActivitySerializer
             'type' => $this->type($activity),
             'sf:verb' => $activity->verb,
             ...array_filter([
+                Property::Summary->value => $this->summary($activity),
                 'actor' => $this->entity($activity->actor_type, $activity->cachedActor, $links, actor: true),
                 'object' => $this->collectionObject($activity, $links)
                     ?? $this->entity($activity->object_type, $activity->cachedObject, $links),
                 'target' => $this->entity($activity->target_type, $activity->cachedTarget, $links),
                 'context' => $this->entity($activity->context_type, $activity->cachedContext, $links),
                 Property::Replies->value => $this->replies($activity),
-            ], fn (?array $entity) => $entity !== null),
+            ], fn (mixed $value) => $value !== null),
             'published' => $activity->published_at?->utc()->format('Y-m-d\TH:i:s\Z'),
         ];
     }
@@ -120,6 +125,105 @@ class ActivitySerializer
             'type' => CoreType::Collection->value,
             Property::TotalItems->value => $thread->replies,
         ];
+    }
+
+    /**
+     * The activity as a sentence — AS2's `summary`, "a natural language
+     * summarization of the object encoded as HTML", which core §4.1.1 wants
+     * as the fallback text a generic client shows. The spec's own first two
+     * examples are activities carrying `"summary": "Martin created an
+     * image"`: exactly what the grammar produces, and until 2026-09-07
+     * exactly what this document withheld. A document with `actor`, `object`
+     * and `target` and no `summary` is spec-valid and reads as nothing.
+     *
+     * THE TOKEN GRAMMAR STAYS, AND THIS IS A FLATTENING OF IT. `summary` is
+     * a flat HTML string with no way to link an entity inside it, which is
+     * the reason the payload carries a template and not a sentence: roles
+     * are linkable, translatable and pluralisable per node there, and none
+     * of that survives here. So the payload keeps the template and the peer
+     * gets the sentence; nothing in the payload changed to emit this.
+     *
+     * The labels are substituted server-side, at the boundary, from the same
+     * snapshots the document embeds — no renderer exists in core and none is
+     * introduced; this is a regex. Where the grammar entry is a closure the
+     * rendered headline is what exists and is what travels.
+     *
+     * ABSENT, NEVER PARTIAL. A `summary` reads as complete to a peer, and
+     * ":actor confirmed Delivery #1042" would be presented as prose. So a
+     * token that cannot be filled — a role the row does not carry, an
+     * anonymous actor, a snapshot that has not landed, a plural or invented
+     * token in a singular template — withholds the key entirely: the
+     * document is then exactly what it was before this method existed. The
+     * payload's answer to the same gap is different, and right there: its
+     * renderer turns a null-labelled role into a neutral placeholder, and it
+     * has a locale to do it in. This document has neither.
+     *
+     * ONE LANGUAGE, THE AUTHOR'S. Templates are emitted raw by contract
+     * (Story::headline(): "i18n belongs in the renderer"), so core holds one
+     * spelling of each sentence and no translated variants — there is
+     * nothing to put in a `summaryMap`, and minting one from a single
+     * string would assert a language the package cannot know. A consumer
+     * that registers translated grammar gets a translated `summary`.
+     *
+     * ENCODED AS HTML, as the term's definition says. Templates are plain
+     * strings and labels are user data, so the finished sentence is escaped
+     * once, whole: a label of `<b>` reaches the peer as `&lt;b&gt;`, and an
+     * author's `&` becomes `&amp;`, which is the correct spelling of a plain
+     * sentence in HTML.
+     */
+    protected function summary(Activity $activity): ?string
+    {
+        $entry = $this->storyfeed->template($activity->object_type, $activity->verb);
+
+        if ($entry === null) {
+            return null;
+        }
+
+        if ($entry instanceof Closure) {
+            try {
+                $sentence = (string) $entry($activity);
+            } catch (Throwable $e) {
+                // Same posture as the payload presenter: an authoring bug is
+                // reported, never a broken document.
+                report($e);
+
+                return null;
+            }
+
+            return $sentence === '' ? null : e($sentence);
+        }
+
+        $labels = [
+            'actor' => $activity->cachedActor?->label,
+            'object' => $activity->cachedObject?->label,
+            'target' => $activity->cachedTarget?->label,
+            'context' => $activity->cachedContext?->label,
+        ];
+
+        $complete = true;
+
+        // One pass over the template, never over its output: a label is
+        // never re-scanned, so "Re:actor" in a delivery's name cannot be
+        // taken for a token. `[a-z]+` is greedy on purpose — `:actors` is
+        // not `:actor` followed by an s, it is a token this sentence has no
+        // label for, and the guard below is what catches it.
+        $sentence = (string) preg_replace_callback(
+            '/:([a-z]+)/',
+            function (array $match) use ($labels, &$complete): string {
+                $label = $labels[$match[1]] ?? null;
+
+                if (! is_string($label) || $label === '') {
+                    $complete = false;
+
+                    return $match[0];
+                }
+
+                return $label;
+            },
+            $entry,
+        );
+
+        return $complete ? e($sentence) : null;
     }
 
     public function iri(Activity $activity): string

@@ -32,6 +32,11 @@ enum Property: string implements VocabularyTerm
     // (docs/payload.md, `thread`).
     case Replies = 'replies';
 
+    // The sentence. AS2 core's own first examples are activities carrying
+    // `"summary": "Martin created an image"`; this package had that sentence
+    // in its grammar and withheld it (docs/activity-streams.md, `summary`).
+    case Summary = 'summary';
+
     case Name = 'name';
     case Url = 'url';
 

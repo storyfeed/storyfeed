@@ -119,6 +119,22 @@ and one of them turned out to be returning `null` from all of them — folded in
   `@context` to expand it — it would look like published vocabulary and be a string
   with a colon.
 
+- **The AS2 document carries `summary` — the sentence the grammar always had.** An
+  activity document now emits AS2's own `summary`, the grammar's singular template with
+  snapshot labels substituted at the boundary, or the closure-rendered headline where
+  that is what exists: `"summary": "Sally Nguyen confirmed Delivery #1042 for Acme Co."`.
+  Core's own first examples are activities carrying exactly this shape, and a document
+  with `actor`, `object` and `target` and no `summary` is spec-valid and reads as
+  nothing in a generic client. Additive and wire-only: **the payload does not change,**
+  the token grammar stays (AS2 cannot link an entity inside `summary`, which is why the
+  payload carries a template), and no `sf:` term was minted. The key is **absent, never
+  partial** — a token that cannot be filled (a role the row lacks, an anonymous actor,
+  an un-snapshotted entity, a plural or invented token, a throwing closure) withholds
+  the whole sentence rather than emit `:actor` as prose. One language, the author's:
+  templates are raw by contract, so there is nothing to put in a `summaryMap`. Encoded
+  as HTML once, whole. `ActivityStreams\Property` gains `Summary`. See
+  `docs/activity-streams.md`, `summary`.
+
 - **`Contracts\FeedDetail` — the spec for a value an app records inside `data`, so
   any renderer can draw one without depending on the package that defined it.** A
   **detail** is app data with a conventional form: a field change, a quoted passage,
