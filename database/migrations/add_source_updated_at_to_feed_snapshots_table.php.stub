@@ -1,0 +1,31 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        $table = config('storyfeed.tables.snapshots', 'feed_snapshots');
+
+        if (! Schema::hasColumn($table, 'source_updated_at')) {
+            Schema::table($table, function (Blueprint $blueprint) {
+                // UTC source-model time, not the snapshot's own updated_at.
+                $blueprint->dateTime('source_updated_at', 6)->nullable();
+            });
+        }
+    }
+
+    public function down(): void
+    {
+        $table = config('storyfeed.tables.snapshots', 'feed_snapshots');
+
+        if (Schema::hasColumn($table, 'source_updated_at')) {
+            Schema::table($table, function (Blueprint $blueprint) {
+                $blueprint->dropColumn('source_updated_at');
+            });
+        }
+    }
+};
