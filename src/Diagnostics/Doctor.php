@@ -26,6 +26,7 @@ class Doctor
         Checks\Tables::class,
         Checks\Columns::class,
         Checks\Recording::class,
+        Checks\Maintenance::class,
         Checks\Coverage::class,
         Checks\SingularTokens::class,
         Checks\AggregateCoverage::class,

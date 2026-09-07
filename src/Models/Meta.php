@@ -3,6 +3,7 @@
 namespace Storyfeed\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Carbon;
 
 /**
  * Durable package state: single values that must outlive requests and
@@ -11,6 +12,7 @@ use Illuminate\Database\Eloquent\Model;
  * @property int $id
  * @property string $key
  * @property string $value
+ * @property Carbon $created_at
  */
 class Meta extends Model
 {

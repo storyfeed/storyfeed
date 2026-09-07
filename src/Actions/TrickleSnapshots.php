@@ -7,6 +7,7 @@ use Storyfeed\Contracts\Feedable;
 use Storyfeed\Models\Activity;
 use Storyfeed\Models\Builders\ActivityBuilder;
 use Storyfeed\Models\Snapshot;
+use Storyfeed\Support\MaintenanceHistory;
 use Storyfeed\Support\MorphResolver;
 use Storyfeed\Support\ShapeSignature;
 
@@ -143,12 +144,16 @@ class TrickleSnapshots
 
         $reshaped = $this->convergeShapes($limit - $snapshotted);
 
-        return [
+        $result = [
             'snapshotted' => $snapshotted,
             'pruned' => $pruned,
             'unresolved' => $unresolved,
             'reshaped' => $reshaped,
         ];
+
+        MaintenanceHistory::record('trickle', $result);
+
+        return $result;
     }
 
     /**

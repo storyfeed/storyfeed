@@ -6,6 +6,9 @@ use Illuminate\Console\Command;
 use Storyfeed\Actions\CurateCluster;
 use Storyfeed\Actions\WriteGroupings;
 use Storyfeed\Models\Activity;
+use Storyfeed\Models\Grouping;
+use Storyfeed\StoryfeedManager;
+use Storyfeed\Support\MaintenanceHistory;
 use Storyfeed\Support\SyncToken;
 
 /**
@@ -35,16 +38,22 @@ class CurateCommand extends Command
             ->orderBy('id');
 
         $write = new WriteGroupings;
-        $curate = new CurateCluster;
+        $restamped = 0;
+        $rehashed = 0;
+        $curate = new CurateCluster(function (bool $changed) use (&$restamped): void {
+            $restamped += (int) $changed;
+        });
         $count = 0;
 
-        $query->chunkById(500, function ($activities) use ($write, $curate, $rehash, &$count) {
+        $query->chunkById(500, function ($activities) use ($write, $curate, $rehash, &$count, &$rehashed) {
             foreach ($activities as $activity) {
                 if ($rehash) {
                     // Candidate hashes are written at publish; a strategy
                     // that has since learned a new axis needs them refreshed
                     // before deciding — otherwise old rows can never win it.
+                    $before = $this->hashes($activity);
                     $write($activity);
+                    $rehashed += (int) ($before !== $this->hashes($activity));
                 }
 
                 $curate($activity);
@@ -58,8 +67,24 @@ class CurateCommand extends Command
             SyncToken::bump();
         }
 
+        MaintenanceHistory::record('curate', [
+            'processed' => $count,
+            'restamped' => $restamped,
+            'rehashed' => $rehashed,
+        ]);
+
         $this->info("Curated {$count} activities.");
 
         return self::SUCCESS;
+    }
+
+    /** @return array<string, string> */
+    protected function hashes(Activity $activity): array
+    {
+        $model = config('storyfeed.models.grouping', Grouping::class);
+
+        return $model::query()->where('activity_id', $activity->getKey())
+            ->whereNotIn('bucket', app(StoryfeedManager::class)->rowBackedBuckets())
+            ->orderBy('bucket')->pluck('hash', 'bucket')->all();
     }
 }

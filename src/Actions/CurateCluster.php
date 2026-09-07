@@ -2,6 +2,7 @@
 
 namespace Storyfeed\Actions;
 
+use Closure;
 use Illuminate\Database\Query\JoinClause;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -40,6 +41,9 @@ use Storyfeed\StoryfeedManager;
  */
 class CurateCluster
 {
+    /** @param (Closure(bool): void)|null $onSettled Optional maintenance accounting; absent on the publish path. */
+    public function __construct(protected ?Closure $onSettled = null) {}
+
     /**
      * Curate one activity and settle any cluster it just tipped over a
      * threshold.
@@ -102,6 +106,7 @@ class CurateCluster
             return;
         }
 
+        $before = $this->onSettled !== null ? $this->winnerState($activityId) : [];
         $winner = $this->decide($hashes);
 
         DB::transaction(function () use ($activityId, $winner) {
@@ -118,6 +123,18 @@ class CurateCluster
                 ->where('bucket', $winner)
                 ->update(['winner' => true]);
         });
+
+        if ($this->onSettled !== null) {
+            ($this->onSettled)($before !== $this->winnerState($activityId));
+        }
+    }
+
+    /** @return array<string, bool|null> */
+    protected function winnerState(int|string $activityId): array
+    {
+        return $this->groupings()->where('activity_id', $activityId)
+            ->whereNotIn('bucket', $this->manager()->rowBackedBuckets())
+            ->orderBy('bucket')->pluck('winner', 'bucket')->all();
     }
 
     /**
