@@ -88,7 +88,7 @@ it('registers a whole vocabulary from a FeedVerb enum', function () {
         ->and(Storyfeed::activityType('comment'))->toBe(ActivityType::Create);
 });
 
-it('emits headline templates and icons in the payload', function () {
+it('emits headline templates and glyph tokens in the payload', function () {
     Storyfeed::grammar(['delivery.confirm' => ':actor confirmed :object']);
     Storyfeed::icons(['delivery.confirm' => 'bi-truck']);
 
@@ -98,7 +98,7 @@ it('emits headline templates and icons in the payload', function () {
 
     expect($item['headline_template'])->toBe(':actor confirmed :object')
         ->and($item['headline'])->toBeNull()
-        ->and($item['icon'])->toBe('bi-truck');
+        ->and($item['glyph'])->toBe('bi-truck');
 });
 
 it('pre-renders closure grammar as headline with a null template', function () {

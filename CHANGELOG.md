@@ -13,6 +13,24 @@ and one of them turned out to be returning `null` from all of them — folded in
 
 ### Breaking
 
+- **The activity and group node key `icon` is now `glyph`.** Same value, same
+  resolution (`type.verb → type.* → *.verb → *.*`), same position in the node; only
+  the name changes. A renderer reading `node.icon` reads `null` from this release
+  until it reads `node.glyph` instead. Nothing else moves: `entity.media.icon` is
+  untouched, the `Storyfeed::icons()` registry and `icon()` resolver keep their
+  names, a Story class still declares `icon()`, and the AS2 document never carried
+  the key.
+
+  Why: `payload.md` says *the slot is the meaning* and uses `icon` on `entity.media`
+  with Activity Streams 2.0's definition — a small representational **image**. The
+  same document used `icon` on the node for a verb-resolved **glyph token** like
+  `bi-truck`. One word, two meanings, one JSON document, and the moment one
+  component draws both the word is doing two jobs. `glyph` is what the token is: a
+  symbol from a set, not a picture at a URL. `verb_icon` was the other candidate and
+  lost twice — it keeps the colliding word, and the token resolves on
+  `(object_type, verb)`, not the verb alone. Cheap before the freeze, impossible
+  after.
+
 - **One contract.** `Feedable` is now `toFeed()` + `static feedMedia(FeedContext):
   ?FeedMedia`. `Contracts\HasFeedMedia`, `Feedable::toFeedLink(array)`, `FeedLink`
   and `FeedMedia::fromLink()` are **removed**, and `Support\LinkResolver` no longer
@@ -85,6 +103,21 @@ and one of them turned out to be returning `null` from all of them — folded in
   `Number::format($n).' '.FeedNoun::form($noun, $n)`. One break, not two.
 
 ### Added
+
+- **The reserved-key convention, stated in the contract and guarded by a test.**
+  `docs/payload.md` now says what `$thread`, `$detail` and `$v` always meant and
+  nothing had written down: *a `$`-prefixed key in `data` is not the app's. Core
+  strips the ones core owns and passes every other one through untouched.* Nothing
+  about the payload changes. The second clause is the load-bearing one — a
+  well-meaning "strip every reserved key" on the read path would have passed every
+  existing test and deleted a paying customer's payload — so
+  `tests/ReadPath/ReservedKeysTest.php` now pins it: an unknown `$`-key survives to
+  `node.data` exactly as recorded, beside a `$thread` that is stripped, and a detail
+  arrives with its own `$detail` and `$v` intact. `$` stays: it is the established
+  spelling for reserved keys in a bag the user also fills (JSON Schema, MongoDB,
+  Vue), and an `sf:` prefix was rejected because the `data` column has no
+  `@context` to expand it — it would look like published vocabulary and be a string
+  with a colon.
 
 - **`Contracts\FeedDetail` — the spec for a value an app records inside `data`, so
   any renderer can draw one without depending on the package that defined it.** A

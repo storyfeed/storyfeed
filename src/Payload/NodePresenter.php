@@ -115,7 +115,11 @@ class NodePresenter
             'published_at' => $activity->published_at?->toISOString(),
             'headline_template' => $template,
             'headline' => $headline,
-            'icon' => $this->storyfeed->icon($activity->object_type, $activity->verb),
+            // Renamed from `icon` (2026-09-07, pre-freeze): a verb-resolved GLYPH
+            // token, not Activity Streams' `icon` — which is an image and lives at
+            // `entity.media.icon`. One word must not mean two things in one
+            // document. See docs/payload.md, `glyph`.
+            'glyph' => $this->storyfeed->icon($activity->object_type, $activity->verb),
             'actor' => $this->entity($activity->actor_type, $activity->actor_id, $activity->cachedActor),
             'object' => $this->entity($activity->object_type, $activity->object_id, $activity->cachedObject),
             'target' => $this->entity($activity->target_type, $activity->target_id, $activity->cachedTarget),
@@ -477,7 +481,7 @@ class NodePresenter
             'published_at' => $first->published_at?->toISOString(),
             'headline_template' => $template,
             'headline' => $headline,
-            'icon' => $this->storyfeed->icon($first->object_type, $first->verb),
+            'glyph' => $this->storyfeed->icon($first->object_type, $first->verb),
             ...$singulars,
             'exemplars' => $exemplars,
             'distinct' => $distinct,

@@ -23,7 +23,7 @@ it('emits the same payload shape as before the recording API change', function (
     expect(array_keys($payload))->toBe(['payload_version', 'items', 'next_cursor', 'sync_token']);
     expect(array_keys($payload['items'][0]))->toBe([
         'kind', 'id', 'verb', 'published_at', 'headline_template', 'headline',
-        'icon', 'actor', 'object', 'target', 'context', 'data', 'thread',
+        'glyph', 'actor', 'object', 'target', 'context', 'data', 'thread',
     ]);
     expect(array_keys($payload['items'][0]['object']))->toBe([
         'type', 'id', 'label', 'url', 'attributes', 'modal', 'component', 'data', 'media',
@@ -45,7 +45,7 @@ it('emits the frozen group-node shape', function () {
     expect($item['kind'])->toBe('group');
     expect(array_keys($item))->toBe([
         'kind', 'id', 'axis', 'count', 'verb', 'published_at', 'headline_template',
-        'headline', 'icon', 'actor', 'object', 'target', 'context',
+        'headline', 'glyph', 'actor', 'object', 'target', 'context',
         'exemplars', 'distinct', 'children', 'children_truncated',
     ]);
     // PINNED SINGULAR ROLES (2026-08-26, ADDITIVE): a role the axis pins is one
@@ -68,7 +68,7 @@ it('emits the frozen group-node shape', function () {
     // a group is many of them.
     expect(array_keys($item['children'][0]))->toBe([
         'kind', 'id', 'verb', 'published_at', 'headline_template', 'headline',
-        'icon', 'actor', 'object', 'target', 'context', 'data', 'thread',
+        'glyph', 'actor', 'object', 'target', 'context', 'data', 'thread',
     ]);
 });
 
@@ -119,7 +119,7 @@ it('emits a byte-identical payload whether authored as a Story or a registry ent
     expect($viaStory['payload_version'])->toBe($viaRegistry['payload_version'])
         ->and(array_keys($viaStory['items'][0]))->toBe(array_keys($viaRegistry['items'][0]))
         ->and($viaStory['items'][0]['headline_template'])->toBe($viaRegistry['items'][0]['headline_template'])
-        ->and($viaStory['items'][0]['icon'])->toBe($viaRegistry['items'][0]['icon'])
+        ->and($viaStory['items'][0]['glyph'])->toBe($viaRegistry['items'][0]['glyph'])
         ->and($viaStory['items'][0]['verb'])->toBe($viaRegistry['items'][0]['verb'])
         ->and($viaStory['items'][0]['actor'])->toBe($viaRegistry['items'][0]['actor'])
         ->and($viaStory['items'][0]['target'])->toBe($viaRegistry['items'][0]['target']);

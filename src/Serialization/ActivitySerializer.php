@@ -29,7 +29,7 @@ use Storyfeed\Support\LinkResolver;
  *    activity that carries an object emits base `Activity` and KEEPS the
  *    object — degrade, never drop.
  *  - Entities embed from snapshots; entities without snapshots serialize
- *    as bare references. Presentation extras (icon, component, templates)
+ *    as bare references. Presentation extras (glyph, component, templates)
  *    never appear — they are meaningless to a federation peer.
  */
 class ActivitySerializer
