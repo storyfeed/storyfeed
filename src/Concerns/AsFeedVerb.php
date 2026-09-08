@@ -10,6 +10,7 @@ use Storyfeed\FeedChange;
 use Storyfeed\FeedThread;
 use Storyfeed\Models\Activity;
 use Storyfeed\PendingActivity;
+use Storyfeed\StoryfeedManager;
 
 /**
  * Turns a backed string enum into a feed verb that can start a recording.
@@ -62,6 +63,21 @@ trait AsFeedVerb
         return $this->activity($object)->anonymously();
     }
 
+    /**
+     * The third recording surface, and the one that keeps being found late —
+     * twice by accident before W61 went looking and established there were
+     * three rather than two.
+     *
+     * **The parameter ORDER here deliberately differs from
+     * {@see StoryfeedManager::record()}**, which takes `objects`
+     * and `thread` before `origin`/`result`/`instrument`. This trait shipped
+     * the three AS2 roles first and the two older parameters second, so they
+     * could only be appended: reordering to match would silently change what
+     * every existing positional argument means. Named arguments make the
+     * difference invisible in practice, which is exactly why it needs saying
+     * here — the divergence is the compatible choice, not an oversight, and
+     * "tidying" it is a breaking change wearing a refactor's clothes.
+     */
     public function record(
         Model|string|null $object = null,
         Model|string|null $actor = null,
@@ -73,6 +89,8 @@ trait AsFeedVerb
         Model|string|null $origin = null,
         Model|string|null $result = null,
         Model|string|null $instrument = null,
+        iterable $objects = [],
+        ?FeedThread $thread = null,
     ): Activity {
         return storyfeed()->record(
             verb: $this,
@@ -86,6 +104,8 @@ trait AsFeedVerb
             origin: $origin,
             result: $result,
             instrument: $instrument,
+            objects: $objects,
+            thread: $thread,
         );
     }
 

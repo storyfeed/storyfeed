@@ -128,7 +128,7 @@ it('emits only terms defined in the AS2 vocabulary or the sf: context', function
 
     $context = json_decode(file_get_contents(__DIR__.'/../Fixtures/activitystreams.jsonld'), true);
     $specTerms = array_keys($context['@context']);
-    $sfTerms = ['sf:verb', 'sf:group'];
+    $sfTerms = ['sf:verb'];
 
     $assertTerms = function (array $node) use (&$assertTerms, $specTerms, $sfTerms) {
         foreach ($node as $term => $value) {

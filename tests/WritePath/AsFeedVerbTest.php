@@ -2,6 +2,7 @@
 
 use Storyfeed\Concerns\AsFeedVerb;
 use Storyfeed\Facades\Storyfeed;
+use Storyfeed\FeedThread;
 use Storyfeed\Models\Activity;
 use Storyfeed\Models\Grouping;
 use Storyfeed\PendingActivity;
@@ -117,4 +118,48 @@ it('never records anything from a bare enum case', function () {
     ActivityVerb::Confirm->actor(User::create(['name' => 'S', 'email' => 's@example.com']));
 
     expect(Activity::query()->count())->toBe(0);
+});
+
+it('records a thread and iterable objects from an enum case', function () {
+    $objects = collect([
+        Delivery::create(['tracking_number' => 'A']),
+        Delivery::create(['tracking_number' => 'B']),
+    ]);
+    $thread = FeedThread::make(text: 'Ready.', by: 'Sally', kind: 'replied', replies: 2);
+    $activity = ActivityVerb::Upload->record(objects: $objects, thread: $thread);
+
+    expect($activity->fresh()->data[FeedThread::KEY])->toBe($thread->toArray())
+        ->and($activity->object_id)->toBeNull()
+        ->and(Activity::query()->whereNotNull('object_id')->pluck('object_id')->all())
+        ->toEqual($objects->pluck('id')->all())
+        ->and(Activity::query()->count())->toBe(3);
+});
+
+it('preserves all existing positional enum record arguments', function () {
+    $delivery = Delivery::create(['tracking_number' => 'TN-1']);
+    $date = now()->subDays(3)->startOfSecond();
+    $activity = ActivityVerb::Confirm->record(
+        $delivery, 'Sally', 'Warehouse', 'Import', ['source' => 'import'],
+        $date, false, 'Source', 'Output', 'Tool',
+    )->fresh();
+
+    expect($activity->object_id)->toEqual($delivery->id)
+        ->and($activity->actor->name)->toBe('Sally')
+        ->and($activity->target->name)->toBe('Warehouse')
+        ->and($activity->context->name)->toBe('Import')
+        ->and($activity->origin->name)->toBe('Source')
+        ->and($activity->result->name)->toBe('Output')
+        ->and($activity->instrument->name)->toBe('Tool')
+        ->and($activity->published_at->equalTo($date))->toBeTrue()
+        ->and($activity->data)->toBe(['source' => 'import']);
+});
+
+it('treats null enum record defaults as absence and still resolves the actor', function () {
+    $user = User::create(['name' => 'Sally', 'email' => 'sally@example.com']);
+    Storyfeed::resolveActorUsing(fn () => $user);
+    $activity = ActivityVerb::Confirm->record(actor: null, objects: [], thread: null)->fresh();
+
+    expect($activity->actor_id)->toEqual($user->id)
+        ->and($activity->data ?? [])->not->toHaveKey(FeedThread::KEY)
+        ->and(Activity::query()->count())->toBe(1);
 });
