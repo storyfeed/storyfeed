@@ -50,6 +50,8 @@ class PendingActivity
 
     protected bool $replace = false;
 
+    private bool $anonymous = false;
+
     /** @var array<string, Model> */
     protected array $entities = [];
 
@@ -106,6 +108,13 @@ class PendingActivity
 
     public function actor(Model|string|null $model = null): static
     {
+        if ($model === null) {
+            return $this->anonymously();
+        }
+
+        $this->anonymous = false;
+        $this->activity->withoutDefaultActor(false);
+
         return $this->associate('actor', $model);
     }
 
@@ -118,6 +127,19 @@ class PendingActivity
     public function by(Model|string|null $model = null): static
     {
         return $this->actor($model);
+    }
+
+    /** Explicitly unknown actor; the last actor/by/anonymously call wins. */
+    public function anonymously(): static
+    {
+        $this->anonymous = true;
+        $this->activity->withoutDefaultActor();
+        $this->activity->actor()->dissociate();
+        $this->activity->cached_actor_id = null;
+        $this->activity->unsetRelation('cachedActor');
+        unset($this->entities['actor']);
+
+        return $this;
     }
 
     public function object(Model|string|null $model = null): static
@@ -474,6 +496,7 @@ class PendingActivity
                     'uid', 'cached_object_id',
                 ]);
 
+                $member->withoutDefaultActor($this->anonymous);
                 $member->object()->associate($model);
                 // Non-Feedable members degrade like any role: no snapshot,
                 // null label at read — never withheld.
@@ -584,7 +607,7 @@ class PendingActivity
      */
     private function resolveDefaultActor(StoryfeedManager $manager): void
     {
-        if ($this->activity->actor_type !== null || $this->activity->actor_id !== null) {
+        if ($this->anonymous || $this->activity->actor_type !== null || $this->activity->actor_id !== null) {
             return;
         }
 

@@ -11,6 +11,7 @@ use Storyfeed\Testing\StoryfeedFake;
  * @method static string|\Closure|null actorlessTemplate(string $verb)
  * @method static \Storyfeed\PendingActivity activity(string|\Storyfeed\Contracts\FeedVerb|\BackedEnum|null $verb = null, \Illuminate\Database\Eloquent\Model|string|null $object = null)
  * @method static \Storyfeed\Models\Activity record(string|\Storyfeed\Contracts\FeedVerb|\BackedEnum $verb, \Illuminate\Database\Eloquent\Model|string|null $object = null, \Illuminate\Database\Eloquent\Model|string|null $actor = null, \Illuminate\Database\Eloquent\Model|string|null $target = null, \Illuminate\Database\Eloquent\Model|string|null $context = null, array $data = [], \DateTimeInterface|string|null $publishedAt = null, bool $replace = false, iterable $objects = [], \Storyfeed\FeedThread|null $thread = null)
+ * @method static \Storyfeed\PendingActivity anonymous()
  * @method static mixed as(\Illuminate\Database\Eloquent\Model|string $actor, ?callable $callback = null)
  * @method static bool isRecording()
  * @method static \Storyfeed\StoryfeedManager stopRecording()

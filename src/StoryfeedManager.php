@@ -193,6 +193,12 @@ class StoryfeedManager
         return PendingActivity::make($verb, $object);
     }
 
+    /** Begin with an explicitly unknown actor. */
+    public function anonymous(): PendingActivity
+    {
+        return $this->activity()->anonymously();
+    }
+
     /**
      * Compose and publish an activity in one call.
      */
@@ -210,7 +216,7 @@ class StoryfeedManager
     ): Activity {
         return $this->activity($verb, $object)
             ->when($objects !== [], fn (PendingActivity $a) => $a->objects($objects))
-            ->actor($actor)
+            ->when($actor !== null, fn (PendingActivity $a) => $a->actor($actor))
             ->target($target)
             ->context($context)
             ->when($data !== [], fn (PendingActivity $a) => $a->data($data))

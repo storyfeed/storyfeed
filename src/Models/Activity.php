@@ -54,6 +54,8 @@ class Activity extends Model
 
     protected $guarded = [];
 
+    private bool $skipDefaultActor = false;
+
     protected function casts(): array
     {
         return [
@@ -72,10 +74,18 @@ class Activity extends Model
         return ['uid'];
     }
 
+    /** @internal Carry builder intent through the creating hook; never persisted. */
+    public function withoutDefaultActor(bool $skip = true): static
+    {
+        $this->skipDefaultActor = $skip;
+
+        return $this;
+    }
+
     protected static function booted(): void
     {
         static::creating(function (self $activity) {
-            if ($activity->actor_type === null && $activity->actor_id === null) {
+            if (! $activity->skipDefaultActor && $activity->actor_type === null && $activity->actor_id === null) {
                 if ($actor = app(StoryfeedManager::class)->resolveActor()) {
                     $activity->actor()->associate($actor);
                 }

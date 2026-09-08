@@ -139,6 +139,12 @@ abstract class Story
         return static::activity()->objects($models);
     }
 
+    /** Begin this verb's activity with an explicitly unknown actor. */
+    public static function anonymous(Model|string|null $object = null): PendingActivity
+    {
+        return static::activity($object)->anonymously();
+    }
+
     /**
      * Compose and publish in one call. Spec names only (object/actor/target/
      * context) — the one-liner speaks the spec, the chain speaks English, and
@@ -157,7 +163,7 @@ abstract class Story
     ): Activity {
         return static::activity($object)
             ->when($objects !== [], fn (PendingActivity $a) => $a->objects($objects))
-            ->actor($actor)
+            ->when($actor !== null, fn (PendingActivity $a) => $a->actor($actor))
             ->target($target)
             ->context($context)
             ->when($data !== [], fn (PendingActivity $a) => $a->data($data))

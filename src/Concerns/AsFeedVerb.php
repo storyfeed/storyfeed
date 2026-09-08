@@ -56,6 +56,12 @@ trait AsFeedVerb
         return PendingActivity::make($this, $object);
     }
 
+    /** Begin this verb's activity with an explicitly unknown actor. */
+    public function anonymous(Model|string|null $object = null): PendingActivity
+    {
+        return $this->activity($object)->anonymously();
+    }
+
     public function record(
         Model|string|null $object = null,
         Model|string|null $actor = null,
@@ -78,6 +84,11 @@ trait AsFeedVerb
     }
 
     // ── Forwarded chainables ─────────────────────────────────────────────
+
+    public function anonymously(): PendingActivity
+    {
+        return $this->activity()->anonymously();
+    }
 
     public function actor(Model|string|null $model = null): PendingActivity
     {
