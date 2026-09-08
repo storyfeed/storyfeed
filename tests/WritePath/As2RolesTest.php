@@ -140,3 +140,26 @@ it('keeps separate stored payload and groupable selections after promotion', fun
         ->and(ActivityRoles::PAYLOAD)->toBe(['actor', 'object', 'target', 'context', 'origin', 'result', 'instrument'])
         ->and(ActivityRoles::GROUPABLE)->toBe(['actor', 'object', 'target', 'context', 'origin', 'result', 'instrument']);
 });
+
+it('eager loads cached entities for every stored role through the public helper', function () {
+    $pending = Storyfeed::activity('confirm');
+    foreach (ActivityRoles::STORED as $role) {
+        $pending->{$role}('Participant '.$role);
+    }
+    $activity = Activity::with(ActivityRoles::cachedRelations())
+        ->findOrFail($pending->publish()->id);
+
+    DB::enableQueryLog();
+    DB::flushQueryLog();
+    try {
+        foreach (ActivityRoles::STORED as $role) {
+            $relation = 'cached'.ucfirst($role);
+            expect($activity->relationLoaded($relation))->toBeTrue()
+                ->and($activity->{$relation}->label)->toBe('Participant '.$role);
+        }
+        expect(DB::getQueryLog())->toBeEmpty();
+    } finally {
+        DB::disableQueryLog();
+        DB::flushQueryLog();
+    }
+});
