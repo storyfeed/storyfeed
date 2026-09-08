@@ -1,0 +1,53 @@
+#!/usr/bin/env php
+<?php
+
+// Standalone, disposable demo application. Never reads a host application's .env.
+require __DIR__.'/../../vendor/autoload.php';
+require __DIR__.'/FeedRenderer.php';
+require __DIR__.'/RasterProbe.php';
+require __DIR__.'/ConsoleFeedCommand.php';
+
+use Illuminate\Console\Application as Artisan;
+use Illuminate\Contracts\Console\Kernel;
+use Illuminate\Support\Facades\Schema;
+use Orchestra\Testbench\Foundation\Application;
+use Storyfeed\Demo\Vocabulary;
+use Storyfeed\StoryfeedServiceProvider;
+use Symfony\Component\Console\Input\ArgvInput;
+use Symfony\Component\Console\Output\ConsoleOutput;
+use Workbench\Console\ConsoleFeedCommand;
+
+$app = Application::create(options: ['extra' => ['providers' => [StoryfeedServiceProvider::class]]]);
+$app->make(Kernel::class)->bootstrap();
+$db = __DIR__.'/../../build/w93.sqlite';
+if (! is_dir(dirname($db))) {
+    mkdir(dirname($db), 0755, true);
+}
+if (! file_exists($db)) {
+    touch($db);
+}
+config()->set('database.default', 'w93');
+config()->set('database.connections.w93', ['driver' => 'sqlite', 'database' => realpath($db), 'prefix' => '', 'foreign_key_constraints' => true, 'busy_timeout' => 5000]);
+config()->set('cache.default', 'array');
+config()->set('storyfeed.demo.enabled', true);
+Vocabulary::register();
+Artisan::starting(function ($artisan) {
+    $artisan->add(new ConsoleFeedCommand);
+});
+$app->make(Kernel::class)->command('w93:init', function () {
+    if (Schema::hasTable('feed_activities')) {
+        $this->info('W93 database already initialized.');
+
+        return;
+    }
+    $stubs = glob(__DIR__.'/../../database/migrations/*.stub');
+    usort($stubs, fn ($a, $b) => str_starts_with(basename($b), 'create_') <=> str_starts_with(basename($a), 'create_'));
+    foreach ($stubs as $stub) {
+        (include $stub)->up();
+    }
+    $this->info('Initialized isolated build/w93.sqlite.');
+});
+$input = new ArgvInput;
+$status = $app->make(Kernel::class)->handle($input, new ConsoleOutput);
+$app->make(Kernel::class)->terminate($input, $status);
+exit($status);
