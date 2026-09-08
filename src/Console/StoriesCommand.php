@@ -6,6 +6,7 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Carbon;
 use Storyfeed\Models\Activity;
 use Storyfeed\StoryfeedManager;
+use Storyfeed\Support\ActivityRoles;
 
 /**
  * The publish-site inventory: what this app tells stories about, and what it
@@ -263,14 +264,14 @@ class StoriesCommand extends Command
         $rows = $model::query()
             ->distinct()
             ->toBase()
-            ->get(['verb', 'actor_type', 'object_type', 'target_type', 'context_type']);
+            ->get(['verb', ...array_map(fn (string $role) => $role.'_type', ActivityRoles::GROUPABLE)]);
 
         $map = [];
 
         foreach ($rows as $row) {
             $map[$row->verb] ??= [];
 
-            foreach (['actor', 'object', 'target', 'context'] as $role) {
+            foreach (ActivityRoles::GROUPABLE as $role) {
                 if ($row->{"{$role}_type"} !== null) {
                     $map[$row->verb][$role] = true;
                 }
