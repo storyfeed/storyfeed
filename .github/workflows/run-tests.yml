@@ -23,6 +23,12 @@ concurrency:
 jobs:
   test:
     runs-on: ${{ matrix.os }}
+    # A job that exceeds this reports as `cancelled`, NOT `failure` — so a
+    # timeout looks exactly like "something keeps cancelling my runs" and sends
+    # you hunting for a canceller that does not exist. When a run reports
+    # cancelled, compare its DURATION to this cap before looking anywhere else.
+    # Slowest cell observed is ~2.1 min (Windows), so there is real headroom;
+    # the number is fine, the misreading is what costs an hour.
     timeout-minutes: 5
     strategy:
       fail-fast: true
