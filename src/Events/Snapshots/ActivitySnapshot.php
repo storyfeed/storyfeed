@@ -75,15 +75,8 @@ final readonly class ActivitySnapshot
     /** @return array<string, mixed> */
     public function toPayload(): array
     {
-        $payload = get_object_vars($this);
-
-        // Keep existing event payloads identical when no new facts were recorded.
-        foreach (array_diff(ActivityRoles::STORED, ActivityRoles::PAYLOAD) as $role) {
-            if (($payload[$role] ?? null) === null) {
-                unset($payload[$role]);
-            }
-        }
-
-        return $payload;
+        // All seven roles are now public payload facts, including explicit nulls.
+        // Promoted constructor defaults do not initialize properties on unserialize.
+        return get_object_vars($this) + array_fill_keys(ActivityRoles::PAYLOAD, null);
     }
 }

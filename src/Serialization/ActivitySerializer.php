@@ -211,12 +211,10 @@ class ActivitySerializer
             return $sentence === '' ? null : e($sentence);
         }
 
-        $labels = [
-            'actor' => $activity->cachedActor?->label,
-            'object' => $activity->cachedObject?->label,
-            'target' => $activity->cachedTarget?->label,
-            'context' => $activity->cachedContext?->label,
-        ];
+        $labels = [];
+        foreach (ActivityRoles::PAYLOAD as $role) {
+            $labels[$role] = $activity->{'cached'.ucfirst($role)}?->label;
+        }
 
         $complete = true;
 

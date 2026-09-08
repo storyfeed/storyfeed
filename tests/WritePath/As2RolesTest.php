@@ -10,6 +10,7 @@ use Storyfeed\Facades\Storyfeed;
 use Storyfeed\Models\Activity;
 use Storyfeed\Models\Batch;
 use Storyfeed\Models\Party;
+use Storyfeed\Payload\NodePresenter;
 use Storyfeed\Serialization\Reader;
 use Storyfeed\Support\ActivityRoles;
 use Workbench\App\Enums\ActivityVerb;
@@ -100,7 +101,10 @@ it('freezes new facts in activity and batch events across serialization and late
         ->and(unserialize(serialize($batch))->activities[0]->toPayload())->toBe($payload);
 
     $old = ActivitySnapshot::fromModel(Storyfeed::activity('confirm')->publish())->toPayload();
-    expect($old)->not->toHaveKeys(['origin', 'result', 'instrument']);
+    expect($old)->toHaveKeys(['origin', 'result', 'instrument']);
+    foreach (['origin', 'result', 'instrument'] as $role) {
+        expect($old[$role])->toBeNull();
+    }
 });
 
 it('keeps automatic composite parents free of inferred provenance and preserves explicit composite facts', function () {
@@ -113,6 +117,10 @@ it('keeps automatic composite parents free of inferred provenance and preserves 
     expect((new BundleComposites)(Batch::firstOrFail()))->toBe(1);
     $parent = Activity::whereNull('object_type')->firstOrFail();
     expect(serialize_one($parent))->not->toHaveKeys(['origin', 'result', 'instrument']);
+    $node = app(NodePresenter::class)->activityNode($parent);
+    foreach (['origin', 'result', 'instrument'] as $role) {
+        expect($node)->toHaveKey($role, null);
+    }
     expect(Activity::whereNotNull('object_type')->get()->map(fn ($a) => serialize_one($a)['origin']['name'])->all())
         ->toBe(['Source A', 'Source B']);
 
@@ -127,8 +135,8 @@ it('keeps automatic composite parents free of inferred provenance and preserves 
     expect(Activity::where('origin_id', $explicit->origin_id)->count())->toBe(3);
 });
 
-it('keeps storage additions outside payload and grouping role selections', function () {
+it('keeps separate stored payload and groupable selections after promotion', function () {
     expect(ActivityRoles::STORED)->toBe(['actor', 'object', 'target', 'context', 'origin', 'result', 'instrument'])
-        ->and(ActivityRoles::PAYLOAD)->toBe(['actor', 'object', 'target', 'context'])
-        ->and(ActivityRoles::GROUPABLE)->toBe(['actor', 'object', 'target', 'context']);
+        ->and(ActivityRoles::PAYLOAD)->toBe(['actor', 'object', 'target', 'context', 'origin', 'result', 'instrument'])
+        ->and(ActivityRoles::GROUPABLE)->toBe(['actor', 'object', 'target', 'context', 'origin', 'result', 'instrument']);
 });
