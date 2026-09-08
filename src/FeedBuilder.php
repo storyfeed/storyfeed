@@ -23,6 +23,7 @@ use Storyfeed\Models\Party;
 use Storyfeed\Payload\FeedPage;
 use Storyfeed\Payload\GroupSlice;
 use Storyfeed\Payload\NodePresenter;
+use Storyfeed\Support\ActivityRoles;
 use Storyfeed\Support\SyncToken;
 use Storyfeed\Support\VerbFilter;
 
@@ -704,7 +705,7 @@ class FeedBuilder
                 ->whereColumn("{$groupings}.activity_id", "{$activities}.id")
                 ->where("{$groupings}.bucket", 'composite')
                 ->whereColumn("{$groupings}.hash", "{$activities}.uid"))
-            ->with(['cachedActor', 'cachedObject', 'cachedTarget', 'cachedContext'])
+            ->with(ActivityRoles::cachedRelations())
             ->orderBy("{$activities}.published_at", 'desc')
             ->orderBy("{$activities}.id", 'desc')
             ->cursorPaginate(perPage: $this->limit, cursor: $this->decodedCursor());
@@ -895,7 +896,7 @@ class FeedBuilder
                 ->from("{$groupings} as composite_rows")
                 ->whereColumn('composite_rows.activity_id', "{$activities}.id")
                 ->where('composite_rows.bucket', 'composite'))
-            ->with(['cachedActor', 'cachedObject', 'cachedTarget', 'cachedContext'])
+            ->with(ActivityRoles::cachedRelations())
             ->orderBy("{$activities}.published_at", 'desc')
             ->orderBy("{$activities}.id", 'desc')
             ->limit($this->limit + 1);
@@ -959,7 +960,7 @@ class FeedBuilder
 
         $members = $this->activityModel()->newQuery()->hydrate($rows->all());
 
-        $members->load(['cachedActor', 'cachedObject', 'cachedTarget', 'cachedContext']);
+        $members->load(ActivityRoles::cachedRelations());
 
         return $members->groupBy(fn (Activity $activity) => $activity->group_bucket."\x1f".$activity->group_hash);
     }

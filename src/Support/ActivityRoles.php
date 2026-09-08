@@ -7,7 +7,7 @@ final class ActivityRoles
 {
     public const STORED = ['actor', 'object', 'target', 'context', 'origin', 'result', 'instrument'];
 
-    public const PAYLOAD = ['actor', 'object', 'target', 'context'];
+    public const PAYLOAD = ['actor', 'object', 'target', 'context', 'origin', 'result', 'instrument'];
 
     public const GROUPABLE = ['actor', 'object', 'target', 'context'];
 
