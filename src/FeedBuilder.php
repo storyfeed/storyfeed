@@ -474,7 +474,7 @@ class FeedBuilder
      * a callback `$this`, and this hands over a different, inner builder.
      *
      * Runs once per BRANCH of the read, not once per page: measured at once for
-     * a log page, and seven times for a grouped page carrying one group — the
+     * a log page, and ten times for a grouped page carrying one group — the
      * group stream, the solo stream, the member fetch, and one distinct count per
      * role. Keep it free of side effects.
      *
@@ -969,7 +969,7 @@ class FeedBuilder
      * TRUE distinct counts per role per selected group — the source of the
      * payload's `distinct` block. They cannot be derived from `children`,
      * which is capped: a 200-actor group would otherwise report "and 22
-     * more". One aggregate query per role (4/page — acceptable; the Step 3
+     * more". One aggregate query per role (7/page — acceptable; the Step 3
      * read model absorbs this someday), each a subquery of distinct
      * (group, role) rows because multi-column COUNT(DISTINCT …) is not
      * portable.
@@ -988,7 +988,7 @@ class FeedBuilder
 
         $counts = [];
 
-        foreach (['actor', 'object', 'target', 'context'] as $role) {
+        foreach (ActivityRoles::GROUPABLE as $role) {
             $distinct = $this->selectedGroupMembers($now, $groups)
                 ->whereNotNull("{$activities}.{$role}_type")
                 ->select([
