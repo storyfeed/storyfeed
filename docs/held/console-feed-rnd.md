@@ -518,3 +518,22 @@ Validation is against the R&D worktree and its installed PHP 8.5.8 / Laravel
 - GUI terminal rendering, Windows GUI behaviour, actual degraded-entity output,
   multi-page history reconciliation and a photo-containing real feed remain
   unverified. Nothing in this report promotes those to a pass.
+
+### Remote verification
+
+Implementation commit: `1e4274217e24b4620f26a9b1a73ff53cd76131ad`.
+It was pushed only to `origin/w93-console-feed-rnd`.
+
+- [run-tests](https://github.com/storyfeed/storyfeed/actions/runs/34287731116):
+  **completed / success, all 16 jobs passed** — PHP 8.4/8.5 × Laravel 12/13 ×
+  lowest/stable × Ubuntu/Windows.
+- [PHPStan](https://github.com/storyfeed/storyfeed/actions/runs/34287731168):
+  **completed / success** on that implementation commit.
+- [Formatting](https://github.com/storyfeed/storyfeed/actions/runs/34287731173):
+  **completed / success** on that implementation commit.
+
+Those Windows jobs establish automated test compatibility, not Windows terminal
+GUI rendering or watcher signal/resize behaviour. The final follow-up changes
+only this report to record remote verification. Its SHA is available with
+`git rev-parse HEAD`; the executed CI SHA above remains the implementation SHA.
+No PR was opened and no merge was performed.
