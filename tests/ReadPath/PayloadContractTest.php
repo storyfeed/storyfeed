@@ -45,7 +45,7 @@ it('emits the frozen group-node shape', function () {
     expect($item['kind'])->toBe('group');
     expect(array_keys($item))->toBe([
         'kind', 'id', 'axis', 'count', 'verb', 'published_at', 'headline_template',
-        'headline', 'glyph', 'actor', 'object', 'target', 'context',
+        'headline', 'glyph', 'actor', 'object', 'target', 'context', 'origin', 'result', 'instrument',
         'exemplars', 'distinct', 'children', 'children_truncated',
     ]);
     // PINNED SINGULAR ROLES (2026-08-26, ADDITIVE): a role the axis pins is one
@@ -61,8 +61,8 @@ it('emits the frozen group-node shape', function () {
     // role is a LIST of up to 3 distinct entities; a pinned role collapses
     // to exactly one by construction. `distinct` carries true per-role
     // totals (replacing others_count).
-    expect(array_keys($item['exemplars']))->toBe(['actors', 'objects', 'targets', 'contexts']);
-    expect(array_keys($item['distinct']))->toBe(['actors', 'objects', 'targets', 'contexts']);
+    expect(array_keys($item['exemplars']))->toBe(['actors', 'objects', 'targets', 'contexts', 'origins', 'results', 'instruments']);
+    expect(array_keys($item['distinct']))->toBe(['actors', 'objects', 'targets', 'contexts', 'origins', 'results', 'instruments']);
     // A group's children are ordinary activity nodes and carry `thread` the
     // same way. The GROUP node has none: the utterance is per activity, and
     // a group is many of them.

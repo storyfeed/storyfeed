@@ -414,6 +414,9 @@ class NodePresenter
         'object' => ['objects', 'cachedObject'],
         'target' => ['targets', 'cachedTarget'],
         'context' => ['contexts', 'cachedContext'],
+        'origin' => ['origins', 'cachedOrigin'],
+        'result' => ['results', 'cachedResult'],
+        'instrument' => ['instruments', 'cachedInstrument'],
     ];
 
     public function groupNode(GroupSlice $slice): array
