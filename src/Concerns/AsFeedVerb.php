@@ -73,6 +73,8 @@ trait AsFeedVerb
         Model|string|null $origin = null,
         Model|string|null $result = null,
         Model|string|null $instrument = null,
+        iterable $objects = [],
+        ?FeedThread $thread = null,
     ): Activity {
         return storyfeed()->record(
             verb: $this,
@@ -86,6 +88,8 @@ trait AsFeedVerb
             origin: $origin,
             result: $result,
             instrument: $instrument,
+            objects: $objects,
+            thread: $thread,
         );
     }
 
