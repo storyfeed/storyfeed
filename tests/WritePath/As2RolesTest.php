@@ -100,7 +100,10 @@ it('freezes new facts in activity and batch events across serialization and late
         ->and(unserialize(serialize($batch))->activities[0]->toPayload())->toBe($payload);
 
     $old = ActivitySnapshot::fromModel(Storyfeed::activity('confirm')->publish())->toPayload();
-    expect($old)->not->toHaveKeys(['origin', 'result', 'instrument']);
+    expect($old)->toHaveKeys(['origin', 'result', 'instrument']);
+    foreach (['origin', 'result', 'instrument'] as $role) {
+        expect($old[$role])->toBeNull();
+    }
 });
 
 it('keeps automatic composite parents free of inferred provenance and preserves explicit composite facts', function () {
@@ -129,6 +132,6 @@ it('keeps automatic composite parents free of inferred provenance and preserves 
 
 it('keeps storage additions outside payload and grouping role selections', function () {
     expect(ActivityRoles::STORED)->toBe(['actor', 'object', 'target', 'context', 'origin', 'result', 'instrument'])
-        ->and(ActivityRoles::PAYLOAD)->toBe(['actor', 'object', 'target', 'context'])
+        ->and(ActivityRoles::PAYLOAD)->toBe(['actor', 'object', 'target', 'context', 'origin', 'result', 'instrument'])
         ->and(ActivityRoles::GROUPABLE)->toBe(['actor', 'object', 'target', 'context']);
 });
