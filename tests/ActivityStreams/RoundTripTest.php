@@ -8,7 +8,7 @@ use Workbench\App\Models\Customer;
 use Workbench\App\Models\Delivery;
 use Workbench\App\Models\User;
 
-it('round-trips its own documents losslessly', function () {
+it('recovers uid, verb, type, publication timestamp and actor, object and target names from its own document', function () {
     Storyfeed::verbs(['confirm' => ActivityType::Update]);
 
     $user = User::create(['name' => 'Sally', 'email' => 'sally@example.com']);

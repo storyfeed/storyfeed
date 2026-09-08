@@ -24,11 +24,17 @@ use Throwable;
  * (docs/activity-streams.md). Storage stays Laravel-native; conformance
  * lives entirely here, at the boundary.
  *
+ * Reader::activity() faithfully recovers a defined subset: `uid` from `id`,
+ * `verb` from `sf:verb`, the emitted `type`, and `published_at` from
+ * `published` at whole-second precision. Serialized `actor`, `object`,
+ * `target`, `context`, `origin`, `result` and `instrument` pass through
+ * unchanged, with absent roles returned as null. Top-level `summary` and
+ * `replies` are dropped; this is not whole-document or storage reconstruction.
+ *
  * Rules that keep the documents spec-valid:
  *  - The AS2 `type` is DERIVED from the verb registry, never stored; the
- *    app verb always rides along as `sf:verb`, so Storyfeed→Storyfeed
- *    round-trips are lossless and foreign consumers degrade to the mapped
- *    (or base) type.
+ *    app verb always rides along as `sf:verb`; foreign consumers degrade
+ *    to the mapped (or base) type.
  *  - A verb mapped to an intransitive type (Arrive/Travel/Question) on an
  *    activity that carries an object emits base `Activity` and KEEPS the
  *    object — degrade, never drop.
