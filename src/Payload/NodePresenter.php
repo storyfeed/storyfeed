@@ -11,7 +11,6 @@ use Storyfeed\FeedThread;
 use Storyfeed\Models\Activity;
 use Storyfeed\Models\Snapshot;
 use Storyfeed\StoryfeedManager;
-use Storyfeed\Support\ActivityRoles;
 use Storyfeed\Support\LinkResolver;
 use Storyfeed\Support\ModelHydrator;
 use Throwable;
@@ -84,7 +83,7 @@ class NodePresenter
 
         foreach ($slices as $slice) {
             foreach ($slice->members as $activity) {
-                foreach (ActivityRoles::PAYLOAD as $role) {
+                foreach (array_keys(self::GROUP_ROLES) as $role) {
                     $hydrator->seed($activity->{"{$role}_type"}, $activity->{"{$role}_id"});
                 }
             }
@@ -130,9 +129,6 @@ class NodePresenter
             'object' => $this->entity($activity->object_type, $activity->object_id, $activity->cachedObject),
             'target' => $this->entity($activity->target_type, $activity->target_id, $activity->cachedTarget),
             'context' => $this->entity($activity->context_type, $activity->context_id, $activity->cachedContext),
-            'origin' => $this->entity($activity->origin_type, $activity->origin_id, $activity->cachedOrigin),
-            'result' => $this->entity($activity->result_type, $activity->result_id, $activity->cachedResult),
-            'instrument' => $this->entity($activity->instrument_type, $activity->instrument_id, $activity->cachedInstrument),
             'data' => $data,
             // Additive (2026-09-06): the utterance this row is about and the
             // size of the conversation around it, or null — which is every
@@ -414,9 +410,6 @@ class NodePresenter
         'object' => ['objects', 'cachedObject'],
         'target' => ['targets', 'cachedTarget'],
         'context' => ['contexts', 'cachedContext'],
-        'origin' => ['origins', 'cachedOrigin'],
-        'result' => ['results', 'cachedResult'],
-        'instrument' => ['instruments', 'cachedInstrument'],
     ];
 
     public function groupNode(GroupSlice $slice): array

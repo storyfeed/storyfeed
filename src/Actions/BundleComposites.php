@@ -104,9 +104,6 @@ class BundleComposites
             /** @var Activity $parent */
             $parent = new $model;
 
-            // Automatic provenance is deliberately not copied from the head:
-            // origin/result/instrument can differ across members. Their facts
-            // remain on children; explicit composites are authored separately.
             $parent->forceFill([
                 'uid' => (string) Str::ulid(),
                 'verb' => $head->verb,

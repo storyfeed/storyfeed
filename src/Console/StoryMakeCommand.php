@@ -6,7 +6,6 @@ use Illuminate\Console\GeneratorCommand;
 use Illuminate\Support\Str;
 use Storyfeed\Diagnostics\Finding;
 use Storyfeed\StoryfeedManager;
-use Storyfeed\Support\ActivityRoles;
 use Storyfeed\Support\StoryName;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputOption;
@@ -208,7 +207,7 @@ class StoryMakeCommand extends GeneratorCommand
 
         $axes = $requested !== []
             ? $requested
-            : $storyfeed->axesApplicableTo(ActivityRoles::GROUPABLE);
+            : $storyfeed->axesApplicableTo(['actor', 'object', 'target', 'context']);
 
         $lines = [];
 

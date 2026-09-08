@@ -186,7 +186,7 @@ it('runs the callback once per branch of the read, with no side effects assumed'
     // the group stream, the solo stream, the member fetch and one count per role.
     // If these numbers move, the docblock on FeedBuilder::query() is now wrong.
     expect($log)->toBe(1)
-        ->and($grouped)->toBe(10);
+        ->and($grouped)->toBe(7);
 });
 
 /**

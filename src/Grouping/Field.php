@@ -16,7 +16,7 @@ use Storyfeed\Models\Activity;
  * deployed feed_groupings rows contain keys assembled in exactly this
  * order (see AxisHashStabilityTest).
  *
- * 64-bit ints, 16 bits used — ample headroom for future dimensions.
+ * 64-bit ints, 10 bits used — ample headroom for future dimensions.
  */
 enum Field: int
 {
@@ -31,22 +31,12 @@ enum Field: int
     case ContextId = 1 << 8;      // cid
     case Day = 1 << 9;            // d
 
-    case OriginType = 1 << 10;
-    case OriginId = 1 << 11;
-    case ResultType = 1 << 12;
-    case ResultId = 1 << 13;
-    case InstrumentType = 1 << 14;
-    case InstrumentId = 1 << 15;
-
     public const CANONICAL_ORDER = [
         self::ActorType, self::ActorId,
         self::Verb,
         self::ObjectType, self::ObjectId,
         self::TargetType, self::TargetId,
         self::ContextType, self::ContextId,
-        self::OriginType, self::OriginId,
-        self::ResultType, self::ResultId,
-        self::InstrumentType, self::InstrumentId,
         self::Day,
     ];
 
@@ -61,12 +51,6 @@ enum Field: int
         'tid' => self::TargetId,
         'ca' => self::ContextType,
         'cid' => self::ContextId,
-        'ora' => self::OriginType,
-        'orid' => self::OriginId,
-        'ra' => self::ResultType,
-        'rid' => self::ResultId,
-        'ia' => self::InstrumentType,
-        'iid' => self::InstrumentId,
         'd' => self::Day,
     ];
 
@@ -94,9 +78,6 @@ enum Field: int
         ':object' => self::ObjectType->value | self::ObjectId->value,
         ':target' => self::TargetType->value | self::TargetId->value,
         ':context' => self::ContextType->value | self::ContextId->value,
-        ':origin' => self::OriginType->value | self::OriginId->value,
-        ':result' => self::ResultType->value | self::ResultId->value,
-        ':instrument' => self::InstrumentType->value | self::InstrumentId->value,
         ':verb' => self::Verb->value,
     ];
 
@@ -135,12 +116,6 @@ enum Field: int
             self::TargetId => $activity->target_id,
             self::ContextType => $activity->context_type,
             self::ContextId => $activity->context_id,
-            self::OriginType => $activity->origin_type,
-            self::OriginId => $activity->origin_id,
-            self::ResultType => $activity->result_type,
-            self::ResultId => $activity->result_id,
-            self::InstrumentType => $activity->instrument_type,
-            self::InstrumentId => $activity->instrument_id,
             self::Day => ($activity->published_at ?? now())->toDateString(),
         };
 

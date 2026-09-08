@@ -6,7 +6,6 @@ use PHPUnit\Framework\Assert;
 use Storyfeed\Models\Activity;
 use Storyfeed\Models\Grouping;
 use Storyfeed\StoryfeedManager;
-use Storyfeed\Support\ActivityRoles;
 
 /**
  * Asserts that every activity an application publishes has a headline and an
@@ -314,12 +313,12 @@ class GrammarCoverage
         $rows = $model::query()
             ->distinct()
             ->toBase()
-            ->get(['verb', ...array_map(fn (string $role) => $role.'_type', ActivityRoles::GROUPABLE)]);
+            ->get(['verb', 'actor_type', 'object_type', 'target_type', 'context_type']);
 
         foreach ($rows as $row) {
             $map[$row->verb] ??= [];
 
-            foreach (ActivityRoles::GROUPABLE as $role) {
+            foreach (['actor', 'object', 'target', 'context'] as $role) {
                 if ($row->{"{$role}_type"} !== null) {
                     $map[$row->verb][$role] = true;
                 }

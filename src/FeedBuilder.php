@@ -23,7 +23,6 @@ use Storyfeed\Models\Party;
 use Storyfeed\Payload\FeedPage;
 use Storyfeed\Payload\GroupSlice;
 use Storyfeed\Payload\NodePresenter;
-use Storyfeed\Support\ActivityRoles;
 use Storyfeed\Support\SyncToken;
 use Storyfeed\Support\VerbFilter;
 
@@ -474,7 +473,7 @@ class FeedBuilder
      * a callback `$this`, and this hands over a different, inner builder.
      *
      * Runs once per BRANCH of the read, not once per page: measured at once for
-     * a log page, and ten times for a grouped page carrying one group — the
+     * a log page, and seven times for a grouped page carrying one group — the
      * group stream, the solo stream, the member fetch, and one distinct count per
      * role. Keep it free of side effects.
      *
@@ -705,7 +704,7 @@ class FeedBuilder
                 ->whereColumn("{$groupings}.activity_id", "{$activities}.id")
                 ->where("{$groupings}.bucket", 'composite')
                 ->whereColumn("{$groupings}.hash", "{$activities}.uid"))
-            ->with(ActivityRoles::cachedRelations())
+            ->with(['cachedActor', 'cachedObject', 'cachedTarget', 'cachedContext'])
             ->orderBy("{$activities}.published_at", 'desc')
             ->orderBy("{$activities}.id", 'desc')
             ->cursorPaginate(perPage: $this->limit, cursor: $this->decodedCursor());
@@ -896,7 +895,7 @@ class FeedBuilder
                 ->from("{$groupings} as composite_rows")
                 ->whereColumn('composite_rows.activity_id', "{$activities}.id")
                 ->where('composite_rows.bucket', 'composite'))
-            ->with(ActivityRoles::cachedRelations())
+            ->with(['cachedActor', 'cachedObject', 'cachedTarget', 'cachedContext'])
             ->orderBy("{$activities}.published_at", 'desc')
             ->orderBy("{$activities}.id", 'desc')
             ->limit($this->limit + 1);
@@ -960,7 +959,7 @@ class FeedBuilder
 
         $members = $this->activityModel()->newQuery()->hydrate($rows->all());
 
-        $members->load(ActivityRoles::cachedRelations());
+        $members->load(['cachedActor', 'cachedObject', 'cachedTarget', 'cachedContext']);
 
         return $members->groupBy(fn (Activity $activity) => $activity->group_bucket."\x1f".$activity->group_hash);
     }
@@ -969,7 +968,7 @@ class FeedBuilder
      * TRUE distinct counts per role per selected group — the source of the
      * payload's `distinct` block. They cannot be derived from `children`,
      * which is capped: a 200-actor group would otherwise report "and 22
-     * more". One aggregate query per role (7/page — acceptable; the Step 3
+     * more". One aggregate query per role (4/page — acceptable; the Step 3
      * read model absorbs this someday), each a subquery of distinct
      * (group, role) rows because multi-column COUNT(DISTINCT …) is not
      * portable.
@@ -988,7 +987,7 @@ class FeedBuilder
 
         $counts = [];
 
-        foreach (ActivityRoles::GROUPABLE as $role) {
+        foreach (['actor', 'object', 'target', 'context'] as $role) {
             $distinct = $this->selectedGroupMembers($now, $groups)
                 ->whereNotNull("{$activities}.{$role}_type")
                 ->select([
