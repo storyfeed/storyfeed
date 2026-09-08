@@ -8,6 +8,7 @@ use Storyfeed\Diagnostics\Finding;
 use Storyfeed\FeedContext;
 use Storyfeed\Models\Snapshot;
 use Storyfeed\StoryfeedManager;
+use Storyfeed\Support\ActivityRoles;
 use Storyfeed\Support\ModelHydrator;
 use Storyfeed\Support\MorphResolver;
 use Storyfeed\Support\SurfaceScanner;
@@ -197,9 +198,11 @@ class Hydration extends Check
      */
     protected function page(array $hydrating): iterable
     {
+        $columns = array_map(fn (string $role) => "{$role}_type", ActivityRoles::PAYLOAD);
+
         $rows = $this->activities()
             ->toBase()
-            ->select(['actor_type', 'object_type', 'target_type', 'context_type'])
+            ->select($columns)
             ->orderByDesc('published_at')
             ->limit(self::PAGE)
             ->get();
@@ -211,7 +214,7 @@ class Hydration extends Check
         $present = [];
 
         foreach ($rows as $row) {
-            foreach (['actor_type', 'object_type', 'target_type', 'context_type'] as $column) {
+            foreach ($columns as $column) {
                 if ($row->{$column} !== null && isset($hydrating[$row->{$column}])) {
                     $present[$row->{$column}] = true;
                 }

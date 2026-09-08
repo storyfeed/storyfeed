@@ -6,6 +6,7 @@ use Storyfeed\ActivityStreams\ActivityType;
 use Storyfeed\Diagnostics\Finding;
 use Storyfeed\Diagnostics\Fix;
 use Storyfeed\StoryfeedManager;
+use Storyfeed\Support\ActivityRoles;
 
 /**
  * Singular grammar and icon coverage over the (object_type, verb) pairs the
@@ -39,7 +40,7 @@ class Coverage extends Check
                     'grammar.missing',
                     "No grammar entry resolves for `{$label}` — headlines will be null.",
                     $subject,
-                    Fix::make('grammar', $key, [':actor', ':object', ':target', ':context']),
+                    Fix::make('grammar', $key, array_map(fn (string $role) => ":{$role}", ActivityRoles::PAYLOAD)),
                 );
             }
 
