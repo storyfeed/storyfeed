@@ -48,6 +48,9 @@ class StoryfeedManager
     /** @var array<string, string|Closure> */
     protected array $aggregateGrammar = [];
 
+    /** @var array<string, string|Closure> */
+    protected array $actorlessGrammar = [];
+
     /** @var array<string, string> */
     protected array $icons = [];
 
@@ -517,6 +520,39 @@ class StoryfeedManager
     }
 
     /**
+     * Register singular actorless headlines keyed by exact verb (including
+     * dotted verbs). A separate registry keeps voice out of grammar's
+     * type.verb namespace. No aggregate forms or wildcard matching.
+     *
+     * Strings are tokenizable templates and cannot name :actor or :actors.
+     * Closures receive the Activity and return finished text, as in grammar();
+     * they are not executed at registration and do not produce templates.
+     *
+     * @param  array<array-key, string|Closure>  $grammar
+     */
+    public function actorlessGrammar(array $grammar, bool $merge = true): static
+    {
+        $this->assertKeyed($grammar, 'actorlessGrammar', 'confirm', ':object was confirmed', patterns: false);
+
+        foreach ($grammar as $verb => $entry) {
+            if (is_string($entry) && str_contains($entry, ':actor')) {
+                throw new InvalidArgumentException(
+                    "Storyfeed::actorlessGrammar() template for `{$verb}` must not contain :actor or :actors — actorless templates omit the actor.",
+                );
+            }
+        }
+
+        $this->actorlessGrammar = $merge ? [...$this->actorlessGrammar, ...$grammar] : $grammar;
+
+        return $this;
+    }
+
+    public function actorlessTemplate(string $verb): string|Closure|null
+    {
+        return $this->actorlessGrammar[$verb] ?? null;
+    }
+
+    /**
      * Refuse a LIST where a keyed registry was meant.
      *
      * The failure this exists for is silent in the worst way: `grammar([':actor
@@ -533,7 +569,7 @@ class StoryfeedManager
      *
      * @param  array<array-key, mixed>  $entries
      */
-    private function assertKeyed(array $entries, string $method, string $key, string $value): void
+    private function assertKeyed(array $entries, string $method, string $key, string $value, bool $patterns = true): void
     {
         foreach ($entries as $entryKey => $entryValue) {
             if (is_string($entryKey)) {
@@ -545,8 +581,8 @@ class StoryfeedManager
             throw new InvalidArgumentException(
                 "Storyfeed::{$method}() takes a MAP of key => value, not a list. Received [{$shown}] under "
                 .'a numeric key, which resolves for nothing and fails silently. Write '
-                ."Storyfeed::{$method}(['{$key}' => '{$value}']) — keys are patterns, and wildcards "
-                .'(`type.*`, `*.verb`, `*.*`) are allowed.',
+                ."Storyfeed::{$method}(['{$key}' => '{$value}'])"
+                .($patterns ? ' — keys are patterns, and wildcards (`type.*`, `*.verb`, `*.*`) are allowed.' : ' — keys are exact verbs.'),
             );
         }
     }

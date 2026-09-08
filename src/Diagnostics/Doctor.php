@@ -28,6 +28,7 @@ class Doctor
         Checks\Recording::class,
         Checks\Maintenance::class,
         Checks\Coverage::class,
+        Checks\ActorlessCoverage::class,
         Checks\SingularTokens::class,
         Checks\AggregateCoverage::class,
         Checks\AggregateTokens::class,

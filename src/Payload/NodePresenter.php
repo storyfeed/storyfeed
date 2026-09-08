@@ -178,7 +178,12 @@ class NodePresenter
      */
     protected function headline(Activity $activity): array
     {
-        $entry = $this->storyfeed->template($activity->object_type, $activity->verb);
+        // Inspect recorded identity, not the relation: an unresolved/deleted
+        // participant is not a genuinely absent actor. Party identities stay normal.
+        $entry = $activity->actor_type === null && $activity->actor_id === null
+            ? $this->storyfeed->actorlessTemplate($activity->verb)
+            : null;
+        $entry ??= $this->storyfeed->template($activity->object_type, $activity->verb);
 
         if ($entry instanceof Closure) {
             try {
