@@ -5,6 +5,7 @@ namespace Storyfeed\Diagnostics\Checks;
 use Storyfeed\Diagnostics\Finding;
 use Storyfeed\Models\Party;
 use Storyfeed\StoryfeedManager;
+use Storyfeed\Support\ActivityRoles;
 
 /**
  * Parties are created implicitly from strings, so a typo silently mints a new
@@ -36,7 +37,7 @@ class Parties extends Check
         foreach ($parties as $row) {
             $count = $this->activities()
                 ->where(function ($query) use ($alias, $row) {
-                    foreach (['actor', 'object', 'target', 'context'] as $role) {
+                    foreach (ActivityRoles::STORED as $role) {
                         $query->orWhere(function ($q) use ($role, $alias, $row) {
                             $q->where("{$role}_type", $alias)->where("{$role}_id", $row->getKey());
                         });

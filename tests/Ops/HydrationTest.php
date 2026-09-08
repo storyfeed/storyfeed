@@ -202,3 +202,15 @@ it('degrades when the tables are not there', function () {
         ->and($report->withCode('hydration.model')->sole()->subject['model'])->toBe(Customer::class)
         ->and($report->has('hydration.page'))->toBeFalse();
 });
+
+it('counts hydration on a page whose model appears solely in a promoted role', function (string $role) {
+    $customer = Customer::create(['name' => 'Role-only customer']);
+    Storyfeed::activity('confirm')->{$role}($customer)->publish();
+    Customer::$hydrates = true;
+
+    $finding = Storyfeed::doctor(['hydration'])->withCode('hydration.page')->sole();
+
+    expect($finding->severity)->toBe(Severity::Info)
+        ->and($finding->subject['queries'])->toBe(1)
+        ->and($finding->subject['aliases'])->toBe('customer');
+})->with(['origin', 'result', 'instrument']);

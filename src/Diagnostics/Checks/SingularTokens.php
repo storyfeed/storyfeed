@@ -4,6 +4,7 @@ namespace Storyfeed\Diagnostics\Checks;
 
 use Storyfeed\Diagnostics\Finding;
 use Storyfeed\StoryfeedManager;
+use Storyfeed\Support\ActivityRoles;
 
 /**
  * A singular template that names a role its activities never carry renders
@@ -52,14 +53,6 @@ use Storyfeed\StoryfeedManager;
  */
 class SingularTokens extends Check
 {
-    /** The roles a singular template can name, and the column that carries each. */
-    protected const ROLES = [
-        'actor' => 'actor_type',
-        'object' => 'object_type',
-        'target' => 'target_type',
-        'context' => 'context_type',
-    ];
-
     /** How many pairs a message names before it starts counting instead. */
     protected const PAIRS_SHOWN = 4;
 
@@ -91,7 +84,7 @@ class SingularTokens extends Check
             $keys[$key]['pairs'][] = ($row->type ?? '(no object)').'.'.$row->verb;
             $keys[$key]['total'] += (int) $row->total;
 
-            foreach (array_keys(self::ROLES) as $role) {
+            foreach (ActivityRoles::PAYLOAD as $role) {
                 $keys[$key]['roles'][$role] = ($keys[$key]['roles'][$role] ?? 0) + (int) $row->{$role};
             }
         }
@@ -100,7 +93,7 @@ class SingularTokens extends Check
             preg_match_all('/:[a-z]+/', $entry['template'], $matches);
             $named = array_unique($matches[0]);
 
-            foreach (self::ROLES as $role => $column) {
+            foreach (ActivityRoles::PAYLOAD as $role) {
                 if (! in_array(":{$role}", $named, true) || $entry['roles'][$role] > 0) {
                     continue;
                 }
@@ -118,9 +111,8 @@ class SingularTokens extends Check
     protected function carriage(): iterable
     {
         $counts = array_map(
-            fn (string $column, string $role) => "count({$column}) as {$role}",
-            self::ROLES,
-            array_keys(self::ROLES),
+            fn (string $role) => "count({$role}_type) as {$role}",
+            ActivityRoles::PAYLOAD,
         );
 
         // toBase(): these rows are aggregate tuples, not Activity models.

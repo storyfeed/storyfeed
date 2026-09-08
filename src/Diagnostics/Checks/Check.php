@@ -8,6 +8,7 @@ use Storyfeed\Contracts\DiagnosticCheck;
 use Storyfeed\Models\Activity;
 use Storyfeed\Models\Builders\ActivityBuilder;
 use Storyfeed\Models\Grouping;
+use Storyfeed\Support\ActivityRoles;
 
 /**
  * Shared plumbing for the checks — the configured-model queries and the
@@ -52,14 +53,14 @@ abstract class Check implements DiagnosticCheck
      * them as unwired, which is the noise that gets a report ignored, and it
      * is a nastier mistake than missing a real gap.
      *
-     * @param  'actor'|'object'|'target'|'context'|null  $role
+     * @param  value-of<ActivityRoles::STORED>|null  $role
      * @return list<string>
      */
     protected function recordedAliases(?string $role = null): array
     {
         $aliases = [];
 
-        foreach ($role === null ? ['actor', 'object', 'target', 'context'] : [$role] as $each) {
+        foreach ($role === null ? ActivityRoles::STORED : [$role] as $each) {
             $aliases = [
                 ...$aliases,
                 ...$this->activities()->distinct()->toBase()->pluck("{$each}_type")->filter()->all(),
