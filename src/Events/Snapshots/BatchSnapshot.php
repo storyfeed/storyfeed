@@ -4,6 +4,7 @@ namespace Storyfeed\Events\Snapshots;
 
 use Storyfeed\Concerns\HasPayload;
 use Storyfeed\Models\Batch;
+use Storyfeed\Support\ActivityRoles;
 
 /** A digest freezes its members at close, before automatic bundling. */
 final readonly class BatchSnapshot
@@ -29,7 +30,7 @@ final readonly class BatchSnapshot
 
     public static function fromModel(Batch $batch): self
     {
-        $members = $batch->activities()->with(['cachedActor', 'cachedObject', 'cachedTarget', 'cachedContext'])
+        $members = $batch->activities()->with(ActivityRoles::cachedRelations())
             ->orderBy('published_at')->orderBy('id')->get();
 
         return new self(

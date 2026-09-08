@@ -186,3 +186,17 @@ it('freezes before the outer commit and rejects nested mutation', function () {
         $seen->activity = $seen->activity;
     })->toThrow(Error::class);
 });
+
+it('delivers all three AS2 role facts through the real queue without live models', function () {
+    Event::listen(ActivityPublished::class, QueuedActivityListener::class);
+    $tool = User::create(['name' => 'Tablet operator', 'email' => 'private@example.com', 'remember_token' => 'w78-private-token']);
+    $activity = Storyfeed::activity('confirm')->origin('Warehouse')->using($tool)->resulting('Receipt')->publish();
+    $command = (string) json_decode((string) DB::table('jobs')->value('payload'))->data->command;
+    expect($command)->not->toContain('w78-private-token', 'private@example.com', 'Workbench\\App\\Models\\User');
+    $tool->delete();
+    $activity->forceDelete();
+    app('queue')->connection('database')->pop()->fire();
+    expect(QueuedActivityListener::$seen[0]['origin']['label'])->toBe('Warehouse')
+        ->and(QueuedActivityListener::$seen[0]['instrument']['label'])->toBe('Tablet operator')
+        ->and(QueuedActivityListener::$seen[0]['result']['label'])->toBe('Receipt');
+});

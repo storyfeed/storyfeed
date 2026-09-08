@@ -4,6 +4,7 @@ namespace Storyfeed\Actions;
 
 use Illuminate\Support\Facades\DB;
 use Storyfeed\Models\Activity;
+use Storyfeed\Support\ActivityRoles;
 
 /**
  * Materialize one row per (activity, filled role) into feed_participants.
@@ -24,7 +25,7 @@ use Storyfeed\Models\Activity;
 class SyncParticipants
 {
     /** The roles an activity can fill. Each is 0-or-1 per activity row. */
-    public const ROLES = ['actor', 'object', 'target', 'context'];
+    public const ROLES = ActivityRoles::STORED;
 
     public function __invoke(Activity $activity): void
     {

@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Query\Builder as QueryBuilder;
 use Storyfeed\Actions\SyncParticipants;
+use Storyfeed\Support\ActivityRoles;
 
 /**
  * @template TModel of \Storyfeed\Models\Activity
@@ -35,7 +36,7 @@ class ActivityBuilder extends Builder
     public function uncached(): static
     {
         $this->where(function (self $query) {
-            foreach (['actor', 'object', 'target', 'context'] as $role) {
+            foreach (ActivityRoles::STORED as $role) {
                 $query->orWhere(function (self $q) use ($role): void {
                     $q->whereNotNull("{$role}_type")->whereNull("cached_{$role}_id");
                 });

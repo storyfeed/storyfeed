@@ -15,6 +15,7 @@ use Storyfeed\Models\Activity;
 use Storyfeed\Models\Grouping;
 use Storyfeed\Models\Snapshot;
 use Storyfeed\StoryfeedManager;
+use Storyfeed\Support\ActivityRoles;
 use Storyfeed\Support\LinkResolver;
 use Throwable;
 
@@ -77,15 +78,25 @@ class ActivitySerializer
             'sf:verb' => $activity->verb,
             ...array_filter([
                 Property::Summary->value => $this->summary($activity),
-                'actor' => $this->entity($activity->actor_type, $activity->cachedActor, $links, actor: true),
-                'object' => $this->collectionObject($activity, $links)
-                    ?? $this->entity($activity->object_type, $activity->cachedObject, $links),
-                'target' => $this->entity($activity->target_type, $activity->cachedTarget, $links),
-                'context' => $this->entity($activity->context_type, $activity->cachedContext, $links),
+                ...$this->roles($activity, $links),
                 Property::Replies->value => $this->replies($activity),
             ], fn (mixed $value) => $value !== null),
             'published' => $activity->published_at?->utc()->format('Y-m-d\TH:i:s\Z'),
         ];
+    }
+
+    /** @return array<string, array<string, mixed>|null> */
+    private function roles(Activity $activity, LinkResolver $links): array
+    {
+        $roles = [];
+        foreach (ActivityRoles::STORED as $role) {
+            $roles[$role] = $role === 'object'
+                ? $this->collectionObject($activity, $links)
+                    ?? $this->entity($activity->object_type, $activity->cachedObject, $links)
+                : $this->entity($activity->{$role.'_type'}, $activity->{'cached'.ucfirst($role)}, $links, actor: $role === 'actor');
+        }
+
+        return $roles;
     }
 
     /**

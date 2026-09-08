@@ -70,6 +70,9 @@ trait AsFeedVerb
         array $data = [],
         DateTimeInterface|string|null $publishedAt = null,
         bool $replace = false,
+        Model|string|null $origin = null,
+        Model|string|null $result = null,
+        Model|string|null $instrument = null,
     ): Activity {
         return storyfeed()->record(
             verb: $this,
@@ -80,6 +83,9 @@ trait AsFeedVerb
             data: $data,
             publishedAt: $publishedAt,
             replace: $replace,
+            origin: $origin,
+            result: $result,
+            instrument: $instrument,
         );
     }
 
@@ -128,6 +134,31 @@ trait AsFeedVerb
     public function target(Model|string|null $model = null): PendingActivity
     {
         return $this->activity()->target($model);
+    }
+
+    public function origin(Model|string|null $model = null): PendingActivity
+    {
+        return $this->activity()->origin($model);
+    }
+
+    public function result(Model|string|null $model = null): PendingActivity
+    {
+        return $this->activity()->result($model);
+    }
+
+    public function instrument(Model|string|null $model = null): PendingActivity
+    {
+        return $this->activity()->instrument($model);
+    }
+
+    public function using(Model|string|null $model = null): PendingActivity
+    {
+        return $this->activity()->using($model);
+    }
+
+    public function resulting(Model|string|null $model = null): PendingActivity
+    {
+        return $this->activity()->resulting($model);
     }
 
     public function context(Model|string|null $model = null): PendingActivity

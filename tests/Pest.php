@@ -2,6 +2,7 @@
 
 use Storyfeed\Models\Activity;
 use Storyfeed\Serialization\ActivitySerializer;
+use Storyfeed\Support\ActivityRoles;
 use Storyfeed\Tests\TestCase;
 
 uses(TestCase::class)->in(__DIR__);
@@ -18,6 +19,6 @@ uses(TestCase::class)->in(__DIR__);
 function serialize_one(Activity $activity): array
 {
     return app(ActivitySerializer::class)->activity(
-        $activity->fresh(['cachedActor', 'cachedObject', 'cachedTarget', 'cachedContext']),
+        $activity->fresh(ActivityRoles::cachedRelations()),
     );
 }

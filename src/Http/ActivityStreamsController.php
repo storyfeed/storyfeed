@@ -6,6 +6,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Storyfeed\Models\Activity;
 use Storyfeed\Serialization\ActivitySerializer;
+use Storyfeed\Support\ActivityRoles;
 
 /**
  * The opt-in, read-only AS2.0 activity endpoint (config:
@@ -47,7 +48,7 @@ class ActivityStreamsController
         $activity = $model::query()
             ->published()
             ->where('uid', $uid)
-            ->with(['cachedActor', 'cachedObject', 'cachedTarget', 'cachedContext'])
+            ->with(ActivityRoles::cachedRelations())
             ->firstOrFail();
 
         return $this->respond(app(ActivitySerializer::class)->activity($activity));

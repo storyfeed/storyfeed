@@ -22,6 +22,9 @@ enum Property: string implements VocabularyTerm
     case Object = 'object';
     case Target = 'target';
     case Context = 'context';
+    case Origin = 'origin';
+    case Result = 'result';
+    case Instrument = 'instrument';
     case Published = 'published';
     case TotalItems = 'totalItems';
 

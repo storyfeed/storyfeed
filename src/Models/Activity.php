@@ -39,6 +39,15 @@ use Storyfeed\StoryfeedManager;
  * @property int|null $cached_object_id
  * @property int|null $cached_target_id
  * @property int|null $cached_context_id
+ * @property string|null $origin_type
+ * @property int|string|null $origin_id
+ * @property int|null $cached_origin_id
+ * @property string|null $result_type
+ * @property int|string|null $result_id
+ * @property int|null $cached_result_id
+ * @property string|null $instrument_type
+ * @property int|string|null $instrument_id
+ * @property int|null $cached_instrument_id
  * @property array<array-key, mixed>|null $data
  * @property Carbon|null $published_at
  * @property Carbon|null $created_at
@@ -156,6 +165,42 @@ class Activity extends Model
     {
         /** @var BelongsTo<Snapshot, $this> */
         return $this->belongsTo($this->snapshotModel(), 'cached_context_id');
+    }
+
+    public function origin(): MorphTo
+    {
+        return $this->morphTo();
+    }
+
+    /** @return BelongsTo<Snapshot, $this> */
+    public function cachedOrigin(): BelongsTo
+    {
+        /** @var BelongsTo<Snapshot, $this> */
+        return $this->belongsTo($this->snapshotModel(), 'cached_origin_id');
+    }
+
+    public function result(): MorphTo
+    {
+        return $this->morphTo();
+    }
+
+    /** @return BelongsTo<Snapshot, $this> */
+    public function cachedResult(): BelongsTo
+    {
+        /** @var BelongsTo<Snapshot, $this> */
+        return $this->belongsTo($this->snapshotModel(), 'cached_result_id');
+    }
+
+    public function instrument(): MorphTo
+    {
+        return $this->morphTo();
+    }
+
+    /** @return BelongsTo<Snapshot, $this> */
+    public function cachedInstrument(): BelongsTo
+    {
+        /** @var BelongsTo<Snapshot, $this> */
+        return $this->belongsTo($this->snapshotModel(), 'cached_instrument_id');
     }
 
     public function groupings(): HasMany

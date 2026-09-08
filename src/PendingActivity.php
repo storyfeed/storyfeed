@@ -184,6 +184,34 @@ class PendingActivity
         return $this->associate('context', $model);
     }
 
+    /** Source entity. Existing from() remains a target alias. Null is a no-op. */
+    public function origin(Model|string|null $model = null): static
+    {
+        return $this->associate('origin', $model);
+    }
+
+    /** Outcome entity, not a scalar change or PHP return value. Null is a no-op. */
+    public function result(Model|string|null $model = null): static
+    {
+        return $this->associate('result', $model);
+    }
+
+    /** Tool or service used for the act. Null is a no-op. */
+    public function instrument(Model|string|null $model = null): static
+    {
+        return $this->associate('instrument', $model);
+    }
+
+    public function using(Model|string|null $model = null): static
+    {
+        return $this->instrument($model);
+    }
+
+    public function resulting(Model|string|null $model = null): static
+    {
+        return $this->result($model);
+    }
+
     /**
      * ── Target aliases ───────────────────────────────────────────────────────
      *
@@ -659,9 +687,7 @@ class PendingActivity
         throw UnauthoredActivity::make($type, $verb);
     }
 
-    /**
-     * A string names a Party — a participant that lives only in the feed.
-     */
+    /** A string names a Party — a participant that lives only in the feed. */
     private function associate(string $role, Model|string|null $participant): static
     {
         $model = is_string($participant)

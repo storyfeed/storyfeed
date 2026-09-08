@@ -13,6 +13,7 @@ use Storyfeed\Contracts\FeedVerb;
 use Storyfeed\Models\Activity;
 use Storyfeed\Models\Party;
 use Storyfeed\StoryfeedManager;
+use Storyfeed\Support\ActivityRoles;
 
 /**
  * Records activities in memory instead of persisting them.
@@ -208,7 +209,7 @@ class StoryfeedFake extends StoryfeedManager
         $aliases = [];
 
         foreach ($this->recorded as $activity) {
-            foreach (['actor', 'object', 'target', 'context'] as $role) {
+            foreach (ActivityRoles::STORED as $role) {
                 if ($activity->{"{$role}_type"} !== null) {
                     $aliases[] = (string) $activity->{"{$role}_type"};
                 }
@@ -234,7 +235,7 @@ class StoryfeedFake extends StoryfeedManager
         $map = [];
 
         foreach ($this->recorded as $activity) {
-            foreach (['actor', 'object', 'target', 'context'] as $role) {
+            foreach (ActivityRoles::GROUPABLE as $role) {
                 if ($activity->{"{$role}_type"} === null) {
                     continue;
                 }

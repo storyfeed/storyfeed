@@ -213,12 +213,18 @@ class StoryfeedManager
         bool $replace = false,
         iterable $objects = [],
         ?FeedThread $thread = null,
+        Model|string|null $origin = null,
+        Model|string|null $result = null,
+        Model|string|null $instrument = null,
     ): Activity {
         return $this->activity($verb, $object)
             ->when($objects !== [], fn (PendingActivity $a) => $a->objects($objects))
             ->when($actor !== null, fn (PendingActivity $a) => $a->actor($actor))
             ->target($target)
             ->context($context)
+            ->origin($origin)
+            ->result($result)
+            ->instrument($instrument)
             ->when($data !== [], fn (PendingActivity $a) => $a->data($data))
             ->when($thread !== null, fn (PendingActivity $a) => $a->thread($thread))
             ->when($publishedAt !== null, fn (PendingActivity $a) => $a->publishedAt($publishedAt))

@@ -4,6 +4,7 @@ namespace Storyfeed\Events\Snapshots;
 
 use Storyfeed\Concerns\HasPayload;
 use Storyfeed\Models\Activity;
+use Storyfeed\Support\ActivityRoles;
 
 /** Immutable event-time facts, never an Eloquent model or a live relation. */
 final readonly class ActivitySnapshot
@@ -15,6 +16,9 @@ final readonly class ActivitySnapshot
      * @param  array<string, mixed>|null  $object
      * @param  array<string, mixed>|null  $target
      * @param  array<string, mixed>|null  $context
+     * @param  array<string, mixed>|null  $origin
+     * @param  array<string, mixed>|null  $result
+     * @param  array<string, mixed>|null  $instrument
      * @param  array<array-key, mixed>  $data
      */
     private function __construct(
@@ -29,14 +33,17 @@ final readonly class ActivitySnapshot
         public ?string $published_at,
         public ?string $deleted_at,
         public bool $forceDeleted,
+        public ?array $origin = null,
+        public ?array $result = null,
+        public ?array $instrument = null,
     ) {}
 
     public static function fromModel(Activity $activity): self
     {
-        $activity->loadMissing(['cachedActor', 'cachedObject', 'cachedTarget', 'cachedContext']);
+        $activity->loadMissing(ActivityRoles::cachedRelations());
 
         $roles = [];
-        foreach (['actor', 'object', 'target', 'context'] as $role) {
+        foreach (ActivityRoles::STORED as $role) {
             $type = $activity->getAttribute($role.'_type');
             $id = $activity->getAttribute($role.'_id');
             $cached = $activity->getRelation('cached'.ucfirst($role));
@@ -59,12 +66,24 @@ final readonly class ActivitySnapshot
             $activity->published_at?->toIso8601String(),
             $activity->deleted_at?->toIso8601String(),
             $activity->isForceDeleting() || ! $activity->exists,
+            $roles['origin'],
+            $roles['result'],
+            $roles['instrument'],
         );
     }
 
     /** @return array<string, mixed> */
     public function toPayload(): array
     {
-        return get_object_vars($this);
+        $payload = get_object_vars($this);
+
+        // Keep existing event payloads identical when no new facts were recorded.
+        foreach (array_diff(ActivityRoles::STORED, ActivityRoles::PAYLOAD) as $role) {
+            if (($payload[$role] ?? null) === null) {
+                unset($payload[$role]);
+            }
+        }
+
+        return $payload;
     }
 }

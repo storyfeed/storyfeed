@@ -5,6 +5,7 @@ namespace Storyfeed\Actions;
 use Illuminate\Database\Eloquent\Model;
 use Storyfeed\Contracts\Feedable;
 use Storyfeed\Models\Activity;
+use Storyfeed\Support\ActivityRoles;
 use Storyfeed\Support\MorphResolver;
 
 /**
@@ -15,7 +16,7 @@ use Storyfeed\Support\MorphResolver;
  */
 class RebuildSnapshots
 {
-    public const ROLES = ['actor', 'object', 'target', 'context'];
+    public const ROLES = ActivityRoles::STORED;
 
     /**
      * @return array{snapshotted: int, missing: int}

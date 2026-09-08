@@ -4,6 +4,7 @@ namespace Storyfeed\Serialization;
 
 use Illuminate\Support\Carbon;
 use Storyfeed\StoryfeedManager;
+use Storyfeed\Support\ActivityRoles;
 
 /**
  * Parses Storyfeed's OWN AS2.0 documents back into activity attributes —
@@ -22,7 +23,7 @@ class Reader
 
     /**
      * @param  array<string, mixed>  $document
-     * @return array{uid: string|null, verb: string|null, type: string|null, published_at: Carbon|null, actor: array<string, mixed>|null, object: array<string, mixed>|null, target: array<string, mixed>|null, context: array<string, mixed>|null}
+     * @return array{uid: string|null, verb: string|null, type: string|null, published_at: Carbon|null, actor: array<string, mixed>|null, object: array<string, mixed>|null, target: array<string, mixed>|null, context: array<string, mixed>|null, origin: array<string, mixed>|null, result: array<string, mixed>|null, instrument: array<string, mixed>|null}
      */
     public function activity(array $document): array
     {
@@ -31,10 +32,10 @@ class Reader
             'verb' => $this->verb($document),
             'type' => $document['type'] ?? null,
             'published_at' => isset($document['published']) ? Carbon::parse($document['published']) : null,
-            'actor' => $document['actor'] ?? null,
-            'object' => $document['object'] ?? null,
-            'target' => $document['target'] ?? null,
-            'context' => $document['context'] ?? null,
+            ...array_replace(
+                array_fill_keys(ActivityRoles::STORED, null),
+                array_intersect_key($document, array_flip(ActivityRoles::STORED)),
+            ),
         ];
     }
 

@@ -31,6 +31,7 @@ class StoryfeedServiceProvider extends PackageServiceProvider
                 'add_shape_to_feed_snapshots_table',
                 'add_body_to_feed_snapshots_table',
                 'add_source_updated_at_to_feed_snapshots_table',
+                'add_as2_roles_to_feed_activities_table',
             ])
             ->hasCommands([
                 Console\RebuildCommand::class,
