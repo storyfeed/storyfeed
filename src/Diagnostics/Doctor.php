@@ -29,6 +29,7 @@ class Doctor
         Checks\Maintenance::class,
         Checks\Coverage::class,
         Checks\ActorlessCoverage::class,
+        Checks\ReflexiveRoles::class,
         Checks\SingularTokens::class,
         Checks\AggregateCoverage::class,
         Checks\AggregateTokens::class,
