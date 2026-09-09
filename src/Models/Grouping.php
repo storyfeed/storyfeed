@@ -18,6 +18,7 @@ class Grouping extends Model
         return config('storyfeed.tables.groupings', 'feed_groupings');
     }
 
+    /** @return BelongsTo<Model, $this> */
     public function activity(): BelongsTo
     {
         return $this->belongsTo(

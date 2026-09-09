@@ -117,21 +117,25 @@ class Activity extends Model
         return new ActivityBuilder($query);
     }
 
+    /** @return MorphTo<Model, $this> */
     public function actor(): MorphTo
     {
         return $this->morphTo();
     }
 
+    /** @return MorphTo<Model, $this> */
     public function object(): MorphTo
     {
         return $this->morphTo();
     }
 
+    /** @return MorphTo<Model, $this> */
     public function target(): MorphTo
     {
         return $this->morphTo();
     }
 
+    /** @return MorphTo<Model, $this> */
     public function context(): MorphTo
     {
         return $this->morphTo();
@@ -165,6 +169,7 @@ class Activity extends Model
         return $this->belongsTo($this->snapshotModel(), 'cached_context_id');
     }
 
+    /** @return MorphTo<Model, $this> */
     public function origin(): MorphTo
     {
         return $this->morphTo();
@@ -177,6 +182,7 @@ class Activity extends Model
         return $this->belongsTo($this->snapshotModel(), 'cached_origin_id');
     }
 
+    /** @return MorphTo<Model, $this> */
     public function result(): MorphTo
     {
         return $this->morphTo();
@@ -189,6 +195,7 @@ class Activity extends Model
         return $this->belongsTo($this->snapshotModel(), 'cached_result_id');
     }
 
+    /** @return MorphTo<Model, $this> */
     public function instrument(): MorphTo
     {
         return $this->morphTo();
@@ -201,6 +208,7 @@ class Activity extends Model
         return $this->belongsTo($this->snapshotModel(), 'cached_instrument_id');
     }
 
+    /** @return HasMany<Model, $this> */
     public function groupings(): HasMany
     {
         return $this->hasMany(

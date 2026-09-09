@@ -38,6 +38,7 @@ class Snapshot extends Model
         return config('storyfeed.tables.snapshots', 'feed_snapshots');
     }
 
+    /** @return MorphTo<Model, $this> */
     public function model(): MorphTo
     {
         return $this->morphTo();

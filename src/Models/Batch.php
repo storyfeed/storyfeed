@@ -60,6 +60,7 @@ class Batch extends Model
         return ['uid'];
     }
 
+    /** @return MorphTo<Model, $this> */
     public function actor(): MorphTo
     {
         return $this->morphTo();
