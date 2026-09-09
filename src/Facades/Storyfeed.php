@@ -49,6 +49,8 @@ use Storyfeed\Testing\StoryfeedFake;
  * @method static \Storyfeed\StoryfeedManager checks(array<int, class-string<\Storyfeed\Contracts\DiagnosticCheck>|\Storyfeed\Contracts\DiagnosticCheck> $checks, bool $merge = true)
  * @method static \Storyfeed\StoryfeedManager feeds(array<int|string, \Closure|\Storyfeed\Feed|class-string<\Storyfeed\Feed>> $feeds, bool $merge = true)
  * @method static array<string, \Storyfeed\FeedDefinition> registeredFeeds()
+ * @method static \Storyfeed\StoryfeedManager healers(list<class-string<\Storyfeed\Contracts\FeedHealer>|\Storyfeed\Contracts\FeedHealer> $healers, bool $merge = true)
+ * @method static array<string, \Storyfeed\Contracts\FeedHealer> registeredHealers()
  * @method static list<string> feedNames()
  * @method static string|null feedNameFor(string $class)
  * @method static \Storyfeed\FeedDefinition feedDefinition(string $preset)
