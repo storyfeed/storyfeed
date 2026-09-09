@@ -27,6 +27,7 @@ return [
         'parties' => 'feed_parties',
         'batches' => 'feed_batches',
         'meta' => 'feed_meta',
+        'removals' => 'feed_removals',
     ],
 
     /*

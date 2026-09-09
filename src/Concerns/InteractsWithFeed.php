@@ -3,6 +3,7 @@
 namespace Storyfeed\Concerns;
 
 use Storyfeed\Actions\ForgetActivities;
+use Storyfeed\Actions\RecordRemovals;
 use Storyfeed\Actions\SnapshotEntity;
 use Storyfeed\FeedBuilder;
 use Storyfeed\FeedContext;
@@ -125,10 +126,31 @@ trait InteractsWithFeed
 
     /**
      * Soft-delete every activity involving this model.
+     *
+     * Chunked like its force-deleting sibling, and for the same two reasons:
+     * each chunk records the story keys it empties (`Actions\RecordRemovals`)
+     * before the bulk `delete()`, which fires no model events; and the live
+     * scope excludes what the last pass soft-deleted, so the loop converges.
      */
     public function deleteFromFeed(): void
     {
-        $this->newFeedActivityQuery()->involving($this)->delete();
+        $record = new RecordRemovals;
+
+        while (true) {
+            $ids = $this->newFeedActivityQuery()
+                ->involving($this)
+                ->limit(500)
+                ->pluck('id')
+                ->all();
+
+            if ($ids === []) {
+                break;
+            }
+
+            $record->around($ids, function () use ($ids) {
+                $this->newFeedActivityQuery()->whereKey($ids)->delete();
+            });
+        }
     }
 
     /**
@@ -154,25 +176,33 @@ trait InteractsWithFeed
      * Chunked because `involving()` is an index over the participants table:
      * each pass forgets the rows it deletes, so the next pass sees only what
      * is left and the loop converges without a running exclusion list.
+     *
+     * Each chunk runs in a transaction that records the story keys it empties
+     * (`Actions\RecordRemovals`) — the durable removal evidence the bulk
+     * `forceDelete()` would otherwise be the last trace of.
      */
     public function forceDeleteFromFeed(): void
     {
         $forget = new ForgetActivities;
+        $record = new RecordRemovals;
 
         while (true) {
             $ids = $this->newFeedActivityQuery()
                 ->withTrashed()
                 ->involving($this)
                 ->limit(500)
-                ->pluck('id');
+                ->pluck('id')
+                ->all();
 
-            if ($ids->isEmpty()) {
+            if ($ids === []) {
                 break;
             }
 
-            $forget(...$ids);
+            $record->around($ids, function () use ($forget, $ids) {
+                $forget(...$ids);
 
-            $this->newFeedActivityQuery()->withTrashed()->whereKey($ids)->forceDelete();
+                $this->newFeedActivityQuery()->withTrashed()->whereKey($ids)->forceDelete();
+            });
         }
     }
 

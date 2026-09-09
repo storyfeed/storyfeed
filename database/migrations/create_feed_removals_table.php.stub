@@ -1,0 +1,28 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create(config('storyfeed.tables.removals', 'feed_removals'), function (Blueprint $table) {
+            $table->id();
+            $table->string('verb');
+            // The same shape as the activity's object columns, so the key
+            // compares like for like under any morph key type.
+            $table->morphs('object', 'feed_removals_object_index');
+            $table->timestamp('published_at')->nullable();
+            $table->timestamp('removed_at');
+
+            $table->unique(['verb', 'object_type', 'object_id'], 'feed_removals_key_unique');
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists(config('storyfeed.tables.removals', 'feed_removals'));
+    }
+};
