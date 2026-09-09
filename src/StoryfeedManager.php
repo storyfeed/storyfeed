@@ -6,6 +6,7 @@ use BackedEnum;
 use Closure;
 use DateTimeInterface;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Log\Context\Repository;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
@@ -26,6 +27,7 @@ use Storyfeed\Grouping\Axis;
 use Storyfeed\Models\Activity;
 use Storyfeed\Models\Party;
 use Storyfeed\Support\MorphResolver;
+use Storyfeed\Support\QueuedActor;
 use Throwable;
 
 class StoryfeedManager
@@ -1456,6 +1458,34 @@ class StoryfeedManager
         }
 
         return Auth::user() ?? $this->fallbackParty();
+    }
+
+    /**
+     * Apply a transported identity without requiring its model to still exist.
+     * Explicit actors and anonymity are guarded by the callers. Application
+     * resolvers retain authority; context precedes worker auth and Party fallback.
+     */
+    public function applyDefaultActor(Activity $activity): ?Model
+    {
+        if (! $this->actorResolver && ! config('storyfeed.actor_resolver')) {
+            $identity = app(Repository::class)
+                ->getHidden(QueuedActor::KEY);
+
+            if (is_array($identity) && is_string($identity['type'] ?? null)
+                && (is_int($identity['id'] ?? null) || is_string($identity['id'] ?? null))) {
+                $activity->actor_type = $identity['type'];
+                $activity->actor_id = $identity['id'];
+
+                return MorphResolver::feedable($identity['type'], $identity['id']);
+            }
+        }
+
+        $actor = $this->resolveActor();
+        if ($actor !== null) {
+            $activity->actor()->associate($actor);
+        }
+
+        return $actor;
     }
 
     /**

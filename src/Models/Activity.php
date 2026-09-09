@@ -95,9 +95,7 @@ class Activity extends Model
     {
         static::creating(function (self $activity) {
             if (! $activity->skipDefaultActor && $activity->actor_type === null && $activity->actor_id === null) {
-                if ($actor = app(StoryfeedManager::class)->resolveActor()) {
-                    $activity->actor()->associate($actor);
-                }
+                app(StoryfeedManager::class)->applyDefaultActor($activity);
             }
 
             if ($activity->published_at === null) {
