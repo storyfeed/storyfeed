@@ -22,8 +22,8 @@ use Storyfeed\Models\Party;
  * What the trade costs: every entity shares the `storyfeed.party` morph alias,
  * so a demo cannot show type-keyed grammar (`invoice.*`) or a link resolver
  * pointing at real records. Both are documented in docs/demo-data.md, and both
- * are recoverable by an app that passes its own models in — the seeder takes
- * whatever the cast hands it and never assumes a Party.
+ * require application-specific modelling to demonstrate. The configured model
+ * may be a Party subtype; party() does not accept unrelated Feedable models.
  *
  * Keys are prefixed `demo-` so a party this kit created is identifiable at a
  * glance and removable without guessing.
@@ -115,6 +115,7 @@ class Cast
             $name,
             key: self::keyFor($name),
             type: $this->typeFor($name),
+            data: ['$media' => Pictures::for($name, $this->typeFor($name))],
         );
     }
 
@@ -141,7 +142,7 @@ class Cast
             in_array($name, $this->members, true) => ObjectType::Person,
             in_array($name, $this->clients, true) => ObjectType::Organization,
             in_array($name, $this->projects, true) => ObjectType::Object,
-            in_array($name, $this->documents, true) => ObjectType::Document,
+            in_array($name, $this->documents, true) || $name === 'Unavailable demo document' => ObjectType::Document,
             default => ObjectType::Note,
         };
     }

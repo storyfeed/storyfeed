@@ -10,6 +10,7 @@ use Storyfeed\Contracts\Feedable;
 use Storyfeed\Contracts\HasActivityStreamsType;
 use Storyfeed\FeedContext;
 use Storyfeed\FeedEntity;
+use Storyfeed\FeedImage;
 use Storyfeed\FeedMedia;
 
 /**
@@ -115,14 +116,70 @@ class Party extends Model implements Feedable, HasActivityStreamsType
     }
 
     /**
-     * Parties have no canonical URL in the host application. Written out
-     * rather than taken from InteractsWithFeed because Party does not use
+     * Parties have no canonical URL in the host application. A picture can
+     * represent a named participant without claiming a host record exists.
+     * `$media` accepts icon, preview and image slots: non-empty source strings
+     * or FeedImage-shaped arrays. Absent or malformed media degrades to null.
+     * Written out rather than taken from InteractsWithFeed because Party does not use
      * the trait: it keeps its own saved hook and deliberately no delete
      * cascade (history outlives a retired integration).
      */
     public static function feedMedia(FeedContext $context): ?FeedMedia
     {
-        return null;
+        $data = $context->data('$media');
+
+        if (! is_array($data) || $data === [] || array_diff(array_keys($data), ['icon', 'preview', 'image']) !== []) {
+            return null;
+        }
+
+        $media = FeedMedia::make();
+
+        foreach (['icon', 'preview', 'image'] as $slot) {
+            $value = $data[$slot] ?? null;
+            if ($value === null) {
+                continue;
+            }
+
+            if (is_string($value)) {
+                $value = ['src' => $value];
+            }
+
+            if (! is_array($value) || ! is_string($value['src'] ?? null) || trim($value['src']) === '') {
+                return null;
+            }
+
+            if (array_diff(array_keys($value), ['src', 'mediaType', 'width', 'height', 'alt']) !== []) {
+                return null;
+            }
+
+            foreach (['mediaType', 'alt'] as $field) {
+                if (isset($value[$field]) && ! is_string($value[$field])) {
+                    return null;
+                }
+            }
+
+            foreach (['width', 'height'] as $field) {
+                if (isset($value[$field]) && ! is_int($value[$field])) {
+                    return null;
+                }
+            }
+
+            $image = FeedImage::make(
+                src: $value['src'],
+                mediaType: $value['mediaType'] ?? null,
+                width: $value['width'] ?? null,
+                height: $value['height'] ?? null,
+                alt: $value['alt'] ?? null,
+            );
+
+            match ($slot) {
+                'icon' => $media->icon($image),
+                'preview' => $media->preview($image),
+                'image' => $media->image($image),
+            };
+        }
+
+        return $media->media() === null ? null : $media;
     }
 
     /**

@@ -7,6 +7,7 @@ use Storyfeed\Facades\Storyfeed;
 use Storyfeed\Models\Activity;
 use Storyfeed\Models\Grouping;
 use Storyfeed\Models\Party;
+use Storyfeed\Models\Snapshot;
 use Storyfeed\Support\SyncToken;
 
 /**
@@ -32,7 +33,8 @@ class DemoSeeder
     ) {}
 
     /**
-     * Publish the screenplay. Returns the number of activities published.
+     * Publish the screenplay plus one cache-loss example when non-empty.
+     * Returns the activity count, which depends on the seed and number of days.
      */
     public function seed(): int
     {
@@ -71,6 +73,22 @@ class DemoSeeder
         }
 
         if ($published > 0) {
+            // Deliberate cache loss, not a deleted Party or a non-Feedable model.
+            // A dedicated identity keeps the damaged snapshot out of other beats.
+            $missing = $this->cast->party('Unavailable demo document');
+            Storyfeed::activity(Vocabulary::APPROVE)
+                ->actor($this->cast->party($this->cast->members[0]))
+                ->object($missing)
+                ->publishedAt(now()->startOfDay())
+                ->data(['demo' => true, 'degradation' => 'snapshot-loss'])
+                ->publish();
+            $snapshotModel = config('storyfeed.models.snapshot', Snapshot::class);
+            $snapshotModel::query()
+                ->where('model_type', $missing->getMorphClass())
+                ->where('model_id', $missing->getKey())
+                ->delete();
+            $published++;
+
             SyncToken::bump();
         }
 

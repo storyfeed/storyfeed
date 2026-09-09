@@ -146,3 +146,31 @@ it('cannot delete an activity the application published', function () {
         ->and(Activity::first()->verb)->toBe('confirm')
         ->and(Party::find($party->key))->not->toBeNull();
 });
+
+it('seeds offline pictures and one visible snapshot-loss entity', function (int $seed) {
+    seed_demo(days: 2, seed: $seed);
+    $items = Storyfeed::feed()->log()->limit(100)->get()->toArray()['items'];
+    $lost = array_values(array_filter($items, fn ($item) => ($item['data']['degradation'] ?? null) === 'snapshot-loss'));
+    expect($lost)->toHaveCount(1)
+        ->and($lost[0]['object']['label'])->toBeNull()
+        ->and($lost[0]['object']['media'])->toBeNull()
+        ->and($lost[0]['object']['id'])->not->toBeNull();
+
+    $portraits = $previews = 0;
+    foreach ($items as $item) {
+        foreach (['actor', 'object', 'target', 'context'] as $role) {
+            foreach (['icon', 'preview'] as $slot) {
+                $picture = $item[$role]['media'][$slot] ?? null;
+                if ($picture === null) {
+                    continue;
+                }
+                expect($picture['src'])->toStartWith('data:image/svg+xml;base64,')
+                    ->and($item[$role]['url'])->toBeNull();
+                $svg = base64_decode(substr($picture['src'], 26), true);
+                expect($svg)->toStartWith('<svg')->not->toContain('<script', '<image', 'href=');
+                $slot === 'icon' ? $portraits++ : $previews++;
+            }
+        }
+    }
+    expect($portraits)->toBeGreaterThan(0)->and($previews)->toBeGreaterThan(0);
+})->with([17, 839, 6203]);
