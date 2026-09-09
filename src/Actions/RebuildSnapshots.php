@@ -5,6 +5,7 @@ namespace Storyfeed\Actions;
 use Illuminate\Database\Eloquent\Model;
 use Storyfeed\Contracts\Feedable;
 use Storyfeed\Models\Activity;
+use Storyfeed\Models\Builders\ActivityBuilder;
 use Storyfeed\Support\ActivityRoles;
 use Storyfeed\Support\MorphResolver;
 
@@ -27,8 +28,14 @@ class RebuildSnapshots
         $missing = 0;
 
         foreach (self::ROLES as $role) {
+            // toBase(): these rows are (type, id) tuples, not Activity models.
+            // Hydrating them would alias the ROLE's id onto Activity's primary
+            // key, where Eloquent casts it to the model's int keyType — so a
+            // string-keyed actor came back as 1 and the update below stamped
+            // whichever row happened to hold that id.
             $pairs = $this->activityQuery()
                 ->whereNotNull("{$role}_type")
+                ->toBase()
                 ->distinct()
                 ->get(["{$role}_type as type", "{$role}_id as id"]);
 
@@ -63,6 +70,7 @@ class RebuildSnapshots
         return MorphResolver::feedable($type, $id);
     }
 
+    /** @return ActivityBuilder<Activity> */
     protected function activityQuery()
     {
         $model = config('storyfeed.models.activity', Activity::class);
