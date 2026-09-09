@@ -97,6 +97,7 @@ class NodePresenter
         return $presenter;
     }
 
+    /** @return array<string, mixed> */
     public function node(GroupSlice $slice): array
     {
         return $slice->isGroup()
@@ -104,6 +105,7 @@ class NodePresenter
             : $this->activityNode($slice->members->first());
     }
 
+    /** @return array<string, mixed> */
     public function activityNode(Activity $activity): array
     {
         [$template, $headline] = $this->headline($activity);
@@ -419,6 +421,7 @@ class NodePresenter
         'instrument' => ['instruments', 'cachedInstrument'],
     ];
 
+    /** @return array<string, mixed> */
     public function groupNode(GroupSlice $slice): array
     {
         $members = $slice->members;
@@ -510,6 +513,7 @@ class NodePresenter
         ];
     }
 
+    /** @return array<string, mixed>|null */
     protected function entity(?string $type, int|string|null $id, ?Snapshot $snapshot): ?array
     {
         if ($type === null) {

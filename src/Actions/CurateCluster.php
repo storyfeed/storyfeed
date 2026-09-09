@@ -3,6 +3,7 @@
 namespace Storyfeed\Actions;
 
 use Closure;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Query\JoinClause;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -287,6 +288,7 @@ class CurateCluster
             ->all();
     }
 
+    /** @return Builder<Grouping> */
     protected function groupings()
     {
         $model = config('storyfeed.models.grouping', Grouping::class);

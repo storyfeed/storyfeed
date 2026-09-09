@@ -203,6 +203,9 @@ class StoryfeedManager
 
     /**
      * Compose and publish an activity in one call.
+     *
+     * @param  array<string, mixed>  $data
+     * @param  iterable<int, Model>  $objects
      */
     public function record(
         string|FeedVerb|BackedEnum $verb,

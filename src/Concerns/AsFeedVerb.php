@@ -77,6 +77,9 @@ trait AsFeedVerb
      * difference invisible in practice, which is exactly why it needs saying
      * here — the divergence is the compatible choice, not an oversight, and
      * "tidying" it is a breaking change wearing a refactor's clothes.
+     *
+     * @param  array<string, mixed>  $data
+     * @param  iterable<int, Model>  $objects
      */
     public function record(
         Model|string|null $object = null,

@@ -125,7 +125,11 @@ class Cast
         return 'demo-'.Str::slug($name);
     }
 
-    /** Every name in the cast, in role order. @return list<string> */
+    /**
+     * Every name in the cast, in role order.
+     *
+     * @return list<string>
+     */
     public function names(): array
     {
         return [...$this->members, ...$this->clients, ...$this->projects, ...$this->documents, ...$this->tasks];

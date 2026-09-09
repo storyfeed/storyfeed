@@ -107,6 +107,8 @@ class SingularTokens extends Check
      * Recorded (object_type, verb) pairs with a per-role count of the
      * activities that actually carry each role. One grouped query; count(col)
      * counts non-nulls on every driver we support.
+     *
+     * @return iterable<int, \stdClass>
      */
     protected function carriage(): iterable
     {

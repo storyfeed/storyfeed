@@ -104,6 +104,8 @@ use Storyfeed\FeedThread;
  * place core looks at a detail at all — and it reports only what is knowable
  * without a vocabulary, because core having a vocabulary is the thing this
  * interface exists to avoid.
+ *
+ * @extends Arrayable<string, mixed>
  */
 interface FeedDetail extends Arrayable
 {

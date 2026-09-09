@@ -19,6 +19,7 @@ use LogicException;
  * ($page['items']) works the same in PHP as it does client-side.
  *
  * @implements ArrayAccess<string, mixed>
+ * @implements Arrayable<string, mixed>
  */
 final class FeedPage implements Arrayable, ArrayAccess, JsonSerializable, Responsable
 {
@@ -67,6 +68,7 @@ final class FeedPage implements Arrayable, ArrayAccess, JsonSerializable, Respon
         ];
     }
 
+    /** @return array<string, mixed> */
     public function jsonSerialize(): array
     {
         return $this->toArray();

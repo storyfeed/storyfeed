@@ -133,7 +133,11 @@ abstract class Story
         return PendingActivity::make(static::verb(), $object);
     }
 
-    /** A composite: one authored story over a collection of objects. */
+    /**
+     * A composite: one authored story over a collection of objects.
+     *
+     * @param  iterable<int, Model>  $models
+     */
     public static function objects(iterable $models): PendingActivity
     {
         return static::activity()->objects($models);
@@ -149,6 +153,9 @@ abstract class Story
      * Compose and publish in one call. Spec names only (object/actor/target/
      * context) — the one-liner speaks the spec, the chain speaks English, and
      * named arguments cannot be aliased.
+     *
+     * @param  array<string, mixed>  $data
+     * @param  iterable<int, Model>  $objects
      */
     public static function record(
         Model|string|null $object = null,

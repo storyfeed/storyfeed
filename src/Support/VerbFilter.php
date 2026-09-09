@@ -5,6 +5,7 @@ namespace Storyfeed\Support;
 use BackedEnum;
 use InvalidArgumentException;
 use Storyfeed\Contracts\FeedVerb;
+use Storyfeed\Models\Activity;
 use Storyfeed\Models\Builders\ActivityBuilder;
 
 /**
@@ -159,6 +160,8 @@ final class VerbFilter
      * behind ":actors and 3 others" are computed INSIDE the filter, not over
      * the whole table. An allowlist that leaked "and 3 others" from excluded
      * verbs would be worse than no allowlist.
+     *
+     * @param  ActivityBuilder<Activity>  $query
      */
     public function applyTo(ActivityBuilder $query): void
     {
@@ -176,6 +179,7 @@ final class VerbFilter
         }
     }
 
+    /** @param  ActivityBuilder<Activity>  $query */
     protected function orMatch(ActivityBuilder $query, string $column, string $pattern): void
     {
         str_ends_with($pattern, '*')
@@ -183,6 +187,7 @@ final class VerbFilter
             : $query->orWhereRaw("{$column} = ?", [$pattern]);
     }
 
+    /** @param  ActivityBuilder<Activity>  $query */
     protected function andNotMatch(ActivityBuilder $query, string $column, string $pattern): void
     {
         str_ends_with($pattern, '*')

@@ -28,7 +28,11 @@ final class Report
         return Collection::make($this->findings);
     }
 
-    /** Warnings and errors — what "N finding(s)" counts. @return Collection<int, Finding> */
+    /**
+     * Warnings and errors — what "N finding(s)" counts.
+     *
+     * @return Collection<int, Finding>
+     */
     public function problems(): Collection
     {
         return $this->all()->filter(fn (Finding $f) => $f->severity->isFinding())->values();
