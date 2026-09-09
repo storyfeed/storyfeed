@@ -104,6 +104,32 @@ and one of them turned out to be returning `null` from all of them — folded in
 
 ### Added
 
+- **The authenticated actor now travels with a queued job.** An activity published
+  from a queued listener recorded no actor, because `Auth::user()` on a worker is
+  null and always was. The identity existed at dispatch and was simply never
+  carried. `Support\QueuedActor` captures a morph alias and a scalar key at
+  `Context::dehydrating()`, hidden so attribution plumbing never enters normal log
+  context, and the worker applies that pair directly — so a story still records who
+  did it even after the user row is gone; a live model is looked up only for the
+  ordinary snapshot path.
+
+  **Precedence is the careful part, and nothing you already configured changes.**
+  An explicit `->actor()` and `->anonymously()` are both decided before any of this
+  runs. A configured application resolver — runtime or config, including
+  `Storyfeed::as()` — keeps its authority untouched. Only where nothing else has an
+  opinion does the transported identity speak, and there it speaks *ahead of*
+  `parties.fallback`, because a known initiator must not become "System" merely
+  because the worker has no session. An app can opt a context scope out with
+  `Context::addHidden(QueuedActor::KEY, null)`.
+
+- **Per-role group exemplar limits.** `grouping.exemplar_limits` is keyed by
+  singular role and defaults to `3` for all seven, which is what the payload has
+  always produced. It exists because one `->take(3)` was the right default and the
+  wrong ceiling for a surface where the objects carry the pictures and the actors
+  do not — raising `object` to `6` shows six objects while every other role stays at
+  three. Exemplars still draw from the loaded children, so `children_limit` bounds
+  them; an invalid or missing limit falls back to `3` rather than to nothing.
+
 - **The reserved-key convention, stated in the contract and guarded by a test.**
   `docs/payload.md` now says what `$thread`, `$detail` and `$v` always meant and
   nothing had written down: *a `$`-prefixed key in `data` is not the app's. Core
@@ -690,6 +716,44 @@ and one of them turned out to be returning `null` from all of them — folded in
   times.
 
 ### Fixed
+
+- **`Date::use(CarbonImmutable::class)` made publishing impossible.** Laravel offers
+  it as an application-wide setting, and an app that takes it gets `CarbonImmutable`
+  back from every model date cast. `CarbonImmutable` does not extend
+  `Illuminate\Support\Carbon`, so `Actions\AssignToBatch` — which reads
+  `$activity->published_at` straight off the model and passes it on — raised a
+  `TypeError` on the first publish:
+
+      AssignToBatch::resolveOpenBatch(): Argument #2 ($publishedAt) must be of
+      type Illuminate\Support\Carbon, Carbon\CarbonImmutable given
+
+  Not a corner case: for those apps, nothing could be recorded at all. The four
+  hints that receive a value from a model cast now take `Carbon\CarbonInterface`,
+  which both classes implement, and every call they already made — `copy`, `gt`,
+  `max`, `subMinutes` — was on that interface the whole time.
+
+  It survived this long because **no test had ever set the date class**. One
+  `beforeEach` would have caught it months ago; the suite is large and it was
+  monolingual. There is now coverage for publish, batching, feed read and the
+  stale-batch close under immutable dates.
+
+- **A batch is announced once, not once per caller.** Closing was written twice —
+  inside the publish transaction and again in the sweeper — and both copies read
+  the row, wrote `closed_at`, then dispatched `BatchClosed` and bundled composites.
+  Nothing made the *transition* the contended thing, so two callers arriving
+  together both announced it. `Actions\CloseBatch` now issues an
+  `open()->update()` and reports whether that statement affected a row; the
+  database arbitrates and a stale reader loses quietly. A PostgreSQL 18 probe
+  produced six events for three batches before and three after, in every run.
+  MySQL and MariaDB are untested.
+
+- **The public models declare their relation generics.** Every `morphTo()` on
+  `Activity` (all seven roles), `Batch::actor()`, `Snapshot::model()`,
+  `Grouping::activity()` and `Activity::groupings()` shipped without types. Our own
+  analysis runs at level 5, where `missingType.generics` does not fire; consumers
+  run Larastan at 6 or 7, where it does — so eleven relations were clean here and
+  noisy in every app that installed the package. Docblocks only; no behaviour
+  changes. The `cached*` relations were already annotated this way.
 
 - **A resolver that throws for a whole class is now reported once per page, not
   once per entity on it.** `Support\LinkResolver` caught a throwing
