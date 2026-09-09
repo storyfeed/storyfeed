@@ -717,6 +717,35 @@ and one of them turned out to be returning `null` from all of them — folded in
 
 ### Fixed
 
+- **A summary page spent 290ms proving there was nothing to find.** `soloStream()`
+  selects activities carrying no winning grouping row — legacy, imported, or
+  awaiting the trickle — and it asked for that as a single antijoin over a
+  predicate containing an `OR` and a correlated subquery. MySQL answered it by
+  reading about five grouping rows per activity out of the clustered index,
+  fifty thousand times.
+
+  The shape of the cost is the part worth knowing: **that query is slowest
+  exactly when your feed is healthiest.** On a fully curated database no
+  activity is solo, the result set is empty, and `LIMIT 31` can only stop early
+  if solos are *found* — so the better curated the app, the further it scans. It
+  is also why a deep page is cheaper than the first one.
+
+  The predicate is now expressed as the disjuncts of an antijoin, one per shape,
+  so each probe is a covering index lookup on an index that already exists and
+  the first match short-circuits the rest. No migration, no new index, no
+  payload or config change. On MySQL 8.4 at 50,000 activities the first summary
+  page goes from 689ms to 529ms; at 10,000 it goes from 217ms to 193ms.
+
+  Two candidate indexes were measured and both rejected — one bought nothing
+  because the optimizer short-circuits the `OR` and never executes the subquery
+  it targeted, and the other the optimizer refused to choose without a hint the
+  package cannot ship.
+
+  `notSolo()` deliberately sits beside `winning()` and the two must agree: a new
+  disjunct in one without its mirror in the other makes activities vanish from
+  the read path. Nine tests pin the equivalence across eight grouping-row shapes
+  in both read modes.
+
 - **`Date::use(CarbonImmutable::class)` made publishing impossible.** Laravel offers
   it as an application-wide setting, and an app that takes it gets `CarbonImmutable`
   back from every model date cast. `CarbonImmutable` does not extend
