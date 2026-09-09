@@ -36,7 +36,11 @@ class Delivery extends Model implements Feedable, HasFeedShapeVersion
     /** Test hook: make the resolver ask for its live model (issue #4). */
     public static bool $hydrates = false;
 
-    /** Test hook: relations passed as `with:` when hydrating. */
+    /**
+     * Test hook: relations passed as `with:` when hydrating.
+     *
+     * @var array<int|string, mixed>
+     */
     public static array $hydratesWith = [];
 
     /** Test hook: read the customer relation off the hydrated model (the nested-access footgun). */
@@ -44,6 +48,7 @@ class Delivery extends Model implements Feedable, HasFeedShapeVersion
 
     protected $guarded = [];
 
+    /** @return BelongsTo<Customer, $this> */
     public function customer(): BelongsTo
     {
         return $this->belongsTo(Customer::class);

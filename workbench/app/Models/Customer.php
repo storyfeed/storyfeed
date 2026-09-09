@@ -26,7 +26,11 @@ class Customer extends Model implements Feedable
     /** Test hook: `withTrashed:` passed through when hydrating. */
     public static bool $hydratesTrashed = false;
 
-    /** Test spy: every model (or null) model() handed back, in call order. */
+    /**
+     * Test spy: every model (or null) model() handed back, in call order.
+     *
+     * @var list<Model|null>
+     */
     public static array $hydrated = [];
 
     use InteractsWithFeed;
@@ -34,6 +38,7 @@ class Customer extends Model implements Feedable
 
     protected $guarded = [];
 
+    /** @return HasMany<Delivery, $this> */
     public function deliveries(): HasMany
     {
         return $this->hasMany(Delivery::class);
