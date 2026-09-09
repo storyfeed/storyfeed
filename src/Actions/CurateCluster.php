@@ -66,6 +66,13 @@ class CurateCluster
      * A deletion can drop a cluster back below its threshold, so the
      * remaining members must be re-decided — the one case where winners are
      * not monotone.
+     *
+     * Every member is settled directly, NOT through resettle(). This is not
+     * redundancy to tidy away: resettle()'s staleness predicate treats a
+     * member whose winner outranks the axis as correctly settled, which is
+     * only true while clusters grow. After a delete a survivor stamped for
+     * the highest axis can be exactly the row that no longer earns it, and
+     * the sweep would never select it.
      */
     public function afterDelete(Activity|ActivitySnapshot $activity): void
     {
@@ -99,6 +106,12 @@ class CurateCluster
     /**
      * Decide and stamp one activity from its own candidate hashes.
      *
+     * Compares before writing: the decision is a pure function of the rows,
+     * so when the stamps already say what it says there is nothing to do,
+     * and a settle that changes nothing costs one read instead of two writes
+     * (and, under maintenance accounting, a second read). On a settled
+     * cluster that is every settle but the new member's own.
+     *
      * @param  array<string, string>  $hashes  bucket => hash
      */
     protected function settle(int|string $activityId, array $hashes): void
@@ -107,35 +120,48 @@ class CurateCluster
             return;
         }
 
-        $before = $this->onSettled !== null ? $this->winnerState($activityId) : [];
         $winner = $this->decide($hashes);
+        $before = $this->winnerState($activityId);
+        $after = array_map(fn (string $bucket) => $bucket === $winner, array_combine(array_keys($before), array_keys($before)));
 
-        DB::transaction(function () use ($activityId, $winner) {
-            // Cleared first, so there is never a moment with two winners.
-            // Batch rows stay winner = null — they are outside curation.
-            $this->groupings()
-                ->where('activity_id', $activityId)
-                ->where('bucket', '!=', $winner)
-                ->whereNotIn('bucket', app(StoryfeedManager::class)->rowBackedBuckets())
-                ->update(['winner' => false]);
+        $changed = $before !== $after;
 
-            $this->groupings()
-                ->where('activity_id', $activityId)
-                ->where('bucket', $winner)
-                ->update(['winner' => true]);
-        });
+        if ($changed) {
+            DB::transaction(function () use ($activityId, $winner) {
+                // Cleared first, so there is never a moment with two winners.
+                // Batch rows stay winner = null — they are outside curation.
+                $this->groupings()
+                    ->where('activity_id', $activityId)
+                    ->where('bucket', '!=', $winner)
+                    ->whereNotIn('bucket', app(StoryfeedManager::class)->rowBackedBuckets())
+                    ->update(['winner' => false]);
+
+                $this->groupings()
+                    ->where('activity_id', $activityId)
+                    ->where('bucket', $winner)
+                    ->update(['winner' => true]);
+            });
+        }
 
         if ($this->onSettled !== null) {
-            ($this->onSettled)($before !== $this->winnerState($activityId));
+            ($this->onSettled)($changed);
         }
     }
 
-    /** @return array<string, bool|null> */
+    /**
+     * The activity's current stamps, normalised: drivers return the winner
+     * column as int, bool or null and the comparison in settle() must not
+     * care which.
+     *
+     * @return array<string, bool|null> bucket => winner
+     */
     protected function winnerState(int|string $activityId): array
     {
         return $this->groupings()->where('activity_id', $activityId)
             ->whereNotIn('bucket', $this->manager()->rowBackedBuckets())
-            ->orderBy('bucket')->pluck('winner', 'bucket')->all();
+            ->orderBy('bucket')->pluck('winner', 'bucket')
+            ->map(fn ($winner) => $winner === null ? null : (bool) $winner)
+            ->all();
     }
 
     /**
@@ -186,7 +212,10 @@ class CurateCluster
     /**
      * Re-decide every remaining member of one cluster — for callers that
      * removed members out-of-band (composite claiming, releases). The same
-     * non-monotone repair a deletion triggers.
+     * non-monotone repair a deletion triggers, and for the same reason it
+     * settles every member directly rather than through resettle(): the
+     * sweep's staleness predicate assumes winners only ever move up, and
+     * here they can move down. Keep it unconditional.
      */
     public function repair(string $axis, string $hash): void
     {
@@ -205,21 +234,46 @@ class CurateCluster
      * different axis than the cluster now warrants — the threshold-crossing
      * sweep. Once a cluster has settled this selects nothing.
      *
+     * "Stale" on an eligible axis X means: no winner stamped on X or on any
+     * axis that outranks X. That is decidable from the rows as they are,
+     * because the winner column already has three states — null (never
+     * decided), true (won), false (lost) — and priority is registration
+     * order. What it deliberately does NOT mean is `winner = false` on X:
+     * false is the correct, settled state of a member whose winner is a
+     * higher-priority axis, and reading it as "undecided" re-settled every
+     * member of every eligible loser on every publish, forever (W108, Solo
+     * todo 887 — quadratic in cluster size, and nothing ever changed).
+     *
+     * The predicate assumes winners are monotone: within a day a cluster
+     * only grows, so a member whose winner outranks X is correctly settled
+     * and stays so. The paths where that is false — deletion, composite
+     * claiming, releases — do not come through here; see afterDelete() and
+     * repair().
+     *
      * @param  array<string, string>  $hashes  bucket => hash
      */
     protected function resettle(array $hashes): void
     {
-        foreach ($this->manager()->aggregateAxes() as $axis) {
+        $axes = $this->manager()->aggregateAxes();
+        $activities = $this->activitiesTable();
+        $groupings = $this->groupingsTable();
+
+        foreach ($axes as $position => $axis) {
             // An ineligible cluster cannot have made anyone's stamp stale.
             if (! isset($hashes[$axis]) || ! $this->eligible($axis, $hashes[$axis])) {
                 continue;
             }
 
+            // This axis and every axis that beats it on priority.
+            $outranking = array_slice($axes, 0, $position + 1);
+
             $stale = $this->clusterActivities($axis, $hashes[$axis])
-                ->where(fn ($query) => $query
-                    ->whereNull($this->groupingsTable().'.winner')
-                    ->orWhere($this->groupingsTable().'.winner', false))
-                ->pluck($this->activitiesTable().'.id');
+                ->whereNotExists(fn ($query) => $query
+                    ->from($groupings, 'settled')
+                    ->whereColumn('settled.activity_id', "{$activities}.id")
+                    ->whereIn('settled.bucket', $outranking)
+                    ->where('settled.winner', true))
+                ->pluck("{$activities}.id");
 
             foreach ($stale as $id) {
                 $this->settle($id, $this->hashes($id));

@@ -766,6 +766,54 @@ and one of them turned out to be returning `null` from all of them — folded in
 
 ### Fixed
 
+- **Curation re-decided every settled cluster on every publish, and the cost was
+  quadratic in cluster size.** `CurateCluster::resettle()` — the sweep that
+  upgrades a cluster's members when it crosses a threshold — selected "stale"
+  members as `winner IS NULL OR winner = false` on the axis being examined.
+  `false` is the correct settled state of a member whose winner is a
+  higher-priority axis, but it is indistinguishable from "never decided", so
+  for an axis that was eligible and lost on priority the sweep re-settled
+  every member, on every publish and every `storyfeed:curate` pass, forever,
+  and changed nothing. The docblock's *"once a cluster has settled this
+  selects nothing"* was true only of the axis that wins. Eligible losers are
+  the common case the moment a feed has any density: five actors uploading to
+  five projects makes every member one.
+
+  Measured on the publish path, which every consumer pays on every write, and
+  on a full curate pass, as queries per activity:
+
+  |                          | publish, before → after | curate, before → after |
+  |--------------------------|-------------------------|------------------------|
+  | 120 singletons           | 45 → 46                 | 11 → 8                 |
+  | 5 actors × 5 targets × 1 | 49 → 44                 | 42 → 9                 |
+  | 5 actors × 5 targets × 4 | 80 → 41                 | 132 → 9                |
+  | 5 actors × 5 targets × 8 | 121 → 40                | 252 → 9                |
+
+  Two changes, no schema, no config, no payload. `settle()` now compares the
+  stamps to the decision before writing, so a settle that changes nothing
+  costs one read instead of two writes (the one extra read on a brand-new
+  activity's own settle is the singleton `45 → 46`). And "stale" on an
+  eligible axis now means *no winner on that axis or any axis that outranks
+  it* — decidable from the three states the column already has, which is why
+  a settled loser stops looking stale and the sweep goes back to the
+  amortized O(1) it claimed.
+
+  The predicate assumes winners only move up, which is true while clusters
+  grow and false after a delete or a composite claim. Those paths never went
+  through the sweep and still do not; the comments where they settle members
+  directly now say why, because the indirection looks like redundancy. The
+  tests pin convergence before cost: a member stamped for a lower axis it
+  genuinely earned is upgraded when a higher cluster becomes eligible, the
+  inline sweep produces the same stamps as re-curating from scratch, a delete
+  still downgrades survivors, and then one more member into a settled cluster
+  costs the same at twelve members as at thirty-six. The harness that found
+  the quadratic is committed under `workbench/bench/` so the next change to
+  `CurateCluster` can see its cost, not just its correctness.
+
+  `storyfeed:curate --rehash` is unchanged and remains the explicit "re-decide
+  everything". The W108 window is now the convenience it was meant to be
+  rather than the thing containing the quadratic term.
+
 - **A summary page spent 290ms proving there was nothing to find.** `soloStream()`
   selects activities carrying no winning grouping row — legacy, imported, or
   awaiting the trickle — and it asked for that as a single antijoin over a
