@@ -176,6 +176,7 @@ trait InteractsWithFeed
         }
     }
 
+    /** @return ActivityBuilder<Activity> */
     protected function newFeedActivityQuery(): ActivityBuilder
     {
         $model = config('storyfeed.models.activity', Activity::class);

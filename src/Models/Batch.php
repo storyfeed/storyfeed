@@ -55,6 +55,7 @@ class Batch extends Model
         return config('storyfeed.tables.batches', 'feed_batches');
     }
 
+    /** @return array<int, string> */
     public function uniqueIds(): array
     {
         return ['uid'];
@@ -71,15 +72,26 @@ class Batch extends Model
      */
     public function activities(): HasManyThrough
     {
-        /** @var HasManyThrough<Activity, Grouping, $this> */
         return $this->hasManyThrough(
-            config('storyfeed.models.activity', Activity::class),
-            config('storyfeed.models.grouping', Grouping::class),
+            $this->activityModel(),
+            $this->groupingModel(),
             firstKey: 'hash',
             secondKey: 'id',
             localKey: 'uid',
             secondLocalKey: 'activity_id',
         )->where('bucket', 'batch');
+    }
+
+    /** @return class-string<Activity> */
+    protected function activityModel(): string
+    {
+        return config('storyfeed.models.activity', Activity::class);
+    }
+
+    /** @return class-string<Grouping> */
+    protected function groupingModel(): string
+    {
+        return config('storyfeed.models.grouping', Grouping::class);
     }
 
     /**

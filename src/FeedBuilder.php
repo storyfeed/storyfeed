@@ -1087,6 +1087,7 @@ class FeedBuilder
      * their winning grouping row.
      *
      * @param  Collection<int, FeedCandidate>  $groups
+     * @return ActivityBuilder<Activity>
      */
     protected function selectedGroupMembers(Carbon $now, Collection $groups): ActivityBuilder
     {
@@ -1116,6 +1117,7 @@ class FeedBuilder
         return (int) config('storyfeed.grouping.children_limit', 25);
     }
 
+    /** @return ActivityBuilder<Activity> */
     protected function filteredActivities(Carbon $now): ActivityBuilder
     {
         return $this->activityModel()->newQuery()
@@ -1150,6 +1152,8 @@ class FeedBuilder
      * when a verb allowlist was present, which meant the safety of your `query()`
      * callback depended on whether some OTHER part of the feed happened to call
      * only()/except() — the kind of asymmetry you cannot hold in your head.
+     *
+     * @param  ActivityBuilder<Activity>  $query
      */
     protected function applyConstraints(ActivityBuilder $query): void
     {
@@ -1174,6 +1178,8 @@ class FeedBuilder
      * candidate set on purpose and each caller adds the ordering its stream and
      * cursor depend on, so a stray `orderBy` is meaningless rather than
      * mistaken.
+     *
+     * @param  ActivityBuilder<Activity>  $query
      */
     protected function applyCallbacks(ActivityBuilder $query): void
     {

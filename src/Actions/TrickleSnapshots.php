@@ -225,6 +225,7 @@ class TrickleSnapshots
         return MorphResolver::feedable($type, $id);
     }
 
+    /** @return ActivityBuilder<Activity> */
     protected function activityQuery(): ActivityBuilder
     {
         $model = config('storyfeed.models.activity', Activity::class);

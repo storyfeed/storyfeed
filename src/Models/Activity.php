@@ -78,6 +78,7 @@ class Activity extends Model
         return config('storyfeed.tables.activities', 'feed_activities');
     }
 
+    /** @return array<int, string> */
     public function uniqueIds(): array
     {
         return ['uid'];
@@ -144,28 +145,24 @@ class Activity extends Model
     /** @return BelongsTo<Snapshot, $this> */
     public function cachedActor(): BelongsTo
     {
-        /** @var BelongsTo<Snapshot, $this> */
         return $this->belongsTo($this->snapshotModel(), 'cached_actor_id');
     }
 
     /** @return BelongsTo<Snapshot, $this> */
     public function cachedObject(): BelongsTo
     {
-        /** @var BelongsTo<Snapshot, $this> */
         return $this->belongsTo($this->snapshotModel(), 'cached_object_id');
     }
 
     /** @return BelongsTo<Snapshot, $this> */
     public function cachedTarget(): BelongsTo
     {
-        /** @var BelongsTo<Snapshot, $this> */
         return $this->belongsTo($this->snapshotModel(), 'cached_target_id');
     }
 
     /** @return BelongsTo<Snapshot, $this> */
     public function cachedContext(): BelongsTo
     {
-        /** @var BelongsTo<Snapshot, $this> */
         return $this->belongsTo($this->snapshotModel(), 'cached_context_id');
     }
 
@@ -178,7 +175,6 @@ class Activity extends Model
     /** @return BelongsTo<Snapshot, $this> */
     public function cachedOrigin(): BelongsTo
     {
-        /** @var BelongsTo<Snapshot, $this> */
         return $this->belongsTo($this->snapshotModel(), 'cached_origin_id');
     }
 
@@ -191,7 +187,6 @@ class Activity extends Model
     /** @return BelongsTo<Snapshot, $this> */
     public function cachedResult(): BelongsTo
     {
-        /** @var BelongsTo<Snapshot, $this> */
         return $this->belongsTo($this->snapshotModel(), 'cached_result_id');
     }
 
@@ -204,21 +199,24 @@ class Activity extends Model
     /** @return BelongsTo<Snapshot, $this> */
     public function cachedInstrument(): BelongsTo
     {
-        /** @var BelongsTo<Snapshot, $this> */
         return $this->belongsTo($this->snapshotModel(), 'cached_instrument_id');
     }
 
     /** @return HasMany<Model, $this> */
     public function groupings(): HasMany
     {
-        return $this->hasMany(
-            config('storyfeed.models.grouping', Grouping::class),
-            'activity_id',
-        );
+        return $this->hasMany($this->groupingModel(), 'activity_id');
     }
 
+    /** @return class-string<Snapshot> */
     protected function snapshotModel(): string
     {
         return config('storyfeed.models.snapshot', Snapshot::class);
+    }
+
+    /** @return class-string<Model> */
+    protected function groupingModel(): string
+    {
+        return config('storyfeed.models.grouping', Grouping::class);
     }
 }

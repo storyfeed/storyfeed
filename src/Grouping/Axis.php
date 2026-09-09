@@ -240,6 +240,7 @@ class Axis
         ':actors', ':objects', ':targets', ':contexts', ':origins', ':results', ':instruments', ':count', ':others',
     ];
 
+    /** @return list<string> */
     public function pinnedTokens(): array
     {
         if ($this->custom !== null || $this->rowBacked) {

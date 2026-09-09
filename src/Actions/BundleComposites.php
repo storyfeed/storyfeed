@@ -2,6 +2,7 @@
 
 namespace Storyfeed\Actions;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -164,6 +165,7 @@ class BundleComposites
         }
     }
 
+    /** @return Builder<Grouping> */
     protected function groupings()
     {
         $model = config('storyfeed.models.grouping', Grouping::class);

@@ -69,6 +69,8 @@ class Party extends Model implements Feedable, HasActivityStreamsType
 
     /**
      * Resolve or create a party by key (slugged from the name by default).
+     *
+     * @param  array<string, mixed>  $data
      */
     public static function make(
         string $name,

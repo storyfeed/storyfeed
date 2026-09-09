@@ -13,6 +13,7 @@ use Illuminate\Contracts\Support\Arrayable;
  */
 final class FeedEntity
 {
+    /** @var array<string, mixed> */
     public readonly array $data;
 
     /**
@@ -20,6 +21,8 @@ final class FeedEntity
      * encoding; null leaves AS2's text/html default implicit. attributedTo
      * is the author's IRI, supplied explicitly rather than inferred from
      * whichever actor happens to perform an activity on this entity.
+     *
+     * @param  array<string, mixed>|Arrayable<string, mixed>  $data
      */
     public function __construct(
         public readonly ?string $label = null,
@@ -32,6 +35,9 @@ final class FeedEntity
         $this->data = $data instanceof Arrayable ? $data->toArray() : $data;
     }
 
+    /**
+     * @param  array<string, mixed>|Arrayable<string, mixed>  $data
+     */
     public static function make(
         ?string $label = null,
         array|Arrayable $data = [],
