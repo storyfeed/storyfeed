@@ -2,8 +2,11 @@
 
 use Illuminate\Support\Facades\DB;
 use Storyfeed\Actions\RebuildSnapshots;
+use Storyfeed\Actions\WriteGroupings;
 use Storyfeed\Facades\Storyfeed;
 use Storyfeed\Grouping\NullStrategy;
+use Storyfeed\Models\Activity;
+use Storyfeed\Models\Grouping;
 use Workbench\App\Models\Customer;
 use Workbench\App\Models\User;
 
@@ -121,4 +124,70 @@ it('reports the whole count and the sample it actually looked at', function () {
     // The count is the alarm's size; the sample is its evidence. Extrapolating
     // one from the other would be inventing precision.
     expect($finding->subject)->toMatchArray(['ungrouped' => 60, 'sampled' => 50, 'groupable' => 50]);
+});
+
+/**
+ * The half-converged import — grouping rows written, no winner stamped.
+ *
+ * This is the blind spot the windowed schedule (W108) made load-bearing. The
+ * hourly run used to walk all of history and would eventually stamp these by
+ * itself; bounded to `curate.window` days it never reaches a backdated import
+ * again, and `grouping.ungrouped` cannot see them because they are no longer
+ * ungrouped — the trickle gave them hashes and nothing else.
+ */
+it('names imported rows the trickle grouped but never curated', function () {
+    foreach (range(1, 3) as $i) {
+        insertUngrouped($this->ines, $this->order, "raw-{$i}");
+    }
+
+    foreach (Activity::query()->get() as $activity) {
+        (new WriteGroupings)($activity); // exactly what the trickle does
+    }
+
+    $findings = collect(Storyfeed::doctor(['grouping'])->all());
+
+    // The check an operator already had has gone quiet…
+    expect(codes($findings))->toBe(['grouping.uncurated'])
+        ->and($findings->first()->subject)->toMatchArray(['uncurated' => 3, 'unreachable' => true])
+        ->and($findings->first()->message)
+        ->toContain('never reach these')
+        ->toContain('storyfeed:curate');
+});
+
+it('says the next scheduled run will handle it when the rows are inside the window', function () {
+    Storyfeed::activity()->actor($this->ines)->verb('order.note', $this->order)->publish();
+
+    Grouping::query()->update(['winner' => null]);
+
+    $finding = collect(Storyfeed::doctor(['grouping'])->all())->first();
+
+    expect($finding->code)->toBe('grouping.uncurated')
+        ->and($finding->subject)->toMatchArray(['unreachable' => false])
+        ->and($finding->message)->toContain('next scheduled run');
+});
+
+it('says nothing about uncurated rows when inline curation is switched off', function () {
+    // Then an unstamped row is the configured state of the install, not a gap.
+    config()->set('storyfeed.grouping.curate', false);
+
+    Storyfeed::activity()->actor($this->ines)->verb('order.note', $this->order)->publish();
+
+    expect(codes(Storyfeed::doctor(['grouping'])->all()))->toBe([]);
+});
+
+it('does not mistake a composite parent for an uncurated row', function () {
+    // A composite parent is stamped `winner => null` by construction, and its
+    // members carry only the composite row. Counting row-backed buckets here
+    // would fire on every healthy install that uses composites.
+    $parent = Storyfeed::activity()->actor($this->ines)->verb('order.note', $this->order)->publish();
+
+    Grouping::query()->where('activity_id', $parent->getKey())->delete();
+    Grouping::query()->create([
+        'activity_id' => $parent->getKey(),
+        'bucket' => 'composite',
+        'hash' => $parent->uid,
+        'winner' => null,
+    ]);
+
+    expect(codes(Storyfeed::doctor(['grouping'])->all()))->toBe([]);
 });

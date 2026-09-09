@@ -338,14 +338,39 @@ return [
     | Curation Repair
     |--------------------------------------------------------------------------
     |
-    | Hourly full-history repair, with overlap protection. Laravel's scheduler
-    | must be running. Disable if you own the schedule or do not want repair.
-    | Large histories may need a consumer-owned cadence; a rolling window can
-    | leave old clusters stale forever. This does not control inline curation.
+    | Hourly curation repair, with overlap protection. Laravel's scheduler must
+    | be running. Disable `schedule` if you own the schedule or do not want
+    | repair. This does not control inline curation.
+    |
+    | `window` bounds the SCHEDULED run to activities published in the last N
+    | days. Running `php artisan storyfeed:curate` by hand is unaffected: no
+    | flag still means the whole table, because that is the explicit "do
+    | everything" and an operator asking for it should get it.
+    |
+    | WHY TWO DAYS. Every shipped axis key ends in `:d` — the day the activity
+    | was published, cut in `app.timezone` (see Grouping\Field). The day is part
+    | of the hash, so a cluster belongs to one day and only an activity
+    | published on that day can join it. A past day's cluster is closed: it
+    | cannot gain members, its eligibility cannot change, and re-deciding it
+    | reaches the same answer it reached yesterday. Two days covers today plus
+    | yesterday, for timezone slop and late arrivals.
+    |
+    | WHEN TWO DAYS IS WRONG. A CUSTOM AXIS WHOSE KEY DOES NOT PIN THE DAY has
+    | no closed clusters — a group can gain a member weeks after it formed, and
+    | the scheduled run has to be able to see it. Register one and raise this to
+    | cover the age of activity that can still join a cluster, or set it to
+    | `null` (or `0`) for the unbounded hourly pass this package shipped before.
+    |
+    | Rows that never went through the publish path — a bulk import converged by
+    | `storyfeed:trickle`, or history predating an axis you have since added —
+    | are not curated by publish and may be older than any window. Run
+    | `php artisan storyfeed:curate` with no flags after an import or an axis
+    | change. `storyfeed:doctor` reports them as `grouping.uncurated`.
     */
 
     'curate' => [
         'schedule' => true,
+        'window' => 2,
     ],
 
     /*

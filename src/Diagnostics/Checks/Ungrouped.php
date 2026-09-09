@@ -2,6 +2,7 @@
 
 namespace Storyfeed\Diagnostics\Checks;
 
+use Illuminate\Support\Facades\Date;
 use Storyfeed\Contracts\GroupingStrategy;
 use Storyfeed\Diagnostics\Finding;
 use Storyfeed\Grouping\MultiAxisStrategy;
@@ -36,6 +37,22 @@ use Storyfeed\StoryfeedManager;
  * rows that WOULD group are sitting there ungrouped. That is also why the
  * message quotes both numbers — extrapolating the sample across the total would
  * be inventing precision this check does not have.
+ *
+ * THE SECOND FINDING is the half-converged case, and it exists because the
+ * first one goes SILENT on it. `storyfeed:trickle` writes grouping rows for
+ * imported activities but never curates them — it calls `WriteGroupings` and
+ * not `CurateCluster` — so a converged import has candidate hashes, no winner
+ * anywhere, and no ungrouped finding, because it is no longer ungrouped. The
+ * read path degrades it honestly (nothing stamped falls back to `repeat`, see
+ * FeedBuilder), which is why this is a warning and not an error: the rows are
+ * visible, they are simply stuck on the fallback axis and can never win the
+ * `actors`, `targets` or `object` cluster they belong to.
+ *
+ * IT BECAME LOAD-BEARING WHEN THE SCHEDULE GREW A WINDOW. The hourly run used
+ * to walk all of history, so it eventually reached every uncurated row on its
+ * own and this condition repaired itself. Bounded to `curate.window` days, it
+ * no longer does: an import backdated past the window is never visited again,
+ * and nothing else would say so.
  */
 class Ungrouped extends Check
 {
@@ -62,6 +79,8 @@ class Ungrouped extends Check
                 ->whereColumn('activity_id', "{$activities}.id"));
 
         $total = (clone $ungrouped)->count();
+
+        yield from $this->uncurated($storyfeed);
 
         if ($total === 0) {
             return;
@@ -99,6 +118,69 @@ class Ungrouped extends Check
             .'(Imported rows normally converge via `storyfeed:trickle` — but the trickle only sees UNCACHED '
             .'activities, so running `storyfeed:rebuild` first leaves them here permanently.)',
             ['ungrouped' => $total, 'sampled' => $sampled, 'groupable' => $groupable],
+        );
+    }
+
+    /**
+     * Activities that DO carry candidate hashes but have no winner stamped on
+     * any of them — grouped, never curated.
+     *
+     * Row-backed buckets are excluded on both sides, because `winner` means
+     * nothing there: a composite PARENT is stamped null by construction
+     * (BundleComposites), and batch rows are infrastructure that curation is
+     * documented never to pick. Counting them would fire on every healthy
+     * install that uses composites.
+     *
+     * @return iterable<Finding>
+     */
+    protected function uncurated(StoryfeedManager $storyfeed): iterable
+    {
+        if (! config('storyfeed.grouping.curate', true)) {
+            // Inline curation is switched off, so an unstamped row is the
+            // configured state of this install, not a gap in it.
+            return;
+        }
+
+        $activities = $this->table('activities');
+        $groupings = $this->table('groupings');
+        $rowBacked = $storyfeed->rowBackedBuckets();
+
+        $candidates = fn ($sub) => $sub
+            ->from($groupings)
+            ->whereColumn('activity_id', "{$activities}.id")
+            ->whereNotIn('bucket', $rowBacked);
+
+        $uncurated = $this->activities()
+            ->whereExists($candidates)
+            ->whereNotExists(fn ($sub) => $candidates($sub)->where('winner', true));
+
+        $total = (clone $uncurated)->count();
+
+        if ($total === 0) {
+            return;
+        }
+
+        $oldest = (clone $uncurated)->min("{$activities}.published_at");
+        $window = config('storyfeed.curate.window', 2);
+        $age = $oldest === null ? null : (int) Date::parse($oldest)->diffInDays(now());
+
+        // Only worth saying when the scheduled run genuinely cannot reach them.
+        // Inside the window the next hourly pass fixes this by itself, and a
+        // finding an operator would act on unnecessarily is noise.
+        $unreachable = $window !== null && (int) $window > 0 && $age !== null && $age >= (int) $window;
+
+        yield Finding::warning(
+            'grouping.uncurated',
+            "{$total} ".str('activity')->plural($total).' have grouping rows but no winning axis stamped, so '
+            .'the read path falls back to `repeat` for them and they can never join the actors, targets or '
+            .'object cluster they belong to. '
+            .($oldest === null ? '' : "The oldest was published {$age} ".str('day')->plural($age).' ago. ')
+            .($unreachable
+                ? "The scheduled hourly run only looks back {$window} ".str('day')->plural((int) $window)
+                    .', so it will never reach these. Run `php artisan storyfeed:curate` with no flags. '
+                : 'The next scheduled run should stamp them; if this persists, run `php artisan storyfeed:curate`. ')
+            .'(`storyfeed:trickle` writes grouping rows for imported activities but does not curate them.)',
+            ['uncurated' => $total, 'oldest_days' => $age, 'window' => $window, 'unreachable' => $unreachable],
         );
     }
 }
