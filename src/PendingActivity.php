@@ -639,7 +639,7 @@ class PendingActivity
             return;
         }
 
-        if ($actor = $manager->resolveActor()) {
+        if ($actor = $manager->applyDefaultActor($this->activity)) {
             $this->actor($actor);
         }
     }

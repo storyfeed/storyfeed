@@ -4,6 +4,7 @@ namespace Storyfeed;
 
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Database\Eloquent\Relations\Relation;
+use Illuminate\Support\Facades\Context;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Route;
 use Spatie\LaravelPackageTools\Package;
@@ -11,6 +12,7 @@ use Spatie\LaravelPackageTools\PackageServiceProvider;
 use Storyfeed\Actions\CurateCluster;
 use Storyfeed\Events\ActivityDeleted;
 use Storyfeed\Models\Party;
+use Storyfeed\Support\QueuedActor;
 use Storyfeed\Support\StoryManifest;
 
 class StoryfeedServiceProvider extends PackageServiceProvider
@@ -60,6 +62,8 @@ class StoryfeedServiceProvider extends PackageServiceProvider
 
     public function packageBooted(): void
     {
+        Context::dehydrating(QueuedActor::capture(...));
+
         $this->app->booted(function () {
             if (config('storyfeed.curate.schedule', true)) {
                 $this->app->make(Schedule::class)
