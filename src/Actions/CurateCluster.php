@@ -99,6 +99,12 @@ class CurateCluster
     /**
      * Decide and stamp one activity from its own candidate hashes.
      *
+     * Compares before writing: the decision is a pure function of the rows,
+     * so when the stamps already say what it says there is nothing to do,
+     * and a settle that changes nothing costs one read instead of two writes
+     * (and, under maintenance accounting, a second read). On a settled
+     * cluster that is every settle but the new member's own.
+     *
      * @param  array<string, string>  $hashes  bucket => hash
      */
     protected function settle(int|string $activityId, array $hashes): void
@@ -107,35 +113,48 @@ class CurateCluster
             return;
         }
 
-        $before = $this->onSettled !== null ? $this->winnerState($activityId) : [];
         $winner = $this->decide($hashes);
+        $before = $this->winnerState($activityId);
+        $after = array_map(fn (string $bucket) => $bucket === $winner, array_combine(array_keys($before), array_keys($before)));
 
-        DB::transaction(function () use ($activityId, $winner) {
-            // Cleared first, so there is never a moment with two winners.
-            // Batch rows stay winner = null — they are outside curation.
-            $this->groupings()
-                ->where('activity_id', $activityId)
-                ->where('bucket', '!=', $winner)
-                ->whereNotIn('bucket', app(StoryfeedManager::class)->rowBackedBuckets())
-                ->update(['winner' => false]);
+        $changed = $before !== $after;
 
-            $this->groupings()
-                ->where('activity_id', $activityId)
-                ->where('bucket', $winner)
-                ->update(['winner' => true]);
-        });
+        if ($changed) {
+            DB::transaction(function () use ($activityId, $winner) {
+                // Cleared first, so there is never a moment with two winners.
+                // Batch rows stay winner = null — they are outside curation.
+                $this->groupings()
+                    ->where('activity_id', $activityId)
+                    ->where('bucket', '!=', $winner)
+                    ->whereNotIn('bucket', app(StoryfeedManager::class)->rowBackedBuckets())
+                    ->update(['winner' => false]);
+
+                $this->groupings()
+                    ->where('activity_id', $activityId)
+                    ->where('bucket', $winner)
+                    ->update(['winner' => true]);
+            });
+        }
 
         if ($this->onSettled !== null) {
-            ($this->onSettled)($before !== $this->winnerState($activityId));
+            ($this->onSettled)($changed);
         }
     }
 
-    /** @return array<string, bool|null> */
+    /**
+     * The activity's current stamps, normalised: drivers return the winner
+     * column as int, bool or null and the comparison in settle() must not
+     * care which.
+     *
+     * @return array<string, bool|null> bucket => winner
+     */
     protected function winnerState(int|string $activityId): array
     {
         return $this->groupings()->where('activity_id', $activityId)
             ->whereNotIn('bucket', $this->manager()->rowBackedBuckets())
-            ->orderBy('bucket')->pluck('winner', 'bucket')->all();
+            ->orderBy('bucket')->pluck('winner', 'bucket')
+            ->map(fn ($winner) => $winner === null ? null : (bool) $winner)
+            ->all();
     }
 
     /**
