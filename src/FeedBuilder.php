@@ -872,6 +872,53 @@ class FeedBuilder
     }
 
     /**
+     * `winning()` re-expressed as the disjuncts of an ANTIJOIN — the shapes
+     * whose ABSENCE makes an activity solo. Each returned closure narrows a
+     * subquery already correlated to the activity; an activity is solo when
+     * every one of them finds nothing.
+     *
+     * The rewrite rests on two equivalences, both exact:
+     *
+     * 1. `NOT EXISTS(P1 OR P2)` ≡ `NOT EXISTS(P1) AND NOT EXISTS(P2)`.
+     *    Universally true, and what splits either mode's predicate in two.
+     *
+     * 2. In the summary/grouped branch the second disjunct is
+     *    `bucket = 'repeat' AND NOT EXISTS(w: winner = true)` — but it is
+     *    only ever evaluated alongside the first, `NOT EXISTS(winner = true)`,
+     *    which already guarantees this activity has no winner stamped
+     *    anywhere. So the nested subquery is TRUE by construction here and
+     *    drops out, leaving a bare `bucket = 'repeat'`. The nested lookup is
+     *    load-bearing inside `winning()`, where a row is judged on its own;
+     *    it is redundant only under the negation, which is why this lives
+     *    apart from `winning()` rather than replacing it.
+     *
+     * Kept beside `winning()` deliberately: these two must agree, and a
+     * reader changing one has to see the other. Any new disjunct in
+     * `winning()` needs its mirror image here or activities start vanishing
+     * from the read path — the one thing this package promises never happens.
+     *
+     * @return list<Closure(QueryBuilder): QueryBuilder>
+     */
+    protected function notSolo(): array
+    {
+        $groupings = $this->groupingModel()->getTable();
+
+        if ($this->mode() === 'live') {
+            return [
+                fn (QueryBuilder $sub) => $sub->where("{$groupings}.bucket", 'repeat'),
+                fn (QueryBuilder $sub) => $sub
+                    ->where("{$groupings}.bucket", 'composite')
+                    ->where("{$groupings}.winner", true),
+            ];
+        }
+
+        return [
+            fn (QueryBuilder $sub) => $sub->where("{$groupings}.winner", true),
+            fn (QueryBuilder $sub) => $sub->where("{$groupings}.bucket", 'repeat'),
+        ];
+    }
+
+    /**
      * Activities carrying no winning grouping row at all (legacy, imported,
      * or awaiting the trickle). Their presence here is what keeps graceful
      * degradation true: the read path never hides an activity.
@@ -884,12 +931,31 @@ class FeedBuilder
         $activities = $this->activityModel()->getTable();
         $groupings = $this->groupingModel()->getTable();
 
-        $query = $this->filteredActivities($now)
-            ->whereNotExists(fn (QueryBuilder $sub) => $sub
+        $query = $this->filteredActivities($now);
+
+        // "Has no winning grouping row", SPLIT INTO ONE ANTIJOIN PER DISJUNCT
+        // rather than one antijoin over `winning()`. See notSolo() for why the
+        // split is exactly equivalent; this is the measured half of it.
+        //
+        // MEASURED ON MYSQL 8.4.11, 50k activities, page 1: 263ms -> 109ms,
+        // taking the whole page from 689ms to 529ms (W103, 2026-09-09, see
+        // docs/held/w103-groupstream.md). This query proves a NEGATIVE over
+        // history, so it is at its most expensive when every activity IS
+        // curated and it returns nothing — the healthy steady state, and the
+        // read every page load pays for. The single `where($this->winning())`
+        // form put an OR and a correlated subquery inside the antijoin, which
+        // blocks a covering index: MySQL read ~5 grouping ROWS per activity
+        // from the clustered index, 50,000 times. Split, each disjunct is a
+        // covering index lookup on an existing index, and the first one that
+        // matches short-circuits the rest.
+        foreach ($this->notSolo() as $constraint) {
+            $query->whereNotExists(fn (QueryBuilder $sub) => $constraint($sub
                 ->selectRaw('1')
                 ->from($groupings)
-                ->whereColumn("{$groupings}.activity_id", "{$activities}.id")
-                ->where($this->winning()))
+                ->whereColumn("{$groupings}.activity_id", "{$activities}.id")));
+        }
+
+        $query
             // Composite parents and members are never solo: the parent is
             // told by its cluster node, the members by their composite.
             ->whereNotExists(fn (QueryBuilder $sub) => $sub
