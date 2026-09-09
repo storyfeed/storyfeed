@@ -104,6 +104,23 @@ and one of them turned out to be returning `null` from all of them — folded in
 
 ### Added
 
+- **`storyfeed:doctor` reports `grouping.uncurated`** — activities that have
+  grouping rows but no winning axis stamped on any of them. The read path
+  degrades these honestly (nothing stamped falls back to `repeat`), so they are
+  visible but stuck on the fallback axis and can never join the `actors`,
+  `targets` or `object` cluster they belong to.
+
+  It exists because `grouping.ungrouped` goes **silent** on exactly this case:
+  `storyfeed:trickle` converges imported rows by calling `WriteGroupings` and
+  not `CurateCluster`, so a converged import has candidate hashes, no winner,
+  and no ungrouped finding — it is no longer ungrouped. That was survivable
+  while the hourly repair walked all of history and eventually stamped them
+  anyway. Now that the schedule is windowed it is not, so the finding says
+  whether the rows are inside the window (the next run handles it) or older
+  than it (nothing will, run `storyfeed:curate` with no flags). Silent when
+  `grouping.curate` is off, and row-backed buckets are excluded on both sides —
+  a composite parent is stamped `winner => null` by construction.
+
 - **The authenticated actor now travels with a queued job.** An activity published
   from a queued listener recorded no actor, because `Auth::user()` on a worker is
   null and always was. The identity existed at dispatch and was simply never
@@ -652,6 +669,38 @@ and one of them turned out to be returning `null` from all of them — folded in
   does with its exemplars' previews is deliberately not designed yet.
 
 ### Changed
+
+- **The hourly `storyfeed:curate` no longer walks all of history. Default
+  behaviour changes on every install.** The schedule now runs
+  `storyfeed:curate --window=2`, bounded by the new `storyfeed.curate.window`
+  config value. Running the command by hand is unchanged: no flag still means
+  the whole table.
+
+  Why: the schedule registered `storyfeed:curate` with no arguments, and the
+  command's `--window` default is "everything". So twenty-four times a day,
+  forever, every install re-curated every activity it had ever recorded — about
+  thirteen queries per activity at 10,000 rows, and worse as clusters grow,
+  because the sweep is quadratic in cluster size rather than linear. One
+  consumer generated 7,023,664 queries in a month, 98.8% of its database usage,
+  against 1,546 requests and zero exceptions. Nobody was browsing the feed; the
+  cron was the whole load.
+
+  Why *two* days specifically: every axis this package ships keys on the day the
+  activity was published (`:d`), so a cluster belongs to one day and only an
+  activity published on that day can join it. A past day's cluster is closed —
+  re-deciding it reaches yesterday's answer. Two days covers today plus
+  yesterday, for timezone slop and late arrivals.
+
+  **Read this paragraph before upgrading if you register a custom axis, or if
+  you import history.** An axis whose key does not include `:d` has no closed
+  clusters and needs a window wide enough to cover the age of activity that can
+  still join a group — raise `storyfeed.curate.window`, or set it to `null` (or
+  `0`) for the unbounded pass this package shipped before. And activities that
+  never went through the publish path — a bulk import converged by
+  `storyfeed:trickle`, or history predating an axis you have since added — are
+  not curated by publish and may be older than any window: run
+  `php artisan storyfeed:curate` with no flags after an import or an axis
+  change, as `docs/backfilling.md` already told you to.
 
 - **The noun rung no longer prints a number. Rendered output changes.** A group
   headline the rung generated used to read "Jasper Tey updated 2 terms sheets to

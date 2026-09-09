@@ -54,6 +54,33 @@ class StoryfeedServiceProvider extends PackageServiceProvider
             ]);
     }
 
+    /**
+     * The scheduled curate run's window, as command arguments.
+     *
+     * The UNATTENDED run is bounded and the hand-run one is not, because they
+     * are different requests. Every shipped axis key ends in `:d`, so a cluster
+     * belongs to one day and a past day's cluster can no longer gain members —
+     * re-deciding it twenty-four times a day reaches yesterday's answer at
+     * yesterday's cost. Before this, the hourly run walked all of history: one
+     * consumer generated 7,023,664 queries in a month against 1,546 requests,
+     * and the feed nobody was browsing was the thing spending the budget.
+     *
+     * `null` or `0` restores the unbounded pass, for an app whose axes do not
+     * pin the day and whose clusters therefore never close.
+     *
+     * @return array<string, string>
+     */
+    protected function curateWindow(): array
+    {
+        $window = config('storyfeed.curate.window', 2);
+
+        if ($window === null || (int) $window <= 0) {
+            return [];
+        }
+
+        return ['--window' => (string) (int) $window];
+    }
+
     public function packageRegistered(): void
     {
         $this->app->singleton(StoryfeedManager::class);
@@ -67,7 +94,7 @@ class StoryfeedServiceProvider extends PackageServiceProvider
         $this->app->booted(function () {
             if (config('storyfeed.curate.schedule', true)) {
                 $this->app->make(Schedule::class)
-                    ->command('storyfeed:curate')
+                    ->command('storyfeed:curate', $this->curateWindow())
                     ->hourly()
                     ->withoutOverlapping();
             }
