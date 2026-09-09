@@ -3,8 +3,6 @@
 namespace Storyfeed\Actions;
 
 use Illuminate\Support\Carbon;
-use Storyfeed\Events\BatchClosed;
-use Storyfeed\Events\Snapshots\BatchSnapshot;
 use Storyfeed\Models\Activity;
 use Storyfeed\Models\Batch;
 use Storyfeed\Models\Grouping;
@@ -104,18 +102,6 @@ class AssignToBatch
 
     protected function close(Batch $batch, Carbon $now): void
     {
-        $batch->forceFill(['closed_at' => $now])->save();
-
-        if ($batch->activities_count > 0) {
-            // Inside the publish transaction; the event is after-commit, so
-            // a digest listener runs against a batch whose close is durable.
-            BatchClosed::dispatch(BatchSnapshot::fromModel($batch));
-
-            // The burst is over — homogeneous collectable runs become
-            // composite stories (docs/grouping.md).
-            if (config('storyfeed.grouping.composite.auto', true)) {
-                (new BundleComposites)($batch);
-            }
-        }
+        (new CloseBatch)($batch, $now);
     }
 }
