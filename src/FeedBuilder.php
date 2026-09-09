@@ -3,6 +3,7 @@
 namespace Storyfeed;
 
 use BackedEnum;
+use Carbon\CarbonInterface;
 use Closure;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Database\Eloquent\Model;
@@ -1186,7 +1187,7 @@ class FeedBuilder
             return '';
         }
 
-        return ($value instanceof Carbon ? $value : Carbon::parse((string) $value))
+        return ($value instanceof CarbonInterface ? $value : Carbon::parse((string) $value))
             ->format('Y-m-d H:i:s');
     }
 

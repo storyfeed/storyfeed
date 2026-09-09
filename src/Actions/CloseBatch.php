@@ -2,7 +2,7 @@
 
 namespace Storyfeed\Actions;
 
-use Illuminate\Support\Carbon;
+use Carbon\CarbonInterface;
 use Storyfeed\Events\BatchClosed;
 use Storyfeed\Events\Snapshots\BatchSnapshot;
 use Storyfeed\Models\Batch;
@@ -10,7 +10,7 @@ use Storyfeed\Models\Batch;
 class CloseBatch
 {
     /** Return whether this caller transitioned the batch from open to closed. */
-    public function __invoke(Batch $batch, Carbon $now): bool
+    public function __invoke(Batch $batch, CarbonInterface $now): bool
     {
         // A scheduler lock only coordinates sweepers, not publish-time closes.
         // Let the database arbitrate the transition at both call sites: stale

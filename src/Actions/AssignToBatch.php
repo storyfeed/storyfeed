@@ -2,6 +2,7 @@
 
 namespace Storyfeed\Actions;
 
+use Carbon\CarbonInterface;
 use Illuminate\Support\Carbon;
 use Storyfeed\Models\Activity;
 use Storyfeed\Models\Batch;
@@ -58,7 +59,7 @@ class AssignToBatch
         return $batch;
     }
 
-    protected function resolveOpenBatch(Activity $activity, Carbon $publishedAt): Batch
+    protected function resolveOpenBatch(Activity $activity, CarbonInterface $publishedAt): Batch
     {
         $model = config('storyfeed.models.batch', Batch::class);
 
@@ -91,7 +92,7 @@ class AssignToBatch
         ]);
     }
 
-    protected function withinWindow(Batch $batch, Carbon $publishedAt): bool
+    protected function withinWindow(Batch $batch, CarbonInterface $publishedAt): bool
     {
         $quiet = (int) config('storyfeed.grouping.batch.quiet_minutes', 10);
 
@@ -100,7 +101,7 @@ class AssignToBatch
         return $lastSeen->gt($publishedAt->copy()->subMinutes($quiet));
     }
 
-    protected function close(Batch $batch, Carbon $now): void
+    protected function close(Batch $batch, CarbonInterface $now): void
     {
         (new CloseBatch)($batch, $now);
     }
