@@ -15,6 +15,7 @@ use Storyfeed\ActivityStreams\CoreType;
 use Storyfeed\ActivityStreams\ObjectType;
 use Storyfeed\Contracts\Collectable;
 use Storyfeed\Contracts\DiagnosticCheck;
+use Storyfeed\Contracts\FeedHealer;
 use Storyfeed\Contracts\FeedVerb;
 use Storyfeed\Contracts\HasActivityStreamsType;
 use Storyfeed\Contracts\PublishesToFeed;
@@ -72,6 +73,9 @@ class StoryfeedManager
      * @var array<string, FeedDefinition>
      */
     protected array $feeds = [];
+
+    /** @var array<string, FeedHealer> */
+    protected array $healers = [];
 
     /**
      * Feed class → the key it was registered under, rebuilt on every feeds()
@@ -443,6 +447,36 @@ class StoryfeedManager
         }
 
         return $this;
+    }
+
+    /**
+     * Register app-owned permanent-source retirement policies. No scheduling.
+     *
+     * @param  list<class-string<FeedHealer>|FeedHealer>  $healers
+     */
+    public function healers(array $healers, bool $merge = true): static
+    {
+        $registered = [];
+
+        foreach ($healers as $healer) {
+            $healer = is_string($healer) ? app($healer) : $healer;
+
+            if (! $healer instanceof FeedHealer || trim($healer->key()) === '') {
+                throw new InvalidArgumentException('A healer must implement FeedHealer and have a non-empty key.');
+            }
+
+            $registered[$healer->key()] = $healer;
+        }
+
+        $this->healers = $merge ? array_replace($this->healers, $registered) : $registered;
+
+        return $this;
+    }
+
+    /** @return array<string, FeedHealer> */
+    public function registeredHealers(): array
+    {
+        return $this->healers;
     }
 
     /**

@@ -13,7 +13,7 @@ use Throwable;
  * rewritten) — drop them and refetch. Never interpreted client-side.
  *
  * Bumped ONLY by settled-history rewrites (storyfeed:bundle,
- * storyfeed:curate --rehash) so it stays a rare, meaningful signal. Live
+ * storyfeed:curate --rehash, storyfeed:heal) so it stays a rare, meaningful signal. Live
  * regrouping — including automatic composite minting — is deliberately
  * excluded: it lands near the head page, where the published client
  * reconciliation rules already work (docs/payload.md).

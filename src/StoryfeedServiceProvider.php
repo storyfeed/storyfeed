@@ -35,6 +35,7 @@ class StoryfeedServiceProvider extends PackageServiceProvider
             ])
             ->hasCommands([
                 Console\RebuildCommand::class,
+                Console\HealCommand::class,
                 Console\TrickleCommand::class,
                 Console\PruneCommand::class,
                 Console\CurateCommand::class,
