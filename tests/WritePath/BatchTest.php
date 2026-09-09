@@ -1,6 +1,9 @@
 <?php
 
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
+use Storyfeed\Actions\CloseBatch;
+use Storyfeed\Actions\CloseBatches;
 use Storyfeed\Actions\WriteGroupings;
 use Storyfeed\Events\BatchClosed;
 use Storyfeed\Facades\Storyfeed;
@@ -156,4 +159,36 @@ it('keeps batches out of curation and out of every feed', function () {
 
         expect($axes->all())->not->toContain('batch');
     }
+});
+
+it('does not announce or overwrite a close from a stale batch instance', function () {
+    Event::fake([BatchClosed::class]);
+    Storyfeed::activity()->actor('Importer')->verb('sync')->publish();
+    $batch = Batch::query()->sole();
+    $stale = $batch->fresh();
+    $closedAt = now()->copy();
+
+    expect((new CloseBatch)($batch, $closedAt))->toBeTrue();
+    $this->travel(1)->minutes();
+    expect((new CloseBatch)($stale, now()))->toBeFalse()
+        ->and($batch->fresh()->closed_at->equalTo($closedAt))->toBeTrue();
+    Event::assertDispatchedTimes(BatchClosed::class, 1);
+});
+
+it('counts only its own closes when another sweeper closes the selected rows', function () {
+    Event::fake([BatchClosed::class]);
+    Storyfeed::activity()->actor('Importer')->verb('sync')->publish();
+    $this->travel(11)->minutes();
+    $interleaved = false;
+    DB::connection()->beforeExecuting(function ($query) use (&$interleaved) {
+        if ($interleaved || ! str_starts_with($query, 'update "feed_batches"')) {
+            return;
+        }
+        $interleaved = true;
+        expect((new CloseBatches)())->toBe(1);
+    });
+
+    expect((new CloseBatches)())->toBe(0)
+        ->and($interleaved)->toBeTrue();
+    Event::assertDispatchedTimes(BatchClosed::class, 1);
 });

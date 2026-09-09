@@ -424,8 +424,8 @@ class NodePresenter
         $members = $slice->members;
         $first = $members->first();
 
-        // UNIFORM exemplars (2026-08-12): every role is a list of up to 3
-        // distinct entities drawn from the loaded (capped) members. A role
+        // Every role has its own exemplar limit (default 3), with distinct
+        // entities drawn from the loaded (capped) members. A role
         // the axis pins collapses to exactly one entry BY CONSTRUCTION —
         // all members share it — so no axis-conditional logic exists here,
         // and the collapsed dimensions ("which projects? which tasks?")
@@ -439,8 +439,10 @@ class NodePresenter
                 ->unique(fn (Activity $a) => $a->{"{$role}_type"}.':'.$a->{"{$role}_id"})
                 ->values();
 
+            $limit = config("storyfeed.grouping.exemplar_limits.{$role}", 3);
+
             $exemplars[$key] = $unique
-                ->take(3)
+                ->take(is_int($limit) && $limit > 0 ? $limit : 3)
                 ->map(fn (Activity $a) => $this->entity($a->{"{$role}_type"}, $a->{"{$role}_id"}, $a->{$relation}))
                 ->all();
 

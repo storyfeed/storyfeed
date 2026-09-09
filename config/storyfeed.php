@@ -154,6 +154,20 @@ return [
         'strategy' => MultiAxisStrategy::class,
         'children_limit' => 25,
 
+        // App-wide exemplar limits, keyed by singular role. Set object to 6
+        // to show six objects while every other role stays at three. These
+        // draw from the loaded children; children_limit still bounds them.
+        // Missing or invalid limits fall back to 3; use positive integers.
+        'exemplar_limits' => [
+            'actor' => 3,
+            'object' => 3,
+            'target' => 3,
+            'context' => 3,
+            'origin' => 3,
+            'result' => 3,
+            'instrument' => 3,
+        ],
+
         /*
         | Curation selects ONE winning axis per activity, inline with the
         | publish transaction. The policy is distinct cardinality on the
