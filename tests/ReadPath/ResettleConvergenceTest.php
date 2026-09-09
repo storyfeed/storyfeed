@@ -121,6 +121,49 @@ it('converges to the same stamps as a full re-curation, so the sweep never leave
         ->and(Grouping::query()->where('bucket', 'actors')->where('winner', true)->count())->toBe(24);
 });
 
+it('does not re-settle a settled cluster on every publish: the cost of one more member is flat in cluster size', function () {
+    $queriesToPublishInto = function (int $repeats): int {
+        Activity::query()->forceDelete();
+        Grouping::query()->delete();
+
+        $users = collect(['X1', 'X2', 'X3'])->map(fn ($n) => resettleUser($n));
+        $projects = collect(['Y1', 'Y2'])->map(fn ($n) => Customer::firstOrCreate(['name' => $n]));
+
+        foreach (range(1, $repeats) as $round) {
+            foreach ($users as $user) {
+                foreach ($projects as $project) {
+                    resettleUpload($user, $project);
+                }
+            }
+        }
+
+        // Settled: every target's actors cluster wins (3 distinct actors);
+        // every actor's targets cluster is eligible (2 targets, >= 3
+        // members) and loses. One more member changes no winner.
+        $queries = 0;
+        DB::listen(function () use (&$queries): void {
+            $queries++;
+        });
+
+        resettleUpload($users[0], $projects[0]);
+
+        DB::connection()->getEventDispatcher()->forget('Illuminate\Database\Events\QueryExecuted');
+
+        expect(Grouping::query()->where('bucket', 'actors')->where('winner', true)->count())->toBe(6 * $repeats + 1);
+
+        return $queries;
+    };
+
+    $small = $queriesToPublishInto(2);
+    $large = $queriesToPublishInto(6);
+
+    // Every query, not just writes: with the writes skipped the sweep was
+    // still reading every member of the losing cluster — linear here,
+    // quadratic over a full pass. One more member must cost the same
+    // whether the cluster holds twelve or thirty-six.
+    expect($large)->toBe($small);
+});
+
 it('still downgrades survivors after a delete, which is the non-monotone path the sweep does not own', function () {
     $project = Customer::create(['name' => 'Concur']);
     $ann = resettleUser('Ann');
