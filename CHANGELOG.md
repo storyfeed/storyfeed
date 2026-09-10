@@ -15,6 +15,23 @@ today — which it never did.
 
 ### Added
 
+- **`MediaSlot` and three forwarding helpers on `InteractsWithFeed`** (additive).
+  `Storyfeed\MediaSlot` is a string-backed enum with three cases — `Icon`,
+  `Preview`, `Image` — spelled as the payload spells `entity.media`'s image
+  slots. `feedMediaIcon()`, `feedMediaPreview()` and `feedMediaImage()` on the
+  trait return the matching case and nothing else: no resolver is called, no
+  image is minted. No payload key changes and the AS2 document is untouched.
+
+  Why: `FeedImage` is what `feedMedia()` *returns* and not what `toFeed()`
+  stores, because a src ages. So a stored detail that wants the entity's
+  picture cannot hold one; what it can hold is a *reference* to a slot the
+  resolver fills at read time — `image: $this->feedMediaIcon()` stores the
+  string `icon`, and a renderer draws `entity.media.icon`, already minted
+  beside it. The enum is core's because the slots are core's; core learns no
+  detail's name or shape from it. `url` is deliberately not a case: it is
+  where the tap goes, not a picture of the thing. The first form to use it is
+  `storyfeed/ui`'s `MediaObject`.
+
 - **`glyph_intent` on the activity and group node** (additive). A free-form,
   app-owned string beside the glyph token — `success`, `danger`, whatever the
   renderer's palette speaks — or `null`, which is what every node carries until
