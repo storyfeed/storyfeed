@@ -60,9 +60,17 @@ use Throwable;
  * may never be the actor; a runtime `resolveActorUsing()` closure is not
  * visible here, and the recorded-alias pass catches its choice once it runs.
  *
- * Warning, not Error: nothing throws, and activities are never withheld.
- * But every one of those rows renders without a label or a link, for as long
- * as the contract is missing, and nobody was being told why.
+ * ERROR for the three integration defects — `unresolvable`, `not_model`,
+ * `unfeedable` — because every one of those rows is on a live surface now,
+ * rendering without a label or a link, and will be until the contract is
+ * fixed. They were Warnings until 2026-09-10 on the grounds that nothing
+ * throws; nothing throwing is exactly why nobody was being told.
+ *
+ * WARNING for the other two. `entities.missing` is a row that is gone, and a
+ * deleted record degrading gracefully is the read path's DESIGN — the remedy
+ * is prune, or accept. `entities.auth_model` fires before any traffic: real,
+ * about to bite, not biting yet — the moment it does, `unfeedable` names the
+ * rows.
  */
 class Entities extends Check
 {
@@ -93,7 +101,7 @@ class Entities extends Check
                 $subject = ['role' => $role, 'type' => $alias, 'class' => $class, 'activities' => $count, 'examples' => $examples];
 
                 if ($class === null) {
-                    yield Finding::warning(
+                    yield Finding::error(
                         'entities.unresolvable',
                         "`{$alias}` fills the {$role} role on {$count} ".str('activity')->plural($count)
                         ." (e.g. {$examples}) but resolves to no class: there is no morph map entry for it and no "
@@ -106,7 +114,7 @@ class Entities extends Check
                 }
 
                 if (! is_a($class, Model::class, true)) {
-                    yield Finding::warning(
+                    yield Finding::error(
                         'entities.not_model',
                         "`{$alias}` fills the {$role} role on {$count} ".str('activity')->plural($count)
                         ." (e.g. {$examples}) and resolves to [{$class}], which is not an Eloquent model, so it can "
@@ -118,7 +126,7 @@ class Entities extends Check
                 }
 
                 if (! is_a($class, Feedable::class, true)) {
-                    yield Finding::warning(
+                    yield Finding::error(
                         'entities.unfeedable',
                         "[{$class}] (`{$alias}`) fills the {$role} role on {$count} ".str('activity')->plural($count)
                         ." (e.g. {$examples}) but does not implement Feedable, so it is never snapshotted: every one "

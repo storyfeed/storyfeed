@@ -18,13 +18,13 @@ it('counts a party used solely in a promoted role as used', function (string $ro
         ->and($finding->subject['activities'])->toBe(1);
 })->with(['origin', 'result', 'instrument']);
 
-it('warns when a singular template names a promoted role never carried', function (string $role) {
+it('errors when a singular template names a promoted role never carried', function (string $role) {
     Storyfeed::activity('confirm')->publish();
     Storyfeed::grammar(['*.confirm' => ':'.$role]);
 
     $finding = Storyfeed::doctor(['roles'])->withCode('roles.never_carried')->sole();
 
-    expect($finding->severity)->toBe(Severity::Warning)
+    expect($finding->severity)->toBe(Severity::Error)
         ->and($finding->subject)->toBe([
             'key' => '*.confirm',
             'token' => ':'.$role,

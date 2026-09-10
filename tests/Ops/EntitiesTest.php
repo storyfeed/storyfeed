@@ -91,7 +91,8 @@ it('names a role filled by a model that does not implement Feedable', function (
 
     $finding = Storyfeed::doctor(['entities'])->withCode('entities.unfeedable')->sole();
 
-    expect($finding->severity)->toBe(Severity::Warning)
+    // Error: those rows are rendering without a label or a link right now.
+    expect($finding->severity)->toBe(Severity::Error)
         ->and($finding->subject)->toMatchArray([
             'role' => 'actor',
             'type' => 'plain',
@@ -122,6 +123,8 @@ it('names a Feedable row that is gone, by type and id, with activities to look a
 
     $finding = Storyfeed::doctor(['entities'])->withCode('entities.missing')->sole();
 
+    // Warning, not Error: a gone row degrading gracefully is the read path's
+    // design, and the remedy is prune or accept — nothing to fix in code.
     expect($finding->severity)->toBe(Severity::Warning)
         ->and($finding->subject)->toMatchArray([
             'role' => 'actor',

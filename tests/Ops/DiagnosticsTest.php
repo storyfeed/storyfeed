@@ -121,14 +121,27 @@ it('lists every check name, including app-registered ones', function () {
 });
 
 it('exits zero by default and non-zero only when asked', function () {
+    // Grammar authored, icon not: a missing glyph is an absence rather than a
+    // sentence reading wrong, so the report carries a warning and no error.
+    Storyfeed::grammar(['*.confirm' => ':actor confirmed']);
+
     confirmOne();
 
     // Doctor has always been safe to run anywhere; schedulers depend on that.
     $this->artisan('storyfeed:doctor')->assertSuccessful();
-    $this->artisan('storyfeed:doctor --fail-on=warning')->assertFailed();
+    $this->artisan('storyfeed:doctor --only=grammar --fail-on=warning')->assertFailed();
 
     // Warnings present but no errors, so an error floor still passes.
-    $this->artisan('storyfeed:doctor --fail-on=error')->assertSuccessful();
+    $this->artisan('storyfeed:doctor --only=grammar --fail-on=error')->assertSuccessful();
+});
+
+it('fails --fail-on=error on a feed rendering wrong today, not only on a broken schema', function () {
+    // The gate a consumer adopted on day one used to fire only when the schema
+    // or the runner was broken: an entire unregistered enum exited 0. A
+    // recorded pair with no grammar is a null headline on a live surface.
+    confirmOne();
+
+    $this->artisan('storyfeed:doctor --only=grammar --fail-on=error')->assertFailed();
 });
 
 it('rejects a nonsense --fail-on rather than ignoring it', function () {

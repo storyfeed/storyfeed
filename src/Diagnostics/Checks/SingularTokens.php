@@ -150,7 +150,10 @@ class SingularTokens extends Check
             );
         }
 
-        return Finding::warning(
+        // Error: every one of those headlines is on screen now with the
+        // placeholder in it — this is the sentence that sat on a consumer's
+        // dashboard for weeks while a warning floor nobody gated on said so.
+        return Finding::error(
             'roles.never_carried',
             "Grammar `{$key}` names `:{$role}`, but none of the {$entry['total']} activities it renders carry a "
             ."{$role} — every one of those headlines renders the absent placeholder as content, and a reader "

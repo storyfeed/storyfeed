@@ -76,7 +76,9 @@ class ManifestStale extends Check
             return;
         }
 
-        yield Finding::warning(
+        // Error, like `manifest.uncompilable`: the cache is what every surface
+        // renders through, and it is serving text the source no longer says.
+        yield Finding::error(
             'manifest.stale',
             'The cached story manifest no longer matches the stories on disk, so the feed is serving '
             .'the OLD text for: '.implode(', ', array_slice($drifted, 0, 10))
