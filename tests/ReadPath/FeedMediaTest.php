@@ -9,6 +9,7 @@ use Storyfeed\Facades\Storyfeed;
 use Storyfeed\FeedBuilder;
 use Storyfeed\FeedContext;
 use Storyfeed\FeedEntity;
+use Storyfeed\FeedLink;
 use Storyfeed\FeedMedia;
 use Storyfeed\Models\Activity;
 use Storyfeed\Models\Party;
@@ -21,9 +22,16 @@ use Workbench\App\Models\User;
 
 /*
  * The resolver contract (issues #2 and #6): Feedable::feedMedia(FeedContext)
- * is the one resolver. HasFeedMedia, toFeedLink(array) and FeedLink were
- * folded away on 2026-09-05 (journal 057), and the trait supplies the null
- * default so the fold does not redline a model that has nowhere to point.
+ * is the one resolver. HasFeedMedia, toFeedLink(array) and the old FeedLink
+ * were folded away on 2026-09-05 (journal 057), and the trait supplies the
+ * null default so the fold does not redline a model that has nowhere to
+ * point.
+ *
+ * A `FeedLink` EXISTS AGAIN and is not that class. The name was taken back on
+ * 2026-09-10 for a label and an optional href — the thing it always meant,
+ * before it grew a label and a modal flag and stopped being a link. What this
+ * file guards is the CONTRACT, not the name: no resolver method, no factory
+ * on FeedMedia, no second way for an entity to say where it points.
  */
 
 beforeEach(function () {
@@ -34,8 +42,26 @@ it('has one contract: feedMedia() lives on Feedable and the interim pieces are g
     expect(method_exists(Feedable::class, 'feedMedia'))->toBeTrue()
         ->and(method_exists(Feedable::class, 'toFeedLink'))->toBeFalse()
         ->and(interface_exists('Storyfeed\\Contracts\\HasFeedMedia'))->toBeFalse()
-        ->and(class_exists('Storyfeed\\FeedLink'))->toBeFalse()
         ->and(method_exists(FeedMedia::class, 'fromLink'))->toBeFalse();
+});
+
+it('keeps the reused FeedLink out of the resolver contract', function () {
+    /*
+     * The tombstone, rewritten rather than deleted. It was `class_exists(...)
+     * ->toBeFalse()`, written to stop the old class walking back in, and the
+     * intent survives the reuse: an entity says where it points in exactly one
+     * place, `feedMedia()`. The new FeedLink is a value a STORED DETAIL may
+     * hold — a title that leads somewhere — and it never becomes a second
+     * resolver, a slot, or a member of FeedMedia.
+     */
+    expect(class_exists(FeedLink::class))->toBeTrue()
+        ->and(method_exists(FeedLink::class, 'toFeedLink'))->toBeFalse()
+        ->and(property_exists(FeedLink::class, 'modal'))->toBeFalse()
+        ->and(array_keys(FeedLink::make('A dish')->toPayload()))->toBe(['label', 'href']);
+
+    // It is not one of FeedMedia's slots and cannot be set as one.
+    expect(method_exists(FeedMedia::class, 'link'))->toBeFalse()
+        ->and(array_key_exists('link', FeedMedia::make(preview: 'https://example.test/p.jpg')->media() ?? []))->toBeFalse();
 });
 
 it('answers through Feedable::feedMedia() for every model on the contract', function () {
