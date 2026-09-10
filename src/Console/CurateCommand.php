@@ -8,6 +8,7 @@ use Storyfeed\Actions\WriteGroupings;
 use Storyfeed\Models\Activity;
 use Storyfeed\Models\Grouping;
 use Storyfeed\StoryfeedManager;
+use Storyfeed\Support\Chronology;
 use Storyfeed\Support\MaintenanceHistory;
 use Storyfeed\Support\SyncToken;
 
@@ -34,7 +35,7 @@ class CurateCommand extends Command
         $model = config('storyfeed.models.activity', Activity::class);
 
         $query = $model::query()
-            ->when($window !== null, fn ($q) => $q->where('published_at', '>=', now()->subDays((int) $window)))
+            ->when($window !== null, fn ($q) => $q->where('published_at', '>=', Chronology::stamp(now()->subDays((int) $window))))
             ->orderBy('id');
 
         $write = new WriteGroupings;

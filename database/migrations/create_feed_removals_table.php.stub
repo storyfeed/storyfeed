@@ -14,8 +14,10 @@ return new class extends Migration
             // The same shape as the activity's object columns, so the key
             // compares like for like under any morph key type.
             $table->morphs('object', 'feed_removals_object_index');
-            $table->timestamp('published_at')->nullable();
-            $table->timestamp('removed_at');
+            // Both written from the Activity model's format; a narrower
+            // column would round `.7` up to the next second on MySQL.
+            $table->timestamp('published_at', 6)->nullable();
+            $table->timestamp('removed_at', 6);
 
             $table->unique(['verb', 'object_type', 'object_id'], 'feed_removals_key_unique');
         });

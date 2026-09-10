@@ -5,6 +5,7 @@ namespace Storyfeed\Actions;
 use Illuminate\Support\Facades\DB;
 use Storyfeed\Models\Activity;
 use Storyfeed\Support\ActivityRoles;
+use Storyfeed\Support\Chronology;
 
 /**
  * Materialize one row per (activity, filled role) into feed_participants.
@@ -50,7 +51,10 @@ class SyncParticipants
                 // vocabulary and queries another.
                 'entity_type' => $type,
                 'entity_id' => (string) $id,
-                'published_at' => $activity->published_at,
+                // Through the activity's own format, or the query builder
+                // binds it at whole seconds and the copy disagrees with its
+                // source inside every second.
+                'published_at' => $activity->published_at === null ? null : Chronology::stamp($activity->published_at),
                 'created_at' => now(),
                 'updated_at' => now(),
             ];

@@ -786,6 +786,67 @@ and one of them turned out to be returning `null` from all of them — folded in
 
 ### Fixed
 
+- **Feed timestamps carry microseconds. There is a migration to run.**
+  `published_at` was created as a whole-second column, so two activities
+  published milliseconds apart were tied in storage and the tiebreak — id, or
+  a grouping hash — decided which came first. That is not a tiebreak problem.
+  The chronology was discarded at write, before any tiebreak ran, and no
+  ordering rule downstream could get it back. A consumer's audit surface asked
+  "which happened first" of two renames in one second and got an answer that
+  depended on how the feed was being read; another rewrote our ordering in
+  their own code and got it wrong in a way that looked settled.
+
+  Two halves, and both are required — the thing most likely to be half-shipped
+  here is a wider column that changes nothing. The columns are `timestamp(6)`,
+  and the Activity model writes through `Y-m-d H:i:s.u` (`Support\Chronology`),
+  because Laravel's grammar format is whole seconds on every driver and a wider
+  column filled through a narrower format is a change that looks shipped and
+  does nothing. The format applies to every date column on the model, so
+  `created_at`, `updated_at` and `deleted_at` widen with it. So does
+  `feed_participants.published_at`, a copy of the activity's that exists to
+  order by, and both timestamps on `feed_removals`, which the model's format
+  writes and which MySQL would otherwise round `.7` up into the next second.
+  Batches, snapshots, groupings, parties and meta are left alone: nothing
+  orders by their timestamps and each is written by its own model.
+
+  Three things that had to move with it, each a place a whole-second value was
+  hiding in the read path. A bare Carbon bound into a `WHERE` is formatted by
+  the grammar, not the model, so `published_at <= now()` would have compared
+  `.000000` against a row at `.400000` and hidden it until the second turned
+  over — every date bind in core now formats through the column's own format.
+  `cursorPaginate()` stringifies a Carbon parameter through `__toString()`,
+  whole seconds again, so `log()` now applies the same keyset predicate by
+  hand and mints the same cursor with the value the row actually holds. And
+  SQLite compares the column as text, which is chronological exactly when
+  every value has the same shape — the migration pads legacy values to the
+  new width there.
+
+  **Publish and run the migration**: `add_precision_to_feed_timestamps`. On
+  MySQL and PostgreSQL it widens the columns in place; existing rows keep
+  `.000000`, and a row published later in the same second now sorts ahead of
+  them, which is correct — it was published later. No `curate --rehash`:
+  grouping pins the publication *day*, which microseconds do not move, and
+  the suite asserts the hash of a whole-second row and a `.999999` row in the
+  same day are equal. No `sync_token` bump and no cursor invalidation: a
+  cursor minted before the upgrade says `12:00:00`, the row it came from now
+  says `12:00:00.000000`, and both sides normalize so the position lands where
+  it was minted — asserted for `log()` and for both grouped-mode predicates.
+  Payload shape is unchanged; `published_at` on a node was already
+  `toISOString()` with six fraction digits, they are just no longer zeros.
+  MySQL ≥ 5.6.4, MariaDB ≥ 5.3, PostgreSQL always, SQLite always.
+
+  What this does NOT do is change the tiebreak. The `live()`/`summary()` solo
+  tiebreak already descends by id to match `log()` (v0.9.0, 2026-08-26); the
+  group tiebreak `(bucket, hash) ASC` stays, because a hash carries no
+  recency and reversing it would reorder every tied page while making none
+  more correct. A tie is now a genuinely simultaneous pair, or a bulk import
+  that stamped one instant across a batch, and inside one the order is stable
+  and agrees with its own cursor — which is all a tiebreak can promise.
+
+  The suite can now run against a real engine — `STORYFEED_TEST_DB=mysql` or
+  `pgsql` with the connection in `STORYFEED_TEST_*` — and this change was run
+  green on MySQL 8.4, PostgreSQL 18 and SQLite.
+
 - **Curation re-decided every settled cluster on every publish, and the cost was
   quadratic in cluster size.** `CurateCluster::resettle()` — the sweep that
   upgrades a cluster's members when it crosses a threshold — selected "stale"
