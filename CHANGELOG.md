@@ -11,9 +11,40 @@ contract, which exists because two consumers read out every `Feedable` they had
 and one of them turned out to be returning `null` from all of them — folded into
 `Feedable` itself before this release, so the interim never ships. And doctor's
 severity axis, re-drawn so that `--fail-on=error` fires on a feed rendering wrong
-today — which it never did.
+today — which it never did. And a fourth check that reads no rows at all: a
+grouping recipe that omits the verb is told at boot that it has opted out of
+aggregate grammar, rather than weeks later by a group rendering a bare count.
 
 ### Added
+
+- **A doctor check that needs no traffic: `axes`.** An axis recipe that omits
+  `v` opts out of aggregate grammar, and until now nothing said so where it is
+  authored. Grouping does not stop two verbs sharing a group — grammar does:
+  aggregate templates are keyed `axis.verb` and resolved from the group's HEAD
+  MEMBER, so on an axis that does not pin the verb the sentence a group renders
+  is chosen by whichever member sorts first and then asserted over members that
+  did something else. Two new codes, both `Warning`:
+  `axes.verbless_no_grammar` (no verb-agnostic key is registered for the axis,
+  so its groups fall to the singular headline or to a bare count — with a `Fix`
+  offering `<axis>.*` and the tokens the recipe actually pins), and
+  `axes.verbless_per_verb_grammar` (a key naming a verb the axis cannot
+  promise; no `Fix`, because the two ways out are a recipe change that rewrites
+  every hash on the axis and a rewritten sentence that only taste validates).
+  Closure-recipe and row-backed axes are skipped — `pins()` declares tokens
+  rather than the mask, and this check would rather miss a gap than deny one.
+  The four built-in axes all pin `v`, so an app that has not authored an axis
+  sees nothing.
+
+  Why it matters more than its severity suggests: it is answered from the
+  REGISTRY ALONE, at boot, before a single group has formed. Every other
+  coverage assertion we ship can only speak about pairs that clustered on rows
+  that exist. A consumer keyed an axis `'oa!:oid!:d'` to put "everything about
+  this photo today" in one group, got an upload and a moderation approval in
+  it, and met the consequence weeks later as "why does my group render as a
+  bare count". `Warning` rather than `Error` under the new severity rule: the
+  check deliberately reads no rows and no feeds, so it cannot claim anything is
+  wrong on a surface that exists today — when rows prove it, `aggregates.missing`
+  already says so at `Error`.
 
 - **`glyph_intent` on the activity and group node** (additive). A free-form,
   app-owned string beside the glyph token — `success`, `danger`, whatever the

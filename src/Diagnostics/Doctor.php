@@ -33,6 +33,7 @@ class Doctor
         Checks\SingularTokens::class,
         Checks\AggregateCoverage::class,
         Checks\AggregateTokens::class,
+        Checks\VerblessAxis::class,
         Checks\VerbDrift::class,
         Checks\FeedCoverage::class,
         Checks\HashLengths::class,
