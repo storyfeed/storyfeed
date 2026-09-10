@@ -66,8 +66,8 @@ work leads to is a demonstration of a working package, not a launch event, so
 - Full-history scale — feeds that stay fast at millions of activities without
   pruning (time-partitioned storage, warm/cold tiering behind the opaque cursor).
 - Story auto-discovery.
-- **`storyfeed/ui`** — a free, MIT companion package of pre-built feed components
-  for those who'd rather not build their own renderer. Vue/Inertia and plain Blade
+- **Feed components for `storyfeed/ui`** — the free, MIT detail vocabulary is
+  available on Packagist now. Vue/Inertia and plain Blade components are planned
   first; Livewire and React follow as sponsorship allows the time (see Sponsoring
   in the README).
 - **`storyfeed/filament`** — the Filament plugin, in its own repository and
