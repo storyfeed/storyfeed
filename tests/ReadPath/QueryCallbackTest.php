@@ -183,10 +183,12 @@ it('runs the callback once per branch of the read, with no side effects assumed'
     })->summary()->get();
 
     // Pinned for this fixture: one group and no solo rows. A grouped page runs
-    // the group stream, the solo stream, the member fetch and one count per role.
-    // If these numbers move, the docblock on FeedBuilder::query() is now wrong.
+    // the group stream's window probe and aggregate, the solo stream, the member
+    // fetch and one count per role. (History this shallow never fits a window,
+    // so the windowed recount does not run here.) If these numbers move, the
+    // docblock on FeedBuilder::query() is now wrong.
     expect($log)->toBe(1)
-        ->and($grouped)->toBe(10);
+        ->and($grouped)->toBe(11);
 });
 
 /**

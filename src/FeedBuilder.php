@@ -475,9 +475,10 @@ class FeedBuilder
      * a callback `$this`, and this hands over a different, inner builder.
      *
      * Runs once per BRANCH of the read, not once per page: measured at once for
-     * a log page, and ten times for a grouped page carrying one group — the
-     * group stream, the solo stream, the member fetch, and one distinct count per
-     * role. Keep it free of side effects.
+     * a log page, and eleven times for a grouped page carrying one group — the
+     * group stream and its window probe, the solo stream, the member fetch, and
+     * one distinct count per role; a page that fits in a history window also
+     * recounts its groups once. Keep it free of side effects.
      *
      * Constraints reach the whole read, including group children and the
      * distinct-role counts behind ":actors and 3 others", because every branch
@@ -791,6 +792,119 @@ class FeedBuilder
      */
     protected function groupStream(Carbon $now, ?array $cursor): Collection
     {
+        // THE AGGREGATE IS PAID PER ELIGIBLE ACTIVITY, NOT PER PAGE. Grouping
+        // by hash means joining every eligible activity to its winning
+        // grouping row before a single group can be ranked; on MySQL 8.4 at
+        // 50k activities that join was ~250ms of a ~300ms query, and no index
+        // moves it (W103, 2026-09-09). A cursor does not help either: the
+        // HAVING predicate filters groups AFTER the aggregate, so page 100
+        // costs what page 1 costs.
+        //
+        // So the aggregate runs over a WINDOW of recent history first, and
+        // only widens when the window comes up short. The window is exact,
+        // not approximate, by this argument: a group's MAX(published_at) is
+        // the published_at of its newest member, so every group whose newest
+        // member lies inside [floor, ceiling] appears in the windowed
+        // aggregate with its TRUE latest; every group that does not appear
+        // has latest < floor, which sorts after every group that does. If
+        // the window yields a full page (limit + 1 rows, so `more` is known),
+        // nothing below the floor could have ranked on it. If it does not,
+        // widen and try again; the last depth is unbounded and is the
+        // aggregate exactly as it always was.
+        //
+        // Two things the window changes that have to be put back:
+        //
+        //  - Members ABOVE the ceiling. The ceiling is the cursor's timestamp,
+        //    and a group already shown on an earlier page can have older
+        //    members inside this window, where the windowed MAX would fall
+        //    below the cursor and pass the HAVING. Those groups are excluded
+        //    by an antijoin on "any eligible member newer than the ceiling",
+        //    which is exactly the condition under which the true latest
+        //    fails the cursor predicate. Without a cursor there is no ceiling
+        //    and nothing to exclude.
+        //  - COUNT(*) inside the window undercounts a group whose older
+        //    members lie below the floor, so a windowed page recounts its
+        //    selected groups in one bounded query — the same shape
+        //    countDistinctRoles() already runs seven times a page.
+        //
+        // Measured on MySQL 8.4.11, the newsroom's 50k fixture, page size 30:
+        // see docs/journal for the W114 numbers.
+        $ceiling = $cursor['latest'] ?? null;
+        $rows = Collection::make();
+        $windowed = false;
+
+        foreach ($this->windowDepths() as $depth) {
+            $floor = $depth === null ? null : $this->windowFloor($now, $ceiling, $depth);
+
+            // A depth deeper than eligible history IS the unbounded read.
+            $windowed = $floor !== null;
+
+            $rows = $this->groupAggregate($now, $cursor, $windowed ? $floor : null, $windowed ? $ceiling : null);
+
+            if (! $windowed || $rows->count() > $this->limit) {
+                break;
+            }
+        }
+
+        $groups = $rows->map(fn (object $row) => FeedCandidate::group(
+            $this->normalizeTimestamp($row->latest),
+            (string) $row->bucket,
+            (string) $row->hash,
+            (int) $row->members,
+        ));
+
+        return $windowed ? $this->recountMembers($now, $groups) : $groups;
+    }
+
+    /**
+     * How many eligible activities, newest first, each windowed attempt of
+     * the group aggregate covers; null is the unbounded aggregate and must
+     * come last. Geometric so the retries together cost little more than the
+     * read that finally succeeds, and so a feed that is all solos (no group
+     * can ever fill a page) falls through to the unbounded read in two
+     * cheap attempts rather than many.
+     *
+     * @return non-empty-list<int|null>
+     */
+    protected function windowDepths(): array
+    {
+        return [$this->limit * 16, $this->limit * 256, null];
+    }
+
+    /**
+     * The published_at of the `$depth`-th eligible activity at or below the
+     * ceiling, newest first — the window's inclusive floor — or null when
+     * eligible history is shallower than that, in which case no window is
+     * needed.
+     */
+    protected function windowFloor(Carbon $now, ?string $ceiling, int $depth): ?string
+    {
+        $activities = $this->activityModel()->getTable();
+
+        $value = $this->filteredActivities($now)
+            ->when($ceiling !== null, fn (ActivityBuilder $q) => $q->where("{$activities}.published_at", '<=', $ceiling))
+            ->orderBy("{$activities}.published_at", 'desc')
+            ->orderBy("{$activities}.id", 'desc')
+            ->offset($depth - 1)
+            ->limit(1)
+            ->toBase()
+            ->value("{$activities}.published_at");
+
+        return $value === null ? null : $this->normalizeTimestamp($value);
+    }
+
+    /**
+     * The group aggregate itself: winning grouping rows of eligible
+     * activities, grouped by (bucket, hash), newest group first, with the
+     * cursor applied as a HAVING over the aggregate. With both bounds null
+     * this is the whole of history and needs no correction; with a window it
+     * is the windowed read groupStream() describes, ceiling-excluded.
+     *
+     * @param  array{latest: string, rank: int, axis: string|null, hash: string|null, id: int|string|null}|null  $cursor
+     * @return Collection<int, \stdClass> rows of bucket, hash, latest, members
+     */
+    protected function groupAggregate(Carbon $now, ?array $cursor, ?string $floor, ?string $ceiling): Collection
+    {
         $activities = $this->activityModel()->getTable();
         $groupings = $this->groupingModel()->getTable();
 
@@ -800,6 +914,8 @@ class FeedBuilder
         $latest = 'max(fa.fa_published)';
 
         $filtered = $this->filteredActivities($now)
+            ->when($floor !== null, fn (ActivityBuilder $q) => $q->where("{$activities}.published_at", '>=', $floor))
+            ->when($ceiling !== null, fn (ActivityBuilder $q) => $q->where("{$activities}.published_at", '<=', $ceiling))
             ->select(["{$activities}.id as fa_id", "{$activities}.published_at as fa_published"]);
 
         $query = $this->groupingModel()->newQuery()
@@ -809,10 +925,7 @@ class FeedBuilder
             ->select(["{$groupings}.bucket", "{$groupings}.hash"])
             ->selectRaw("{$latest} as latest")
             ->selectRaw('count(*) as members')
-            ->orderByRaw("{$latest} desc")
-            ->orderBy("{$groupings}.bucket")
-            ->orderBy("{$groupings}.hash")
-            ->limit($this->limit + 1);
+            ->toBase();
 
         // Groups rank before solos at an identical timestamp, so a solo
         // cursor has already consumed every group in that tie.
@@ -825,11 +938,65 @@ class FeedBuilder
             $query->havingRaw("{$latest} < ?", [$cursor['latest']]);
         }
 
-        return $query->get()->map(fn (Grouping $row) => FeedCandidate::group(
-            $this->normalizeTimestamp($row->getAttribute('latest')),
-            (string) $row->getAttribute('bucket'),
-            (string) $row->getAttribute('hash'),
-            (int) $row->getAttribute('members'),
+        if ($ceiling === null) {
+            return $query
+                ->orderByRaw("{$latest} desc")
+                ->orderBy("{$groupings}.bucket")
+                ->orderBy("{$groupings}.hash")
+                ->limit($this->limit + 1)
+                ->get();
+        }
+
+        // Windowed under a cursor: drop every group with an eligible member
+        // newer than the ceiling — its true latest is above the cursor, and
+        // it has already been paged. Wrapping (rather than a HAVING
+        // subquery) keeps the correlated reference on plain derived-table
+        // columns, which every supported grammar accepts.
+        $newer = $this->winningMembers($now)
+            ->whereColumn("{$groupings}.bucket", 'windowed.bucket')
+            ->whereColumn("{$groupings}.hash", 'windowed.hash')
+            ->where("{$activities}.published_at", '>', $ceiling)
+            ->selectRaw('1')
+            ->toBase();
+
+        return $this->groupingModel()->getConnection()->query()
+            ->fromSub($query, 'windowed')
+            ->whereNotExists($newer)
+            ->orderBy('latest', 'desc')
+            ->orderBy('bucket')
+            ->orderBy('hash')
+            ->limit($this->limit + 1)
+            ->get();
+    }
+
+    /**
+     * The true member count of each selected group, replacing the windowed
+     * COUNT(*) — bounded to the page's groups, like every other phase-2 read.
+     *
+     * @param  Collection<int, FeedCandidate>  $groups
+     * @return Collection<int, FeedCandidate>
+     */
+    protected function recountMembers(Carbon $now, Collection $groups): Collection
+    {
+        if ($groups->isEmpty()) {
+            return $groups;
+        }
+
+        $groupings = $this->groupingModel()->getTable();
+
+        $counts = $this->selectedGroupMembers($now, $groups)
+            ->toBase()
+            ->groupBy("{$groupings}.bucket", "{$groupings}.hash")
+            ->select(["{$groupings}.bucket", "{$groupings}.hash"])
+            ->selectRaw('count(*) as members')
+            ->get()
+            ->keyBy(fn (object $row) => $row->bucket."\x1f".$row->hash);
+
+        return $groups->map(fn (FeedCandidate $group) => FeedCandidate::group(
+            $group->latest,
+            (string) $group->axis,
+            (string) $group->hash,
+            (int) ($counts->get($this->groupKey($group))->members ?? $group->count),
         ));
     }
 
@@ -1091,13 +1258,9 @@ class FeedBuilder
      */
     protected function selectedGroupMembers(Carbon $now, Collection $groups): ActivityBuilder
     {
-        $activities = $this->activityModel()->getTable();
         $groupings = $this->groupingModel()->getTable();
 
-        return $this->filteredActivities($now)
-            ->join($groupings, fn (JoinClause $join) => $join
-                ->on("{$groupings}.activity_id", '=', "{$activities}.id"))
-            ->where($this->winning())
+        return $this->winningMembers($now)
             ->where(function ($query) use ($groupings, $groups) {
                 foreach ($groups as $group) {
                     $query->orWhere(fn ($pair) => $pair
@@ -1105,6 +1268,24 @@ class FeedBuilder
                         ->where("{$groupings}.hash", $group->hash));
                 }
             });
+    }
+
+    /**
+     * Every filtered activity joined to its winning grouping row(s) — the
+     * membership relation both the page's phase-2 reads and the windowed
+     * aggregate's ceiling exclusion are built on.
+     *
+     * @return ActivityBuilder<Activity>
+     */
+    protected function winningMembers(Carbon $now): ActivityBuilder
+    {
+        $activities = $this->activityModel()->getTable();
+        $groupings = $this->groupingModel()->getTable();
+
+        return $this->filteredActivities($now)
+            ->join($groupings, fn (JoinClause $join) => $join
+                ->on("{$groupings}.activity_id", '=', "{$activities}.id"))
+            ->where($this->winning());
     }
 
     protected function groupKey(FeedCandidate $candidate): string
