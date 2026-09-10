@@ -11,6 +11,26 @@ contract, which exists because two consumers read out every `Feedable` they had
 and one of them turned out to be returning `null` from all of them — folded into
 `Feedable` itself before this release, so the interim never ships.
 
+### Added
+
+- **`glyph_intent` on the activity and group node** (additive). A free-form,
+  app-owned string beside the glyph token — `success`, `danger`, whatever the
+  renderer's palette speaks — or `null`, which is what every node carries until
+  the app opts in. Registered through `Storyfeed::glyphIntents()` on the same
+  `type.verb → type.* → *.verb → *.*` ladder as `icons()` but in a registry of
+  its own, so `'*.finalize' => 'success'` is said once while each type keeps its
+  own token; a Story declares `intent()`, the fluent and array forms take
+  `->intent()` / `'intent'`. Core names no intents and no colours, and the AS2
+  document never carries it (the vocabulary has no term for it). A manifest
+  cached before this release is still read; re-run `storyfeed:cache` once a
+  story gains an intent.
+
+  Why: a bare token is a shape, and a shape is enough while the glyph is a badge.
+  The plugin is about to make it the primary on an activity-centric rail, where
+  a feed whose verbs cluster renders a column of identical discs — and that gets
+  filed as the renderer being broken. The pre-package implementation carried a
+  `variant` for exactly this; only the intent was missing from the ladder.
+
 ### Breaking
 
 - **The activity and group node key `icon` is now `glyph`.** Same value, same

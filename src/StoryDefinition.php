@@ -40,6 +40,8 @@ final class StoryDefinition
 
     protected ?string $icon = null;
 
+    protected ?string $intent = null;
+
     protected ActivityType|string|null $type = null;
 
     /**
@@ -111,6 +113,10 @@ final class StoryDefinition
             $definition = $definition->icon($instance->icon());
         }
 
+        if ($instance->intent() !== null) {
+            $definition = $definition->intent($instance->intent());
+        }
+
         if ($instance->type !== null) {
             $definition = $definition->type($instance->type);
         }
@@ -123,7 +129,7 @@ final class StoryDefinition
      */
     public static function fromArray(string $key, array $spec): self
     {
-        $allowed = ['headline', 'icon', 'type', 'groups'];
+        $allowed = ['headline', 'icon', 'intent', 'type', 'groups'];
 
         foreach (array_keys($spec) as $given) {
             if (! in_array($given, $allowed, true)) {
@@ -139,6 +145,10 @@ final class StoryDefinition
 
         if (isset($spec['icon'])) {
             $definition = $definition->icon((string) $spec['icon']);
+        }
+
+        if (isset($spec['intent'])) {
+            $definition = $definition->intent((string) $spec['intent']);
         }
 
         if (isset($spec['type'])) {
@@ -165,6 +175,17 @@ final class StoryDefinition
         return $this;
     }
 
+    /**
+     * The glyph's intent — a free-form, app-owned word the renderer maps to
+     * its palette. Compiles to the glyph-intent registry, alongside the token.
+     */
+    public function intent(string $intent): self
+    {
+        $this->intent = $intent;
+
+        return $this;
+    }
+
     public function type(ActivityType|string $type): self
     {
         $this->type = $type;
@@ -187,6 +208,11 @@ final class StoryDefinition
     public function iconToken(): ?string
     {
         return $this->icon;
+    }
+
+    public function glyphIntent(): ?string
+    {
+        return $this->intent;
     }
 
     public function activityType(): ActivityType|string|null

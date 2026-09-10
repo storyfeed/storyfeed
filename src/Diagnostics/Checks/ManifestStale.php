@@ -59,7 +59,7 @@ class ManifestStale extends Check
 
         $drifted = [];
 
-        foreach (['grammar', 'aggregateGrammar', 'icons', 'verbs'] as $registry) {
+        foreach (['grammar', 'aggregateGrammar', 'icons', 'glyphIntents', 'verbs'] as $registry) {
             // No `?? []` — read() validates the shape, so a missing key would
             // be a bug to surface, not a case to paper over.
             $before = $this->normalize($cached[$registry]);

@@ -39,8 +39,9 @@ use Throwable;
  *    activity that carries an object emits base `Activity` and KEEPS the
  *    object — degrade, never drop.
  *  - Entities embed from snapshots; entities without snapshots serialize
- *    as bare references. Presentation extras (glyph, component, templates)
- *    never appear — they are meaningless to a federation peer. The
+ *    as bare references. Presentation extras (glyph, glyph_intent,
+ *    component, templates) never appear — they are meaningless to a
+ *    federation peer, and AS2 has no term for a glyph's intent. The
  *    SENTENCE the template produces is not an extra: it is AS2's own
  *    `summary`, and travels flattened (see summary()).
  */

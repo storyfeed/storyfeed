@@ -9,7 +9,7 @@ use Storyfeed\StoryDefinition;
 use Storyfeed\StoryfeedManager;
 
 /**
- * Compiles story definitions into the four registry arrays.
+ * Compiles story definitions into the five registry arrays.
  *
  * This is where the layer earns its keep. Four conditions the raw registries
  * accept silently become boot failures:
@@ -32,13 +32,14 @@ class CompileStories
 {
     /**
      * @param  array<int, StoryDefinition>  $definitions
-     * @return array{grammar: array<string, string>, aggregateGrammar: array<string, string>, icons: array<string, string>, verbs: array<string, mixed>}
+     * @return array{grammar: array<string, string>, aggregateGrammar: array<string, string>, icons: array<string, string>, glyphIntents: array<string, string>, verbs: array<string, mixed>}
      */
     public function __invoke(array $definitions, StoryfeedManager $storyfeed): array
     {
         $grammar = [];
         $aggregateGrammar = [];
         $icons = [];
+        $glyphIntents = [];
         $verbs = [];
 
         /** @var array<string, string> $owners key => the story that authored it */
@@ -58,6 +59,10 @@ class CompileStories
 
                 if ($definition->iconToken() !== null) {
                     $icons[$key] = $definition->iconToken();
+                }
+
+                if ($definition->glyphIntent() !== null) {
+                    $glyphIntents[$key] = $definition->glyphIntent();
                 }
             }
 
@@ -80,6 +85,7 @@ class CompileStories
             'grammar' => $grammar,
             'aggregateGrammar' => $aggregateGrammar,
             'icons' => $icons,
+            'glyphIntents' => $glyphIntents,
             'verbs' => $verbs,
         ];
     }

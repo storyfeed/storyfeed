@@ -128,6 +128,16 @@ class NodePresenter
             // `entity.media.icon`. One word must not mean two things in one
             // document. See docs/payload.md, `glyph`.
             'glyph' => $this->storyfeed->icon($activity->object_type, $activity->verb),
+            // Additive (2026-09-09): the glyph's INTENT — an app-owned word
+            // (`success`, `danger`, whatever the renderer's palette speaks)
+            // resolved on the same ladder as the token but from its own
+            // registry, so `*.finalize` can carry it once. A sibling key, not
+            // a field inside `glyph`: `glyph` is a frozen string and every
+            // renderer reads it as one. Null for every app that has not opted
+            // in. Core names no intents and no colours; the AS2 document has
+            // no term for it and never carries it. See docs/payload.md,
+            // `glyph_intent`.
+            'glyph_intent' => $this->storyfeed->glyphIntent($activity->object_type, $activity->verb),
             'actor' => $this->entity($activity->actor_type, $activity->actor_id, $activity->cachedActor),
             'object' => $this->entity($activity->object_type, $activity->object_id, $activity->cachedObject),
             'target' => $this->entity($activity->target_type, $activity->target_id, $activity->cachedTarget),
@@ -505,6 +515,7 @@ class NodePresenter
             'headline_template' => $template,
             'headline' => $headline,
             'glyph' => $this->storyfeed->icon($first->object_type, $first->verb),
+            'glyph_intent' => $this->storyfeed->glyphIntent($first->object_type, $first->verb),
             ...$singulars,
             'exemplars' => $exemplars,
             'distinct' => $distinct,

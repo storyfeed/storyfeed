@@ -57,7 +57,7 @@ class CacheCommand extends Command
         $path = $manifest->write($compiled);
 
         $count = count($storyfeed->registeredStories());
-        $keys = count($compiled['grammar']) + count($compiled['aggregateGrammar']) + count($compiled['icons']);
+        $keys = count($compiled['grammar']) + count($compiled['aggregateGrammar']) + count($compiled['icons']) + count($compiled['glyphIntents']);
 
         $this->info("Cached {$count} stories ({$keys} registry entries) to {$path}.");
 

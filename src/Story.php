@@ -28,6 +28,11 @@ use Storyfeed\Models\Activity;
  *           return 'bi-file-earmark-arrow-up';
  *       }
  *
+ *       public function intent(): ?string
+ *       {
+ *           return 'success';   // optional; the app's own word
+ *       }
+ *
  *       public function groups(): array
  *       {
  *           return [
@@ -99,6 +104,20 @@ abstract class Story
     abstract public function headline(): string;
 
     public function icon(): ?string
+    {
+        return null;
+    }
+
+    /**
+     * The glyph's intent: an optional, app-owned word (`'success'`,
+     * `'danger'`, `'warm'` — whatever the renderer's palette speaks) emitted
+     * beside the token as `glyph_intent`. Null, the default, emits null; core
+     * neither ships a vocabulary nor validates one. Resolves on the same
+     * ladder as icon() but independently of it, so a `'*.finalize'` story
+     * can carry the intent for every finalize while each type keeps its own
+     * token.
+     */
+    public function intent(): ?string
     {
         return null;
     }
