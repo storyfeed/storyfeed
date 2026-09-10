@@ -7,6 +7,7 @@ use Storyfeed\Grouping\Group;
 use Storyfeed\StoryDefinition;
 use Storyfeed\Testing\GrammarCoverage;
 use Storyfeed\Testing\StorySurface;
+use Workbench\App\Models\Courier;
 use Workbench\App\Models\Customer;
 use Workbench\App\Models\Delivery;
 use Workbench\App\Models\User;
@@ -123,7 +124,7 @@ it('reports every story as ok when there is nothing to flag', function () {
     $customer = Customer::create(['name' => 'Acme']);
 
     DeliveryWasConfirmed::activity(Delivery::create(['tracking_number' => 'TN-1']))
-        ->actor($user)->for($customer)->publish();
+        ->actor($user)->for($customer)->context(Courier::create(['name' => 'Ada']))->publish();
 
     // And every Feedable model is now in the feed in SOME role — the actor and
     // target count, not just the object.
@@ -172,7 +173,7 @@ it('passes once every declared model appears in SOME role', function () {
     // Publishing from an Action class while the model is merely a role is an
     // ordinary Laravel shape, and must satisfy this.
     DeliveryWasConfirmed::activity(Delivery::create(['tracking_number' => 'TN-1']))
-        ->actor($user)->for($customer)->publish();
+        ->actor($user)->for($customer)->context(Courier::create(['name' => 'Ada']))->publish();
 
     StorySurface::assertNoUnwiredSurface();
 });
@@ -206,7 +207,7 @@ it('works under Storyfeed::fake(), like its two sibling assertions', function ()
     $customer = Customer::create(['name' => 'Acme']);
 
     DeliveryWasConfirmed::activity(Delivery::create(['tracking_number' => 'TN-1']))
-        ->actor($user)->for($customer)->publish();
+        ->actor($user)->for($customer)->context(Courier::create(['name' => 'Ada']))->publish();
 
     // Nothing reached the table, and this still returns a real verdict.
     StorySurface::assertNoUnwiredSurface();
@@ -232,5 +233,5 @@ it('accepts deliberately absent surface via $except', function () {
     Storyfeed::grammar(['delivery.confirm' => ':actor confirmed :object']);
     Storyfeed::activity('confirm', Delivery::create(['tracking_number' => 'TN-1']))->publish();
 
-    StorySurface::assertNoUnwiredSurface(except: [User::class, Customer::class]);
+    StorySurface::assertNoUnwiredSurface(except: [User::class, Customer::class, Courier::class]);
 });

@@ -22,6 +22,14 @@ return new class extends Migration
             $table->softDeletes();
         });
 
+        // ULID primary key: the string-keyed consumer the ops path has to
+        // read back as the string it is (todo 875).
+        Schema::create('couriers', function (Blueprint $table) {
+            $table->ulid('id')->primary();
+            $table->string('name');
+            $table->timestamps();
+        });
+
         Schema::create('deliveries', function (Blueprint $table) {
             $table->id();
             $table->foreignId('customer_id')->nullable();
@@ -35,6 +43,7 @@ return new class extends Migration
     public function down(): void
     {
         Schema::dropIfExists('deliveries');
+        Schema::dropIfExists('couriers');
         Schema::dropIfExists('customers');
         Schema::dropIfExists('users');
     }

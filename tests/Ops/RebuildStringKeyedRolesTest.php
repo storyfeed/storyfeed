@@ -4,6 +4,10 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Storyfeed\Actions\RebuildSnapshots;
+use Storyfeed\Facades\Storyfeed;
+use Storyfeed\Models\Snapshot;
+use Workbench\App\Models\Courier;
+use Workbench\App\Models\User;
 
 /**
  * A role id is a morph id, and a morph id is not always an integer. Consumers
@@ -46,4 +50,35 @@ it('hands a string role id to the resolver unchanged, not cast to its key type',
     $action();
 
     expect($action->seen)->toContain($ulid);
+});
+
+/**
+ * The same seam, end to end and against a real model rather than a stubbed
+ * resolver: a ULID-keyed Feedable in a feed role has to come out of the
+ * rebuild snapshotted, and its snapshot has to land on ITS activity.
+ *
+ * The second half is the one that mattered — the pre-fix rebuild did not
+ * merely fail to resolve, it then ran `where actor_id = 1` and stamped
+ * cached_actor_id onto whichever row answered.
+ */
+it('snapshots a ULID-keyed role model and stamps that snapshot on its own activity', function () {
+    $courier = Courier::create(['name' => 'Ada']);
+    $user = User::create(['name' => 'Grace', 'email' => 'grace@example.test']);
+
+    $byCourier = Storyfeed::activity('delivery.handoff')->by($courier)->publish();
+    $byUser = Storyfeed::activity('delivery.handoff')->by($user)->publish();
+
+    // The write path already stamps these. Clear them so what is asserted
+    // below is the rebuild's own work and not the publish's.
+    DB::table('feed_activities')->update(['cached_actor_id' => null]);
+
+    expect((new RebuildSnapshots)())->toMatchArray(['snapshotted' => 2, 'missing' => 0]);
+
+    $snapshot = Snapshot::query()
+        ->where('model_type', $courier->getMorphClass())
+        ->where('model_id', $courier->getKey())
+        ->sole();
+
+    expect($byCourier->fresh()->cached_actor_id)->toBe($snapshot->getKey())
+        ->and($byUser->fresh()->cached_actor_id)->not->toBe($snapshot->getKey());
 });

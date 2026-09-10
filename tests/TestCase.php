@@ -5,6 +5,7 @@ namespace Storyfeed\Tests;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Orchestra\Testbench\TestCase as Orchestra;
 use Storyfeed\StoryfeedServiceProvider;
+use Workbench\App\Models\Courier;
 use Workbench\App\Models\Customer;
 use Workbench\App\Models\Delivery;
 use Workbench\App\Models\User;
@@ -28,6 +29,7 @@ class TestCase extends Orchestra
 
         Relation::enforceMorphMap([
             'user' => User::class,
+            'courier' => Courier::class,
             'customer' => Customer::class,
             'delivery' => Delivery::class,
         ]);
