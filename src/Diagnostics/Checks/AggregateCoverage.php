@@ -12,6 +12,14 @@ use Storyfeed\StoryfeedManager;
  * headline of its head member — "Sally uploaded a file" over a node that
  * carries three actors. Silent, and wrong.
  *
+ * AND IT NAMES ITS OWN GUARD (2026-09-10).
+ * `GrammarCoverage::assertCoversAggregates()` had shipped, was documented on a
+ * good and accurate page, and would have failed at merge on the exact sentence
+ * a consumer instead shipped to production and left on a dashboard for weeks.
+ * They never crossed from this finding to that page. So the finding carries the
+ * assertion — the distance to close is finding -> assertion, not finding ->
+ * docs site -> assertion, and the reader is already here.
+ *
  * TWO SENTENCES, NOT ONE (2026-08-27). This check kept being right about the
  * database and wrong about what the reader would do next: it warned for every
  * clustered (axis, verb) pair regardless of whether any surface would ever
@@ -107,7 +115,8 @@ class AggregateCoverage extends Check
                 'aggregates.missing',
                 "No aggregate grammar resolves for `{$axis}.{$verb}` — those group nodes fall back "
                 .'to the singular headline only when its tokens are safe for the axis, and otherwise render '
-                .'with NO headline at all. Register one with Storyfeed::aggregateGrammar().',
+                .'with NO headline at all. Register one with Storyfeed::aggregateGrammar(), and assert '
+                .'coverage in your suite with GrammarCoverage::assertCoversAggregates().',
                 [
                     'axis' => $axis,
                     'verb' => $verb,
@@ -119,6 +128,7 @@ class AggregateCoverage extends Check
                     'aggregateGrammar',
                     "{$axis}.{$verb}",
                     $storyfeed->aggregateTokens($axis) ?? [],
+                    guard: 'Storyfeed\\Testing\\GrammarCoverage::assertCoversAggregates()',
                 ),
             );
         }

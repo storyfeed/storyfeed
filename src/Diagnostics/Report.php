@@ -14,13 +14,24 @@ use Illuminate\Support\Collection;
  * object makes the command one formatter among several rather than the API.
  *
  * `Info` findings are carried but never counted — see Severity.
+ *
+ * The report also carries WHAT PRODUCED IT (`Installed`), resolved lazily so
+ * every existing `new Report($findings)` keeps working and a test can inject a
+ * known — or deliberately empty — install.
  */
 final class Report
 {
     /** @param list<Finding> $findings */
     public function __construct(
         public readonly array $findings = [],
+        protected ?Installed $installed = null,
     ) {}
+
+    /** The `storyfeed/*` packages this run came from. */
+    public function installed(): Installed
+    {
+        return $this->installed ??= Installed::resolve();
+    }
 
     /** @return Collection<int, Finding> */
     public function all(): Collection
@@ -83,6 +94,25 @@ final class Report
             ->values();
     }
 
+    /**
+     * The suite assertions the findings name, deduped and in the order they
+     * were first mentioned. Distinct from `fixes()`: a fix is the edit that
+     * resolves this finding, a guard is what fails the build the next time.
+     *
+     * @return Collection<int, string>
+     */
+    public function guards(): Collection
+    {
+        /** @var Collection<int, string> $guards */
+        $guards = $this->all()
+            ->map(fn (Finding $f) => $f->fix?->guard)
+            ->filter()
+            ->unique()
+            ->values();
+
+        return $guards;
+    }
+
     /** @param list<string> $names check names to keep */
     public function only(array $names): self
     {
@@ -91,7 +121,8 @@ final class Report
         }
 
         return new self(
-            $this->all()->filter(fn (Finding $f) => in_array($f->group(), $names, true))->values()->all()
+            $this->all()->filter(fn (Finding $f) => in_array($f->group(), $names, true))->values()->all(),
+            $this->installed,
         );
     }
 
@@ -103,6 +134,10 @@ final class Report
             'count' => $this->count(),
             'severity' => $this->severity()?->value,
             'findings' => $this->all()->map(fn (Finding $f) => $f->toArray())->all(),
+            // ADDED, never a reshape: a consumer may already parse the keys
+            // above. Null references are emitted as null rather than omitted —
+            // "we do not know" is the answer, not the absence of one.
+            'installed' => $this->installed()->toArray(),
         ];
     }
 }

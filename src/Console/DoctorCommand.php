@@ -73,15 +73,44 @@ class DoctorCommand extends Command
 
         if ($report->isHealthy()) {
             $this->info('Storyfeed looks healthy.');
+        } else {
+            $this->warn("{$report->count()} finding(s) — see above.");
 
-            return;
+            if ($report->fixes()->isNotEmpty()) {
+                $this->line('Run with --stubs to print the registrations these imply.');
+            }
+
+            foreach ($report->guards() as $guard) {
+                $this->line("Keep this from coming back: assert {$guard} in your suite.");
+            }
         }
 
-        $this->warn("{$report->count()} finding(s) — see above.");
+        $this->renderFooter($report);
+    }
 
-        if ($report->fixes()->isNotEmpty()) {
-            $this->line('Run with --stubs to print the registrations these imply.');
-        }
+    /**
+     * The tool naming its own capabilities, at the moment someone has the
+     * problem.
+     *
+     * Two consumers hand-rolled workarounds for flags that were in `--help`
+     * the whole time — a suppression file for 107 findings, and a proposal
+     * that we BUILD the severity levels we already ship — because doctor's own
+     * output never suggested there was a knob. Documentation was not the lever:
+     * the page they needed existed, was accurate, and went unread.
+     *
+     * So this says what each flag DOES, not merely that it exists — a bare list
+     * of names is what `--help` already is, and `--help` is the thing nobody
+     * opened. No advice about what to feel, no icons, no colour: core ships
+     * none of those and the same restraint applies to its wording.
+     */
+    protected function renderFooter(Report $report): void
+    {
+        $this->newLine();
+        $this->line('  --fail-on=error   exit non-zero when an error is present (`warning` gates on warnings too)');
+        $this->line('  --only=<check>    report one check at a time; --list names them');
+        $this->line('  --json            the same report, machine-readable');
+        $this->newLine();
+        $this->line($report->installed()->line());
     }
 
     protected function renderJson(Report $report): void

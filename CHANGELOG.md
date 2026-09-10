@@ -31,6 +31,35 @@ and one of them turned out to be returning `null` from all of them — folded in
   filed as the renderer being broken. The pre-package implementation carried a
   `variant` for exactly this; only the intent was missing from the ladder.
 
+- **`storyfeed:doctor` names its own capabilities, and stamps what produced it.**
+  Three additions to the human output, none of which reshape `--json`:
+
+  Its footer says what each flag *does* — `--fail-on=error` to gate CI,
+  `--only=<check>` to read one check at a time, `--json` for the same report
+  machine-readable. A missing aggregate template now names the assertion that
+  guards it, `GrammarCoverage::assertCoversAggregates()`, in the finding and
+  again in the footer; the pointer rides on the existing `Fix` object as a new
+  `guard` field, so `--json` and an app's own health UI reach it too. And every
+  run is stamped with the installed `storyfeed/*` packages and their commits
+  (`Installed: storyfeed/storyfeed dev-main@61cc07a1c8c5`), added to
+  `Report::toArray()` as a new `installed` key.
+
+  Why: three shipped capabilities were invisible to two attentive consumers in
+  one night. One of them — `assertCoversAggregates()` — had a good, accurate,
+  published docs page the whole time, and the consumer who needed it still
+  shipped a broken aggregate sentence that sat on a dashboard for weeks. So the
+  lever is not documentation. It is the tool naming its capability at the moment
+  someone has the problem, which is the one place the reader reliably is.
+
+  The stamp is the same move one step further. Both consumers float `dev-main`,
+  so there is no version to cite and a bug report is unfalsifiable without a
+  commit — twice in one day a measurement was correct about its own bytes and
+  wrong as a fact about the dependency. It resolves from the install, not from
+  git, and where it cannot resolve a commit it says so: an absent SHA costs a
+  round trip, a wrong one costs a retraction. The root package's reference is
+  deliberately not cited, because it is stamped at install time and does not
+  track HEAD.
+
 ### Breaking
 
 - **The activity and group node key `icon` is now `glyph`.** Same value, same

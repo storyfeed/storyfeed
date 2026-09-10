@@ -18,6 +18,15 @@ namespace Storyfeed\Diagnostics;
  * (":object" on the repeat axis rendering "made 5 revisions to Aut
  * Beatae.docx" over five different documents).
  *
+ * `$guard` is the second half of the same idea, added after a consumer with a
+ * missing aggregate template shipped a broken sentence to production while the
+ * assertion that catches it had been shipped and documented for months. The
+ * distance to close is finding -> assertion, in one line, at the moment the
+ * reader has the problem in front of them — not finding -> docs site ->
+ * assertion, which is the path they demonstrably do not walk. It is null when
+ * no shipped assertion actually guards the finding; naming one that does not
+ * would be worse than naming none.
+ *
  * NOTE: transcribing an OBSERVED fact is not inference. This carries no
  * guesses — every value comes from a pair actually recorded, an axis actually
  * stamped a winner, or tokens actually derived from a recipe. That is the line
@@ -30,20 +39,22 @@ final class Fix
      * @param  string  $key  the registry key, e.g. 'targets.approve'
      * @param  list<string>  $tokens  tokens that are SAFE here, derived from the axis recipe
      * @param  string|null  $snippet  paste-ready PHP; built from the above when omitted
+     * @param  string|null  $guard  the assertion that would have caught this in CI
      */
     public function __construct(
         public readonly string $registry,
         public readonly string $key,
         public readonly array $tokens = [],
         public readonly ?string $snippet = null,
+        public readonly ?string $guard = null,
     ) {}
 
     /**
      * @param  list<string>  $tokens
      */
-    public static function make(string $registry, string $key, array $tokens = [], ?string $snippet = null): self
+    public static function make(string $registry, string $key, array $tokens = [], ?string $snippet = null, ?string $guard = null): self
     {
-        return new self($registry, $key, $tokens, $snippet);
+        return new self($registry, $key, $tokens, $snippet, $guard);
     }
 
     /**
@@ -78,6 +89,7 @@ final class Fix
             'key' => $this->key,
             'tokens' => $this->tokens,
             'snippet' => $this->snippet(),
+            'guard' => $this->guard,
         ];
     }
 }
