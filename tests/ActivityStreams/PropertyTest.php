@@ -7,7 +7,7 @@ it('models only the AS2 properties currently emitted by the activity serializer'
     expect(array_column(Property::cases(), 'value'))->toBe([
         'actor', 'object', 'target', 'context', 'origin', 'result', 'instrument', 'published',
         'totalItems', 'orderedItems', 'replies', 'summary', 'name', 'url',
-        'icon', 'image', 'preview', 'href', 'mediaType', 'width', 'height',
+        'icon', 'image', 'preview', 'href', 'mediaType', 'width', 'height', 'attachment',
     ]);
 });
 
@@ -38,5 +38,5 @@ it('leaves unknown properties for callers to preserve', function (string $value)
     '', '   ', 'unknown', 'as:unknown',
     'https://www.w3.org/ns/activitystreams#unknown',
     'sf:verb', 'ext:actor', 'https://example.com/#actor',
-    'id', 'type', '@context', 'attachment', 'hreflang', 'rel', 'duration',
+    'id', 'type', '@context', 'hreflang', 'rel', 'duration',
 ]);

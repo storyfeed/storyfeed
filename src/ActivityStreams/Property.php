@@ -54,6 +54,10 @@ enum Property: string implements VocabularyTerm
     case Width = 'width';
     case Height = 'height';
 
+    // Non-functional in the vocabulary: many attachments are one property
+    // holding an array (docs/payload.md, `entity.media.attachments`).
+    case Attachment = 'attachment';
+
     public function iri(): string
     {
         // orderedItems is the JSON-LD list alias for as:items, not a
