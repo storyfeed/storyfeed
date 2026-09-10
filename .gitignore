@@ -36,3 +36,6 @@ testbench.yaml
 
 # The client-name list behind the CLAUDE.md rule — local only, never public
 /CLIENT-NAMES.md
+
+# Local agent worktrees — never shared.
+.claude/worktrees/
