@@ -37,14 +37,14 @@ it('reports every pair and says reachability is unknown when no feeds are regist
     $report = Storyfeed::doctor(['aggregates']);
 
     // The absence of a registry is an absence of INFORMATION. It must never
-    // downgrade a warning, and it must never read as an all-clear.
+    // downgrade an error, and it must never read as an all-clear.
     expect($report->has('aggregates.missing'))->toBeTrue()
         ->and($report->has('aggregates.latent'))->toBeFalse()
         ->and($report->has('aggregates.reachability_unknown'))->toBeTrue()
         ->and($report->withCode('aggregates.reachability_unknown')->first()->message)
         ->toContain('read-mode reachability is unknown')
         ->and($report->withCode('aggregates.missing')->first()->severity)
-        ->toBe(Severity::Warning);
+        ->toBe(Severity::Error);
 });
 
 it('calls an object-axis pair latent when every registered feed reads live', function () {

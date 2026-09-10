@@ -36,7 +36,11 @@ class Coverage extends Check
             $subject = ['type' => $pair->type, 'verb' => $pair->verb];
 
             if ($storyfeed->template($pair->type, $pair->verb) === null) {
-                yield Finding::warning(
+                // Error: the pair is RECORDED, and the read path never hides
+                // an activity, so these headlines are null on a live surface
+                // right now. The icon beside it stays a Warning — a missing
+                // glyph is an absence, not a sentence that reads wrong.
+                yield Finding::error(
                     'grammar.missing',
                     "No grammar entry resolves for `{$label}` — headlines will be null.",
                     $subject,

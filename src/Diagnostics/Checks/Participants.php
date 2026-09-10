@@ -16,7 +16,9 @@ use Storyfeed\StoryfeedManager;
  * upgraded into it has correct NEW history and silently empty OLD history. The
  * feed looks fine; only an entity page looks oddly short.
  *
- * Warning, not error: nothing is broken, and the backfill is one command.
+ * Warning, not error: the feed itself renders every row correctly, doctor
+ * cannot see whether any surface calls `involving()`, and the backfill is one
+ * command.
  */
 class Participants extends Check
 {

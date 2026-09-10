@@ -14,8 +14,7 @@ use Storyfeed\StoryfeedManager;
  * the mechanical detector for schema drift between published migrations and
  * what the package writes.
  *
- * Severity is Error, not Warning: unlike a missing headline, this one is
- * already breaking writes.
+ * Severity is Error: this one is already breaking writes.
  */
 class Columns extends Check
 {

@@ -44,7 +44,7 @@ it('warns when a singular template names a role its activities never carry', fun
 
     $finding = $report->withCode('roles.never_carried')->first();
 
-    expect($finding->severity)->toBe(Severity::Warning)
+    expect($finding->severity)->toBe(Severity::Error)
         ->and($finding->subject)->toBe([
             'key' => 'delivery.clause_restored',
             'token' => ':target',

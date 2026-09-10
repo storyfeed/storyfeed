@@ -29,8 +29,18 @@ use Storyfeed\StoryfeedManager;
  * unrenderable registrations is the exact harm this fixes. And it is only
  * ever said when the registry can actually say it: no feeds registered, or
  * one feed that would not inspect, and every pair reverts to the plain
- * warning plus a note that reachability is unknown. Silence that reads as
+ * error plus a note that reachability is unknown. Silence that reads as
  * coverage is the failure mode this check has already committed twice.
+ *
+ * ERROR, NOT WARNING (2026-09-10). The cluster has formed on real rows and a
+ * registered feed reads the axis, so the node is on screen now with the
+ * wrong headline or none — "DocuSign reported that agreements was sent for
+ * signature" sat on a consumer's owner-facing dashboard for weeks as a
+ * Warning, indistinguishable from findings the check itself called inert.
+ * When reachability is UNKNOWN the pair keeps the full severity, by the same
+ * rule as before: a missing answer must never downgrade a real one, and an
+ * app that registered no feeds is reading through ad-hoc builders doctor
+ * cannot see, not through nothing.
  */
 class AggregateCoverage extends Check
 {
@@ -103,7 +113,7 @@ class AggregateCoverage extends Check
                 continue;
             }
 
-            yield Finding::warning(
+            yield Finding::error(
                 'aggregates.missing',
                 "No aggregate grammar resolves for `{$axis}.{$verb}` — those group nodes fall back "
                 .'to the singular headline only when its tokens are safe for the axis, and otherwise render '
@@ -135,16 +145,16 @@ class AggregateCoverage extends Check
             'aggregates.latent',
             "`{$axis}.{$verb}` clusters and has no aggregate grammar, but no registered feed reads the "
             ."`{$axis}` axis — the registry declares {$reach->modes()}, and only summary() renders group "
-            .'nodes outside `repeat` and `composite`. Nothing renders wrong today, so no stub is offered; '
-            .'this becomes a real gap the moment a surface reads it, and a call site can override a '
-            .'declared mode without touching the feed.',
+            .'nodes outside `repeat` and `composite`. No stub is offered; this becomes a real gap the '
+            .'moment a surface reads it, and a call site can override a declared mode without touching '
+            .'the feed.',
             ['axis' => $axis, 'verb' => $verb, 'modes' => $reach->modes()],
         );
     }
 
     /**
      * What doctor does NOT know, said out loud. Both branches leave every pair
-     * on the plain warning: a missing answer must never downgrade a real one.
+     * on the plain error: a missing answer must never downgrade a real one.
      *
      * @return iterable<int, Finding>
      */

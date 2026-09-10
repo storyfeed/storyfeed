@@ -96,10 +96,14 @@ class Doctor
      * being closed. That is the rule Doctor already lives by one level down: a
      * check that throws becomes a finding rather than taking the run with it.
      *
-     * WARNING, not Info, and that is the whole fix. An Info leaves the build
-     * green and the vacuous pass survives with a note attached — worse than
-     * before, because now there is a line in the report that LOOKS like the
-     * system noticed. This must trip `--fail-on=warning`.
+     * ERROR, and that is the whole fix. An Info leaves the build green and
+     * the vacuous pass survives with a note attached — worse than before,
+     * because now there is a line in the report that LOOKS like the system
+     * noticed. It sits beside `doctor.check_failed` for the same reason: both
+     * report doctor's own coverage going missing, and a run that did not check
+     * looks exactly like a run that passed unless the exit code says so. It
+     * was a Warning until 2026-09-10; `--fail-on=error` is the floor a
+     * consumer adopts on day one, and a typo in `--only=` must trip it.
      *
      * The valid names are listed, the way the axis recipe error lists its known
      * tokens: a typo is most cheaply fixed by being shown the right spelling.
@@ -112,7 +116,7 @@ class Doctor
         $known = $this->names();
 
         return array_values(array_map(
-            fn (string $name) => Finding::warning(
+            fn (string $name) => Finding::error(
                 'doctor.unknown_check',
                 "No check is named `{$name}`, so `--only={$name}` ran nothing for it — a report that is "
                 .'empty because nothing ran looks exactly like a clean one. Available checks: '

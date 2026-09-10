@@ -9,7 +9,9 @@ from the first upstream issue a consumer filed. A second switch, from a doc
 that described a deletion the code had never done. And a new read-time resolver
 contract, which exists because two consumers read out every `Feedable` they had
 and one of them turned out to be returning `null` from all of them — folded into
-`Feedable` itself before this release, so the interim never ships.
+`Feedable` itself before this release, so the interim never ships. And doctor's
+severity axis, re-drawn so that `--fail-on=error` fires on a feed rendering wrong
+today — which it never did.
 
 ### Added
 
@@ -32,6 +34,51 @@ and one of them turned out to be returning `null` from all of them — folded in
   `variant` for exactly this; only the intent was missing from the ladder.
 
 ### Breaking
+
+- **`--fail-on=error` now fires on a feed that is rendering wrong today.** Every
+  doctor finding is re-classified on one question: does it describe something
+  currently wrong on a surface that exists? Until now `Error` was emitted by
+  exactly four codes — `tables.missing`, `columns.missing`,
+  `manifest.uncompilable` and `doctor.check_failed` — all structural, so the
+  gate fired only when the schema or the runner was broken. A consumer proved
+  it by unregistering an entire enum in production: exit 0. Meanwhile
+  `--fail-on=warning` fired on verbs declared and never recorded. The axis was
+  loaded *structural vs semantic*, and the thing a consumer most wants to gate
+  on — a broken sentence on a real dashboard — had no severity of its own. One
+  sat on an owner's screen for weeks.
+
+  **Nine codes move up to `Error`**, so a CI job on `--fail-on=error` that was
+  green may go red on upgrade, and that red is a surface that is wrong now:
+  `grammar.missing` (a recorded pair with no template: null headlines),
+  `roles.never_carried` (a template naming a role its rows never carry: the
+  placeholder rendered as content), `aggregates.missing` (a cluster that formed
+  with no aggregate grammar — the broken-sentence case; when reachability is
+  unknown it keeps the full severity, as before), `manifest.stale` (the cache
+  every surface renders through is serving text the source no longer says),
+  `recording.disabled` outside `testing` (the feed is frozen), `entities.unresolvable`,
+  `entities.not_model` and `entities.unfeedable` (rows on screen with no label
+  and no link), and `doctor.unknown_check` (a typo in `--only=` ran nothing, which
+  is doctor's own coverage going missing — the same shape as `check_failed`).
+
+  **One code moves down to `Info`:** `parties.unused`. A party with no activities
+  is on no surface, the same shape as a declared verb nobody has recorded; the
+  typo it hints at is read from the pair of lines, both still printed. Two
+  findings that were already `Info` lose the sentence that said so —
+  `aggregates.latent` no longer says "nothing renders wrong today" and
+  `dangling.*` no longer ends "nothing here is broken" — because the severity
+  now says it. No code is renamed, no check detects anything different, and
+  `Report::toArray()` keeps its shape; only the `severity` values move.
+
+  What stays a `Warning` is real and not yet biting, or degraded the way the
+  read path was designed to degrade: a missing icon (an absence, not a wrong
+  sentence), a row that is genuinely gone, an auth model that has not published
+  yet, an unpinned aggregate token the check cannot see forming, a verb no
+  restricted feed decided. `Info` is latent by construction.
+
+  Why: a report where the true positives are ten per cent of the output trains
+  its reader to skim, and a gate whose failure mode nobody tested is a gate
+  nobody has. `--fail-on=error` is now the line a consumer can adopt on day one
+  at zero and trust to go red for the reason they care about.
 
 - **The activity and group node key `icon` is now `glyph`.** Same value, same
   resolution (`type.verb → type.* → *.verb → *.*`), same position in the node; only

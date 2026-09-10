@@ -219,7 +219,7 @@ it('reports a check name that matches nothing, rather than running nothing quiet
     // like a clean one, and a CI gate on --only= goes green on a check that
     // never executed.
     expect($findings->pluck('code')->all())->toBe(['doctor.unknown_check'])
-        ->and($findings->first()->severity)->toBe(Severity::Warning)
+        ->and($findings->first()->severity)->toBe(Severity::Error)
         ->and($findings->first()->message)->toContain('grammar')  // lists the valid names
         ->and($findings->first()->message)->toContain('participants');
 });
@@ -233,9 +233,13 @@ it('still runs the names that DID match alongside the unknown one', function () 
         ->and($codes->filter(fn (string $code) => str_starts_with($code, 'grammar.')))->not->toBeEmpty();
 });
 
-it('fails the build under --fail-on=warning, which is the point of the finding', function () {
+it('fails the build under --fail-on=error, which is the point of the finding', function () {
     // Info severity would leave the build green and the vacuous pass alive,
-    // with a line in the report that merely LOOKS like the system noticed.
+    // with a line in the report that merely LOOKS like the system noticed —
+    // and so would a Warning, for the consumer gating on the error floor.
+    $this->artisan('storyfeed:doctor --only=grammer --fail-on=error')
+        ->assertFailed();
+
     $this->artisan('storyfeed:doctor --only=grammer --fail-on=warning')
         ->assertFailed();
 
@@ -243,7 +247,7 @@ it('fails the build under --fail-on=warning, which is the point of the finding',
         ->assertSuccessful();
 });
 
-it('warns when recording is switched off outside testing', function () {
+it('errors when recording is switched off outside testing', function () {
     config()->set('storyfeed.recording.enabled', false);
 
     app()->detectEnvironment(fn () => 'production');
@@ -251,7 +255,7 @@ it('warns when recording is switched off outside testing', function () {
     $report = Storyfeed::doctor(['recording']);
 
     expect($report->has('recording.disabled'))->toBeTrue()
-        ->and($report->withCode('recording.disabled')->first()->severity)->toBe(Severity::Warning)
+        ->and($report->withCode('recording.disabled')->first()->severity)->toBe(Severity::Error)
         ->and($report->withCode('recording.disabled')->first()->subject)
         ->toBe(['environment' => 'production', 'config' => false]);
 });

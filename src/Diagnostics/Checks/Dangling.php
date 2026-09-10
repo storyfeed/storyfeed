@@ -134,7 +134,7 @@ class Dangling extends Check
             .str('activity')->plural($dangling).' that no longer exist, trashed included. '.$consequence
             .' The usual source is a `Feedable` force-deleted before `forceDeleteFromFeed()` cleared its rows; '
             .'that path now does, so this number should not grow — if it does, some other hard-delete path is '
-            .'leaving rows behind. Nothing here is broken.',
+            .'leaving rows behind.',
             ['table' => $table, 'dangling' => $dangling],
         );
     }

@@ -15,9 +15,11 @@ use Storyfeed\StoryfeedManager;
  * check asks whether what was recorded is correct; this one asks whether
  * anything is being recorded.
  *
- * Info rather than a warning under `testing`, where muting is the documented
- * recipe — but still said out loud, because a suite whose feed assertions
- * all pass against zero rows is the vacuous pass in another coat.
+ * Error anywhere but `testing`: every surface that exists is frozen at
+ * whatever it already holds, and nothing else will say so. Info under
+ * `testing`, where muting is the documented recipe — but still said out
+ * loud, because a suite whose feed assertions all pass against zero rows is
+ * the vacuous pass in another coat.
  *
  * Honest about its reach: a runtime stopRecording() in a web request is
  * invisible to a console doctor run. What this sees is config, plus anything
@@ -55,7 +57,7 @@ class Recording extends Check
             return;
         }
 
-        yield Finding::warning(
+        yield Finding::error(
             'recording.disabled',
             "Recording is switched off in `{$environment}` (`storyfeed.recording.enabled` is false, or "
             .'something called Storyfeed::stopRecording() at boot). Every publish() is returning an unsaved '

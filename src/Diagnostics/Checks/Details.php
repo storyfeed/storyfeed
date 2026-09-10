@@ -49,8 +49,8 @@ use Storyfeed\StoryfeedManager;
  *
  * `hydration` is Info because hydrating is a legitimate choice and a report
  * that warns about a deliberate decision is the report people stop reading.
- * `entities` is Warning because every one of those rows renders without a
- * label or a link. This check does both, and the line between them is whether
+ * `entities` is Error because every one of those rows renders without a
+ * label or a link. This check does neither, and the line it draws is whether
  * a reader is being shown something wrong:
  *
  * - which forms exist, and rows with no version at all, are FACTS. A missing
@@ -61,10 +61,12 @@ use Storyfeed\StoryfeedManager;
  *   first upgrades down the wrong path and renders plausible, wrong output;
  *   the second renders nothing at all, on every page, with no error anywhere.
  *
- * NOTHING HERE IS AN ERROR, and the exit code is unchanged. `--fail-on` is the
- * operator's opt-in gate; a malformed detail is fail-open by rule 3 — the
- * activity still renders, minus a preview — and a diagnostic that turned that
- * into a failed build would contradict the rule it is checking.
+ * NOTHING HERE IS AN ERROR. A malformed detail is fail-open by rule 3 — the
+ * activity still renders, minus a preview — so what the reader sees is an
+ * absence, not a sentence that reads wrong, and a diagnostic that failed the
+ * build on it would contradict the rule it is checking. `version_ambiguous`
+ * is the closest call: the output CAN be wrong, but only if the unversioned
+ * rows were written by the newer form, and the check cannot know that.
  */
 class Details extends Check
 {
