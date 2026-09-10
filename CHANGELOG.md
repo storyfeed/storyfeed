@@ -863,6 +863,34 @@ and one of them turned out to be returning `null` from all of them — folded in
   the read path. Nine tests pin the equivalence across eight grouping-row shapes
   in both read modes.
 
+- **The summary page's group aggregate now reads a window of history, not all
+  of it.** A group ranks by the `published_at` of its newest member, and
+  `groupStream()` found that by joining every eligible activity to its winning
+  grouping row on every page — on MySQL 8.4 at 50,000 activities, about 290ms
+  of the page, and no index moved it. A cursor did not help: the cursor
+  predicate is a `HAVING` over the aggregate, so page 100 cost what page 1 cost.
+
+  The aggregate now runs over the newest 16×limit eligible activities first,
+  then 256×limit, then unbounded. The window is exact, not approximate: every
+  group whose newest member lies inside it appears with its true latest, and
+  every group that does not ranks after every group that does, so a window that
+  fills a page is a correct page. Under a cursor, groups with an eligible member
+  newer than the cursor are excluded by an antijoin, and the page's groups are
+  recounted in one bounded query. On the newsroom fixture the first window is
+  enough on every page measured.
+
+  MySQL 8.4, 50,000 activities, page size 30, median of five: page 1 goes from
+  about 510ms to about 246ms, page 100 from about 450ms to about 173ms. The
+  aggregate itself goes from 290ms to 6ms; what remains of the page is the solo
+  query's proof that nothing is uncurated (115ms at page 1), which this change
+  does not touch. No migration, no new index, no payload change. A `query()`
+  callback now runs once more per page (the window's floor probe).
+
+  `WindowedGroupStreamTest` walks whole feeds through both the windowed and the
+  unbounded aggregate — summary and live, several seeds, scope and verb filters,
+  same-instant ties, solos, soft-deleted and future-dated members, uncurated
+  fallbacks — and asserts every page identical, cursors included.
+
 - **`Date::use(CarbonImmutable::class)` made publishing impossible.** Laravel offers
   it as an application-wide setting, and an app that takes it gets `CarbonImmutable`
   back from every model date cast. `CarbonImmutable` does not extend
