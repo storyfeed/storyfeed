@@ -163,10 +163,15 @@ interface FeedDetail extends Arrayable
     /**
      * This form's name, as it is written into storage.
      *
-     * NAMESPACE IT TO THE LIBRARY that defines it — `storyfeed-ui/change`,
-     * `acme/shipment`. The name outlives every class that writes it, so it
+     * NAMESPACE IT TO THE VOCABULARY OWNER — `Storyfeed/Change`,
+     * `Acme/Shipment`. The name outlives every class that writes it, so it
      * says whose vocabulary it is, and two libraries that both wanted the word
      * "change" do not collide in a column.
+     *
+     * Use PascalCase for the owner and form, never the shipping package: a
+     * detail outlives whichever library defined it. The name is a pure lookup
+     * key; nothing reflects on it or autoloads from it. Registries match it
+     * exactly with isset(), so casing is part of the name.
      *
      * Free-form, and core never validates it against anything — the same
      * doctrine as verbs staying free-form strings in storage. A renderer that

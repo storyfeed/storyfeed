@@ -32,8 +32,8 @@ use Storyfeed\StoryfeedManager;
  *                                 the registry is the thing {@see FeedDetail}
  *                                 exists to avoid.
  *   a payload whose shape does    same wall, one level in: knowing that
- *   not match its version         version 2 of `acme/shipment` has a `carrier`
- *                                 key means knowing `acme/shipment`.
+ *   not match its version         version 2 of `Acme/Shipment` has a `carrier`
+ *                                 key means knowing `Acme/Shipment`.
  *
  * What is left is everything a reader can see WITHOUT a vocabulary: which
  * forms are in the column, and whether the two reserved keys are usable. That
