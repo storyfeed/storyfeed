@@ -11,7 +11,8 @@ contract, which exists because two consumers read out every `Feedable` they had
 and one of them turned out to be returning `null` from all of them — folded into
 `Feedable` itself before this release, so the interim never ships. And doctor's
 severity axis, re-drawn so that `--fail-on=error` fires on a feed rendering wrong
-today — which it never did.
+today — which it never did. And one payload key made plural while it still had
+no readers.
 
 ### Added
 
@@ -34,6 +35,26 @@ today — which it never did.
   `variant` for exactly this; only the intent was missing from the ladder.
 
 ### Breaking
+
+- **`media.attachment` is now `media.attachments`, a list.** Three days after
+  it landed, and before any consumer read it — both live consumers were
+  grepped — the typed non-image slot changes shape from one optional
+  `FeedResource` to an ordered list of them. `FeedMedia::make(attachments:
+  [...])`, `->attachments([...])`, and the `$attachments` property replace
+  the singular forms; the payload key is `media.attachments`, always present
+  on a media object and `[]` when the entity has only images, so every key of
+  a media object is once again present and `media: null` still answers "any
+  media" in one check. Order is the resolver's, kept end to end. On the wire
+  the property stays AS2's `attachment` — the vocabulary term is
+  non-functional, so many values are one property holding an array, and it
+  is emitted as an array even for one value so a peer parses one shape.
+  Absent when the list is empty, as before. A stray non-`FeedResource`
+  element is a `TypeError` at the call site.
+
+  Why now: AS2 treats `attachment` as one-or-many and the singular was the
+  narrower reading, a block listing four files needs four live hrefs, and
+  the payload contract freezes at v0.3. Nothing had stamped the key, so this
+  is the last day the change is a rename rather than a migration.
 
 - **`--fail-on=error` now fires on a feed that is rendering wrong today.** Every
   doctor finding is re-classified on one question: does it describe something

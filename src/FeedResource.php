@@ -5,9 +5,10 @@ namespace Storyfeed;
 use Storyfeed\Concerns\HasPayload;
 
 /**
- * A typed resource link in FeedMedia::attachment, including PDFs and archives.
- * The href is minted at read time, just like FeedImage::src. Field names
- * follow AS2 Link; the attachment owns its object type, separate from its Link.
+ * One entry in FeedMedia::attachments — a typed resource link, a PDF or an
+ * archive. The href is minted at read time, just like FeedImage::src. Field
+ * names follow AS2 Link; the attachment owns its object type, separate from
+ * its Link.
  * Core owns this payload slot, so no detail discriminator or storage version travels with it.
  */
 final readonly class FeedResource

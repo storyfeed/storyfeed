@@ -380,10 +380,16 @@ class ActivitySerializer
             Property::Icon->value => $this->link($media?->icon),
             Property::Image->value => $this->link($media?->image),
             Property::Preview->value => $this->link($media?->preview),
-            'attachment' => $media?->attachment === null ? null : [
-                'type' => $media->attachment->type,
-                Property::Url->value => $this->link($media->attachment),
-            ],
+            // `attachment` is non-functional in the vocabulary, so many
+            // values are one property holding an array (AS2 Core §4.1, and
+            // a JSON-LD object cannot repeat a key). Always an array, never
+            // a bare object for the one-item case: a peer parses one shape,
+            // and it is the shape the largest live producers emit. Order is
+            // the resolver's, kept. Absent when empty, like every other slot.
+            Property::Attachment->value => $media === null || $media->attachments === [] ? null : array_map(fn (FeedResource $resource) => [
+                'type' => $resource->type,
+                Property::Url->value => $this->link($resource),
+            ], $media->attachments),
         ], fn ($value) => $value !== null);
     }
 

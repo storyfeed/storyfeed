@@ -33,9 +33,12 @@ namespace Storyfeed;
  * `media.url` and the AS2 serializer emit `url` as a Link with `mediaType`,
  * `width` and `height`.
  *
- * Non-image resources use `attachment`: FeedResource carries AS2's href,
- * mediaType and name with a Document (or extension) object type. This slot
- * is emitted only when set; existing image slots retain their meaning.
+ * Non-image resources are `attachments`, a list: each FeedResource carries
+ * AS2's href, mediaType and name with a Document (or extension) object type,
+ * and the list keeps the order it was given. AS2's `attachment` is
+ * one-or-many, so a block listing four files gets four live hrefs, minted
+ * the way FeedImage::src is. Empty by default; the image slots retain
+ * their meaning and `url` stays image-only.
  *
  * ## Two ways to build one, both wanted
  *
@@ -50,8 +53,12 @@ namespace Storyfeed;
  */
 final class FeedMedia
 {
+    /** @var list<FeedResource> */
+    public private(set) array $attachments;
+
     /**
      * @param  array<string, mixed>  $attributes
+     * @param  iterable<FeedResource>  $attachments
      */
     public function __construct(
         public private(set) FeedImage|string|null $url = null,
@@ -61,11 +68,14 @@ final class FeedMedia
         public private(set) ?FeedImage $icon = null,
         public private(set) ?FeedImage $preview = null,
         public private(set) ?FeedImage $image = null,
-        public private(set) ?FeedResource $attachment = null,
-    ) {}
+        iterable $attachments = [],
+    ) {
+        $this->attachments = self::resources($attachments);
+    }
 
     /**
      * @param  array<string, mixed>  $attributes
+     * @param  iterable<FeedResource>  $attachments
      */
     public static function make(
         FeedImage|string|null $url = null,
@@ -75,7 +85,7 @@ final class FeedMedia
         FeedImage|string|null $icon = null,
         FeedImage|string|null $preview = null,
         FeedImage|string|null $image = null,
-        ?FeedResource $attachment = null,
+        iterable $attachments = [],
     ): self {
         return new self(
             $url,
@@ -85,7 +95,7 @@ final class FeedMedia
             $icon === null ? null : FeedImage::from($icon),
             $preview === null ? null : FeedImage::from($preview),
             $image === null ? null : FeedImage::from($image),
-            $attachment,
+            $attachments,
         );
     }
 
@@ -106,11 +116,33 @@ final class FeedMedia
         return $this;
     }
 
-    public function attachment(?FeedResource $attachment): self
+    /**
+     * Replace the attachment list. Order is kept as given: the payload and
+     * the AS2 document both emit it in this sequence.
+     *
+     * @param  iterable<FeedResource>  $attachments
+     */
+    public function attachments(iterable $attachments): self
     {
-        $this->attachment = $attachment;
+        $this->attachments = self::resources($attachments);
 
         return $this;
+    }
+
+    /**
+     * A list, whatever iterable arrived, with every element checked to be a
+     * FeedResource — the closure's parameter type makes a stray string a
+     * TypeError at the call site rather than a broken node at read time.
+     *
+     * @param  iterable<FeedResource>  $attachments
+     * @return list<FeedResource>
+     */
+    private static function resources(iterable $attachments): array
+    {
+        return array_map(
+            static fn (FeedResource $resource): FeedResource => $resource,
+            array_values(is_array($attachments) ? $attachments : iterator_to_array($attachments, false)),
+        );
     }
 
     public function icon(FeedImage|string|null $icon): self
@@ -145,34 +177,34 @@ final class FeedMedia
     }
 
     /**
-     * The image slots and optional attachment, or null when none is set.
+     * The image slots and the attachment list, or null when nothing is set.
      *
-     * Null rather than four nulls so "does this entity have media at all" is
-     * one check, the same one `url: null` answers for linkability. When it is
-     * an object every slot key is present, so a renderer that wants one slot
-     * reads it without first asking which slots exist. `url` here is the
-     * typed form only: a string url is not media and appears solely as
-     * `entity.url`.
+     * Null rather than four nulls and an empty list so "does this entity
+     * have media at all" is one check, the same one `url: null` answers for
+     * linkability. When it is an object every key is present — the four
+     * image slots as an image object or null, `attachments` as a list that
+     * may be empty — so a renderer that wants one slot reads it without
+     * first asking which slots exist. `url` here is the typed form only: a
+     * string url is not media and appears solely as `entity.url`.
      *
-     * @return array<string, array<string, mixed>|null>|null
+     * @return array{icon: array<string, mixed>|null, image: array<string, mixed>|null, preview: array<string, mixed>|null, url: array<string, mixed>|null, attachments: list<array<string, mixed>>}|null
      */
     public function media(): ?array
     {
-        $slots = [
+        $images = [
             'icon' => $this->icon,
             'image' => $this->image,
             'preview' => $this->preview,
             'url' => $this->url instanceof FeedImage ? $this->url : null,
         ];
 
-        if ($this->attachment !== null) {
-            $slots['attachment'] = $this->attachment;
-        }
-
-        if (array_filter($slots) === []) {
+        if (array_filter($images) === [] && $this->attachments === []) {
             return null;
         }
 
-        return array_map(fn (FeedImage|FeedResource|null $image) => $image?->toArray(), $slots);
+        return [
+            ...array_map(fn (?FeedImage $image) => $image?->toArray(), $images),
+            'attachments' => array_map(fn (FeedResource $resource) => $resource->toArray(), $this->attachments),
+        ];
     }
 }
