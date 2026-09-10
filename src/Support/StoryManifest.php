@@ -49,7 +49,7 @@ class StoryManifest
     }
 
     /**
-     * @return array{grammar: array<string, string>, aggregateGrammar: array<string, string>, icons: array<string, string>, verbs: array<string, mixed>}|null
+     * @return array{grammar: array<string, string>, aggregateGrammar: array<string, string>, icons: array<string, string>, glyphIntents: array<string, string>, verbs: array<string, mixed>}|null
      */
     public function read(): ?array
     {
@@ -59,11 +59,19 @@ class StoryManifest
 
         $manifest = require $this->path();
 
-        return $this->valid($manifest) ? $manifest : null;
+        if (! $this->valid($manifest)) {
+            return null;
+        }
+
+        // Written before glyph intents existed (2026-09-09): a complete
+        // description of stories that carried none, not a truncated one.
+        $manifest['glyphIntents'] ??= [];
+
+        return $manifest;
     }
 
     /**
-     * @param  array{grammar: array<string, string>, aggregateGrammar: array<string, string>, icons: array<string, string>, verbs: array<string, mixed>}  $compiled
+     * @param  array{grammar: array<string, string>, aggregateGrammar: array<string, string>, icons: array<string, string>, glyphIntents: array<string, string>, verbs: array<string, mixed>}  $compiled
      */
     public function write(array $compiled): string
     {
@@ -108,7 +116,7 @@ class StoryManifest
      * string values. The registry accepts raw strings by design — extension
      * types like 'sf:Frobnicate' must round-trip — so nothing is lost.
      *
-     * @param  array{grammar: array<string, string>, aggregateGrammar: array<string, string>, icons: array<string, string>, verbs: array<string, mixed>}  $compiled
+     * @param  array{grammar: array<string, string>, aggregateGrammar: array<string, string>, icons: array<string, string>, glyphIntents: array<string, string>, verbs: array<string, mixed>}  $compiled
      * @return array<string, array<string, string>>
      */
     protected function serializable(array $compiled): array

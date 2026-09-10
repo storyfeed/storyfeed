@@ -58,6 +58,14 @@ class StoryfeedManager
     protected array $icons = [];
 
     /**
+     * Glyph intents, keyed like icons but resolved on their own — see
+     * glyphIntents().
+     *
+     * @var array<string, string>
+     */
+    protected array $glyphIntents = [];
+
+    /**
      * @var array<string, string|FeedNoun> plural forms keyed 'type' or 'type.verb'
      */
     protected array $nouns = [];
@@ -170,7 +178,7 @@ class StoryfeedManager
     /**
      * The compiled output, cached in memory (or seeded from a manifest).
      *
-     * @var array{grammar: array<string, string>, aggregateGrammar: array<string, string>, icons: array<string, string>, verbs: array<string, mixed>}|null
+     * @var array{grammar: array<string, string>, aggregateGrammar: array<string, string>, icons: array<string, string>, glyphIntents: array<string, string>, verbs: array<string, mixed>}|null
      */
     protected ?array $compiled = null;
 
@@ -178,7 +186,7 @@ class StoryfeedManager
      * What the last compile merged into the registries, so a recompile can
      * withdraw it first (see retractApplied()).
      *
-     * @var array{grammar: array<string, string>, aggregateGrammar: array<string, string>, icons: array<string, string>, verbs: array<string, mixed>}|null
+     * @var array{grammar: array<string, string>, aggregateGrammar: array<string, string>, icons: array<string, string>, glyphIntents: array<string, string>, verbs: array<string, mixed>}|null
      */
     protected ?array $applied = null;
 
@@ -858,6 +866,7 @@ class StoryfeedManager
         $this->grammar = [...$compiled['grammar'], ...$this->grammar];
         $this->aggregateGrammar = [...$compiled['aggregateGrammar'], ...$this->aggregateGrammar];
         $this->icons = [...$compiled['icons'], ...$this->icons];
+        $this->glyphIntents = [...$compiled['glyphIntents'], ...$this->glyphIntents];
         $this->verbs = [...$compiled['verbs'], ...$this->verbs];
 
         foreach (array_keys($compiled['verbs']) as $verb) {
@@ -884,7 +893,7 @@ class StoryfeedManager
             return;
         }
 
-        foreach (['grammar', 'aggregateGrammar', 'icons', 'verbs'] as $registry) {
+        foreach (['grammar', 'aggregateGrammar', 'icons', 'glyphIntents', 'verbs'] as $registry) {
             foreach ($this->applied[$registry] as $key => $value) {
                 if (($this->{$registry}[$key] ?? null) === $value) {
                     unset($this->{$registry}[$key]);
@@ -920,7 +929,7 @@ class StoryfeedManager
      * The compiled arrays — closure-free by construction, so a manifest can
      * var_export them.
      *
-     * @return array{grammar: array<string, string>, aggregateGrammar: array<string, string>, icons: array<string, string>, verbs: array<string, mixed>}
+     * @return array{grammar: array<string, string>, aggregateGrammar: array<string, string>, icons: array<string, string>, glyphIntents: array<string, string>, verbs: array<string, mixed>}
      */
     public function compiledStories(): array
     {
@@ -930,10 +939,18 @@ class StoryfeedManager
     /**
      * Seed the compiled arrays from a cached manifest, skipping compilation.
      *
-     * @param  array{grammar: array<string, string>, aggregateGrammar: array<string, string>, icons: array<string, string>, verbs: array<string, mixed>}  $compiled
+     * A manifest written before glyph intents existed (2026-09-09) has no
+     * `glyphIntents` array. It is still a complete description of what those
+     * stories compiled to — none of them carried an intent — so it is read as
+     * an empty registry rather than rejected. ManifestStale still reports the
+     * drift once a story gains one.
+     *
+     * @param  array{grammar: array<string, string>, aggregateGrammar: array<string, string>, icons: array<string, string>, glyphIntents?: array<string, string>, verbs: array<string, mixed>}  $compiled
      */
     public function useCompiledStories(array $compiled): static
     {
+        $compiled['glyphIntents'] ??= [];
+
         $this->compiled = $compiled;
         $this->storiesCompiled = false;
 
@@ -1228,6 +1245,31 @@ class StoryfeedManager
     }
 
     /**
+     * Register glyph intents, keyed like icons ("type.verb", wildcards
+     * allowed) and resolved on the same ladder — but in a registry of their
+     * own, so an app says `'*.finalize' => 'success'` ONCE and it holds for
+     * every finalize whose token is registered per type. Folded into the icon
+     * value, the more specific token entry would shadow the wildcard intent
+     * and the intent would have to be repeated at every rung.
+     *
+     * The value is a free-form app-owned string, the same posture as the
+     * token and as verbs: core ships no vocabulary of intents and no colours.
+     * A renderer maps whatever the app chose onto its own palette; unknown
+     * intents are passed through, never dropped. See docs/payload.md,
+     * `glyph_intent`.
+     *
+     * @param  array<array-key, string>  $intents
+     */
+    public function glyphIntents(array $intents, bool $merge = true): static
+    {
+        $this->assertKeyed($intents, 'glyphIntents', '*.finalize', 'success');
+
+        $this->glyphIntents = $merge ? [...$this->glyphIntents, ...$intents] : $intents;
+
+        return $this;
+    }
+
+    /**
      * Register verb → AS2.0 activity type mappings.
      *
      * Accepts either a map, or the class-string of a backed enum
@@ -1393,6 +1435,18 @@ class StoryfeedManager
     }
 
     /**
+     * Resolve the glyph intent for an object type + verb (same order as
+     * the icon, independently of it). Null for every pair no intent was
+     * registered for — which is every app that has not opted in.
+     */
+    public function glyphIntent(?string $type, string $verb): ?string
+    {
+        $this->ensureStoriesCompiled();
+
+        return $this->resolve($this->glyphIntents, $type, $verb);
+    }
+
+    /**
      * The AS2.0 activity type for a verb: an enum when known, a raw string
      * for extension types, null when unmapped.
      */
@@ -1459,6 +1513,14 @@ class StoryfeedManager
         $this->ensureStoriesCompiled();
 
         return $this->icons;
+    }
+
+    /** @return array<string, string> */
+    public function registeredGlyphIntents(): array
+    {
+        $this->ensureStoriesCompiled();
+
+        return $this->glyphIntents;
     }
 
     /** @return array<string, ActivityType|string> */
@@ -1631,6 +1693,13 @@ class StoryfeedManager
         $this->ensureStoriesCompiled();
 
         return $this->resolveKey($this->icons, $type, $verb);
+    }
+
+    public function glyphIntentKey(?string $type, string $verb): ?string
+    {
+        $this->ensureStoriesCompiled();
+
+        return $this->resolveKey($this->glyphIntents, $type, $verb);
     }
 
     public function aggregateTemplateKey(?string $axis, string $verb): ?string
