@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Query\Builder as QueryBuilder;
 use Storyfeed\Actions\SyncParticipants;
 use Storyfeed\Support\ActivityRoles;
+use Storyfeed\Support\Chronology;
 
 /**
  * @template TModel of \Storyfeed\Models\Activity
@@ -22,8 +23,11 @@ class ActivityBuilder extends Builder
      */
     public function published(?DateTimeInterface $now = null): static
     {
+        // Bound through the column's own format: a bare Carbon would be
+        // formatted by the grammar at whole seconds and hide a row published
+        // `.400000` into the current second until the second turned over.
         $this->whereNotNull('published_at')
-            ->where('published_at', '<=', $now ?? now());
+            ->where('published_at', '<=', Chronology::stamp($now ?? now()));
 
         return $this;
     }
@@ -150,8 +154,8 @@ class ActivityBuilder extends Builder
     public function thisWeek(): static
     {
         $this->whereBetween('published_at', [
-            now()->startOfWeek(),
-            now()->endOfWeek(),
+            Chronology::stamp(now()->startOfWeek()),
+            Chronology::stamp(now()->endOfWeek()),
         ]);
 
         return $this;

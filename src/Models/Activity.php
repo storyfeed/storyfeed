@@ -14,6 +14,7 @@ use Storyfeed\Events\ActivityDeleted;
 use Storyfeed\Events\Snapshots\ActivitySnapshot;
 use Storyfeed\Models\Builders\ActivityBuilder;
 use Storyfeed\StoryfeedManager;
+use Storyfeed\Support\Chronology;
 
 /**
  * A recorded activity: actor + verb + object, optionally aimed at a target
@@ -63,6 +64,15 @@ class Activity extends Model
     use SoftDeletes;
 
     protected $guarded = [];
+
+    /**
+     * Microseconds on every date column, so `published_at` carries the
+     * chronology the column was widened to hold. Applies to created_at,
+     * updated_at and deleted_at too — a model has one format — which is why
+     * the create stub and the upgrade migration widen all four together.
+     * See Support\Chronology.
+     */
+    protected $dateFormat = Chronology::FORMAT;
 
     private bool $skipDefaultActor = false;
 

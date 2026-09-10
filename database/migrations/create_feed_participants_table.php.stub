@@ -18,8 +18,10 @@ return new class extends Migration
             $table->string('entity_type');
             $table->string('entity_id');
             // Denormalized so `involving()` orders and pages from this index
-            // alone, without reaching into the activities table to sort.
-            $table->timestamp('published_at')->nullable();
+            // alone, without reaching into the activities table to sort — so
+            // it carries the activity's precision, or the copy would order
+            // ties differently from its source.
+            $table->timestamp('published_at', 6)->nullable();
             $table->timestamps();
 
             $table->unique(['activity_id', 'role']);

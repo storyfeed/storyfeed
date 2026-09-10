@@ -3,6 +3,7 @@
 namespace Storyfeed\Tests;
 
 use Illuminate\Database\Eloquent\Relations\Relation;
+use Illuminate\Support\Facades\Schema;
 use Orchestra\Testbench\TestCase as Orchestra;
 use Storyfeed\StoryfeedServiceProvider;
 use Workbench\App\Models\Courier;
@@ -46,6 +47,35 @@ class TestCase extends Orchestra
     {
         config()->set('database.default', 'testing');
 
+        // The suite runs on SQLite by default. To run it against a real
+        // engine — the read path has MySQL- and PostgreSQL-specific
+        // behaviour that SQLite cannot show, timestamp precision being one —
+        // point it at one:
+        //
+        //   STORYFEED_TEST_DB=mysql STORYFEED_TEST_PORT=3306 \
+        //   STORYFEED_TEST_DATABASE=storyfeed_test STORYFEED_TEST_USERNAME=root \
+        //   STORYFEED_TEST_PASSWORD=secret vendor/bin/pest
+        //
+        // Every test then drops and recreates the schema (see
+        // defineDatabaseMigrations), so give it a database of its own.
+        if (($driver = env('STORYFEED_TEST_DB')) !== null) {
+            config()->set('database.connections.testing', [
+                'driver' => $driver,
+                'host' => env('STORYFEED_TEST_HOST', '127.0.0.1'),
+                'port' => env('STORYFEED_TEST_PORT', $driver === 'pgsql' ? 5432 : 3306),
+                'database' => env('STORYFEED_TEST_DATABASE', 'storyfeed_test'),
+                'username' => env('STORYFEED_TEST_USERNAME', $driver === 'pgsql' ? 'postgres' : 'root'),
+                'password' => env('STORYFEED_TEST_PASSWORD', ''),
+                'charset' => $driver === 'pgsql' ? 'utf8' : 'utf8mb4',
+                'collation' => $driver === 'pgsql' ? null : 'utf8mb4_unicode_ci',
+                'prefix' => '',
+                'prefix_indexes' => true,
+                'strict' => true,
+                'search_path' => 'public',
+                'sslmode' => 'prefer',
+            ]);
+        }
+
         // Free-form verbs are a guarantee of the package; the suite exercises
         // them deliberately. StrictVerbTest opts in explicitly.
         config()->set('storyfeed.verbs.strict', false);
@@ -74,6 +104,11 @@ class TestCase extends Orchestra
     {
         // Published migrations are timestamped in order; the stubs are not,
         // so create_* stubs must run before any alter-style stub.
+        // A real engine keeps its tables between tests; SQLite's :memory: does not.
+        if (Schema::getConnection()->getDriverName() !== 'sqlite') {
+            Schema::dropAllTables();
+        }
+
         $stubs = glob(__DIR__.'/../database/migrations/*.stub');
 
         usort($stubs, fn ($a, $b) => str_starts_with(basename($b), 'create_') <=> str_starts_with(basename($a), 'create_'));

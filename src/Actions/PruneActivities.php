@@ -3,6 +3,7 @@
 namespace Storyfeed\Actions;
 
 use Storyfeed\Models\Activity;
+use Storyfeed\Support\Chronology;
 
 /**
  * Retire activities older than the configured retention window. Strictly
@@ -44,7 +45,7 @@ class PruneActivities
         while (true) {
             $ids = $activity::query()
                 ->withTrashed()
-                ->where('published_at', '<', $cutoff)
+                ->where('published_at', '<', Chronology::stamp($cutoff))
                 ->limit(500)
                 ->pluck('id');
 

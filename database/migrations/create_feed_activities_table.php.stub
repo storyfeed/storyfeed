@@ -21,9 +21,13 @@ return new class extends Migration
             $table->foreignId('cached_target_id')->nullable()->index();
             $table->foreignId('cached_context_id')->nullable()->index();
             $table->json('data')->nullable();
-            $table->timestamp('published_at')->nullable();
-            $table->timestamps();
-            $table->softDeletes();
+            // Microseconds, or two activities published milliseconds apart
+            // are tied in storage and the tiebreak decides their order. The
+            // model's $dateFormat is what fills the extra width; all four
+            // date columns share it, so all four are widened together.
+            $table->timestamp('published_at', 6)->nullable();
+            $table->timestamps(6);
+            $table->softDeletes('deleted_at', 6);
 
             $table->index(['published_at', 'id']);
             $table->index(['actor_type', 'actor_id', 'published_at', 'id'], 'feed_activities_actor_published_index');

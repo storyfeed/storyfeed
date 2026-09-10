@@ -25,6 +25,7 @@ use Storyfeed\Payload\FeedPage;
 use Storyfeed\Payload\GroupSlice;
 use Storyfeed\Payload\NodePresenter;
 use Storyfeed\Support\ActivityRoles;
+use Storyfeed\Support\Chronology;
 use Storyfeed\Support\SyncToken;
 use Storyfeed\Support\VerbFilter;
 
@@ -698,7 +699,16 @@ class FeedBuilder
         $activities = $this->activityModel()->getTable();
         $groupings = $this->groupingModel()->getTable();
 
-        $paginator = $this->filteredActivities($now)
+        $cursor = $this->logCursorState($activities);
+
+        // The same keyset predicate `cursorPaginate()` would build, applied by
+        // hand: the paginator stringifies a Carbon parameter through
+        // `__toString()`, which is whole seconds, so a cursor minted from a row
+        // at `.400000` would point at `.000000` and the next page would skip or
+        // repeat every row in between. The parameter names are the ones the
+        // paginator used, so a cursor minted before this method existed still
+        // decodes and still lands where it was minted.
+        $rows = $this->filteredActivities($now)
             // Flat is the atomic timeline: composite MEMBERS appear, the
             // object-less parent STORY does not (its self-row marks it).
             ->whereNotExists(fn (QueryBuilder $sub) => $sub
@@ -707,15 +717,59 @@ class FeedBuilder
                 ->whereColumn("{$groupings}.activity_id", "{$activities}.id")
                 ->where("{$groupings}.bucket", 'composite')
                 ->whereColumn("{$groupings}.hash", "{$activities}.uid"))
+            ->when($cursor !== null, fn (ActivityBuilder $q) => $q->where(fn (ActivityBuilder $after) => $after
+                ->where("{$activities}.published_at", '<', $cursor['published_at'])
+                ->orWhere(fn (ActivityBuilder $tie) => $tie
+                    ->where("{$activities}.published_at", '=', $cursor['published_at'])
+                    ->where("{$activities}.id", '<', $cursor['id']))))
             ->with(ActivityRoles::cachedRelations())
             ->orderBy("{$activities}.published_at", 'desc')
             ->orderBy("{$activities}.id", 'desc')
-            ->cursorPaginate(perPage: $this->limit, cursor: $this->decodedCursor());
+            ->limit($this->limit + 1)
+            ->get();
 
-        $slices = Collection::make($paginator->items())
-            ->map(fn (Activity $activity) => GroupSlice::solo($activity));
+        $more = $rows->count() > $this->limit;
+        $page = $rows->take($this->limit);
 
-        return new FeedPage($slices, $paginator->nextCursor()?->encode(), $this->presenter(), SyncToken::current());
+        $slices = $page->map(fn (Activity $activity) => GroupSlice::solo($activity));
+
+        /** @var Activity|null $last */
+        $last = $page->last();
+
+        $next = $more && $last !== null
+            ? (new Cursor([
+                "{$activities}.published_at" => $this->normalizeTimestamp($last->published_at),
+                "{$activities}.id" => $last->getKey(),
+            ]))->encode()
+            : null;
+
+        return new FeedPage(Collection::make($slices->all()), $next, $this->presenter(), SyncToken::current());
+    }
+
+    /**
+     * The flat timeline's cursor: the keyset `cursorPaginate()` minted, read
+     * back under the same names. Not contract — see cursorState().
+     *
+     * @return array{published_at: string, id: int|string}|null
+     */
+    protected function logCursorState(string $activities): ?array
+    {
+        $cursor = $this->decodedCursor();
+
+        if ($cursor === null) {
+            return null;
+        }
+
+        $parameters = $cursor->toArray();
+
+        if (! isset($parameters["{$activities}.published_at"], $parameters["{$activities}.id"])) {
+            return null;
+        }
+
+        return [
+            'published_at' => $this->normalizeTimestamp($parameters["{$activities}.published_at"]),
+            'id' => $parameters["{$activities}.id"],
+        ];
     }
 
     /**
@@ -744,6 +798,12 @@ class FeedBuilder
      * `actors` group and the `repeat` group swap places — while making no
      * page more correct. A tiebreak that carries no meaning should not be
      * churned for symmetry with one that does.
+     *
+     * Since timestamps carry microseconds (W123, 2026-09-10) a tie is a
+     * genuinely simultaneous pair — or a bulk import that stamped one instant
+     * across a batch — rather than anything published in the same second.
+     * The tiebreak still has to be total and still has to agree with its own
+     * cursor predicate; it just decides far less often.
      *
      * @return Collection<int, FeedCandidate>
      */
@@ -1405,8 +1465,12 @@ class FeedBuilder
             return null;
         }
 
+        // Normalized on the way in as well as out: a cursor minted before
+        // timestamps carried microseconds says `12:00:00`, and the row it was
+        // minted from now says `12:00:00.000000`. Same instant; SQLite compares
+        // the text and would not agree.
         return [
-            'latest' => (string) $parameters['latest'],
+            'latest' => $this->normalizeTimestamp($parameters['latest']),
             'rank' => (int) $parameters['rank'],
             'axis' => $parameters['axis'] ?? null,
             'hash' => $parameters['hash'] ?? null,
@@ -1436,12 +1500,11 @@ class FeedBuilder
      */
     protected function normalizeTimestamp(mixed $value): string
     {
-        if ($value === null) {
+        if ($value === null || $value === '') {
             return '';
         }
 
-        return ($value instanceof CarbonInterface ? $value : Carbon::parse((string) $value))
-            ->format('Y-m-d H:i:s');
+        return Chronology::stamp($value instanceof CarbonInterface ? $value : (string) $value);
     }
 
     protected function decodedCursor(): ?Cursor
