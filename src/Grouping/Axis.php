@@ -294,6 +294,30 @@ class Axis
         return $field !== null && ($this->fields & $field->value) !== 0;
     }
 
+    /**
+     * Does this axis's recipe pin the VERB?
+     *
+     * The one field with a consequence outside the key: aggregate grammar is
+     * keyed `axis.verb`, so an axis that leaves `v` out of its recipe can be
+     * served honestly only by a verb-agnostic template. Separate from
+     * `pinsType()` because the verb is not a role and has no identity pair —
+     * one bit is the whole answer.
+     *
+     * Null means the question is not derivable, and callers must treat it as
+     * unknown rather than as "does not pin": a closure recipe assembles the key
+     * in PHP, and `pins()` declares whole tokens rather than the mask, so an
+     * author who never considered `:verb` cannot be told apart from one who
+     * ruled it out. Row-backed buckets have no recipe at all.
+     */
+    public function pinsVerb(): ?bool
+    {
+        if ($this->custom !== null || $this->rowBacked) {
+            return null;
+        }
+
+        return ($this->fields & Field::Verb->value) !== 0;
+    }
+
     protected function assemble(Activity $activity): ?string
     {
         if ($this->custom !== null) {
