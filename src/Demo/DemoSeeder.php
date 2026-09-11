@@ -4,7 +4,6 @@ namespace Storyfeed\Demo;
 
 use Storyfeed\Actions\SyncParticipants;
 use Storyfeed\Facades\Storyfeed;
-use Storyfeed\Healing\Removals;
 use Storyfeed\Models\Activity;
 use Storyfeed\Models\Grouping;
 use Storyfeed\Models\Party;
@@ -133,7 +132,6 @@ class DemoSeeder
 
         // Fresh means no trace: the kit's force-delete records no removal
         // evidence, and evidence from demo rows deleted during play goes too.
-        Removals::query()->where('verb', 'like', Vocabulary::PREFIX.'%')->delete();
 
         $parties = $partyModel::query()->where('key', 'like', 'demo-%')->delete();
 

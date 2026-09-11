@@ -3,7 +3,6 @@
 namespace Storyfeed\Concerns;
 
 use Storyfeed\Actions\ForgetActivities;
-use Storyfeed\Actions\RecordRemovals;
 use Storyfeed\Actions\SnapshotEntity;
 use Storyfeed\FeedBuilder;
 use Storyfeed\FeedContext;
@@ -164,15 +163,17 @@ trait InteractsWithFeed
     /**
      * Soft-delete every activity involving this model.
      *
-     * Chunked like its force-deleting sibling, and for the same two reasons:
-     * each chunk records the story keys it empties (`Actions\RecordRemovals`)
-     * before the bulk `delete()`, which fires no model events; and the live
-     * scope excludes what the last pass soft-deleted, so the loop converges.
+     * Chunked because the live scope excludes what the last pass soft-deleted,
+     * so the loop converges without a running exclusion list.
+     *
+     * It used to record removal evidence per chunk as well — the bulk
+     * `delete()` fires no model events, so nothing downstream heard the rows
+     * go. That evidence is gone: it answered a question the package never
+     * asked, for a healer whose contract says it "never infers missing
+     * stories", and an app that needs it can keep its own record.
      */
     public function deleteFromFeed(): void
     {
-        $record = new RecordRemovals;
-
         while (true) {
             $ids = $this->newFeedActivityQuery()
                 ->involving($this)
@@ -184,9 +185,7 @@ trait InteractsWithFeed
                 break;
             }
 
-            $record->around($ids, function () use ($ids) {
-                $this->newFeedActivityQuery()->whereKey($ids)->delete();
-            });
+            $this->newFeedActivityQuery()->whereKey($ids)->delete();
         }
     }
 
@@ -214,14 +213,16 @@ trait InteractsWithFeed
      * each pass forgets the rows it deletes, so the next pass sees only what
      * is left and the loop converges without a running exclusion list.
      *
-     * Each chunk runs in a transaction that records the story keys it empties
-     * (`Actions\RecordRemovals`) — the durable removal evidence the bulk
-     * `forceDelete()` would otherwise be the last trace of.
+     * EACH CHUNK IS ONE TRANSACTION, and that is the half of this that matters:
+     * `$forget` clears the grouping and participant rows and the `forceDelete`
+     * removes the activities, and a failure between them would leave one
+     * without the other. The transaction used to come from the removal
+     * recorder that wrapped both; the recorder is gone and the transaction
+     * is not.
      */
     public function forceDeleteFromFeed(): void
     {
         $forget = new ForgetActivities;
-        $record = new RecordRemovals;
 
         while (true) {
             $ids = $this->newFeedActivityQuery()
@@ -235,7 +236,7 @@ trait InteractsWithFeed
                 break;
             }
 
-            $record->around($ids, function () use ($forget, $ids) {
+            $this->newFeedActivityQuery()->getConnection()->transaction(function () use ($forget, $ids) {
                 $forget(...$ids);
 
                 $this->newFeedActivityQuery()->withTrashed()->whereKey($ids)->forceDelete();

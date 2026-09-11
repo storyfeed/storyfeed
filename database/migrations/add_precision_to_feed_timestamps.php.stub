@@ -17,8 +17,6 @@ use Illuminate\Support\Facades\Schema;
  *  - activities: published_at, created_at, updated_at, deleted_at. One model,
  *    one date format, so all four widen together or the other three truncate.
  *  - participants: published_at, a denormalized copy of the activity's.
- *  - removals: published_at and removed_at, both written from the model's
- *    format; a narrower column would ROUND `.7` up to the next second on MySQL.
  *
  * Batches, snapshots, groupings, parties and meta are deliberately left
  * alone: nothing orders or pages by their timestamps, and each is written by
@@ -51,10 +49,6 @@ return new class extends Migration
             ],
             config('storyfeed.tables.participants', 'feed_participants') => [
                 'published_at' => true,
-            ],
-            config('storyfeed.tables.removals', 'feed_removals') => [
-                'published_at' => true,
-                'removed_at' => false,
             ],
         ];
     }

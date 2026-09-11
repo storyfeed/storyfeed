@@ -2,6 +2,35 @@
 
 ## Unreleased
 
+### Removed
+
+- **Removal evidence is gone** — `feed_removals`, `Healing\Removals`,
+  `Healing\Removal`, `Actions\RecordRemovals`, the `removals:pruned_before`
+  watermark, and the `tables.removals` config key.
+
+  It recorded, per story key, that the last live story on that key had been
+  deliberately removed — so that something could later tell *removed on purpose*
+  from *never recorded*. Every deletion path wrote it faithfully. **Nothing in
+  this package ever read it.** The only callers of `Removals::removed()` were
+  four assertions in its own test.
+
+  The reader it was built for cannot use it: `Contracts\FeedHealer` says in its
+  own docblock that it *"never infers missing stories"*, so a healer cannot
+  re-derive a removed story and needs no evidence not to. And it appeared in no
+  documentation, in either doc set, so the one legitimate consumer — an app's
+  idempotent republishing job — could not have found it.
+
+  It was also about to become rarer still: with an entity tombstone, deleting a
+  `Feedable` no longer cascade-deletes its stories, which removed its highest
+  volume writer.
+
+  **Not core's responsibility at this stage.** An app that needs to know what it
+  removed can keep that record where it also knows why.
+
+  `forceDeleteFromFeed()` keeps its per-chunk transaction, which the removal
+  recorder happened to be providing — `ForgetActivities` clearing grouping and
+  participant rows and the `forceDelete` that follows it must still be atomic.
+
 ### Added
 
 - **`php artisan optimize` now compiles recent snapshots.** `toFeed()` output is

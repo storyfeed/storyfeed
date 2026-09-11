@@ -9,7 +9,6 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Carbon;
-use Storyfeed\Actions\RecordRemovals;
 use Storyfeed\Events\ActivityDeleted;
 use Storyfeed\Events\Snapshots\ActivitySnapshot;
 use Storyfeed\Models\Builders\ActivityBuilder;
@@ -81,8 +80,6 @@ class Activity extends Model
      * where a soft delete has already synced deleted_at into the originals
      * and a force delete never touches it, so neither can tell after the fact.
      */
-    private bool $liveBeforeDelete = false;
-
     protected function casts(): array
     {
         return [
@@ -122,18 +119,7 @@ class Activity extends Model
             }
         });
 
-        static::deleting(function (self $activity) {
-            $activity->liveBeforeDelete = $activity->deleted_at === null;
-        });
-
         static::deleted(function (self $activity) {
-            // Removal evidence, written per key (Healing\Removals). A live row
-            // leaving is a removal; purging a row that was already soft-deleted
-            // is not — that removal, if it was one, was recorded when it left.
-            if ($activity->liveBeforeDelete) {
-                (new RecordRemovals)->recordFor($activity);
-            }
-
             ActivityDeleted::dispatch(ActivitySnapshot::fromModel($activity));
         });
     }
