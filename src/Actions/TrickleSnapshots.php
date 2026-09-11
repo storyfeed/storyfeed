@@ -182,9 +182,29 @@ class TrickleSnapshots
      * re-snapshotted row agrees with its own model by construction. That is
      * the whole fix, and it costs one resolve per candidate.
      *
-     * Candidates are taken oldest-first so the walk rotates. Rows that differ
-     * from the sample but agree with themselves are re-examined eventually
-     * rather than repeatedly, and cannot starve a row that is genuinely stale.
+     * NEWEST FIRST, and there is never a good reason for the other way. Picture
+     * a feed with ten years of stories in it: oldest-first spends weeks
+     * repairing 2016 while today stays wrong. The rows a reader loads are the
+     * top of the feed and the pages just behind it, so the healing should walk
+     * in the same direction they read. `php artisan optimize` compiles the
+     * newest window at deploy; this continues from where that stopped, in the
+     * same direction.
+     *
+     * `updated_at` is the axis because it is the one a snapshot carries, and it
+     * is a fair proxy: publishing re-snapshots the entity it touches, so an
+     * entity named by a recent activity has a recent `updated_at`. It is a
+     * proxy and not the feed's own order, which would need a join per row.
+     *
+     * AND ORDERING IS NOT WHAT STOPS STARVATION -- an earlier version of this
+     * comment claimed it was, and was wrong. A candidate that agrees with
+     * itself is skipped without a write, so its `updated_at` does not move and
+     * it is selected again on the next run whichever way the walk runs. The
+     * budget can be spent entirely on rows nobody will ever rewrite.
+     *
+     * That hole is real, predates this ordering, and is not closed by choosing
+     * a direction. It needs a mark saying a row has been verified -- the
+     * deploy frontier is where that belongs, and until it exists the guard is
+     * the budget itself.
      */
     protected function convergeShapes(int $budget): int
     {
@@ -221,7 +241,7 @@ class TrickleSnapshots
             $candidates = $snapshot::query()
                 ->where('model_type', $type)
                 ->where(fn ($q) => $q->whereNull('shape')->orWhere('shape', '!=', $current))
-                ->oldest('updated_at')
+                ->latest('updated_at')
                 ->limit($budget)
                 ->get();
 

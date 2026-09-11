@@ -15,10 +15,10 @@
   So a deploy compiles them, the way a deploy compiles assets. `storyfeed:rebuild
   --recent=N` is bounded by **activities scanned rather than entities found** —
   "the last thousand activities" is a number an operator can reason about, and
-  the entities behind it are however many they are. It runs newest-first, which
-  is the opposite of the trickle's order on purpose: the trickle rotates
-  oldest-first so nothing starves, and a deploy fixes what somebody is about to
-  look at. The tail is the trickle's.
+  the entities behind it are however many they are. It runs newest-first, and so does the
+  trickle now: a deploy fixes what somebody is about to look at, and the tail
+  continues from where it stopped in the same direction. On a feed with ten
+  years of stories in it, the other order repairs 2016 while today stays wrong.
 
   **The majority case is a no-op** — most deploys change no `toFeed()`, nothing
   is rewritten, and nothing is printed. When it does speak there is a reason.

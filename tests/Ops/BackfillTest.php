@@ -325,9 +325,10 @@ it('compiles the newest activities first, and bounds the pass by how many it sca
      * reason about "the last N activities" and cannot reason about how many
      * entities happen to be behind them.
      *
-     * NEWEST FIRST, which is the opposite of the trickle's order on purpose:
-     * the trickle rotates oldest-first so nothing starves, and a deploy fixes
-     * what somebody is about to look at.
+     * NEWEST FIRST, which is the direction everything heals in: a deploy fixes
+     * what somebody is about to look at, and the trickle continues from where
+     * it stopped the same way. On a feed with ten years of stories in it, the
+     * other order repairs 2016 while today stays wrong.
      */
     $old = Delivery::create(['tracking_number' => 'TN-OLD']);
     $new = Delivery::create(['tracking_number' => 'TN-NEW']);
