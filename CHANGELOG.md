@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.10.0 — The slot that was read as an instruction (2026-09-10)
 
 Two doctor checks, both from the same discovery: a check can be entirely right
 about the database and still wrong about what the reader will do next — and a
@@ -14,9 +14,13 @@ severity axis, re-drawn so that `--fail-on=error` fires on a feed rendering wron
 today — which it never did. And a fourth check that reads no rows at all: a
 grouping recipe that omits the verb is told at boot that it has opted out of
 aggregate grammar, rather than weeks later by a group rendering a bare count.
+And one payload key made plural while it still had no readers.
 
-today — which it never did. And one payload key made plural while it still had
-no readers.
+And a name taken back: `FeedLink` was deleted with the older `toFeedLink()`
+contract on 2026-09-05 because it had stopped being a link — it had grown a
+label and a modal flag. It returns as a label and an optional href and nothing
+else, so that a stored detail can say "my title is a way in" without a consumer
+reaching into a renderer's markup to add one.
 
 ### Added
 
@@ -83,6 +87,31 @@ no readers.
   a feed whose verbs cluster renders a column of identical discs — and that gets
   filed as the renderer being broken. The pre-package implementation carried a
   `variant` for exactly this; only the intent was missing from the ladder.
+
+- **`FeedLink` — a label, and where a tap on it goes** (additive). A value
+  object with two fields, `label` and an optional `href`. A null href means
+  "the entity this belongs to", resolved at read time against `entity.url`,
+  so the common case stores no location at all — the same rule that keeps a
+  `src` out of a snapshot, applied to a route. An explicit href is the escape
+  hatch for a target the entity's own resolver cannot know; it is stored and
+  it ages, and that is the consumer choosing it knowingly. `FeedLink::from()`
+  refuses to coerce a plain string, so a field widened to `string|FeedLink`
+  cannot turn titles written before the widening into links.
+
+  Why: a consumer needed a way into the thing a row was about, had only a
+  renderer's view file to express it in, and every registered form gets detail
+  chrome — so three rows in one viewport each grew a bordered card containing
+  the words "Open the conversation", heavier than the words they were a way
+  into. The defect was not the chrome; it was that the vocabulary could not
+  say "this title is a way in".
+
+  The name is a reuse. The previous `FeedLink` was removed on 2026-09-05
+  because it "stopped being a link once it grew a label and a modal flag" —
+  it died of scope creep, and the name is taken back for what it always meant.
+  Nothing ever stored one, so there is no repeat of the detail vocabulary fork
+  where two same-named classes held different shapes in rows already written.
+  The class carries the tripwire: the day a modal flag, an icon or a target
+  attribute is proposed for it, the name is wrong again.
 
 ### Breaking
 
