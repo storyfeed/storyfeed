@@ -5,6 +5,7 @@ use PHPUnit\Framework\AssertionFailedError;
 use Storyfeed\Facades\Storyfeed;
 use Storyfeed\Grouping\Group;
 use Storyfeed\StoryDefinition;
+use Storyfeed\StoryfeedManager;
 use Storyfeed\Testing\GrammarCoverage;
 use Storyfeed\Testing\StorySurface;
 use Workbench\App\Models\Courier;
@@ -234,4 +235,43 @@ it('accepts deliberately absent surface via $except', function () {
     Storyfeed::activity('confirm', Delivery::create(['tracking_number' => 'TN-1']))->publish();
 
     StorySurface::assertNoUnwiredSurface(except: [User::class, Customer::class, Courier::class]);
+});
+
+it('names the aliases it compared against, so a stale morph alias is visible without SQL', function () {
+    /*
+     * THE FINDING OFFERS A FORK AND USED TO WITHHOLD WHAT DECIDES IT — "either
+     * something should be publishing about it and nothing does, or the contract
+     * is left over from something removed". Resolving that needs the aliases
+     * that ARE recorded, which this check already computed in order to say the
+     * missing one is not among them.
+     *
+     * Withholding them sent a consumer to hand-roll a query against an internal
+     * table name they had to go and read in vendor/. They got the name wrong —
+     * `activities` rather than `feed_activities` — and spent a production
+     * command finding out.
+     *
+     * The commonest cause is the one this makes obvious at a glance: a stored
+     * alias that is not the alias the model reports today, because the rows
+     * predate a morph-map entry.
+     */
+    Storyfeed::grammar(['delivery.confirm' => ':actor confirmed :object']);
+    Storyfeed::activity('confirm', Delivery::create(['tracking_number' => 'TN-1']))->publish();
+
+    $findings = [];
+
+    foreach (app(StoryfeedManager::class)->doctor(['surface'])->withCode('surface.unwired') as $finding) {
+        $findings[] = $finding;
+    }
+
+    expect($findings)->not->toBeEmpty();
+
+    $finding = $findings[0];
+
+    expect($finding->message)->toContain('Aliases that ARE recorded: delivery')
+        // A reader who does not know the read path should not conclude from an
+        // absence that nothing was ever recorded.
+        ->toContain('Soft-deleted activities are not counted.')
+        // The full set rides on the subject for anything reading it as data —
+        // as a string, because a subject holds scalars.
+        ->and($finding->subject['recorded'])->toContain('delivery');
 });

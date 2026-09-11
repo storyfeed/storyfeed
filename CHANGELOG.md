@@ -44,6 +44,20 @@
   itself. A null fingerprint is still stale without qualification. Still no
   model loading — one indexed query on `feed_meta`.
 
+- **`surface.unwired` now names the aliases it compared against.** The finding
+  offers a fork — *"either something should be publishing about it and nothing
+  does, or the contract is left over from something removed"* — and withheld the
+  one thing that decides it, which the check had already computed in order to
+  say the alias was not among them. A consumer resolving it hand-rolled a query
+  against an internal table name they had to go and read in `vendor/`, got the
+  name wrong (`activities` rather than `feed_activities`), and spent a
+  production command finding out.
+
+  The message now names the recorded aliases (capped, with the full set on the
+  finding's subject) and says that soft-deleted activities are not counted. The
+  commonest cause becomes visible without any SQL: a stored alias that is not
+  the alias the model reports today, because the rows predate a morph-map entry.
+
 ## v0.10.0 — The slot that was read as an instruction (2026-09-10)
 
 Two doctor checks, both from the same discovery: a check can be entirely right

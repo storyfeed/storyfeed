@@ -29,6 +29,9 @@ use Storyfeed\Testing\StoryfeedFake;
  */
 class UnwiredSurface extends Check
 {
+    /** How many recorded aliases the message names before it summarises. */
+    protected const ALIASES_SHOWN = 8;
+
     public function __construct(
         protected SurfaceScanner $scanner,
     ) {}
@@ -36,6 +39,27 @@ class UnwiredSurface extends Check
     public function name(): string
     {
         return 'surface';
+    }
+
+    /**
+     * The recorded aliases, as one readable clause.
+     *
+     * CAPPED, because this is a line in a report rather than a data dump, and a
+     * consumer with sixty aliases is served by the first few plus a count — the
+     * question the list answers is "is something like mine in here", which the
+     * head of a sorted list answers as well as the whole of one. The full set
+     * is on the finding's subject for anything reading it programmatically.
+     *
+     * @param  list<string>  $aliases
+     */
+    protected function recordedSummary(array $aliases): string
+    {
+        sort($aliases);
+
+        $shown = array_slice($aliases, 0, self::ALIASES_SHOWN);
+        $rest = count($aliases) - count($shown);
+
+        return implode(', ', $shown).($rest > 0 ? ", and {$rest} more" : '');
     }
 
     public function run(StoryfeedManager $storyfeed): iterable
@@ -91,12 +115,31 @@ class UnwiredSurface extends Check
             // the model is merely a role is an ordinary Laravel shape, so the
             // finding is about the model never appearing in ANY role — which is a
             // real contradiction — and not about where the publish call lives.
+            //
+            // AND IT CARRIES WHAT IT COMPARED AGAINST. The message offers a fork
+            // — nothing publishes, or the contract is left over — and resolving
+            // it needs the aliases that ARE recorded, which this check already
+            // computed in order to say the alias is not among them. Withholding
+            // them sent a consumer to hand-roll a query against an internal
+            // table name they had to go and read; they got the name wrong and
+            // spent a production command finding out.
+            //
+            // The commonest cause is the one the list makes obvious without any
+            // SQL: a stored alias that is not the alias the model reports today,
+            // because the rows predate a morph-map entry. Seeing `category`
+            // absent while `categories` is present answers the question at a
+            // glance.
             yield Finding::warning(
                 'surface.unwired',
                 "[{$model}] implements Feedable, declaring that it appears in the feed, but `{$alias}` has never "
                 .'appeared in any role on any activity and no grammar is authored for it. Either something should '
-                .'be publishing about it and nothing does, or the contract is left over from something removed.',
-                ['model' => $model, 'alias' => $alias],
+                .'be publishing about it and nothing does, or the contract is left over from something removed. '
+                ."Aliases that ARE recorded: {$this->recordedSummary($recordedTypes)}. Soft-deleted activities "
+                .'are not counted.',
+                // A subject holds scalars, so the full set travels as one
+                // string rather than widening that contract for one finding.
+                // The message carries a capped head of the same list.
+                ['model' => $model, 'alias' => $alias, 'recorded' => implode(',', $recordedTypes)],
             );
         }
 
