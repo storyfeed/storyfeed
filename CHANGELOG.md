@@ -2,6 +2,39 @@
 
 ## Unreleased
 
+### Added
+
+- **`php artisan optimize` now compiles recent snapshots.** `toFeed()` output is
+  cached, so changing that method changes what NEW snapshots store and leaves
+  every row already written saying what it said before. A consumer edits,
+  deploys, looks, and sees nothing change — with no error, no warning and no
+  line in the deploy telling them why. It cost two sessions an hour of
+  stylesheet forensics, and the owner, who wrote the machinery, waited for a fix
+  that had already shipped.
+
+  So a deploy compiles them, the way a deploy compiles assets. `storyfeed:rebuild
+  --recent=N` is bounded by **activities scanned rather than entities found** —
+  "the last thousand activities" is a number an operator can reason about, and
+  the entities behind it are however many they are. It runs newest-first, which
+  is the opposite of the trickle's order on purpose: the trickle rotates
+  oldest-first so nothing starves, and a deploy fixes what somebody is about to
+  look at. The tail is the trickle's.
+
+  **The majority case is a no-op** — most deploys change no `toFeed()`, nothing
+  is rewritten, and nothing is printed. When it does speak there is a reason.
+  And it does not promise what it cannot keep: "older ones follow with the
+  trickle" is only printed when a trickle pass has actually run, because for an
+  app that never wired the scheduler that sentence would be false at the one
+  moment it would be believed.
+
+  It declines quietly when there is no database. `optimize` is routinely run on
+  a build machine that has the code and not the connection, and a deploy broken
+  by a cache warmer is a worse bug than a stale snapshot.
+
+- **`MorphResolver::feedables()`** — resolve many keys of one alias in a single
+  query. The singular form is a `find()` per entity, which is right for one and
+  three hundred round trips inside a deploy step.
+
 ### Fixed
 
 - **`storyfeed:trickle` now converges.** It compared every snapshot against a

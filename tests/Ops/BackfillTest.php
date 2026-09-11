@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Schema;
 use Storyfeed\Actions\RebuildSnapshots;
 use Storyfeed\Actions\TrickleSnapshots;
 use Storyfeed\Events\ActivityPublished;
@@ -9,7 +10,9 @@ use Storyfeed\Exceptions\UnauthoredActivity;
 use Storyfeed\Exceptions\UnknownVerb;
 use Storyfeed\Facades\Storyfeed;
 use Storyfeed\Models\Activity;
+use Storyfeed\Models\Snapshot;
 use Workbench\App\Models\Customer;
+use Workbench\App\Models\Delivery;
 use Workbench\App\Models\User;
 
 /**
@@ -308,4 +311,59 @@ it('reports freshness.stale straight after a successful history-only import', fu
 
     expect(collect(Storyfeed::doctor(['freshness'])->all())->pluck('code')->all())
         ->toBe(['freshness.stale']);
+});
+
+it('compiles the newest activities first, and bounds the pass by how many it scans', function () {
+    /*
+     * `toFeed()` OUTPUT IS CACHED, and that is the whole reason this mode
+     * exists. Changing the method changes what NEW snapshots store and leaves
+     * every row already written saying what it said before — so a consumer
+     * edits, deploys, looks, and sees nothing change.
+     *
+     * A deploy compiles them, the way a deploy compiles assets. Bounded by
+     * ACTIVITIES SCANNED rather than entities found, because the operator can
+     * reason about "the last N activities" and cannot reason about how many
+     * entities happen to be behind them.
+     *
+     * NEWEST FIRST, which is the opposite of the trickle's order on purpose:
+     * the trickle rotates oldest-first so nothing starves, and a deploy fixes
+     * what somebody is about to look at.
+     */
+    $old = Delivery::create(['tracking_number' => 'TN-OLD']);
+    $new = Delivery::create(['tracking_number' => 'TN-NEW']);
+
+    Storyfeed::activity('confirm', $old)->publishedAt(now()->subDays(30))->publish();
+    Storyfeed::activity('confirm', $new)->publishedAt(now())->publish();
+
+    // A deployed change to toFeed()'s shape, with both rows already snapshotted.
+    Delivery::$extendedFeedShape = true;
+
+    // One activity scanned: the newest, and only its entity is compiled.
+    $result = (new RebuildSnapshots)(recentActivities: 1);
+
+    expect($result['snapshotted'])->toBe(1);
+
+    $shape = fn (Delivery $d): ?string => Snapshot::query()
+        ->where('model_type', 'delivery')->where('model_id', $d->getKey())->value('shape');
+
+    expect($shape($new))->not->toBe($shape($old), 'the newest was compiled and the older was not');
+
+    // Widen the window and the older one follows.
+    (new RebuildSnapshots)(recentActivities: 50);
+
+    expect($shape($old))->toBe($shape($new));
+
+    Delivery::$extendedFeedShape = false;
+});
+
+it('declines quietly when a deploy has no database to reach', function () {
+    /*
+     * `php artisan optimize` is routinely run on a build machine that has the
+     * code and not the connection. A command joined to it must decline rather
+     * than fail: a deploy broken by a cache warmer is a worse bug than a stale
+     * snapshot.
+     */
+    Schema::drop(config('storyfeed.tables.activities', 'feed_activities'));
+
+    $this->artisan('storyfeed:rebuild --recent=10')->assertSuccessful();
 });

@@ -2,6 +2,7 @@
 
 namespace Storyfeed\Support;
 
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Storyfeed\Contracts\Feedable;
@@ -49,6 +50,42 @@ class MorphResolver
 
         /** @var (Model&Feedable)|null guarded by the is_a checks above */
         return $class::query()->find($id);
+    }
+
+    /**
+     * Resolve many keys of ONE alias in a single query.
+     *
+     * The singular form is a `find()` per entity, which is right when a caller
+     * has one. A caller holding three hundred of them inside a deploy step has
+     * three hundred round trips, and would end up choosing its batch size to
+     * work around a query pattern rather than around real cost.
+     *
+     * Keyed by the model's key CAST TO STRING, because the caller's ids came
+     * out of a `*_id` column that may be a string on one model and an int on
+     * another, and `[1]` and `['1']` are not the same PHP array key. The same
+     * hazard the individual resolver sidesteps by never building a map.
+     *
+     * @param  list<int|string>  $ids
+     * @return array<string, Model&Feedable>
+     */
+    public static function feedables(string $alias, array $ids): array
+    {
+        $class = self::classFor($alias);
+
+        if ($ids === [] || $class === null || ! is_a($class, Model::class, true) || ! is_a($class, Feedable::class, true)) {
+            return [];
+        }
+
+        /** @var Collection<int, Model&Feedable> $models */
+        $models = $class::query()->findMany($ids);
+
+        $resolved = [];
+
+        foreach ($models as $model) {
+            $resolved[(string) $model->getKey()] = $model;
+        }
+
+        return $resolved;
     }
 
     /**
