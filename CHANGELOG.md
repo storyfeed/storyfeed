@@ -22,6 +22,28 @@
   itself is re-examined eventually rather than every run, and cannot starve a row
   that is genuinely stale. No schema change, no payload change.
 
+- **`shapes.mixed` can be cleared again.** It fired on multiplicity alone —
+  more than one fingerprint within a model type — and asserted a cause it could
+  not know: *"some predate the current toFeed() structure."* Shape is a property
+  of a ROW, so a class with one optional key has two legitimate fingerprints
+  forever, and the warning could never be cleared. A consumer measured three on
+  one class (width and height, width only, neither) with no honest way to
+  collapse them: coercing an unknown dimension to zero is forbidden by the class
+  that reads it, because a box of a guessed shape shifts on load exactly like no
+  box.
+
+  A warning nobody can clear teaches its reader to skip the list it appears in,
+  which costs the next real drift the only place it was going to be seen.
+
+  The separator is whether the healer still has work, and the answer was already
+  recorded: `MaintenanceHistory` keeps `reshaped` for recent trickle passes, and
+  the trickle now compares each row against its own model. So several
+  fingerprints is a **warning** until a pass converges and **information**
+  afterwards, with the cause stated rather than guessed. A deploy that really
+  changes a shape makes the next pass report work, and the warning returns by
+  itself. A null fingerprint is still stale without qualification. Still no
+  model loading — one indexed query on `feed_meta`.
+
 ## v0.10.0 — The slot that was read as an instruction (2026-09-10)
 
 Two doctor checks, both from the same discovery: a check can be entirely right

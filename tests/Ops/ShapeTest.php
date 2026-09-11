@@ -87,13 +87,52 @@ it('reports mixed shapes in doctor after the drift is written', function () {
     Storyfeed::activity('confirm', Delivery::create(['tracking_number' => 'TN-2']))->publish();
 
     $this->artisan('storyfeed:doctor')
-        ->expectsOutputToContain('Snapshots of `delivery` carry mixed shape fingerprints')
+        ->expectsOutputToContain('shape fingerprints — some may predate')
         ->assertSuccessful();
 
     (new TrickleSnapshots)();
 
     $this->artisan('storyfeed:doctor')
-        ->doesntExpectOutputToContain('mixed shape fingerprints')
+        ->doesntExpectOutputToContain('shape fingerprints')
+        ->assertSuccessful();
+});
+
+it('stops warning about several shapes once the trickle has converged on them', function () {
+    /*
+     * SHAPE IS A PROPERTY OF A ROW. A nullable key yields two fingerprints for
+     * one class with nothing deployed, so multiplicity alone would be a warning
+     * nobody could ever clear — and a warning that cannot be cleared teaches its
+     * reader to skip the list it appears in, which costs the next real drift the
+     * only place it was going to be seen.
+     *
+     * A consumer measured three fingerprints on one class (width and height,
+     * width only, neither) and had no honest way to collapse them: coercing an
+     * unknown dimension to zero is forbidden by the class that reads it.
+     *
+     * So the separator is whether the healer still has work. The trickle
+     * compares each row against its own model, so what survives a converged
+     * pass is legitimate.
+     */
+    Storyfeed::activity('confirm', Delivery::create(['tracking_number' => 'TN-1']))->publish();
+    Storyfeed::activity('confirm', Delivery::create(['tracking_number' => null]))->publish();
+
+    expect(Snapshot::query()->where('model_type', 'delivery')->pluck('shape')->unique())
+        ->toHaveCount(2, 'one class, two legitimate shapes, nothing deployed');
+
+    // Before the healer has spoken, several shapes might be drift, and it says so.
+    $this->artisan('storyfeed:doctor')
+        ->expectsOutputToContain('some may predate')
+        ->assertSuccessful();
+
+    // Converge. Then converge again, so the LAST pass is one that found nothing.
+    (new TrickleSnapshots)();
+    $result = (new TrickleSnapshots)();
+
+    expect($result['reshaped'])->toBe(0);
+
+    $this->artisan('storyfeed:doctor')
+        ->doesntExpectOutputToContain('some may predate')
+        ->expectsOutputToContain('rewrote nothing')
         ->assertSuccessful();
 });
 
