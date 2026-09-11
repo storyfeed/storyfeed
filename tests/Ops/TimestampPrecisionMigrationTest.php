@@ -34,13 +34,6 @@ function legacyRows(): void
         'published_at' => '2026-09-01 10:00:00',
     ]);
 
-    DB::table('feed_removals')->insert([
-        'verb' => 'legacy.row',
-        'object_type' => 'delivery',
-        'object_id' => '1',
-        'published_at' => '2026-09-01 10:00:00',
-        'removed_at' => '2026-09-02 10:00:00',
-    ]);
 }
 
 it('widens every column the Activity model writes through its format', function () {
@@ -51,7 +44,6 @@ it('widens every column the Activity model writes through its format', function 
     foreach ([
         'feed_activities' => ['published_at', 'created_at', 'updated_at', 'deleted_at'],
         'feed_participants' => ['published_at'],
-        'feed_removals' => ['published_at', 'removed_at'],
     ] as $table => $columns) {
         foreach ($columns as $column) {
             expect(Schema::getColumnType($table, $column, true))->toContain('(6)');
@@ -74,9 +66,7 @@ it('pads legacy SQLite values to the width the model now writes, so text order s
         ->and($activity->created_at)->toBe('2026-09-01 10:00:00.000000')
         ->and($activity->updated_at)->toBe('2026-09-01 10:00:01.000000')
         ->and($activity->deleted_at)->toBeNull()
-        ->and(DB::table('feed_participants')->value('published_at'))->toBe('2026-09-01 10:00:00.000000')
-        ->and(DB::table('feed_removals')->value('published_at'))->toBe('2026-09-01 10:00:00.000000')
-        ->and(DB::table('feed_removals')->value('removed_at'))->toBe('2026-09-02 10:00:00.000000');
+        ->and(DB::table('feed_participants')->value('published_at'))->toBe('2026-09-01 10:00:00.000000');
 
     // A legacy row sorts before a fractional row in the same second, as text
     // and as time — the property the padding exists to keep.

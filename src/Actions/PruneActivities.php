@@ -15,12 +15,16 @@ use Storyfeed\Support\Chronology;
  * exists, by design). Snapshots are untouched: they are per-entity.
  * The trickle does not delete orphaned snapshots either.
  *
- * Writes no removal evidence per row, on purpose. A live row past the
- * window is retention, not a deliberate removal, and a soft-deleted row's
- * removal — if it was one — was recorded when it left. What a sweep does
- * write is the retention watermark (`Healing\Removals::prunedBefore()`), one
- * feed_meta row, after the sweep completes. The `feed_removals` table is
- * never swept: it is the evidence this command would otherwise erase.
+ * Writes no evidence of what it removed, on purpose and now without
+ * exception. A row past the retention window left because of a policy the
+ * app configured, not because anyone decided about that row — so there is
+ * nothing about it worth recording that the policy does not already say.
+ *
+ * It used to advance a retention watermark in `feed_meta` and leave a
+ * per-key evidence table unswept. Both are gone: they existed so that
+ * something could later tell a deliberate removal from an expiry, and
+ * nothing in this package ever asked. An app that needs to know keeps its
+ * own record, where it also knows why.
  */
 class PruneActivities
 {
@@ -59,8 +63,6 @@ class PruneActivities
 
             $pruned += $ids->count();
         }
-
-        (new RecordRemovals)->prunedBefore($cutoff);
 
         return ['pruned' => $pruned, 'enabled' => true];
     }
