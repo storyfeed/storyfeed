@@ -148,6 +148,29 @@ class StoryfeedServiceProvider extends PackageServiceProvider
             key: 'storyfeed',
         );
 
+        /*
+         * AND COMPILE THE RECENT SNAPSHOTS, the way a deploy compiles assets.
+         *
+         * `toFeed()` output is cached, so changing that method leaves every row
+         * already written saying what it said before. A consumer edits,
+         * deploys, looks, and sees nothing change — with nothing anywhere
+         * telling them why. This is that gap closed at the moment it opens.
+         *
+         * Bounded by activities scanned so the deploy cost is a number the
+         * operator chose, and newest-first so what a reader is about to look at
+         * is correct first. The tail is the trickle's.
+         *
+         * A second key rather than folding it into `storyfeed:cache`: that one
+         * compiles a manifest from CODE and needs no database, and a build
+         * machine routinely runs `optimize` with no connection. Keeping them
+         * separate keeps that one true, and the snapshot pass declines quietly
+         * when the connection is absent.
+         */
+        $this->optimizes(
+            optimize: 'storyfeed:rebuild --recent='.Console\RebuildCommand::RECENT,
+            key: 'storyfeed-snapshots',
+        );
+
         // Package-owned aliases must be in Eloquent's map for morphTo() to
         // resolve them. enforceMorphMap() merges by default, so an app that
         // enforces its own map keeps these. MorphResolver additionally
