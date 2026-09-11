@@ -1,5 +1,27 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- **`storyfeed:trickle` now converges.** It compared every snapshot against a
+  fingerprint taken from ONE live sample of the class, and re-snapshotted every
+  row that differed. Shape is not a property of a class — `ShapeSignature` tags
+  each scalar with its type, so a nullable key yields two legitimate
+  fingerprints for one class with nothing deployed and nothing stale. The
+  trickle rewrote whichever cohort the sample did not belong to, forever; and
+  because a reshape touches `updated_at`, the sample moved between runs and the
+  two cohorts took turns, so the reported count climbed rather than falling.
+
+  A consumer saw `reshaped 14` and then `reshaped 32` twenty seconds apart on a
+  feed where nothing had changed, and reported it rather than working around it.
+
+  A candidate is now checked against ITS OWN model before anything is written, so
+  a row that agrees with itself is left alone and one pass is enough. Candidates
+  are taken oldest-first, so a row that differs from the sample but agrees with
+  itself is re-examined eventually rather than every run, and cannot starve a row
+  that is genuinely stale. No schema change, no payload change.
+
 ## v0.10.0 — The slot that was read as an instruction (2026-09-10)
 
 Two doctor checks, both from the same discovery: a check can be entirely right

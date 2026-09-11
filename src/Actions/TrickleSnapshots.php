@@ -158,11 +158,33 @@ class TrickleSnapshots
 
     /**
      * The shape phase, within the run's remaining budget: per snapshotted
-     * model type, compute the CURRENT signature from one live model, then
-     * re-snapshot rows whose stored fingerprint differs (null = pre-shape
-     * rows, also stale). Models that no longer exist are skipped; their
-     * snapshots are retained. The activity-orphan path only checks uncached
-     * roles and soft-deletes activities only when pruning is enabled.
+     * model type, a live sample says what today's code produces, rows whose
+     * stored fingerprint differs from it are CANDIDATES, and each candidate is
+     * then checked against its own model before anything is written. Models
+     * that no longer exist are skipped; their snapshots are retained. The
+     * activity-orphan path only checks uncached roles and soft-deletes
+     * activities only when pruning is enabled.
+     *
+     * THE SAMPLE IS A FILTER, NOT THE ANSWER, and it took a consumer's
+     * production to show why. Shape is not a property of a class: it is a
+     * property of a ROW. `ShapeSignature` tags every scalar with its type, so
+     * a nullable key — a `status` set on most rows and null on a few — yields
+     * two legitimate fingerprints for one class, with nothing deployed and
+     * nothing stale.
+     *
+     * Comparing every row against one sample then rewrote whichever cohort the
+     * sample did not belong to, forever. A reshape touches `updated_at`, which
+     * changes which row is sampled next, so the two cohorts took turns and the
+     * reported count climbed instead of falling: 14 reshaped, then 32, twenty
+     * seconds apart, on a feed where nothing had changed.
+     *
+     * A row checked against ITSELF converges after one pass, because a
+     * re-snapshotted row agrees with its own model by construction. That is
+     * the whole fix, and it costs one resolve per candidate.
+     *
+     * Candidates are taken oldest-first so the walk rotates. Rows that differ
+     * from the sample but agree with themselves are re-examined eventually
+     * rather than repeatedly, and cannot starve a row that is genuinely stale.
      */
     protected function convergeShapes(int $budget): int
     {
@@ -196,21 +218,32 @@ class TrickleSnapshots
 
             $current = ShapeSignature::for($sample->toFeed(), $sample::class);
 
-            $stale = $snapshot::query()
+            $candidates = $snapshot::query()
                 ->where('model_type', $type)
                 ->where(fn ($q) => $q->whereNull('shape')->orWhere('shape', '!=', $current))
+                ->oldest('updated_at')
                 ->limit($budget)
                 ->get();
 
-            foreach ($stale as $row) {
+            foreach ($candidates as $row) {
+                $budget--;
+
                 $model = $this->resolve($row->model_type, $row->model_id);
 
-                if ($model !== null) {
-                    (new SnapshotEntity)($model);
-                    $reshaped++;
+                if ($model === null) {
+                    continue;
                 }
 
-                $budget--;
+                // The row against its own model. A stored fingerprint that
+                // still matches what this row produces today is not stale —
+                // it is a second legitimate shape of the same class, and
+                // rewriting it would change nothing and undo nothing.
+                if ($row->shape !== null && $row->shape === ShapeSignature::for($model->toFeed(), $model::class)) {
+                    continue;
+                }
+
+                (new SnapshotEntity)($model);
+                $reshaped++;
             }
         }
 
