@@ -32,11 +32,11 @@ use Storyfeed\Support\MorphResolver;
  * chose. A thousand might yield three hundred entities; ten thousand might
  * yield four hundred.
  *
- * NEWEST FIRST, and that is the opposite of the trickle's order on purpose. The
- * trickle rotates oldest-first so nothing starves. A deploy fixes what somebody
- * is about to look at, so it starts at the top of the feed and works back —
- * oldest-first would repair the archive while the homepage stayed wrong, which
- * is the same confusion arriving slower.
+ * NEWEST FIRST, which is the direction everything heals in. A deploy fixes what
+ * somebody is about to look at, so it starts at the top of the feed and works
+ * back; the trickle then continues from where this stopped, the same way. There
+ * is no good reason for the other order: on a feed with ten years of stories in
+ * it, oldest-first repairs 2016 while today stays wrong.
  */
 class RebuildSnapshots
 {
