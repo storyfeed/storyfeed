@@ -24,21 +24,22 @@ class MaintenanceHistory
             throw new InvalidArgumentException('Invalid maintenance counts.');
         }
 
+        $model = config('storyfeed.models.meta', Meta::class);
         $prefix = self::prefix($command);
 
-        (new Meta)->getConnection()->transaction(function () use ($prefix, $counts) {
+        (new $model)->getConnection()->transaction(function () use ($model, $prefix, $counts) {
             // One key per pass avoids concurrent writers replacing one another's
             // history array. The compact value fits feed_meta's existing varchar.
-            Meta::query()->create([
+            $model::query()->create([
                 'key' => $prefix.Str::ulid(),
                 'value' => json_encode($counts, JSON_THROW_ON_ERROR),
             ]);
 
-            $oldest = Meta::query()->where('key', 'like', $prefix.'%')
+            $oldest = $model::query()->where('key', 'like', $prefix.'%')
                 ->orderByDesc('id')->skip(self::LIMIT - 1)->value('id');
 
             if ($oldest !== null) {
-                Meta::query()->where('key', 'like', $prefix.'%')->where('id', '<', $oldest)->delete();
+                $model::query()->where('key', 'like', $prefix.'%')->where('id', '<', $oldest)->delete();
             }
         });
     }
@@ -46,7 +47,9 @@ class MaintenanceHistory
     /** @return list<array<string, int|string>> Oldest to newest within the retained series. */
     public static function recent(string $command): array
     {
-        return Meta::query()->where('key', 'like', self::prefix($command).'%')
+        $model = config('storyfeed.models.meta', Meta::class);
+
+        return $model::query()->where('key', 'like', self::prefix($command).'%')
             ->orderByDesc('id')->limit(self::LIMIT)->get()->reverse()->values()
             ->map(fn (Meta $row) => [
                 'at' => $row->created_at->toIso8601String(),

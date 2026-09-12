@@ -31,8 +31,10 @@ class SyncToken
      */
     public static function current(): ?string
     {
+        $model = config('storyfeed.models.meta', Meta::class);
+
         try {
-            return Meta::query()->where('key', self::KEY)->value('value');
+            return $model::query()->where('key', self::KEY)->value('value');
         } catch (Throwable) {
             return null;
         }
@@ -40,9 +42,10 @@ class SyncToken
 
     public static function bump(): string
     {
+        $model = config('storyfeed.models.meta', Meta::class);
         $token = (string) Str::ulid();
 
-        Meta::query()->updateOrCreate(['key' => self::KEY], ['value' => $token]);
+        $model::query()->updateOrCreate(['key' => self::KEY], ['value' => $token]);
 
         return $token;
     }

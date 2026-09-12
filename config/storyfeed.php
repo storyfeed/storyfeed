@@ -4,6 +4,7 @@ use Storyfeed\Grouping\MultiAxisStrategy;
 use Storyfeed\Models\Activity;
 use Storyfeed\Models\Batch;
 use Storyfeed\Models\Grouping;
+use Storyfeed\Models\Meta;
 use Storyfeed\Models\Party;
 use Storyfeed\Models\Snapshot;
 
@@ -76,6 +77,7 @@ return [
         'grouping' => Grouping::class,
         'party' => Party::class,
         'batch' => Batch::class,
+        'meta' => Meta::class,
     ],
 
     /*
