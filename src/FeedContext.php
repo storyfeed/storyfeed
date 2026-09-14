@@ -146,6 +146,14 @@ final readonly class FeedContext
      *
      *     $model = $context->model();                       // batched on first use, per class
      *     $model = $context->model(with: ['engagement']);   // relations ride the same batch
+     *     $model = $context->model(withCount: ['replies']); // and so does a count
+     *
+     * A COUNT IS NOT A RELATION, so `with:` cannot express one — it takes what
+     * `Builder::with()` takes. `withCount:` is the aggregate's half, batched the
+     * same way: `replies_count` lands on every model of that class in one query,
+     * and asking for it after the class is loaded counts once across the
+     * collection rather than once per model. A resolver that needs a number
+     * that moves has this instead of a query of its own.
      *
      * NESTED ACCESS IS STILL A FOOTGUN. `$context->model()->customer->name`
      * is an N+1 inside a hydrated model and invisible to the batch — the map
@@ -178,9 +186,10 @@ final readonly class FeedContext
      *
      * @param  array<int|string, mixed>  $with  relations to eager load with the batch, in the shape Builder::with() accepts
      * @param  bool  $withTrashed  include soft-deleted rows; ignored on classes that do not soft-delete
+     * @param  array<int|string, mixed>  $withCount  relations to count with the batch, in the shape Builder::withCount() accepts
      */
-    public function model(array $with = [], bool $withTrashed = false): ?Model
+    public function model(array $with = [], bool $withTrashed = false, array $withCount = []): ?Model
     {
-        return $this->hydrator->model($this->type, $this->id, $with, $withTrashed);
+        return $this->hydrator->model($this->type, $this->id, $with, $withTrashed, $withCount);
     }
 }

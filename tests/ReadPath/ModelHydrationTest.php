@@ -29,6 +29,7 @@ use Workbench\App\Models\User;
 beforeEach(function () {
     Customer::$hydrates = false;
     Customer::$hydratesTrashed = false;
+    Customer::$hydratesCount = [];
     Customer::$hydrated = [];
     Delivery::$hydrates = false;
     Delivery::$hydratesWith = [];
@@ -38,6 +39,7 @@ beforeEach(function () {
 afterEach(function () {
     Customer::$hydrates = false;
     Customer::$hydratesTrashed = false;
+    Customer::$hydratesCount = [];
     Customer::$hydrated = [];
     Delivery::$hydrates = false;
     Delivery::$hydratesWith = [];
@@ -363,4 +365,75 @@ it('costs a resolver that never asks nothing: the map is seeded, never queried',
     // hydrating numbers so the two are read together.
     expect(queries_during($page))->toBe($baseline)
         ->and(Customer::$hydrated)->toBe([]);
+});
+
+it('counts a relation on the same batch: one query for the whole class, not one per row', function () {
+    representative_page();
+
+    $page = fn () => Storyfeed::feed()->log()->limit(20)->get()->toArray();
+
+    Customer::$hydrates = true;
+    $withoutCount = queries_during($page);
+
+    Customer::$hydrated = [];
+    Customer::$hydratesCount = ['deliveries'];
+    $withCount = queries_during($page);
+
+    // withCount() is a subquery on the batch's own select, so counting twenty
+    // asking entities costs nothing beyond the one query that loads the class.
+    expect($withCount)->toBe($withoutCount)
+        ->and(Customer::$hydrated)->toHaveCount(20);
+
+    $counts = collect(Customer::$hydrated)->map(fn (?Model $model) => $model?->deliveries_count)->unique()->sort()->values();
+
+    expect($counts->every(fn ($count) => is_int($count)))->toBeTrue()
+        ->and($counts->sum())->toBeGreaterThan(0);
+});
+
+it('counts once across the collection when the class is already loaded, never once per model', function () {
+    $customers = collect(range(1, 4))->map(fn (int $i) => Customer::create(['name' => "Customer {$i}"]))->all();
+
+    foreach ($customers as $i => $customer) {
+        Delivery::create(['customer_id' => $customer->id, 'tracking_number' => "TN-{$i}", 'status' => 'draft']);
+    }
+
+    $hydrator = new ModelHydrator(true);
+
+    foreach ($customers as $customer) {
+        $hydrator->seed('customer', $customer->id);
+    }
+
+    // The class is loaded first WITHOUT an aggregate, so the count cannot ride
+    // the select that loaded it. This is the loadCount path, not the builder one.
+    $hydrator->model('customer', $customers[0]->id);
+
+    $queries = queries_during(fn () => $hydrator->model('customer', $customers[1]->id, withCount: ['deliveries']));
+
+    expect($queries)->toBe(1);
+
+    // And it lands on every model already in the map, not only the asker.
+    foreach ($customers as $customer) {
+        expect($hydrator->model('customer', $customer->id)?->deliveries_count)->toBe(1);
+    }
+});
+
+it('does not recount an aggregate a second resolver asks for again', function () {
+    $customer = Customer::create(['name' => 'Acme']);
+    Delivery::create(['customer_id' => $customer->id, 'tracking_number' => 'TN-A', 'status' => 'draft']);
+
+    Storyfeed::activity('onboard', $customer)->publish();
+    Storyfeed::activity('onboard', $customer)->publish();
+    Storyfeed::activity('onboard', $customer)->publish();
+
+    Customer::$hydrates = true;
+    Customer::$hydratesCount = ['deliveries'];
+
+    $queries = queries_during(fn () => Storyfeed::feed()->log()->get()->toArray());
+
+    expect(Customer::$hydrated)->toHaveCount(3)
+        ->and(collect(Customer::$hydrated)->filter()->every(fn (Model $m) => $m->deliveries_count === 1))->toBeTrue();
+
+    // Three entities asked for the same count; the class is loaded once and
+    // the aggregate is not recounted for the second and third.
+    expect($queries)->toBeLessThan(6);
 });

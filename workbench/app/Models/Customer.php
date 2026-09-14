@@ -27,6 +27,13 @@ class Customer extends Model implements Feedable
     public static bool $hydratesTrashed = false;
 
     /**
+     * Test hook: `withCount:` passed through when hydrating.
+     *
+     * @var array<int|string, mixed>
+     */
+    public static array $hydratesCount = [];
+
+    /**
      * Test spy: every model (or null) model() handed back, in call order.
      *
      * @var list<Model|null>
@@ -66,7 +73,7 @@ class Customer extends Model implements Feedable
             // The hydrating shape: link from the live row, label from the live
             // row too — closing the fresh-link/stale-label gap the accessor
             // opens — and no link at all when the row is gone or hidden.
-            $model = $context->model(withTrashed: static::$hydratesTrashed);
+            $model = $context->model(withTrashed: static::$hydratesTrashed, withCount: static::$hydratesCount);
             static::$hydrated[] = $model;
 
             // `instanceof self` rather than a null check: a static resolver is

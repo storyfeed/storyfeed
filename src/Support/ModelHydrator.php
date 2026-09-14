@@ -75,6 +75,9 @@ final class ModelHydrator
     /** @var array<string, array<string, true>> batch key => relation names already loaded */
     private array $relations = [];
 
+    /** @var array<string, array<string, true>> batch key => aggregate names already counted */
+    private array $counts = [];
+
     /** @var array<string, true> morph aliases whose resolver asked for a model — the seam for the doctor (issue #5) */
     private array $requested = [];
 
@@ -104,8 +107,9 @@ final class ModelHydrator
      * gone, hidden by a scope, unresolvable, or hydration is switched off.
      *
      * @param  array<int|string, mixed>  $with  relations to eager load, in the shape Builder::with() accepts
+     * @param  array<int|string, mixed>  $withCount  relations to count, in the shape Builder::withCount() accepts
      */
-    public function model(string $type, int|string|null $id, array $with = [], bool $withTrashed = false): ?Model
+    public function model(string $type, int|string|null $id, array $with = [], bool $withTrashed = false, array $withCount = []): ?Model
     {
         // Recorded BEFORE the switch is consulted, on purpose. The doctor's
         // `hydration` check probes every resolver with a map built disabled,
@@ -128,9 +132,15 @@ final class ModelHydrator
         $id = (string) $id;
 
         if (! array_key_exists($id, $this->loaded[$key] ?? [])) {
-            $this->load($key, $class, $type, $id, $with, $withTrashed);
-        } elseif ($with !== []) {
-            $this->loadRelations($key, $with);
+            $this->load($key, $class, $type, $id, $with, $withTrashed, $withCount);
+        } else {
+            if ($with !== []) {
+                $this->loadRelations($key, $with);
+            }
+
+            if ($withCount !== []) {
+                $this->loadCounts($key, $withCount);
+            }
         }
 
         return $this->loaded[$key][$id] ?? null;
@@ -154,8 +164,9 @@ final class ModelHydrator
      *
      * @param  class-string<Model>  $class
      * @param  array<int|string, mixed>  $with
+     * @param  array<int|string, mixed>  $withCount
      */
-    private function load(string $key, string $class, string $type, string $id, array $with, bool $withTrashed): void
+    private function load(string $key, string $class, string $type, string $id, array $with, bool $withTrashed, array $withCount = []): void
     {
         $ids = [$id => $id];
 
@@ -186,6 +197,10 @@ final class ModelHydrator
                 $query->with($with);
             }
 
+            if ($withCount !== []) {
+                $query->withCount($withCount);
+            }
+
             $models = $query->get();
         } catch (Throwable $e) {
             report($e);
@@ -208,6 +223,41 @@ final class ModelHydrator
 
         foreach ($this->relationNames($with) as $relation) {
             $this->relations[$key][$relation] = true;
+        }
+
+        foreach ($this->relationNames($withCount) as $relation) {
+            $this->counts[$key][$relation] = true;
+        }
+    }
+
+    /**
+     * Aggregates asked for after the class was loaded: one query across the
+     * whole collection, never one per model. Laravel has no loadMissingCount,
+     * so what has already been counted is tracked here rather than recounted.
+     *
+     * @param  array<int|string, mixed>  $withCount
+     */
+    private function loadCounts(string $key, array $withCount): void
+    {
+        $missing = [];
+
+        foreach ($withCount as $name => $constraint) {
+            $relation = is_string($name) ? $name : (string) $constraint;
+
+            if (! isset($this->counts[$key][$relation])) {
+                $missing[$name] = $constraint;
+                $this->counts[$key][$relation] = true;
+            }
+        }
+
+        if ($missing === [] || $this->collections[$key]->isEmpty()) {
+            return;
+        }
+
+        try {
+            $this->collections[$key]->loadCount($missing);
+        } catch (Throwable $e) {
+            report($e);
         }
     }
 
