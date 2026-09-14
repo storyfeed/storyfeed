@@ -2,7 +2,7 @@
 
 namespace Storyfeed\Contracts;
 
-use Storyfeed\PendingStory;
+use Storyfeed\PendingActivity;
 
 /**
  * Something that publishes an activity to the feed when it happens.
@@ -14,12 +14,17 @@ use Storyfeed\PendingStory;
  *   {
  *       public function __construct(public Delivery $delivery, public User $user) {}
  *
- *       public function toFeedStory(): ?PendingStory
+ *       public function toFeedStory(): ?PendingActivity
  *       {
- *           return PendingStory::of(DeliveryWasConfirmed::class)
- *               ->object($this->delivery)
- *               ->actor($this->user);
+ *           return Storyfeed::activity()
+ *               ->by($this->user)
+ *               ->action('confirm', $this->delivery);
  *       }
+ *
+ * The return type is the plain builder, so the event writes exactly the line a
+ * listener would, minus `->publish()`. A `PendingStory` is a `PendingActivity`,
+ * so `SomeStory::activity($object)` and `PendingStory::of()` satisfy it too;
+ * nothing downstream needs the narrower type — `publishFor()` only publishes.
  *   }
  *
  * Wiring is ONE line in this package's provider:
@@ -56,5 +61,5 @@ interface PublishesToFeed
      * Returning null is the supported way to say "this time, nothing happened
      * worth telling" — a guard clause, not an error.
      */
-    public function toFeedStory(): ?PendingStory;
+    public function toFeedStory(): ?PendingActivity;
 }

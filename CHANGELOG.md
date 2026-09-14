@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Changed
+
+- `PublishesToFeed::toFeedStory()` returns `?PendingActivity` rather than `?PendingStory`, so an event can return exactly what `Storyfeed::activity()` builds, minus `publish()`. A `PendingStory` still satisfies it. Widening only; every existing implementation keeps compiling.
+
 ### Removed
 
 - **Removal evidence is gone** — `feed_removals`, `Healing\Removals`,

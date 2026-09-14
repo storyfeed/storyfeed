@@ -5,6 +5,7 @@ use Storyfeed\Contracts\FeedVerb;
 use Storyfeed\Contracts\PublishesToFeed;
 use Storyfeed\Exceptions\UnknownStory;
 use Storyfeed\Facades\Storyfeed;
+use Storyfeed\PendingActivity;
 use Storyfeed\PendingStory;
 use Storyfeed\Story;
 use Workbench\App\Enums\ActivityVerb;
@@ -153,4 +154,32 @@ it('does nothing when Event::fake() is active — the one silent failure', funct
     Event::assertDispatched(DeliveryConfirmed::class);
 
     expect(Storyfeed::feed()->get()->toArray()['items'])->toBeEmpty();
+});
+
+it('accepts the plain builder, so an event writes the line a listener would', function () {
+    // The contract's return type is PendingActivity, not PendingStory: the event
+    // returns exactly what Storyfeed::activity() builds, minus publish(). A
+    // PendingStory still satisfies it, since it is a PendingActivity.
+    $user = User::create(['name' => 'Sally', 'email' => 'sally@example.com']);
+    $delivery = Delivery::create(['tracking_number' => 'TN-2']);
+
+    $event = new class($delivery, $user) implements PublishesToFeed
+    {
+        public function __construct(public Delivery $delivery, public User $user) {}
+
+        public function toFeedStory(): ?PendingActivity
+        {
+            return Storyfeed::activity()
+                ->by($this->user)
+                ->action('confirm', $this->delivery);
+        }
+    };
+
+    Event::dispatch($event);
+
+    $items = Storyfeed::feed()->get()->toArray()['items'];
+
+    expect($items)->toHaveCount(1)
+        ->and($items[0]['verb'])->toBe('confirm')
+        ->and($items[0]['actor']['label'])->toBe('Sally');
 });
