@@ -75,8 +75,8 @@ it('rejects mixing object() and objects()', function () {
         ->toThrow(InvalidArgumentException::class);
 });
 
-it('auto-bundles a collectable run when the batch closes', function () {
-    Storyfeed::collectables(['delivery']);
+it('auto-bundles a bundleable run when the batch closes', function () {
+    Storyfeed::bundleables(['delivery']);
 
     $campaign = Customer::create(['name' => 'Spring Campaign']);
 
@@ -114,7 +114,7 @@ it('auto-bundles a collectable run when the batch closes', function () {
 it('never auto-bundles undesignated types, same-object runs, or singles', function () {
     $campaign = Customer::create(['name' => 'Spring Campaign']);
 
-    // Undesignated: Delivery is NOT collectable here.
+    // Undesignated: Delivery is NOT bundleable here.
     foreach (range(1, 3) as $i) {
         Storyfeed::activity()->actor(tomas())->verb('upload', Delivery::create(['tracking_number' => "U-{$i}"]))->for($campaign)->publish();
     }
@@ -125,8 +125,8 @@ it('never auto-bundles undesignated types, same-object runs, or singles', functi
     expect(Grouping::query()->where('bucket', 'composite')->count())->toBe(0)
         ->and(Storyfeed::feed()->get()->toArray()['items'][0]['axis'])->toBe('repeat');
 
-    // Same-object run of a collectable: the object axis's story, not a collection.
-    Storyfeed::collectables(['delivery']);
+    // Same-object run of a bundleable: the object axis's story, not a collection.
+    Storyfeed::bundleables(['delivery']);
 
     $doc = Delivery::create(['tracking_number' => 'Same.pdf']);
     $sally = User::create(['name' => 'Sally', 'email' => 'sally@example.com']);
@@ -134,7 +134,7 @@ it('never auto-bundles undesignated types, same-object runs, or singles', functi
     Storyfeed::activity()->actor($sally)->verb('revise', $doc)->publish();
     Storyfeed::activity()->actor($sally)->verb('revise', $doc)->publish();
 
-    // Single collectable act: mints nothing (collection-of-one collapse).
+    // Single bundleable act: mints nothing (collection-of-one collapse).
     $ann = User::create(['name' => 'Ann', 'email' => 'ann@example.com']);
     Storyfeed::activity()->actor($ann)->verb('upload', Delivery::create(['tracking_number' => 'Solo.pdf']))->publish();
 
@@ -149,12 +149,12 @@ it('never auto-bundles undesignated types, same-object runs, or singles', functi
 });
 
 it('re-decides abandoned clusters when a run is claimed', function () {
-    Storyfeed::collectables(['delivery']);
+    Storyfeed::bundleables(['delivery']);
 
     $campaign = Customer::create(['name' => 'Spring Campaign']);
 
     // Three actors upload to one target: an actors cluster of 3 — but two of
-    // the three uploads are Tomás's collectable run? No: make Tomás upload 2
+    // the three uploads are Tomás's bundleable run? No: make Tomás upload 2
     // files + Bob and Ann one each. actors cluster = 4 members, 3 distinct
     // actors -> actors wins pre-close. Tomás's 2-file run is claimed at
     // close; the remaining actors cluster (Bob, Ann) drops below min_actors
@@ -223,7 +223,7 @@ it('records members on the fake for per-object assertions', function () {
     Storyfeed::assertPublished('upload', $files[1]);
 });
 
-it('backfills history with storyfeed:bundle after late Collectable adoption', function () {
+it('backfills history with storyfeed:bundle after late Bundleable adoption', function () {
     // History recorded BEFORE the type was designated: batch closes, no
     // bundling (undesignated at close time).
     foreach (range(1, 4) as $i) {
@@ -235,9 +235,9 @@ it('backfills history with storyfeed:bundle after late Collectable adoption', fu
 
     expect(Grouping::query()->where('bucket', 'composite')->count())->toBe(0);
 
-    // The model adopts Collectable later; automatic bundling is
+    // The model adopts Bundleable later; automatic bundling is
     // future-only, so the explicit backfill walks closed batches.
-    Storyfeed::collectables(['delivery']);
+    Storyfeed::bundleables(['delivery']);
 
     $this->artisan('storyfeed:bundle')->assertSuccessful();
 
@@ -254,7 +254,7 @@ it('backfills history with storyfeed:bundle after late Collectable adoption', fu
 });
 
 it('partitions backfilled runs by day — a giant seeded batch never merges days', function () {
-    Storyfeed::collectables(['delivery']);
+    Storyfeed::bundleables(['delivery']);
     config()->set('storyfeed.grouping.composite.auto', false);
 
     // Explicitly seed the legacy wall-clock shape. New writes now separate

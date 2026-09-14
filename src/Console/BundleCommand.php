@@ -9,7 +9,7 @@ use Storyfeed\Support\SyncToken;
 
 /**
  * Backfill bundling: sweep CLOSED batches through the composite bundler —
- * the migration path for a model that adopts Collectable after history
+ * the migration path for a model that adopts Bundleable after history
  * exists. Automatic bundling is future-only (it fires at batch close and
  * closed batches are never revisited); this command is the explicit walk
  * backward.
@@ -25,7 +25,7 @@ class BundleCommand extends Command
 {
     protected $signature = 'storyfeed:bundle {--window= : Only batches closed within this many days}';
 
-    protected $description = 'Bundle collectable runs in closed batches into composite stories (backfill)';
+    protected $description = 'Bundle runs of Bundleable types in closed batches into composite stories (backfill)';
 
     public function handle(): int
     {

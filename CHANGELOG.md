@@ -4,6 +4,14 @@
 
 ### Changed
 
+- **`Contracts\Collectable` is now `Contracts\Bundleable`**, with
+  `Storyfeed::collectables()` → `Storyfeed::bundleables()` and
+  `isCollectable()` → `isBundleable()`. The old name read as "can become a
+  Laravel Collection"; the new one names what happens — runs of the model
+  bundle into one composite activity at batch close. Config is unchanged
+  (`grouping.composite.*` was never named after it). The old symbols are
+  removed, not aliased: a model that still implements `Collectable` fails at
+  autoload, and `collectables()` throws as an unknown method.
 - `PublishesToFeed::toFeedStory()` returns `?PendingActivity` rather than `?PendingStory`, so an event can return exactly what `Storyfeed::activity()` builds, minus `publish()`. A `PendingStory` still satisfies it. Widening only; every existing implementation keeps compiling.
 
 ### Removed

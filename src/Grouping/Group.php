@@ -68,7 +68,7 @@ final class Group
         return new self('repeat');
     }
 
-    /** An authored collection story (see Contracts\Collectable). */
+    /** An authored collection story (see Contracts\Bundleable). */
     public static function composite(): self
     {
         return new self('composite');

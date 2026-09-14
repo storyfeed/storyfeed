@@ -108,7 +108,7 @@ it('freezes new facts in activity and batch events across serialization and late
 });
 
 it('keeps automatic composite parents free of inferred provenance and preserves explicit composite facts', function () {
-    Storyfeed::collectables(['delivery']);
+    Storyfeed::bundleables(['delivery']);
     $actor = User::create(['name' => 'Operator', 'email' => 'operator@example.com']);
     foreach (['Source A', 'Source B'] as $i => $source) {
         Storyfeed::activity('upload', Delivery::create(['tracking_number' => (string) $i]))

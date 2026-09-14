@@ -12,11 +12,11 @@ use Storyfeed\Models\Grouping;
 use Storyfeed\StoryfeedManager;
 
 /**
- * Auto-bundling: when a batch closes, homogeneous runs of COLLECTABLE
+ * Auto-bundling: when a batch closes, homogeneous runs of BUNDLEABLE
  * objects inside it become composite stories — "Tomás uploaded 6 files to
  * Spring Campaign" minted from six atomically-recorded uploads. The
- * developer never corrals activities; designation (Contracts\Collectable /
- * Storyfeed::collectables()) plus the batch quiet-window do it.
+ * developer never corrals activities; designation (Contracts\Bundleable /
+ * Storyfeed::bundleables()) plus the batch quiet-window do it.
  *
  * A run = same (verb, object type, target, context) within one actor's
  * batch, with DISTINCT objects >= grouping.composite.min_objects. Rules
@@ -26,7 +26,7 @@ use Storyfeed\StoryfeedManager;
  *  - undesignated types never bundle — declared intent only
  *  - mixed-verb residue stays unbundled (session batches remain digest
  *    material, never feed artifacts)
- *  - a single collectable act mints nothing: the atomic IS the collapsed
+ *  - a single bundleable act mints nothing: the atomic IS the collapsed
  *    collection-of-one
  *
  * Claiming members removes them from inference (their axis rows are
@@ -59,7 +59,7 @@ class BundleComposites
         $candidates = $members
             ->reject(fn (Activity $a) => in_array($a->getKey(), $claimed))
             ->filter(fn (Activity $a) => $a->object_id !== null
-                && $manager->isCollectable($a->object_type));
+                && $manager->isBundleable($a->object_type));
 
         // Day-partitioned like every axis: a LIVE batch rarely spans
         // midnight, but a seeded/backfilled batch holds an actor's whole

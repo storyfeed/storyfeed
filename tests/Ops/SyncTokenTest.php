@@ -22,7 +22,7 @@ it('is null until the first settled-history rewrite, then surfaces in every mode
 });
 
 it('bumps on the bundle backfill, and only when something was minted', function () {
-    Storyfeed::collectables(['delivery']);
+    Storyfeed::bundleables(['delivery']);
 
     $sally = User::create(['name' => 'Sally', 'email' => 'sally@example.com']);
 
@@ -46,7 +46,7 @@ it('bumps on the bundle backfill, and only when something was minted', function 
 });
 
 it('does not bump on live automatic minting — head-page rules cover that', function () {
-    Storyfeed::collectables(['delivery']);
+    Storyfeed::bundleables(['delivery']);
 
     $sally = User::create(['name' => 'Sally', 'email' => 'sally@example.com']);
 

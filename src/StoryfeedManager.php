@@ -14,7 +14,7 @@ use Storyfeed\Actions\CompileStories;
 use Storyfeed\ActivityStreams\ActivityType;
 use Storyfeed\ActivityStreams\CoreType;
 use Storyfeed\ActivityStreams\ObjectType;
-use Storyfeed\Contracts\Collectable;
+use Storyfeed\Contracts\Bundleable;
 use Storyfeed\Contracts\DiagnosticCheck;
 use Storyfeed\Contracts\FeedHealer;
 use Storyfeed\Contracts\FeedVerb;
@@ -153,13 +153,13 @@ class StoryfeedManager
     protected ?array $axes = null;
 
     /**
-     * Morph aliases whose models are collection-natured (activities about
-     * them arrive in collections) — the registry override for the
-     * Collectable marker interface. Registry wins.
+     * Morph aliases whose models are bundleable (runs of them become one
+     * composite activity) — the registry override for the Bundleable marker
+     * interface. Registry wins.
      *
      * @var array<string, true>
      */
-    protected array $collectables = [];
+    protected array $bundleables = [];
 
     /**
      * Registered story definitions, in registration order.
@@ -1022,36 +1022,36 @@ class StoryfeedManager
     }
 
     /**
-     * Designate morph aliases as collection-natured (see Contracts\Collectable).
+     * Designate morph aliases as bundleable (see Contracts\Bundleable).
      *
      * @param  array<int, string>  $aliases
      */
-    public function collectables(array $aliases, bool $merge = true): static
+    public function bundleables(array $aliases, bool $merge = true): static
     {
         $designated = array_fill_keys($aliases, true);
 
-        $this->collectables = $merge ? [...$this->collectables, ...$designated] : $designated;
+        $this->bundleables = $merge ? [...$this->bundleables, ...$designated] : $designated;
 
         return $this;
     }
 
     /**
-     * Registry wins; the Collectable marker interface is the model-side
+     * Registry wins; the Bundleable marker interface is the model-side
      * declaration for first-party models.
      */
-    public function isCollectable(?string $alias): bool
+    public function isBundleable(?string $alias): bool
     {
         if ($alias === null) {
             return false;
         }
 
-        if (isset($this->collectables[$alias])) {
+        if (isset($this->bundleables[$alias])) {
             return true;
         }
 
         $class = MorphResolver::classFor($alias);
 
-        return $class !== null && is_a($class, Collectable::class, true);
+        return $class !== null && is_a($class, Bundleable::class, true);
     }
 
     public function fallbackAxis(): ?Axis

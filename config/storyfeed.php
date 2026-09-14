@@ -219,7 +219,7 @@ return [
         | Composites: one authored story whose object is a collection —
         | "Tomás uploaded 6 files to Spring Campaign". Explicit via
         | ->objects([...]); AUTO-BUNDLED from atomically-recorded runs of
-        | Collectable-designated types when the actor's batch closes
+        | Bundleable-designated types when the actor's batch closes
         | (requires batches enabled). min_objects is the smallest DISTINCT
         | object count that mints a story — singles stay atomic (the
         | collection-of-one collapse).
