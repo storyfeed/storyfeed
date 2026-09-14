@@ -4,6 +4,24 @@
 
 ### Changed
 
+- **The six detail forms moved from `storyfeed/ui` into core**, as
+  `Storyfeed\Detail\{Change, Excerpt, Fields, File, Markdown, MediaObject}`, and
+  their names gained a segment: `Storyfeed/Change` is now
+  `Storyfeed/Detail/Change`, and so on.
+
+  Their names always said `Storyfeed/` rather than `storyfeed-ui/`, because a
+  detail's name must not contain the library that defined it — so the vocabulary
+  was already core's while the classes were not. `storyfeed/ui` is the renderers
+  now: Vue, Blade, Livewire, React. The `FeedDetail` contract is unchanged, and an
+  app may still write its own forms and owe these nothing; core reads none of
+  them. A form in core keeps its own `$v` and is upgraded by the renderer, so
+  these six evolve on their own timeline rather than the payload contract's.
+
+  **Breaking, with no migration path, deliberately.** Rows already carrying
+  `Storyfeed/Change` render as a blank space rather than an error, which is what
+  an unknown form has always done. There is no rewrite command: nothing outside
+  the two pilots has rows, and both re-record.
+
 - **`Contracts\Collectable` is now `Contracts\Bundleable`**, with
   `Storyfeed::collectables()` → `Storyfeed::bundleables()` and
   `isCollectable()` → `isBundleable()`. The old name read as "can become a

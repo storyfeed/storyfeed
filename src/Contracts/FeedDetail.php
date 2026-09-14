@@ -4,6 +4,7 @@ namespace Storyfeed\Contracts;
 
 use Illuminate\Contracts\Support\Arrayable;
 use Storyfeed\Concerns\HasPayload;
+use Storyfeed\Detail;
 use Storyfeed\FeedThread;
 
 /**
@@ -22,15 +23,25 @@ use Storyfeed\FeedThread;
  *         'diff' => Change::make(['Status' => ['Draft', 'Ready']])->toArray(),
  *     ])->publish();
  *
- * ## Core owns the SPEC and nothing else
+ * ## Core owns the SPEC, and ships a starter vocabulary beside it
  *
- * There is no `FeedDetail` implementation in this package and there will not
- * be one. The first library of prefabricated details is `storyfeed/ui` (free,
- * MIT); the paid Filament adapter renders any conforming detail by shape; an
- * app may write its own and owe nothing to either. That is only possible if
- * the thing they agree on is an interface rather than a class — a renderer
- * depending on core can draw a form defined by a package it has never heard
- * of, and a detail outlives whichever library defined it.
+ * The interface is the thing renderers agree on: a renderer depending on core
+ * can draw a form defined by a package it has never heard of, and a detail
+ * outlives whichever library defined it. Nothing below assumes otherwise.
+ *
+ * Core also ships six forms under {@see Detail} — Change, Excerpt,
+ * Fields, File, Markdown, MediaObject. **They are a vocabulary, not a
+ * mechanism**: nothing in this package reads them, and an app may write its
+ * own and owe them nothing. They were in `storyfeed/ui` until 2026-09-14 and
+ * moved for one reason — their names always said `Storyfeed/`, because a
+ * detail's name must not contain the library that defined it, so the
+ * vocabulary was core's while the classes were not. `storyfeed/ui` is the
+ * renderers now: Vue, Blade, Livewire, React.
+ *
+ * That leaves one property to protect deliberately. A form in core must not
+ * acquire core's release gravity: a detail carries its own `$v` and the
+ * renderer upgrades it, so these six evolve on their own timeline and NOT on
+ * the payload contract's.
  *
  * So core learns NO NAME and NO SHAPE. Nothing here is a registry, nothing
  * validates a token against a list, and `docs/payload.md` grows no key: a
@@ -116,7 +127,7 @@ interface FeedDetail extends Arrayable
      * prevents permanent leaks into the frozen payload contract.
      *
      * This belongs on the published interface so every future detail DTO,
-     * including storyfeed/ui's, must supply a payload deliberately. A trait
+     * including the six core ships, must supply a payload deliberately. A trait
      * alone would leave that obligation optional; widening the interface is
      * affordable before the v0.3 freeze, not after it.
      *
