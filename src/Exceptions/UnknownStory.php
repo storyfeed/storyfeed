@@ -27,8 +27,8 @@ class UnknownStory extends LogicException
     public static function notAStory(string $given): self
     {
         return new self(
-            "[{$given}] is not a Storyfeed\\Story subclass. PendingStory::of() takes a Story; to publish "
-            .'without one, use PendingStory::inline($verb).'
+            "[{$given}] is not a Storyfeed\\Story subclass. PendingActivity::of() takes a Story; to publish "
+            .'without one, use PendingActivity::inline($verb).'
         );
     }
 }

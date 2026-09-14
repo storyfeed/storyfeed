@@ -4,7 +4,7 @@ namespace Workbench\App\Events;
 
 use Illuminate\Foundation\Events\Dispatchable;
 use Storyfeed\Contracts\PublishesToFeed;
-use Storyfeed\PendingStory;
+use Storyfeed\PendingActivity;
 use Workbench\App\Models\Customer;
 use Workbench\App\Models\Delivery;
 use Workbench\App\Models\User;
@@ -27,9 +27,9 @@ class DeliveryConfirmed implements PublishesToFeed
         public ?Customer $customer = null,
     ) {}
 
-    public function toFeedStory(): ?PendingStory
+    public function toFeedActivity(): ?PendingActivity
     {
-        return PendingStory::of(DeliveryWasConfirmed::class)
+        return PendingActivity::of(DeliveryWasConfirmed::class)
             ->object($this->delivery)
             ->actor($this->user)
             ->for($this->customer);

@@ -6,7 +6,6 @@ use Storyfeed\Contracts\PublishesToFeed;
 use Storyfeed\Exceptions\UnknownStory;
 use Storyfeed\Facades\Storyfeed;
 use Storyfeed\PendingActivity;
-use Storyfeed\PendingStory;
 use Storyfeed\Story;
 use Workbench\App\Enums\ActivityVerb;
 use Workbench\App\Events\DeliveryConfirmed;
@@ -56,7 +55,7 @@ it('costs nothing for events that do not implement the contract', function () {
 it('treats a null return as a deliberate skip', function () {
     $event = new class implements PublishesToFeed
     {
-        public function toFeedStory(): ?PendingStory
+        public function toFeedActivity(): ?PendingActivity
         {
             return null; // nothing happened worth telling
         }
@@ -76,9 +75,9 @@ it('supports declaring the activity inline, with no Story class', function () {
     {
         public function __construct(public Delivery $delivery) {}
 
-        public function toFeedStory(): ?PendingStory
+        public function toFeedActivity(): ?PendingActivity
         {
-            return PendingStory::inline('archive')->object($this->delivery);
+            return PendingActivity::inline('archive')->object($this->delivery);
         }
     };
 
@@ -90,7 +89,7 @@ it('supports declaring the activity inline, with no Story class', function () {
 it('accepts a verb enum inline', function () {
     Storyfeed::grammar(['delivery.confirm' => ':actor confirmed :object']);
 
-    expect(PendingStory::inline(ActivityVerb::Confirm)->activity->verb)->toBe('confirm');
+    expect(PendingActivity::inline(ActivityVerb::Confirm)->activity->verb)->toBe('confirm');
 });
 
 it('refuses to publish an unregistered Story rather than a verbless row', function () {
@@ -107,7 +106,7 @@ it('refuses to publish an unregistered Story rather than a verbless row', functi
     };
 
     try {
-        PendingStory::of($unregistered);
+        PendingActivity::of($unregistered);
         $this->fail('Expected an UnknownStory.');
     } catch (UnknownStory $e) {
         expect($e->getMessage())
@@ -119,8 +118,8 @@ it('refuses to publish an unregistered Story rather than a verbless row', functi
 });
 
 it('refuses a non-Story class, pointing at inline() instead', function () {
-    expect(fn () => PendingStory::of(Delivery::class))
-        ->toThrow(UnknownStory::class, 'PendingStory::inline($verb)');
+    expect(fn () => PendingActivity::of(Delivery::class))
+        ->toThrow(UnknownStory::class, 'PendingActivity::inline($verb)');
 });
 
 it('keeps the whole builder surface, with no parallel API to drift', function () {
@@ -129,7 +128,7 @@ it('keeps the whole builder surface, with no parallel API to drift', function ()
 
     // Inherited from PendingActivity — actor/for/data/when/publishedAt all
     // present without a single forwarder written here.
-    $activity = PendingStory::of(DeliveryWasConfirmed::class)
+    $activity = PendingActivity::of(DeliveryWasConfirmed::class)
         ->object($delivery)
         ->actor($user)
         ->data(['note' => 'ok'])
@@ -157,9 +156,8 @@ it('does nothing when Event::fake() is active — the one silent failure', funct
 });
 
 it('accepts the plain builder, so an event writes the line a listener would', function () {
-    // The contract's return type is PendingActivity, not PendingStory: the event
-    // returns exactly what Storyfeed::activity() builds, minus publish(). A
-    // PendingStory still satisfies it, since it is a PendingActivity.
+    // The contract's return type is the plain builder: the event returns
+    // exactly what Storyfeed::activity() builds, minus publish().
     $user = User::create(['name' => 'Sally', 'email' => 'sally@example.com']);
     $delivery = Delivery::create(['tracking_number' => 'TN-2']);
 
@@ -167,7 +165,7 @@ it('accepts the plain builder, so an event writes the line a listener would', fu
     {
         public function __construct(public Delivery $delivery, public User $user) {}
 
-        public function toFeedStory(): ?PendingActivity
+        public function toFeedActivity(): ?PendingActivity
         {
             return Storyfeed::activity()
                 ->by($this->user)

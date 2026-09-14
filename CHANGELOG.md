@@ -12,7 +12,8 @@
   (`grouping.composite.*` was never named after it). The old symbols are
   removed, not aliased: a model that still implements `Collectable` fails at
   autoload, and `collectables()` throws as an unknown method.
-- `PublishesToFeed::toFeedStory()` returns `?PendingActivity` rather than `?PendingStory`, so an event can return exactly what `Storyfeed::activity()` builds, minus `publish()`. A `PendingStory` still satisfies it. Widening only; every existing implementation keeps compiling.
+- **`PublishesToFeed::toFeedStory()` is now `toFeedActivity()`**, and it returns `?PendingActivity` — exactly what `Storyfeed::activity()` builds, minus `publish()`. A Story is the blueprint; what an event puts on the feed is an activity, so the method is named for what it returns. Rename the method in every implementing event; the body is unchanged.
+- **`Storyfeed\PendingStory` is gone.** Its two constructors live on `PendingActivity`: `PendingActivity::of(SomeStory::class)` and `PendingActivity::inline($verb)`, with the same `UnknownStory` guards. There is no alias; replace the class name.
 
 ### Removed
 

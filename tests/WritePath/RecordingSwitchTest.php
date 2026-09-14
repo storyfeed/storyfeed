@@ -8,7 +8,7 @@ use Storyfeed\Facades\Storyfeed;
 use Storyfeed\Models\Activity;
 use Storyfeed\Models\Party;
 use Storyfeed\Models\Snapshot;
-use Storyfeed\PendingStory;
+use Storyfeed\PendingActivity;
 use Workbench\App\Enums\ActivityVerb;
 use Workbench\App\Events\DeliveryConfirmed;
 use Workbench\App\Models\Customer;
@@ -82,7 +82,7 @@ describe('config off', function () {
     it('writes nothing from a Story', function () {
         Storyfeed::stories([DeliveryWasConfirmed::class]);
 
-        $activity = PendingStory::of(DeliveryWasConfirmed::class)
+        $activity = PendingActivity::of(DeliveryWasConfirmed::class)
             ->object(Delivery::create(['tracking_number' => 'TN-1']))
             ->publish();
 

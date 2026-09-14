@@ -813,7 +813,7 @@ class StoryfeedManager
      */
     public function publishFor(PublishesToFeed $publisher): ?Activity
     {
-        return $publisher->toFeedStory()?->publish();
+        return $publisher->toFeedActivity()?->publish();
     }
 
     /**
