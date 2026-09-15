@@ -1,10 +1,10 @@
 <?php
 
-namespace Storyfeed\Detail;
+namespace Storyfeed\Body;
 
 use InvalidArgumentException;
 use Storyfeed\Concerns\HasPayload;
-use Storyfeed\Contracts\FeedDetail;
+use Storyfeed\Contracts\FeedBody;
 
 /**
  * Named fields with their before and after values, in authored order.
@@ -17,7 +17,7 @@ use Storyfeed\Contracts\FeedDetail;
  * The version travels in both storage and payload: core does not own the app's
  * key, so the renderer must upgrade the detail at read time, never write it back.
  */
-class Change implements FeedDetail
+class Change implements FeedBody
 {
     use HasPayload;
 
@@ -39,9 +39,9 @@ class Change implements FeedDetail
     }
 
     /**
-     * `Storyfeed/Detail/Change` — the VOCABULARY'S name, not a package's.
+     * `Storyfeed/Body/Change` — the VOCABULARY'S name, not a package's.
      *
-     * A detail outlives whichever library defined it ({@see FeedDetail}), so the
+     * A detail outlives whichever library defined it ({@see FeedBody}), so the
      * name must not contain the library: this form has already moved packages
      * once, and a `storyfeed-ui/` or `storyfeed-filament/` prefix would have
      * moved with it. The name is a pure lookup key — no reflection, no
@@ -53,7 +53,7 @@ class Change implements FeedDetail
      */
     public static function name(): string
     {
-        return 'Storyfeed/Detail/Change';
+        return 'Storyfeed/Body/Change';
     }
 
     public static function version(): int
@@ -80,7 +80,7 @@ class Change implements FeedDetail
         return ['items' => $changes];
     }
 
-    /** @return array{'$detail': string, '$v': int, items: array<string, array<int, scalar|null>>} */
+    /** @return array{'$body': string, '$v': int, items: array<string, array<int, scalar|null>>} */
     public function toPayload(): array
     {
         return [

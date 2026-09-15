@@ -1,10 +1,10 @@
 <?php
 
-namespace Storyfeed\Detail;
+namespace Storyfeed\Body;
 
 use Illuminate\Contracts\Support\Htmlable;
 use Storyfeed\Concerns\HasPayload;
-use Storyfeed\Contracts\FeedDetail;
+use Storyfeed\Contracts\FeedBody;
 use Stringable;
 
 /**
@@ -21,7 +21,7 @@ use Stringable;
  *
  * ## Why `Excerpt` and not `Blockquote`
  *
- * {@see FeedDetail}: a detail names a FORM, not a component. `<blockquote>`
+ * {@see FeedBody}: a detail names a FORM, not a component. `<blockquote>`
  * is how this is drawn in Blade today and a Vue or React renderer may not use
  * it — naming the class after the markup would hand every later renderer a
  * decision made for one of them.
@@ -50,7 +50,7 @@ use Stringable;
  * The version travels in both storage and payload: core does not own the app's
  * key, so the renderer must upgrade the detail at read time, never write it back.
  */
-class Excerpt implements FeedDetail
+class Excerpt implements FeedBody
 {
     use HasPayload;
 
@@ -70,9 +70,9 @@ class Excerpt implements FeedDetail
     }
 
     /**
-     * `Storyfeed/Detail/Excerpt` — the VOCABULARY'S name, not a package's.
+     * `Storyfeed/Body/Excerpt` — the VOCABULARY'S name, not a package's.
      *
-     * A detail outlives whichever library defined it ({@see FeedDetail}), so the
+     * A detail outlives whichever library defined it ({@see FeedBody}), so the
      * name must not contain the library: this form has already moved packages
      * once, and a `storyfeed-ui/` or `storyfeed-filament/` prefix would have
      * moved with it. The name is a pure lookup key — no reflection, no
@@ -84,7 +84,7 @@ class Excerpt implements FeedDetail
      */
     public static function name(): string
     {
-        return 'Storyfeed/Detail/Excerpt';
+        return 'Storyfeed/Body/Excerpt';
     }
 
     public static function version(): int
@@ -104,7 +104,7 @@ class Excerpt implements FeedDetail
     }
 
     /**
-     * @return array{'$detail': string, '$v': int, text: string, from: string|null, truncated: bool}
+     * @return array{'$body': string, '$v': int, text: string, from: string|null, truncated: bool}
      */
     public function toPayload(): array
     {

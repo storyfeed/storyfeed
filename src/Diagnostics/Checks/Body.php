@@ -3,7 +3,7 @@
 namespace Storyfeed\Diagnostics\Checks;
 
 use Illuminate\Support\Collection;
-use Storyfeed\Contracts\FeedDetail;
+use Storyfeed\Contracts\FeedBody;
 use Storyfeed\Diagnostics\Finding;
 use Storyfeed\FeedThread;
 use Storyfeed\Models\Snapshot;
@@ -13,7 +13,7 @@ use Storyfeed\StoryfeedManager;
  * The detail forms that are actually in the `data` column, and the two ways
  * one can be malformed without anything ever going wrong out loud.
  *
- * {@see FeedDetail} is a spec core publishes and never implements: a detail is
+ * {@see FeedBody} is a spec core publishes and never implements: a detail is
  * the app's value, at the app's key, drawn by a renderer core knows nothing
  * about. Core reads one here, and only here, because a spec nobody can see the
  * state of is a spec that drifts — this package's history is that the doctor is
@@ -29,7 +29,7 @@ use Storyfeed\StoryfeedManager;
  *                                 renders as nothing by rule 3 and is a fact
  *                                 about ONE renderer, not about the row. Core
  *                                 answering it would require a registry, and
- *                                 the registry is the thing {@see FeedDetail}
+ *                                 the registry is the thing {@see FeedBody}
  *                                 exists to avoid.
  *   a payload whose shape does    same wall, one level in: knowing that
  *   not match its version         version 2 of `Acme/Shipment` has a `carrier`
@@ -54,7 +54,7 @@ use Storyfeed\StoryfeedManager;
  * a reader is being shown something wrong:
  *
  * - which forms exist, and rows with no version at all, are FACTS. A missing
- *   `$v` is version 1 by definition ({@see FeedDetail::VERSION}), so those
+ *   `$v` is version 1 by definition ({@see FeedBody::VERSION}), so those
  *   rows read correctly today and will keep reading correctly forever. Info.
  * - a form that declares version 2 on some rows and nothing on others, and a
  *   map that meant to be a detail and cannot be dispatched, are Warnings: the
@@ -68,7 +68,7 @@ use Storyfeed\StoryfeedManager;
  * is the closest call: the output CAN be wrong, but only if the unversioned
  * rows were written by the newer form, and the check cannot know that.
  */
-class Details extends Check
+class Body extends Check
 {
     /**
      * Rows read per table, newest first. A bound rather than a scan: this runs
@@ -95,7 +95,7 @@ class Details extends Check
      * Keys inside `data` that core owns and reads itself.
      *
      * The walk steps over them, and `$thread` is why the list has to exist at
-     * all: it carries a `$v` of its own and no `$detail`, so a naive walk would
+     * all: it carries a `$v` of its own and no `$body`, so a naive walk would
      * report every threaded activity in the table as a broken detail.
      *
      * @var list<string>
@@ -104,7 +104,7 @@ class Details extends Check
 
     public function name(): string
     {
-        return 'details';
+        return 'body';
     }
 
     public function run(StoryfeedManager $storyfeed): iterable
@@ -127,8 +127,8 @@ class Details extends Check
                 $where = "{$noun} #{$id}";
 
                 foreach ($this->walk($data, 0) as $found) {
-                    $token = $found[FeedDetail::KEY] ?? null;
-                    $version = $found[FeedDetail::VERSION] ?? null;
+                    $token = $found[FeedBody::KEY] ?? null;
+                    $version = $found[FeedBody::VERSION] ?? null;
 
                     if (is_string($token) && $token !== '') {
                         $form = $forms[$token] ?? ['activity' => 0, 'snapshot' => 0, 'versions' => [], 'unversioned' => 0, 'examples' => []];
@@ -179,13 +179,13 @@ class Details extends Check
             $count = $untokenized['count'];
 
             yield Finding::warning(
-                'details.untokenized',
+                'body.untokenized',
                 "{$count} ".str('map')->plural($count).' inside `data` '.($count === 1 ? 'carries' : 'carry')
-                .' a `'.FeedDetail::VERSION.'` but no `'.FeedDetail::KEY.'` (e.g. '
+                .' a `'.FeedBody::VERSION.'` but no `'.FeedBody::KEY.'` (e.g. '
                 .implode(', ', $untokenized['examples']).'). A renderer finds a detail by its NAME, so a versioned '
                 .'map with no name is drawn by nobody: it renders as nothing, on every page it appears on, with no '
                 .'error anywhere to say so. Name the form '
-                ."(`'".FeedDetail::KEY."' => 'vendor/form'`), or drop the `".FeedDetail::VERSION
+                ."(`'".FeedBody::KEY."' => 'vendor/form'`), or drop the `".FeedBody::VERSION
                 .'` if the map was never meant to be a detail.'.$sampled,
                 ['maps' => $count, 'examples' => implode(', ', $untokenized['examples'])],
             );
@@ -196,9 +196,9 @@ class Details extends Check
             $types = implode(', ', $malformed['types']);
 
             yield Finding::warning(
-                'details.malformed_token',
+                'body.malformed_token',
                 "{$count} ".str('map')->plural($count).' inside `data` '.($count === 1 ? 'has' : 'have')
-                .' a `'.FeedDetail::KEY."` that is not a string ({$types}) — e.g. "
+                .' a `'.FeedBody::KEY."` that is not a string ({$types}) — e.g. "
                 .implode(', ', $malformed['examples']).'. Dispatch is by name and a name is a string, so those '
                 .'render as nothing. The form\'s `name()` is what belongs there, written into storage verbatim.'
                 .$sampled,
@@ -236,7 +236,7 @@ class Details extends Check
         ];
 
         yield Finding::info(
-            'details.form',
+            'body.form',
             "`{$token}` is recorded on {$where} ({$versions}) — e.g. ".implode(', ', $form['examples'])
             .'. Core neither reads nor upgrades it: it is stored as the app wrote it, returned in `data` '
             .'untouched, and upgraded at read time by whichever renderer knows the form.'.$sampled,
@@ -252,11 +252,11 @@ class Details extends Check
 
         if ($newest < 2) {
             yield Finding::info(
-                'details.unversioned',
+                'body.unversioned',
                 "{$missing} of those ".str('row')->plural($rows).' '.($missing === 1 ? 'carries' : 'carry')
-                .' no `'.FeedDetail::VERSION.'`. They are version 1 — that is a DEFINITION, not a fallback — so '
+                .' no `'.FeedBody::VERSION.'`. They are version 1 — that is a DEFINITION, not a fallback — so '
                 .'they read correctly today and will keep reading correctly. Have the class that writes them emit '
-                ."`'".FeedDetail::VERSION."' => 1` anyway: the key can only be added going forward, and the day a "
+                ."`'".FeedBody::VERSION."' => 1` anyway: the key can only be added going forward, and the day a "
                 .'version 2 ships, every row already in this table that never said which version it was is a row '
                 .'nobody can classify.',
                 $subject,
@@ -266,14 +266,14 @@ class Details extends Check
         }
 
         yield Finding::warning(
-            'details.version_ambiguous',
-            "`{$token}` declares version {$newest} on some rows and no `".FeedDetail::VERSION.'` at all on '
+            'body.version_ambiguous',
+            "`{$token}` declares version {$newest} on some rows and no `".FeedBody::VERSION.'` at all on '
             .$missing.' '.($missing === 1 ? 'other' : 'others').' (e.g. '.implode(', ', $form['examples'])
             .'). The unversioned rows read as version 1, so they take the 1→'.$newest.' upgrade — which is the '
             .'WRONG path if they were in fact written by the version-'.$newest.' form before it started declaring '
             .'itself. Nothing throws when that happens: the detail upgrades down a path meant for an older shape '
             .'and renders output that looks entirely plausible. Establish what those rows are and set their '
-            .'`'.FeedDetail::VERSION.'`, or confirm they really are version 1.'.$sampled,
+            .'`'.FeedBody::VERSION.'`, or confirm they really are version 1.'.$sampled,
             $subject,
         );
     }
@@ -329,7 +329,7 @@ class Details extends Check
      */
     protected function walk(array $data, int $depth): array
     {
-        if (array_key_exists(FeedDetail::KEY, $data) || array_key_exists(FeedDetail::VERSION, $data)) {
+        if (array_key_exists(FeedBody::KEY, $data) || array_key_exists(FeedBody::VERSION, $data)) {
             // A detail is a leaf by rule 4, so the walk stops rather than
             // looking inside one — the same stop the adapter's Registry makes,
             // for the same reason.

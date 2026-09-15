@@ -1,10 +1,10 @@
 <?php
 
-namespace Storyfeed\Detail;
+namespace Storyfeed\Body;
 
 use Illuminate\Contracts\Support\Htmlable;
 use Storyfeed\Concerns\HasPayload;
-use Storyfeed\Contracts\FeedDetail;
+use Storyfeed\Contracts\FeedBody;
 use Stringable;
 
 /**
@@ -42,7 +42,7 @@ use Stringable;
  * The version travels in both storage and payload: core does not own the app's
  * key, so the renderer must upgrade the detail at read time, never write it back.
  */
-class KeyValue implements FeedDetail
+class KeyValue implements FeedBody
 {
     use HasPayload;
 
@@ -136,9 +136,9 @@ class KeyValue implements FeedDetail
     }
 
     /**
-     * `Storyfeed/Detail/KeyValue` — the VOCABULARY'S name, not a package's.
+     * `Storyfeed/Body/KeyValue` — the VOCABULARY'S name, not a package's.
      *
-     * A detail outlives whichever library defined it ({@see FeedDetail}), so the
+     * A detail outlives whichever library defined it ({@see FeedBody}), so the
      * name must not contain the library: this form has already moved packages
      * once, and a `storyfeed-ui/` or `storyfeed-filament/` prefix would have
      * moved with it. The name is a pure lookup key — no reflection, no
@@ -150,7 +150,7 @@ class KeyValue implements FeedDetail
      */
     public static function name(): string
     {
-        return 'Storyfeed/Detail/KeyValue';
+        return 'Storyfeed/Body/KeyValue';
     }
 
     public static function version(): int
@@ -175,7 +175,7 @@ class KeyValue implements FeedDetail
     }
 
     /**
-     * @return array{'$detail': string, '$v': int, title: string|null, items: array<int, array{key: string, value: string|int|float|bool|null, verbatim: bool, missing: string|null}>}
+     * @return array{'$body': string, '$v': int, title: string|null, items: array<int, array{key: string, value: string|int|float|bool|null, verbatim: bool, missing: string|null}>}
      */
     public function toPayload(): array
     {

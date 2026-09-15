@@ -1,9 +1,9 @@
 <?php
 
-namespace Storyfeed\Detail;
+namespace Storyfeed\Body;
 
 use Storyfeed\Concerns\HasPayload;
-use Storyfeed\Contracts\FeedDetail;
+use Storyfeed\Contracts\FeedBody;
 
 /**
  * An artefact: what it is, how big, and where it lives.
@@ -50,7 +50,7 @@ use Storyfeed\Contracts\FeedDetail;
  * The version travels in both storage and payload: core does not own the app's
  * key, so the renderer must upgrade the detail at read time, never write it back.
  */
-class File implements FeedDetail
+class File implements FeedBody
 {
     use HasPayload;
 
@@ -74,9 +74,9 @@ class File implements FeedDetail
     }
 
     /**
-     * `Storyfeed/Detail/File` — the VOCABULARY'S name, not a package's.
+     * `Storyfeed/Body/File` — the VOCABULARY'S name, not a package's.
      *
-     * A detail outlives whichever library defined it ({@see FeedDetail}), so the
+     * A detail outlives whichever library defined it ({@see FeedBody}), so the
      * name must not contain the library: this form has already moved packages
      * once, and a `storyfeed-ui/` or `storyfeed-filament/` prefix would have
      * moved with it. The name is a pure lookup key — no reflection, no
@@ -88,7 +88,7 @@ class File implements FeedDetail
      */
     public static function name(): string
     {
-        return 'Storyfeed/Detail/File';
+        return 'Storyfeed/Body/File';
     }
 
     public static function version(): int
@@ -106,7 +106,7 @@ class File implements FeedDetail
     }
 
     /**
-     * @return array{'$detail': string, '$v': int, name: string|null, size: int|null, mediaType: string|null}
+     * @return array{'$body': string, '$v': int, name: string|null, size: int|null, mediaType: string|null}
      */
     public function toPayload(): array
     {

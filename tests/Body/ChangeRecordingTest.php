@@ -1,14 +1,14 @@
 <?php
 
-use Storyfeed\Detail\Change;
+use Storyfeed\Body\Change;
 use Storyfeed\Facades\Storyfeed;
 
 it('records and reads a detail exactly like its plain array without writing read upgrades back', function () {
     $changes = ['Status' => ['Draft', 'Ready'], 'Added' => [1 => null], 'Removed' => [0 => 'old']];
-    $detail = Change::make($changes);
-    $plain = ['$detail' => 'Storyfeed/Detail/Change', '$v' => 1, 'items' => $changes];
+    $body = Change::make($changes);
+    $plain = ['$body' => 'Storyfeed/Body/Change', '$v' => 1, 'items' => $changes];
     $data = ['reason' => 'Reviewed', 'diff' => $plain, '$app' => ['keep' => true]];
-    $authored = Storyfeed::activity('revise')->data(array_replace($data, ['diff' => $detail->toArray()]))->publish();
+    $authored = Storyfeed::activity('revise')->data(array_replace($data, ['diff' => $body->toArray()]))->publish();
     $manual = Storyfeed::activity('revise')->data($data)->publish();
     $bytes = $authored->fresh()->getRawOriginal('data');
 

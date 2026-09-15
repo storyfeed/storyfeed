@@ -4,7 +4,6 @@ namespace Storyfeed\Contracts;
 
 use Illuminate\Contracts\Support\Arrayable;
 use Storyfeed\Concerns\HasPayload;
-use Storyfeed\Detail;
 use Storyfeed\FeedThread;
 
 /**
@@ -146,7 +145,7 @@ use Storyfeed\FeedThread;
  *
  * @extends Arrayable<string, mixed>
  */
-interface FeedDetail extends Arrayable
+interface FeedBody extends Arrayable
 {
     /**
      * The node shape. Authors implement this and use {@see HasPayload} for
@@ -181,7 +180,7 @@ interface FeedDetail extends Arrayable
      * keys core owns and passes every other one through untouched, which is
      * precisely what lets this one survive the read path.
      */
-    public const string KEY = '$detail';
+    public const string KEY = '$body';
 
     /**
      * The reserved key carrying the version — see rule 1, and the versioning

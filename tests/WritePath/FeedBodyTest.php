@@ -1,12 +1,12 @@
 <?php
 
 use Storyfeed\Concerns\HasPayload;
-use Storyfeed\Contracts\FeedDetail;
+use Storyfeed\Contracts\FeedBody;
 use Storyfeed\Facades\Storyfeed;
 use Storyfeed\FeedThread;
 use Workbench\App\Models\Delivery;
 
-final class ShipmentDetail implements FeedDetail
+final class ShipmentDetail implements FeedBody
 {
     use HasPayload;
 
@@ -32,20 +32,20 @@ final class ShipmentDetail implements FeedDetail
 }
 
 it('records a payload-only detail author and preserves renderer metadata beside a thread', function () {
-    $detail = new ShipmentDetail;
+    $body = new ShipmentDetail;
     $thread = FeedThread::make(text: 'Shipped.');
     $activity = Storyfeed::activity('confirm', Delivery::create(['tracking_number' => 'DETAIL-1']))
-        ->data(['shipment' => $detail->toArray(), '$acme' => ['keep' => true]])
+        ->data(['shipment' => $body->toArray(), '$acme' => ['keep' => true]])
         ->thread($thread)
         ->publish();
 
     $stored = $activity->fresh()->data;
-    expect($stored['shipment'])->toBe($detail->toPayload())
+    expect($stored['shipment'])->toBe($body->toPayload())
         ->and($stored[FeedThread::KEY][FeedThread::VERSION])->toBe(1);
 
     $node = Storyfeed::feed()->get()->toArray()['items'][0];
     expect($node['data'])->toBe([
-        'shipment' => ['$detail' => 'acme/shipment', '$v' => 2, 'status' => 'shipped'],
+        'shipment' => ['$body' => 'acme/shipment', '$v' => 2, 'status' => 'shipped'],
         '$acme' => ['keep' => true],
     ])->and($node['thread'])->toBe($thread->toPayload())
         ->and($node['thread'])->not->toHaveKey('$v');

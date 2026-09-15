@@ -56,7 +56,7 @@ it('persists an authored note and emits its body without a thread or an inferred
         expect($object['content'])->toBe($note->name)
             ->and($object['mediaType'])->toBe('text/markdown')
             ->and($object['attributedTo'])->toBe('https://example.test/authors/original')
-            ->and($object)->not->toHaveKeys(['$v', '$detail']);
+            ->and($object)->not->toHaveKeys(['$v', '$body']);
     }
     expect($item['object']['data'])->toBe($snapshot->data)
         ->and($item['thread'])->toBeNull()

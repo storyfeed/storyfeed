@@ -1,10 +1,10 @@
 <?php
 
-namespace Storyfeed\Detail;
+namespace Storyfeed\Body;
 
 use LogicException;
 use Storyfeed\Concerns\HasPayload;
-use Storyfeed\Contracts\FeedDetail;
+use Storyfeed\Contracts\FeedBody;
 use Storyfeed\FeedLink;
 use Storyfeed\FeedResource;
 use Storyfeed\MediaSlot;
@@ -25,14 +25,14 @@ use Storyfeed\MediaSlot;
  *
  * Stored:
  *
- *     {"$detail": "Storyfeed/MediaObject", "$v": 1,
+ *     {"$body": "Storyfeed/MediaObject", "$v": 1,
  *      "subject": "N201 Saffron Butter Rice",
  *      "content": "Basmati replaces Jasmine.",
  *      "image": "icon", "attachments": [], "footnote": "Approved by Jasper"}
  *
  * …and with a subject that leads to its entity, and a file it names itself:
  *
- *     {"$detail": "Storyfeed/MediaObject", "$v": 1,
+ *     {"$body": "Storyfeed/MediaObject", "$v": 1,
  *      "subject": {"label": "N201 Saffron Butter Rice", "href": null},
  *      "content": "Basmati replaces Jasmine.",
  *      "image": "icon",
@@ -266,7 +266,7 @@ use Storyfeed\MediaSlot;
  * app's key, so the renderer must upgrade the detail at read time, never
  * write it back.
  */
-class MediaObject implements FeedDetail
+class MediaObject implements FeedBody
 {
     use HasPayload;
 
@@ -337,9 +337,9 @@ class MediaObject implements FeedDetail
     }
 
     /**
-     * `Storyfeed/Detail/MediaObject` — the VOCABULARY'S name, not a package's.
+     * `Storyfeed/Body/MediaObject` — the VOCABULARY'S name, not a package's.
      *
-     * A detail outlives whichever library defined it ({@see FeedDetail}), so the
+     * A detail outlives whichever library defined it ({@see FeedBody}), so the
      * name must not contain the library: this form has already moved packages
      * once, and a `storyfeed-ui/` or `storyfeed-filament/` prefix would have
      * moved with it. The name is a pure lookup key — no reflection, no
@@ -351,7 +351,7 @@ class MediaObject implements FeedDetail
      */
     public static function name(): string
     {
-        return 'Storyfeed/Detail/MediaObject';
+        return 'Storyfeed/Body/MediaObject';
     }
 
     public static function version(): int
@@ -398,7 +398,7 @@ class MediaObject implements FeedDetail
     }
 
     /**
-     * @return array{'$detail': string, '$v': int, subject: string|array{label: string, href: string|null}|null, content: string|null, image: string|null, attachments: list<array{href: string, mediaType: string|null, name: string|null, type: string}>, footnote: string|array{label: string, href: string|null}|null}
+     * @return array{'$body': string, '$v': int, subject: string|array{label: string, href: string|null}|null, content: string|null, image: string|null, attachments: list<array{href: string, mediaType: string|null, name: string|null, type: string}>, footnote: string|array{label: string, href: string|null}|null}
      */
     public function toPayload(): array
     {

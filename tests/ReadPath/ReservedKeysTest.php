@@ -16,7 +16,7 @@ use Workbench\App\Models\User;
  * The second clause is the load-bearing one and these tests are its guard.
  * A well-meaning "strip every `$`-prefixed key" on the read path would pass
  * every FeedThread test and delete a paying customer's payload — a detail
- * carrying `$detail`/`$v`, a key another package reserved, a key the app
+ * carrying `$body`/`$v`, a key another package reserved, a key the app
  * chose for itself. Core owns `$thread` and `$change`.
  */
 
@@ -61,17 +61,17 @@ it('strips only the key core owns when both are present', function () {
         ->and($node['thread']['text'])->toBe('Shipped.');
 });
 
-it('carries a detail — $detail and $v inside the app\'s own key — to the renderer intact', function () {
-    // The shape a `Contracts\FeedDetail` writes. Core does not own the key,
+it('carries a detail — $body and $v inside the app\'s own key — to the renderer intact', function () {
+    // The shape a `Contracts\FeedBody` writes. Core does not own the key,
     // cannot find it without walking the app's map, and must not normalise it:
     // `$v` travels, and the renderer upgrades. See docs/payload.md.
-    $detail = ['$detail' => 'change', '$v' => 2, 'field' => 'status', 'from' => 'draft', 'to' => 'sent'];
+    $body = ['$body' => 'change', '$v' => 2, 'field' => 'status', 'from' => 'draft', 'to' => 'sent'];
 
-    recordWithReservedKeys(['change' => $detail], FeedThread::make(text: 'Sent.'));
+    recordWithReservedKeys(['change' => $body], FeedThread::make(text: 'Sent.'));
 
     $node = Storyfeed::feed()->get()->toArray()['items'][0];
 
-    expect($node['data'])->toBe(['change' => $detail])
+    expect($node['data'])->toBe(['change' => $body])
         ->and($node['data']['change']['$v'])->toBe(2);
 });
 

@@ -1,9 +1,9 @@
 <?php
 
-namespace Storyfeed\Detail;
+namespace Storyfeed\Body;
 
 use Storyfeed\Concerns\HasPayload;
-use Storyfeed\Contracts\FeedDetail;
+use Storyfeed\Contracts\FeedBody;
 use Stringable;
 
 /**
@@ -12,7 +12,7 @@ use Stringable;
  * The version travels in both storage and payload: core does not own the app's
  * key, so the renderer must upgrade the detail at read time.
  */
-class Markdown implements FeedDetail
+class Markdown implements FeedBody
 {
     use HasPayload;
 
@@ -31,9 +31,9 @@ class Markdown implements FeedDetail
     }
 
     /**
-     * `Storyfeed/Detail/Markdown` — the VOCABULARY'S name, not a package's.
+     * `Storyfeed/Body/Markdown` — the VOCABULARY'S name, not a package's.
      *
-     * A detail outlives whichever library defined it ({@see FeedDetail}), so the
+     * A detail outlives whichever library defined it ({@see FeedBody}), so the
      * name must not contain the library: this form has already moved packages
      * once, and a `storyfeed-ui/` or `storyfeed-filament/` prefix would have
      * moved with it. The name is a pure lookup key — no reflection, no
@@ -45,7 +45,7 @@ class Markdown implements FeedDetail
      */
     public static function name(): string
     {
-        return 'Storyfeed/Detail/Markdown';
+        return 'Storyfeed/Body/Markdown';
     }
 
     public static function version(): int
@@ -66,7 +66,7 @@ class Markdown implements FeedDetail
     }
 
     /**
-     * @return array{'$detail': string, '$v': int, content: string, mediaType: string}
+     * @return array{'$body': string, '$v': int, content: string, mediaType: string}
      */
     public function toPayload(): array
     {

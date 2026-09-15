@@ -45,7 +45,7 @@ class Doctor
         Checks\UnwiredSurface::class,
         Checks\Entities::class,
         Checks\Hydration::class,
-        Checks\Details::class,
+        Checks\Body::class,
         Checks\Parties::class,
         Checks\Participants::class,
         Checks\Dangling::class,

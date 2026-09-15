@@ -10,7 +10,7 @@ use Storyfeed\Concerns\HasPayload;
  * both sides, never a rendered diff or a translated sentence.
  *
  * Core owns KEY, so it upgrades on read and never exposes VERSION to renderers.
- * This is not a portable Contracts\FeedDetail and mints no Activity Streams term.
+ * This is not a portable Contracts\FeedBody and mints no Activity Streams term.
  */
 final class FeedChange
 {

@@ -60,7 +60,7 @@ it('keeps fluent change thread and data independent of setter order and groups a
 });
 
 it('reads legacy future and malformed stored changes without rewriting or touching portable details', function (mixed $stored, ?array $expected) {
-    $portable = ['$detail' => 'storyfeed-filament/change', '$v' => 99, 'changes' => []];
+    $portable = ['$body' => 'storyfeed-filament/change', '$v' => 99, 'changes' => []];
     $data = ['$change' => $stored, 'portable' => $portable, '$unknown' => true];
     $activity = Storyfeed::record('confirm', Delivery::create(['tracking_number' => 'CHANGE']), data: $data);
     $node = Storyfeed::feed()->get()->toArray()['items'][0];

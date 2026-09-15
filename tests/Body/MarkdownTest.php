@@ -1,25 +1,25 @@
 <?php
 
-use Storyfeed\Contracts\FeedDetail;
-use Storyfeed\Detail\Markdown;
+use Storyfeed\Body\Markdown;
+use Storyfeed\Contracts\FeedBody;
 
 it('round-trips authored source with its form and version intact', function () {
     $content = "## Release notes\n\n**Hello** <script>alert('source')</script>";
-    $detail = Markdown::make($content);
+    $body = Markdown::make($content);
     $expected = [
-        '$detail' => 'Storyfeed/Detail/Markdown',
+        '$body' => 'Storyfeed/Body/Markdown',
         '$v' => 1,
         'content' => $content,
         'mediaType' => 'text/markdown',
     ];
 
-    expect($detail)->toBeInstanceOf(FeedDetail::class)
-        ->and($detail->toArray())->toBe($expected)
-        ->and($detail->toPayload())->toBe($expected);
+    expect($body)->toBeInstanceOf(FeedBody::class)
+        ->and($body->toArray())->toBe($expected)
+        ->and($body->toPayload())->toBe($expected);
 
-    $stored = json_decode(json_encode($detail->toArray(), JSON_THROW_ON_ERROR), true, flags: JSON_THROW_ON_ERROR);
-    $props = array_diff_key($stored, array_flip([FeedDetail::KEY, FeedDetail::VERSION]));
-    $upgraded = Markdown::upgrade($props, $stored[FeedDetail::VERSION]);
+    $stored = json_decode(json_encode($body->toArray(), JSON_THROW_ON_ERROR), true, flags: JSON_THROW_ON_ERROR);
+    $props = array_diff_key($stored, array_flip([FeedBody::KEY, FeedBody::VERSION]));
+    $upgraded = Markdown::upgrade($props, $stored[FeedBody::VERSION]);
 
     expect($upgraded)->toBe(['content' => $content, 'mediaType' => 'text/markdown'])
         ->and(Markdown::make($upgraded['content'])->toPayload())->toBe($expected);

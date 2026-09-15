@@ -1,26 +1,26 @@
 <?php
 
 use Illuminate\Support\HtmlString;
-use Storyfeed\Contracts\FeedDetail;
-use Storyfeed\Detail\KeyValue;
+use Storyfeed\Body\KeyValue;
+use Storyfeed\Contracts\FeedBody;
 
 it('serializes with the reserved keys, so a stored row describes itself', function () {
-    $detail = KeyValue::make(['Address' => '99.225.169.111']);
+    $body = KeyValue::make(['Address' => '99.225.169.111']);
     $expected = [
-        '$detail' => 'Storyfeed/Detail/KeyValue',
+        '$body' => 'Storyfeed/Body/KeyValue',
         '$v' => 1,
         'title' => null,
         'items' => [['key' => 'Address', 'value' => '99.225.169.111', 'verbatim' => false, 'missing' => null]],
     ];
 
-    expect($detail)->toBeInstanceOf(FeedDetail::class)
-        ->and($detail->toArray())->toBe($expected)
-        ->and($detail->toPayload())->toBe($expected);
+    expect($body)->toBeInstanceOf(FeedBody::class)
+        ->and($body->toArray())->toBe($expected)
+        ->and($body->toPayload())->toBe($expected);
 
-    $stored = json_decode(json_encode($detail->toArray(), JSON_THROW_ON_ERROR), true, flags: JSON_THROW_ON_ERROR);
-    $props = array_diff_key($stored, array_flip([FeedDetail::KEY, FeedDetail::VERSION]));
+    $stored = json_decode(json_encode($body->toArray(), JSON_THROW_ON_ERROR), true, flags: JSON_THROW_ON_ERROR);
+    $props = array_diff_key($stored, array_flip([FeedBody::KEY, FeedBody::VERSION]));
 
-    expect(KeyValue::upgrade($props, $stored[FeedDetail::VERSION]))->toBe(['title' => null, 'items' => $expected['items']]);
+    expect(KeyValue::upgrade($props, $stored[FeedBody::VERSION]))->toBe(['title' => null, 'items' => $expected['items']]);
 });
 
 it('accepts both shapes an app finds natural to write', function () {

@@ -23,7 +23,7 @@ it('accepts typed resource attachments through every construction path', functio
     }
 
     expect($resource->toArray())->toBe($resource->toPayload())
-        ->and($resource->toPayload())->not->toHaveKeys(['$v', '$detail'])
+        ->and($resource->toPayload())->not->toHaveKeys(['$v', '$body'])
         ->and(FeedMedia::make(attachments: [$resource])->attachments([])->media())->toBeNull()
         ->and(FeedMedia::make()->attachments)->toBe([]);
 });

@@ -1,20 +1,20 @@
 <?php
 
-use Storyfeed\Contracts\FeedDetail;
-use Storyfeed\Detail\MediaObject;
+use Storyfeed\Body\MediaObject;
+use Storyfeed\Contracts\FeedBody;
 use Storyfeed\FeedLink;
 use Storyfeed\FeedResource;
 use Storyfeed\MediaSlot;
 
 it('stores a slot name and no image, because the resolver mints the picture at read time', function () {
-    $detail = MediaObject::make(
+    $body = MediaObject::make(
         subject: 'N201 Saffron Butter Rice',
         content: 'Basmati replaces Jasmine.',
         image: MediaSlot::Icon,
     );
 
     $expected = [
-        '$detail' => 'Storyfeed/Detail/MediaObject',
+        '$body' => 'Storyfeed/Body/MediaObject',
         '$v' => 1,
         'subject' => 'N201 Saffron Butter Rice',
         'content' => 'Basmati replaces Jasmine.',
@@ -25,15 +25,15 @@ it('stores a slot name and no image, because the resolver mints the picture at r
 
     // No src, no mediaType, no width, no height, no alt: the FeedImage that
     // feedMedia() mints carries all of them, and a copy here would age.
-    expect($detail)->toBeInstanceOf(FeedDetail::class)
-        ->and($detail->toArray())->toBe($expected)
-        ->and($detail->toPayload())->toBe($expected)
-        ->and(array_keys($detail->toPayload()))->not->toContain('src', 'url', 'width', 'height', 'alt', 'mediaType');
+    expect($body)->toBeInstanceOf(FeedBody::class)
+        ->and($body->toArray())->toBe($expected)
+        ->and($body->toPayload())->toBe($expected)
+        ->and(array_keys($body->toPayload()))->not->toContain('src', 'url', 'width', 'height', 'alt', 'mediaType');
 
-    $stored = json_decode(json_encode($detail->toArray(), JSON_THROW_ON_ERROR), true, flags: JSON_THROW_ON_ERROR);
-    $props = array_diff_key($stored, array_flip([FeedDetail::KEY, FeedDetail::VERSION]));
+    $stored = json_decode(json_encode($body->toArray(), JSON_THROW_ON_ERROR), true, flags: JSON_THROW_ON_ERROR);
+    $props = array_diff_key($stored, array_flip([FeedBody::KEY, FeedBody::VERSION]));
 
-    expect(MediaObject::upgrade($props, $stored[FeedDetail::VERSION]))
+    expect(MediaObject::upgrade($props, $stored[FeedBody::VERSION]))
         ->toBe(['subject' => 'N201 Saffron Butter Rice', 'content' => 'Basmati replaces Jasmine.', 'image' => 'icon', 'attachments' => [], 'footnote' => null]);
 });
 
@@ -41,7 +41,7 @@ it('reads in the order it renders: subject, content, image, attachments, footnot
     // The footnote is last in the signature because it is subordinate to
     // everything above it, and the reading order of the two should match.
     expect(array_keys(MediaObject::make()->toPayload()))
-        ->toBe(['$detail', '$v', 'subject', 'content', 'image', 'attachments', 'footnote'])
+        ->toBe(['$body', '$v', 'subject', 'content', 'image', 'attachments', 'footnote'])
         ->and(array_keys(MediaObject::upgrade([], 1)))
         ->toBe(['subject', 'content', 'image', 'attachments', 'footnote']);
 });
@@ -50,7 +50,7 @@ it('is all-optional, so a block with only attachments is a file list and no seco
     $pdf = FeedResource::make('https://example.test/n201-v4.pdf', 'application/pdf', 'n201-v4.pdf');
 
     expect(MediaObject::make()->toPayload())
-        ->toBe(['$detail' => MediaObject::name(), '$v' => 1, 'subject' => null, 'content' => null, 'image' => null, 'attachments' => [], 'footnote' => null])
+        ->toBe(['$body' => MediaObject::name(), '$v' => 1, 'subject' => null, 'content' => null, 'image' => null, 'attachments' => [], 'footnote' => null])
         ->and(MediaObject::make(attachments: [$pdf])->toPayload()['attachments'])
         ->toBe([['type' => 'Document', 'href' => 'https://example.test/n201-v4.pdf', 'mediaType' => 'application/pdf', 'name' => 'n201-v4.pdf']])
         ->and(MediaObject::make(subject: 'Minutes', content: 'Two items carried.')->toPayload()['image'])->toBeNull();
@@ -72,7 +72,7 @@ it('names the files it draws rather than deferring to whatever the entity holds'
         // A list of VALUES, which a form may hold; a list of forms is what
         // details are forbidden. Nothing nests here.
         ->and(MediaObject::make(attachments: [$spec])->toPayload()['attachments'][0])
-        ->not->toHaveKey(FeedDetail::KEY);
+        ->not->toHaveKey(FeedBody::KEY);
 
     // Anything that is not a FeedResource is not a file, and a list stays a list.
     expect(MediaObject::make(attachments: ['n201-v4.pdf', null, $spec, ['href' => 'x']])->toPayload()['attachments'])

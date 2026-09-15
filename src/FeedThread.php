@@ -82,7 +82,7 @@ final class FeedThread
 
     /**
      * The reserved key this rides under inside the activity's `data`
-     * column, `$`-prefixed as the adapter's `$detail` is: `data` is the
+     * column, `$`-prefixed as the adapter's `$body` is: `data` is the
      * app's map and a package that stores in it must be unmistakable about
      * which key is not the app's. It is stripped back out on the read path,
      * so the payload's `data` is exactly what the app recorded.

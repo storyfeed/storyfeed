@@ -1,13 +1,13 @@
 <?php
 
 use Illuminate\Support\HtmlString;
-use Storyfeed\Contracts\FeedDetail;
-use Storyfeed\Detail\Excerpt;
+use Storyfeed\Body\Excerpt;
+use Storyfeed\Contracts\FeedBody;
 
 it('keeps a quotation out of the headline, with its form and version intact', function () {
-    $detail = Excerpt::make('The fee for each subsequent term is agreed at renewal.');
+    $body = Excerpt::make('The fee for each subsequent term is agreed at renewal.');
     $expected = [
-        '$detail' => 'Storyfeed/Detail/Excerpt',
+        '$body' => 'Storyfeed/Body/Excerpt',
         '$v' => 1,
         'text' => 'The fee for each subsequent term is agreed at renewal.',
         'from' => null,
@@ -16,14 +16,14 @@ it('keeps a quotation out of the headline, with its form and version intact', fu
         'truncated' => true,
     ];
 
-    expect($detail)->toBeInstanceOf(FeedDetail::class)
-        ->and($detail->toArray())->toBe($expected)
-        ->and($detail->toPayload())->toBe($expected);
+    expect($body)->toBeInstanceOf(FeedBody::class)
+        ->and($body->toArray())->toBe($expected)
+        ->and($body->toPayload())->toBe($expected);
 
-    $stored = json_decode(json_encode($detail->toArray(), JSON_THROW_ON_ERROR), true, flags: JSON_THROW_ON_ERROR);
-    $props = array_diff_key($stored, array_flip([FeedDetail::KEY, FeedDetail::VERSION]));
+    $stored = json_decode(json_encode($body->toArray(), JSON_THROW_ON_ERROR), true, flags: JSON_THROW_ON_ERROR);
+    $props = array_diff_key($stored, array_flip([FeedBody::KEY, FeedBody::VERSION]));
 
-    expect(Excerpt::upgrade($props, $stored[FeedDetail::VERSION]))
+    expect(Excerpt::upgrade($props, $stored[FeedBody::VERSION]))
         ->toBe(['text' => $expected['text'], 'from' => null, 'truncated' => true]);
 });
 

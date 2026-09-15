@@ -1,31 +1,31 @@
 <?php
 
-use Storyfeed\Contracts\FeedDetail;
-use Storyfeed\Detail\Change;
+use Storyfeed\Body\Change;
+use Storyfeed\Contracts\FeedBody;
 
 it('round-trips authored changes with their form and version intact', function () {
     $changes = ['Status' => ['Draft', 'Ready']];
-    $detail = Change::make($changes);
-    $expected = ['$detail' => 'Storyfeed/Detail/Change', '$v' => 1, 'items' => $changes];
+    $body = Change::make($changes);
+    $expected = ['$body' => 'Storyfeed/Body/Change', '$v' => 1, 'items' => $changes];
 
-    expect($detail)->toBeInstanceOf(FeedDetail::class)
-        ->and($detail->toArray())->toBe($expected)
-        ->and($detail->toPayload())->toBe($expected);
+    expect($body)->toBeInstanceOf(FeedBody::class)
+        ->and($body->toArray())->toBe($expected)
+        ->and($body->toPayload())->toBe($expected);
 
-    $stored = json_decode(json_encode($detail->toArray(), JSON_THROW_ON_ERROR), true, flags: JSON_THROW_ON_ERROR);
-    $props = array_diff_key($stored, array_flip([FeedDetail::KEY, FeedDetail::VERSION]));
-    $upgraded = Change::upgrade($props, $stored[FeedDetail::VERSION]);
+    $stored = json_decode(json_encode($body->toArray(), JSON_THROW_ON_ERROR), true, flags: JSON_THROW_ON_ERROR);
+    $props = array_diff_key($stored, array_flip([FeedBody::KEY, FeedBody::VERSION]));
+    $upgraded = Change::upgrade($props, $stored[FeedBody::VERSION]);
 
     expect($upgraded)->toBe(['items' => $changes])
         ->and(Change::make($upgraded['items'])->toPayload())->toBe($expected);
 });
 
 it('reads a missing version as version one without changing the stored payload', function () {
-    $stored = ['$detail' => Change::name(), 'items' => ['Status' => ['Draft', 'Ready']]];
+    $stored = ['$body' => Change::name(), 'items' => ['Status' => ['Draft', 'Ready']]];
     $original = json_encode($stored, JSON_THROW_ON_ERROR);
-    $props = array_diff_key($stored, array_flip([FeedDetail::KEY, FeedDetail::VERSION]));
+    $props = array_diff_key($stored, array_flip([FeedBody::KEY, FeedBody::VERSION]));
 
-    expect(Change::upgrade($props, $stored[FeedDetail::VERSION] ?? 1))->toBe(['items' => $stored['items']])
+    expect(Change::upgrade($props, $stored[FeedBody::VERSION] ?? 1))->toBe(['items' => $stored['items']])
         ->and(json_encode($stored, JSON_THROW_ON_ERROR))->toBe($original);
 });
 
@@ -45,7 +45,7 @@ it('distinguishes absent sides from explicit null and preserves field order thro
 });
 
 it('allows an empty change map', function () {
-    expect(Change::make([])->toPayload())->toBe(['$detail' => Change::name(), '$v' => 1, 'items' => []])
+    expect(Change::make([])->toPayload())->toBe(['$body' => Change::name(), '$v' => 1, 'items' => []])
         ->and(Change::upgrade(['items' => []], 1))->toBe(['items' => []]);
 });
 
