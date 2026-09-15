@@ -100,29 +100,33 @@ use Storyfeed\FeedThread;
  *    payload's headline is a SENTENCE rather than a structure for exactly this
  *    reason.
  *
- * ## Key names come from AS2 where AS2 has the word
+ * ## Key names: AS2's word only where the value reaches AS2
  *
- * A form invents a key only for something Activity Streams has no term for.
- * The six already follow it: `File` carries `name`, `size`, `mediaType`;
- * `Markdown` carries `content`, `mediaType`; `MediaObject` carries `content`,
- * `image`, `attachments`. What is plain English — `text`, `from`, `truncated`,
- * `rows`, `changes`, `footnote` — is plain English because the vocabulary has
- * nothing to transcribe there.
+ * A DETAIL'S KEYS NEVER REACH THE WIRE. A detail has no Activity Streams
+ * mapping (docs/payload.md): it rides inside `data` and comes back
+ * byte-identical, and this package neither reads nor serializes it. So
+ * transcribing AS2 inside a form buys no interoperability — only the look of
+ * consistency — and the plainest word a reader already has wins instead.
  *
- * It is the same posture the serializer takes on the wire, where `replies` is
- * emitted as AS2's own property precisely so no extension term has to be
- * minted; a term named for a shape we are still learning is a permanent
- * commitment to this week's spelling.
+ * A TITLE LINE IS THEREFORE `title`, not AS2's `name`. `title` is what RSS,
+ * Atom and JSON Feed all call it, and in a Laravel application `name` reads as
+ * an identifier — a route name, a column, a config key — where `title` reads
+ * as a heading at once.
  *
- * So a title line is `name`, a body is `content`, a collection's members are
- * `items`, and an ordered one's are `orderedItems` — none of which are
- * decisions anybody here has to make again.
+ * Where a value DOES reach the wire, AS2's spelling still wins and for the
+ * usual reason: the serializer emits `replies` as AS2's own property precisely
+ * so no extension term has to be minted, and a term named for a shape we are
+ * still learning is a permanent commitment to this week's spelling.
  *
- * KNOWN DEVIATION: `Detail\MediaObject` spells its title line `subject`. AS2
- * has `name` for that, so it is the one form that invented a word instead of
- * transcribing one. Left alone rather than quietly aligned, because changing
- * a stored key is a breaking change to rows, not a rename — but it is not a
- * precedent for the next form.
+ * The six already agree with this. `content`, `mediaType`, `size`, `image`,
+ * `attachments`, `rows`, `changes`, `text`, `from`, `truncated`, `footnote` —
+ * each is the plainest word for what it holds, and `File`'s `name` is a
+ * filename rather than a heading.
+ *
+ * KNOWN DEVIATION: `Detail\MediaObject` spells its title line `subject`.
+ * Left alone rather than quietly aligned, because changing a stored key breaks
+ * rows rather than renaming a parameter — but it is not a precedent, and a new
+ * form spells it `title`.
  *
  * ## A detail names a FORM, not a component
  *
