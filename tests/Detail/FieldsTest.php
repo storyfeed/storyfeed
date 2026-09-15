@@ -9,7 +9,7 @@ it('serializes with the reserved keys, so a stored row describes itself', functi
     $expected = [
         '$detail' => 'Storyfeed/Detail/Fields',
         '$v' => 1,
-        'rows' => [['label' => 'Address', 'value' => '99.225.169.111', 'mono' => false, 'missing' => null]],
+        'rows' => [['label' => 'Address', 'value' => '99.225.169.111', 'verbatim' => false, 'missing' => null]],
     ];
 
     expect($detail)->toBeInstanceOf(FeedDetail::class)
@@ -30,9 +30,9 @@ it('accepts both shapes an app finds natural to write', function () {
 });
 
 it('marks a value as compared rather than read', function () {
-    $rows = Fields::make(['Browser' => Fields::mono('Mozilla/5.0')])->toPayload()['rows'];
+    $rows = Fields::make(['Browser' => Fields::verbatim('Mozilla/5.0')])->toPayload()['rows'];
 
-    expect($rows[0]['mono'])->toBeTrue()
+    expect($rows[0]['verbatim'])->toBeTrue()
         ->and($rows[0]['value'])->toBe('Mozilla/5.0');
 });
 

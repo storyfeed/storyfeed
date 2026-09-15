@@ -12,7 +12,7 @@ use Stringable;
  * consumers hand-wrote independently before it existed.
  *
  *     ->data(Fields::make([
- *         'Address' => Fields::mono($fetch->ip),
+ *         'Address' => Fields::verbatim($fetch->ip),
  *         'Where the address resolved' => $fetch->geo?->describe(),
  *         'Looked automated' => $fetch->is_bot,
  *     ]))
@@ -42,7 +42,7 @@ class Fields implements FeedDetail
     use HasPayload;
 
     /**
-     * @param  array<int, array{label: string, value: string|int|float|bool|null, mono: bool, missing: string|null}>  $rows
+     * @param  array<int, array{label: string, value: string|int|float|bool|null, verbatim: bool, missing: string|null}>  $rows
      */
     final protected function __construct(
         private readonly array $rows,
@@ -74,7 +74,7 @@ class Fields implements FeedDetail
                 // Addresses, user agents, ids: the values a reader compares
                 // character by character rather than reads. A renderer gives
                 // these one line and an ellipsis for that reason.
-                'mono' => (bool) ($spec['mono'] ?? false),
+                'verbatim' => (bool) ($spec['verbatim'] ?? false),
                 /*
                  * AN ABSENT VALUE IS SILENT BY DEFAULT, and per row because one
                  * payload can hold both kinds of absence: a field that is
@@ -99,13 +99,20 @@ class Fields implements FeedDetail
     }
 
     /**
-     * Mark a value as compared rather than read.
+     * Mark a value as reproduced exactly: compared rather than read.
      *
-     * @return array{value: string|int|float|bool|null, mono: true}
+     * An id, an address, a user agent — a string somebody checks against
+     * another string. NAMED FOR THE FACT AND NOT THE TYPEFACE. It said `mono`
+     * until 2026-09-14, which put a font in the payload and let an app reach
+     * past the renderer to specify appearance; fixed width is a renderer's
+     * reasonable conclusion from "reproduced exactly", not an instruction
+     * core has any business giving.
+     *
+     * @return array{value: string|int|float|bool|null, verbatim: true}
      */
-    public static function mono(mixed $value): array
+    public static function verbatim(mixed $value): array
     {
-        return ['value' => self::scalar($value), 'mono' => true];
+        return ['value' => self::scalar($value), 'verbatim' => true];
     }
 
     /**
@@ -144,7 +151,7 @@ class Fields implements FeedDetail
     }
 
     /**
-     * @return array{'$detail': string, '$v': int, rows: array<int, array{label: string, value: string|int|float|bool|null, mono: bool, missing: string|null}>}
+     * @return array{'$detail': string, '$v': int, rows: array<int, array{label: string, value: string|int|float|bool|null, verbatim: bool, missing: string|null}>}
      */
     public function toPayload(): array
     {
