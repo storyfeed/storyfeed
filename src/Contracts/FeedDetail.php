@@ -30,7 +30,7 @@ use Storyfeed\FeedThread;
  * outlives whichever library defined it. Nothing below assumes otherwise.
  *
  * Core also ships six forms under {@see Detail} — Change, Excerpt,
- * Fields, File, Markdown, MediaObject. **They are a vocabulary, not a
+ * KeyValue, File, Markdown, MediaObject. **They are a vocabulary, not a
  * mechanism**: nothing in this package reads them, and an app may write its
  * own and owe them nothing. They were in `storyfeed/ui` until 2026-09-14 and
  * moved for one reason — their names always said `Storyfeed/`, because a

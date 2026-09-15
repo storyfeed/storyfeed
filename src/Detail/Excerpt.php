@@ -120,7 +120,7 @@ class Excerpt implements FeedDetail
     /**
      * TEXT, and only text.
      *
-     * An `Htmlable` is flattened rather than kept — see Fields for why a stored
+     * An `Htmlable` is flattened rather than kept — see KeyValue for why a stored
      * value has to survive a JSON column. It matters more here: this is the one
      * form whose whole content is a string an app quotes from somewhere else,
      * and a quotation rendered as markup is an injection sink pointed at a

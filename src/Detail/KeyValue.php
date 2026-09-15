@@ -11,22 +11,27 @@ use Stringable;
  * Labelled rows under a headline — the commonest form, and the one two
  * consumers hand-wrote independently before it existed.
  *
- *     ->data(Fields::make([
- *         'Address' => Fields::verbatim($fetch->ip),
+ *     ->data(KeyValue::make([
+ *         'Address' => KeyValue::verbatim($fetch->ip),
  *         'Where the address resolved' => $fetch->geo?->describe(),
  *         'Looked automated' => $fetch->is_bot,
  *     ]))
  *
- * ## Why `Fields` and not `Details`
+ * ## Why `KeyValue` and not `Details`
  *
  * A member cannot share a name with its own category. `detail` is the category
  * — it is already the name of the seam in the Filament adapter's
  * `detail_view` config, in `.sf-detail`, and in its README's "Rendering your
  * own facts under a headline" — so the row list needs its own.
  *
- * `Facts` was the first name and it over-claims, in a package whose voice is
- * built on not over-claiming: the app supplies whatever it supplies, and
- * calling it a fact dresses an app's `is_bot` guess as truth.
+ * `Facts` over-claims, in a package whose voice is built on not over-claiming:
+ * the app supplies whatever it supplies, and calling it a fact dresses an
+ * app's `is_bot` guess as truth. `Fields` was the name until 2026-09-14 and
+ * lost it to a collision that matters where this package is consumed — in
+ * Filament a `Field` is an editable form input, and the read-only counterpart
+ * is an `Entry`, which a feed cannot borrow either because Atom already spends
+ * `entry` on a feed item. `KeyValue` is what Filament calls the read-only
+ * shape itself, minus the suffix.
  *
  * ## What this never learns
  *
@@ -37,39 +42,41 @@ use Stringable;
  * The version travels in both storage and payload: core does not own the app's
  * key, so the renderer must upgrade the detail at read time, never write it back.
  */
-class Fields implements FeedDetail
+class KeyValue implements FeedDetail
 {
     use HasPayload;
 
     /**
-     * @param  array<int, array{label: string, value: string|int|float|bool|null, verbatim: bool, missing: string|null}>  $rows
+     * @param  array<int, array{key: string, value: string|int|float|bool|null, verbatim: bool, missing: string|null}>  $items
      */
     final protected function __construct(
-        private readonly array $rows,
+        private readonly array $items,
+        private readonly ?string $title = null,
     ) {}
 
     /**
-     * @param  array<array-key, mixed>  $rows  a `label => value` map, or a list
-     *                                         of explicit `['label' => …, 'value' => …]` rows
+     * @param  array<array-key, mixed>  $items  a `key => value` map, or a list of
+     *                                          explicit `['key' => …, 'value' => …]` pairs
+     * @param  string|null  $title  a line above the pairs, when the headline does not already say it
      * @param  string|null  $missing  the sentence an absent value gets, if any — see below
      */
-    public static function make(array $rows, ?string $missing = null): static
+    public static function make(array $items, ?string $title = null, ?string $missing = null): static
     {
         $normalized = [];
 
-        foreach ($rows as $key => $row) {
+        foreach ($items as $key => $row) {
             // Two shapes, because both are natural to write: a map, and a list
-            // of rows for an app that needs to repeat a label or keep an
+            // of explicit pairs for an app that needs to repeat a key or keep an
             // explicit order it built elsewhere.
-            $isRow = is_array($row) && (array_key_exists('value', $row) || array_key_exists('label', $row));
+            $isRow = is_array($row) && (array_key_exists('value', $row) || array_key_exists('key', $row));
 
             /** @var array<string, mixed> $spec */
-            $spec = $isRow ? $row : ['label' => $key, 'value' => $row];
+            $spec = $isRow ? $row : ['key' => $key, 'value' => $row];
 
-            $label = $spec['label'] ?? $key;
+            $name = $spec['key'] ?? $key;
 
             $normalized[] = [
-                'label' => is_scalar($label) ? (string) $label : '',
+                'key' => is_scalar($name) ? (string) $name : '',
                 'value' => self::scalar($spec['value'] ?? null),
                 // Addresses, user agents, ids: the values a reader compares
                 // character by character rather than reads. A renderer gives
@@ -95,7 +102,7 @@ class Fields implements FeedDetail
             ];
         }
 
-        return new static($normalized);
+        return new static($normalized, $title);
     }
 
     /**
@@ -116,7 +123,20 @@ class Fields implements FeedDetail
     }
 
     /**
-     * `Storyfeed/Detail/Fields` — the VOCABULARY'S name, not a package's.
+     * Give one absence its own word, where the emptiness is the answer.
+     *
+     * Beside {@see verbatim()} so a literal map never has to drop into the
+     * payload's own shape to say one thing about one pair.
+     *
+     * @return array{value: string|int|float|bool|null, missing: string}
+     */
+    public static function missing(mixed $value, string $word): array
+    {
+        return ['value' => self::scalar($value), 'missing' => $word];
+    }
+
+    /**
+     * `Storyfeed/Detail/KeyValue` — the VOCABULARY'S name, not a package's.
      *
      * A detail outlives whichever library defined it ({@see FeedDetail}), so the
      * name must not contain the library: this form has already moved packages
@@ -130,7 +150,7 @@ class Fields implements FeedDetail
      */
     public static function name(): string
     {
-        return 'Storyfeed/Detail/Fields';
+        return 'Storyfeed/Detail/KeyValue';
     }
 
     public static function version(): int
@@ -145,20 +165,25 @@ class Fields implements FeedDetail
         // routes through here rather than needing to be found. Total by
         // contract: an unknown version renders as an empty row list, never as
         // an exception, because the row is in the database either way.
-        $rows = is_array($payload['rows'] ?? null) ? $payload['rows'] : [];
+        $items = is_array($payload['items'] ?? null) ? $payload['items'] : [];
+        $title = $payload['title'] ?? null;
 
-        return ['rows' => array_values(array_filter($rows, is_array(...)))];
+        return [
+            'title' => is_string($title) ? $title : null,
+            'items' => array_values(array_filter($items, is_array(...))),
+        ];
     }
 
     /**
-     * @return array{'$detail': string, '$v': int, rows: array<int, array{label: string, value: string|int|float|bool|null, verbatim: bool, missing: string|null}>}
+     * @return array{'$detail': string, '$v': int, title: string|null, items: array<int, array{key: string, value: string|int|float|bool|null, verbatim: bool, missing: string|null}>}
      */
     public function toPayload(): array
     {
         return [
             self::KEY => self::name(),
             self::VERSION => self::version(),
-            'rows' => $this->rows,
+            'title' => $this->title,
+            'items' => $this->items,
         ];
     }
 
