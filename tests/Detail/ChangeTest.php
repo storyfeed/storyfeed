@@ -6,7 +6,7 @@ use Storyfeed\Detail\Change;
 it('round-trips authored changes with their form and version intact', function () {
     $changes = ['Status' => ['Draft', 'Ready']];
     $detail = Change::make($changes);
-    $expected = ['$detail' => 'Storyfeed/Detail/Change', '$v' => 1, 'changes' => $changes];
+    $expected = ['$detail' => 'Storyfeed/Detail/Change', '$v' => 1, 'items' => $changes];
 
     expect($detail)->toBeInstanceOf(FeedDetail::class)
         ->and($detail->toArray())->toBe($expected)
@@ -16,16 +16,16 @@ it('round-trips authored changes with their form and version intact', function (
     $props = array_diff_key($stored, array_flip([FeedDetail::KEY, FeedDetail::VERSION]));
     $upgraded = Change::upgrade($props, $stored[FeedDetail::VERSION]);
 
-    expect($upgraded)->toBe(['changes' => $changes])
-        ->and(Change::make($upgraded['changes'])->toPayload())->toBe($expected);
+    expect($upgraded)->toBe(['items' => $changes])
+        ->and(Change::make($upgraded['items'])->toPayload())->toBe($expected);
 });
 
 it('reads a missing version as version one without changing the stored payload', function () {
-    $stored = ['$detail' => Change::name(), 'changes' => ['Status' => ['Draft', 'Ready']]];
+    $stored = ['$detail' => Change::name(), 'items' => ['Status' => ['Draft', 'Ready']]];
     $original = json_encode($stored, JSON_THROW_ON_ERROR);
     $props = array_diff_key($stored, array_flip([FeedDetail::KEY, FeedDetail::VERSION]));
 
-    expect(Change::upgrade($props, $stored[FeedDetail::VERSION] ?? 1))->toBe(['changes' => $stored['changes']])
+    expect(Change::upgrade($props, $stored[FeedDetail::VERSION] ?? 1))->toBe(['items' => $stored['items']])
         ->and(json_encode($stored, JSON_THROW_ON_ERROR))->toBe($original);
 });
 
@@ -39,14 +39,14 @@ it('distinguishes absent sides from explicit null and preserves field order thro
     ];
     $stored = json_decode(json_encode(Change::make($changes)->toArray(), JSON_THROW_ON_ERROR), true, flags: JSON_THROW_ON_ERROR);
 
-    expect($stored['changes'])->toBe($changes)
-        ->and(array_keys($stored['changes']))->toBe(array_keys($changes))
-        ->and(Change::upgrade(['changes' => $stored['changes']], 1))->toBe(['changes' => $changes]);
+    expect($stored['items'])->toBe($changes)
+        ->and(array_keys($stored['items']))->toBe(array_keys($changes))
+        ->and(Change::upgrade(['items' => $stored['items']], 1))->toBe(['items' => $changes]);
 });
 
 it('allows an empty change map', function () {
-    expect(Change::make([])->toPayload())->toBe(['$detail' => Change::name(), '$v' => 1, 'changes' => []])
-        ->and(Change::upgrade(['changes' => []], 1))->toBe(['changes' => []]);
+    expect(Change::make([])->toPayload())->toBe(['$detail' => Change::name(), '$v' => 1, 'items' => []])
+        ->and(Change::upgrade(['items' => []], 1))->toBe(['items' => []]);
 });
 
 it('rejects non-scalar values and malformed pairs without coercing them', function () {
@@ -70,14 +70,14 @@ it('rejects non-scalar values and malformed pairs without coercing them', functi
 });
 
 it('normalizes malformed stored changes and renders unknown versions as empty', function () {
-    foreach ([[], ['changes' => null], ['changes' => 'invalid'], ['changes' => new stdClass]] as $payload) {
-        expect(Change::upgrade($payload, 1))->toBe(['changes' => []]);
+    foreach ([[], ['items' => null], ['items' => 'invalid'], ['items' => new stdClass]] as $payload) {
+        expect(Change::upgrade($payload, 1))->toBe(['items' => []]);
     }
 
-    $payload = ['changes' => ['Good' => ['a', 'b'], 'Bad' => [[], 'b'], 'Empty' => []], 'extra' => 'ignored'];
-    expect(Change::upgrade($payload, 1))->toBe(['changes' => ['Good' => ['a', 'b']]]);
+    $payload = ['items' => ['Good' => ['a', 'b'], 'Bad' => [[], 'b'], 'Empty' => []], 'extra' => 'ignored'];
+    expect(Change::upgrade($payload, 1))->toBe(['items' => ['Good' => ['a', 'b']]]);
 
     foreach ([0, -1, 2, 999] as $version) {
-        expect(Change::upgrade($payload, $version))->toBe(['changes' => []]);
+        expect(Change::upgrade($payload, $version))->toBe(['items' => []]);
     }
 });

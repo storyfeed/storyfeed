@@ -65,28 +65,28 @@ class Change implements FeedDetail
     {
         // No other version has a defined shape yet. A reader with an older
         // vocabulary draws nothing rather than guessing at a newer row.
-        if ($from !== 1 || ! is_array($payload['changes'] ?? null)) {
-            return ['changes' => []];
+        if ($from !== 1 || ! is_array($payload['items'] ?? null)) {
+            return ['items' => []];
         }
 
         $changes = [];
 
-        foreach ($payload['changes'] as $field => $pair) {
+        foreach ($payload['items'] as $field => $pair) {
             if (is_string($field) && self::validPair($pair)) {
                 $changes[$field] = $pair;
             }
         }
 
-        return ['changes' => $changes];
+        return ['items' => $changes];
     }
 
-    /** @return array{'$detail': string, '$v': int, changes: array<string, array<int, scalar|null>>} */
+    /** @return array{'$detail': string, '$v': int, items: array<string, array<int, scalar|null>>} */
     public function toPayload(): array
     {
         return [
             self::KEY => self::name(),
             self::VERSION => self::version(),
-            'changes' => $this->changes,
+            'items' => $this->changes,
         ];
     }
 
