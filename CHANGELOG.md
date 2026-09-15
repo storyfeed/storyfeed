@@ -17,6 +17,16 @@
   fails on an undefined column, and `storyfeed:doctor --only=columns` now
   names it rather than leaving you to read the SQL error.
 
+  **CHECK THE STAMP IF YOUR APP HAS DATA MIGRATIONS THAT WRITE SNAPSHOTS.**
+  `vendor:publish` stamps a published migration with the time you ran it, so
+  it lands after everything already in your app. A data migration that writes
+  a Party or seeds a feed then runs BEFORE the column exists, and a
+  from-scratch `migrate` fails — on a fresh CI database as readily as locally,
+  while an existing database upgrades fine and hides it. Rename the published
+  file to a stamp earlier than any migration that touches `feed_snapshots`.
+  Nothing in the package can do this for you: only the app knows its own
+  timeline.
+
   The renames, all of them breaking and none aliased:
 
   | Was | Now |
