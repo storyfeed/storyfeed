@@ -100,6 +100,30 @@ use Storyfeed\FeedThread;
  *    payload's headline is a SENTENCE rather than a structure for exactly this
  *    reason.
  *
+ * ## Key names come from AS2 where AS2 has the word
+ *
+ * A form invents a key only for something Activity Streams has no term for.
+ * The six already follow it: `File` carries `name`, `size`, `mediaType`;
+ * `Markdown` carries `content`, `mediaType`; `MediaObject` carries `content`,
+ * `image`, `attachments`. What is plain English — `text`, `from`, `truncated`,
+ * `rows`, `changes`, `footnote` — is plain English because the vocabulary has
+ * nothing to transcribe there.
+ *
+ * It is the same posture the serializer takes on the wire, where `replies` is
+ * emitted as AS2's own property precisely so no extension term has to be
+ * minted; a term named for a shape we are still learning is a permanent
+ * commitment to this week's spelling.
+ *
+ * So a title line is `name`, a body is `content`, a collection's members are
+ * `items`, and an ordered one's are `orderedItems` — none of which are
+ * decisions anybody here has to make again.
+ *
+ * KNOWN DEVIATION: `Detail\MediaObject` spells its title line `subject`. AS2
+ * has `name` for that, so it is the one form that invented a word instead of
+ * transcribing one. Left alone rather than quietly aligned, because changing
+ * a stored key is a breaking change to rows, not a rename — but it is not a
+ * precedent for the next form.
+ *
  * ## A detail names a FORM, not a component
  *
  * `Markdown` names an encoding, which is genuinely part of the data.
