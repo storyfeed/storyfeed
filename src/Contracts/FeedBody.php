@@ -29,7 +29,7 @@ use Storyfeed\FeedThread;
  * outlives whichever library defined it. Nothing below assumes otherwise.
  *
  * Core also ships six forms under {@see Detail} — Change, Excerpt,
- * KeyValue, File, Markdown, MediaObject. **They are a vocabulary, not a
+ * KeyValue, File, Prose, MediaObject, ItemList. **They are a vocabulary, not a
  * mechanism**: nothing in this package reads them, and an app may write its
  * own and owe them nothing. They were in `storyfeed/ui` until 2026-09-14 and
  * moved for one reason — their names always said `Storyfeed/`, because a
@@ -129,7 +129,9 @@ use Storyfeed\FeedThread;
  *
  * ## A detail names a FORM, not a component
  *
- * `Markdown` names an encoding, which is genuinely part of the data.
+ * `Prose` carries an encoding in `mediaType`, which is genuinely part of the
+ * data — where `Markdown` NAMED one, and a class that is one value of its own
+ * field is a form waiting to be generalised.
  * `Blockquote` would name markup, which is not: `<blockquote>` is how a
  * passage happens to be drawn in one renderer, and every later renderer would
  * inherit a decision made for that one.

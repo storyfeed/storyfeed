@@ -234,7 +234,7 @@ use Storyfeed\MediaSlot;
  * entity to read a slot from, and draws the text and nothing else. `$v`
  * exists for the day the block learns to say whose.
  *
- * ## Not `Excerpt`, not `Change`, not `Markdown`, not a thread
+ * ## Not `Excerpt`, not `Change`, not `Prose`, not a thread
  *
  * Most app data fits this shape, which is its use and its hazard. It can
  * express the other forms badly, and nothing stops a consumer doing so.
@@ -242,7 +242,7 @@ use Storyfeed\MediaSlot;
  * `content` is PROSE, plain text, escaped on the way out: a description, a
  * caption, a one-line reason. A quotation with a source is {@see Excerpt}
  * — the tell is that the words are someone else's. Authored rich text is
- * {@see Markdown}, which says so and is sanitised at read time; Markdown
+ * {@see Prose}, which says so and is sanitised at read time; prose
  * pasted into `content` renders as its own asterisks. A field that was one
  * thing and is now another is {@see Change}, and a conversation is core's
  * `FeedThread`, painted by the presenter — the tell is a reply count. A

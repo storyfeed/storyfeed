@@ -125,7 +125,7 @@ class Excerpt implements FeedBody
      * form whose whole content is a string an app quotes from somewhere else,
      * and a quotation rendered as markup is an injection sink pointed at a
      * signed guest link. If the source is authored rich text, that is
-     * {@see Markdown}, which says so and is sanitised on the way out.
+     * {@see Prose}, which says so and is sanitised on the way out.
      */
     private static function text(mixed $text): string
     {

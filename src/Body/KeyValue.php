@@ -194,7 +194,7 @@ class KeyValue implements FeedBody
      * rather than kept: it would serialize to `{}` in a JSON column and come
      * back as nothing at all, which is the kind of loss that shows up months
      * later in rows nobody can regenerate. An app that wants markup in a value
-     * is describing a different form — `Markdown`, or a link on the entity.
+     * is describing a different form — `Prose`, or a link on the entity.
      */
     private static function scalar(mixed $value): string|int|float|bool|null
     {
