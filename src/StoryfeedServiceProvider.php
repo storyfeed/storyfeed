@@ -32,6 +32,7 @@ class StoryfeedServiceProvider extends PackageServiceProvider
                 'create_feed_meta_table',
                 'add_shape_to_feed_snapshots_table',
                 'add_body_to_feed_snapshots_table',
+                'add_body_forms_to_feed_snapshots_table',
                 'add_source_updated_at_to_feed_snapshots_table',
                 'add_as2_roles_to_feed_activities_table',
                 'add_precision_to_feed_timestamps',

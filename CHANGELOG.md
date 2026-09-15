@@ -4,6 +4,41 @@
 
 ### Changed
 
+- **An activity's body is a slot, and the vocabulary is `Storyfeed\Body\*`.**
+  A form used to hide inside `data` at a key the app chose; it now goes in
+  `body`, which core owns and still never reads.
+
+  **UPGRADING TAKES ONE STEP AND THE APP WILL NOT RUN WITHOUT IT:**
+
+      php artisan vendor:publish --tag=storyfeed-migrations
+      php artisan migrate
+
+  `feed_snapshots` gains a nullable `body` column. Without it every publish
+  fails on an undefined column, and `storyfeed:doctor --only=columns` now
+  names it rather than leaving you to read the SQL error.
+
+  The renames, all of them breaking and none aliased:
+
+  | Was | Now |
+  |---|---|
+  | `Storyfeed\Detail\*` | `Storyfeed\Body\*` |
+  | `Contracts\FeedDetail` | `Contracts\FeedBody` |
+  | `$detail` reserved key | `$body` |
+  | `Detail\Fields` | `Body\KeyValue` |
+  | `Fields::mono()` | `KeyValue::verbatim()` |
+  | a pair's `label`, a form's `rows` | `key`, `items` |
+  | `Detail\Markdown` | `Body\Prose` — `Prose::markdown()` is the old behaviour |
+  | doctor check `details` | `body` |
+
+  `Body\ItemList` is new: several things, each a string or a `FeedLink`.
+  `Prose` carries its encoding in `mediaType` instead of in its class name,
+  with `verbatim()` and `code()` for text reproduced exactly.
+
+  On the node, every entity gains a nullable `body` — the additive
+  nullable-sibling shape this contract already uses for `media`, `thread` and
+  `change`.
+
+
 - **The six detail forms moved from `storyfeed/ui` into core**, as
   `Storyfeed\Detail\{Change, Excerpt, Fields, File, Markdown, MediaObject}`, and
   their names gained a segment: `Storyfeed/Change` is now

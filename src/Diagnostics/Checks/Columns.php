@@ -20,7 +20,7 @@ class Columns extends Check
 {
     /** @var array<string, list<string>> */
     protected const EXPECTED = [
-        'snapshots' => ['shape'],
+        'snapshots' => ['shape', 'body'],
         'groupings' => ['winner'],
     ];
 
