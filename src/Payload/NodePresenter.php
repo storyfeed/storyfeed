@@ -560,11 +560,31 @@ class NodePresenter
             'media' => $link?->media(),
             // Omit only absent body fields: old snapshots keep their shape,
             // while an explicitly empty string remains authored content.
+            // The body: what the snapshot stored, then what the resolver minted.
+            // Stored first because it is the entity as the app decided it, and
+            // minted second because it is the entity as it stands right now.
+            // ORDER IS NOT CONTRACT beyond that — arrangement is a renderer's,
+            // and a renderer that draws them another way is not wrong.
+            'body' => self::bodyOrNull([...($snapshot->body ?? []), ...($link?->body() ?? [])]),
             ...array_filter([
                 'content' => $snapshot?->content,
                 'mediaType' => $snapshot?->media_type,
                 'attributedTo' => $snapshot?->attributed_to,
             ], fn ($value) => $value !== null),
         ];
+    }
+
+    /**
+     * Null rather than an empty list, which is the shape this contract uses
+     * for every addition: a nullable sibling present on every node, null until
+     * the app says otherwise. `media` reads the same way, and a renderer that
+     * already writes `?? []` for one writes it for both.
+     *
+     * @param  list<array<string, mixed>>  $forms
+     * @return list<array<string, mixed>>|null
+     */
+    private static function bodyOrNull(array $forms): ?array
+    {
+        return $forms === [] ? null : $forms;
     }
 }

@@ -2,6 +2,10 @@
 
 namespace Storyfeed;
 
+use Closure;
+use Storyfeed\Contracts\FeedBody;
+use Storyfeed\Support\BodySlot;
+
 /**
  * What a resolver knows about an entity at read time that its snapshot
  * cannot cache: a fresh url, an optional label override, link attributes,
@@ -57,8 +61,23 @@ final class FeedMedia
     public private(set) array $attachments;
 
     /**
+     * A body minted at read time, or a closure that would build one.
+     *
+     * HELD AS GIVEN AND RESOLVED IN {@see body()}, never in the constructor.
+     * Every other parameter here normalizes on the way in, and doing the same
+     * to a closure would run it immediately — which is the whole thing a
+     * closure is for not doing. A resolver runs for the url whether or not a
+     * body is wanted, so the expensive half is handed over unbuilt and called
+     * only on a read that draws one.
+     *
+     * @var string|FeedBody|iterable<mixed>|Closure|null
+     */
+    private string|FeedBody|iterable|Closure|null $body;
+
+    /**
      * @param  array<string, mixed>  $attributes
      * @param  iterable<FeedResource>  $attachments
+     * @param  string|FeedBody|iterable<mixed>|Closure|null  $body
      */
     public function __construct(
         public private(set) FeedImage|string|null $url = null,
@@ -69,13 +88,16 @@ final class FeedMedia
         public private(set) ?FeedImage $preview = null,
         public private(set) ?FeedImage $image = null,
         iterable $attachments = [],
+        string|FeedBody|iterable|Closure|null $body = null,
     ) {
         $this->attachments = self::resources($attachments);
+        $this->body = $body;
     }
 
     /**
      * @param  array<string, mixed>  $attributes
      * @param  iterable<FeedResource>  $attachments
+     * @param  string|FeedBody|iterable<mixed>|Closure|null  $body
      */
     public static function make(
         FeedImage|string|null $url = null,
@@ -86,6 +108,7 @@ final class FeedMedia
         FeedImage|string|null $preview = null,
         FeedImage|string|null $image = null,
         iterable $attachments = [],
+        string|FeedBody|iterable|Closure|null $body = null,
     ): self {
         return new self(
             $url,
@@ -96,6 +119,7 @@ final class FeedMedia
             $preview === null ? null : FeedImage::from($preview),
             $image === null ? null : FeedImage::from($image),
             $attachments,
+            $body,
         );
     }
 
@@ -189,6 +213,17 @@ final class FeedMedia
      *
      * @return array{icon: array<string, mixed>|null, image: array<string, mixed>|null, preview: array<string, mixed>|null, url: array<string, mixed>|null, attachments: list<array<string, mixed>>}|null
      */
+    /**
+     * The body this resolver minted, built now if it was handed over unbuilt.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function body(): array
+    {
+        return BodySlot::normalize($this->body);
+    }
+
+    /** @return array<string, mixed>|null */
     public function media(): ?array
     {
         $images = [

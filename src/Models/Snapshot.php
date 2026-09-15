@@ -19,6 +19,7 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
  * @property string|null $attributed_to
  * @property string|null $component
  * @property array<array-key, mixed>|null $data
+ * @property list<array<string, mixed>>|null $body
  * @property string|null $source_updated_at UTC source time with microseconds; distinct from snapshot write time
  * @property string|null $shape shape fingerprint at write time (see ShapeSignature)
  */
@@ -30,6 +31,7 @@ class Snapshot extends Model
     {
         return [
             'data' => 'array',
+            'body' => 'array',
         ];
     }
 

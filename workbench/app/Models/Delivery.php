@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Storyfeed\Concerns\InteractsWithFeed;
 use Storyfeed\Contracts\Feedable;
+use Storyfeed\Contracts\FeedBody;
 use Storyfeed\Contracts\HasFeedShapeVersion;
 use Storyfeed\FeedContext;
 use Storyfeed\FeedEntity;
@@ -54,6 +55,16 @@ class Delivery extends Model implements Feedable, HasFeedShapeVersion
         return $this->belongsTo(Customer::class);
     }
 
+    /**
+     * Test hook: the body this model writes on its snapshot.
+     *
+     * @var string|FeedBody|iterable<mixed>|null
+     */
+    public static string|\Storyfeed\Contracts\FeedBody|iterable|null $feedBody = null;
+
+    /** Test hook: a body the resolver mints, as a closure so deferral is visible. */
+    public static ?\Closure $mintsBody = null;
+
     public function toFeed(): FeedEntity
     {
         return FeedEntity::make(
@@ -65,6 +76,7 @@ class Delivery extends Model implements Feedable, HasFeedShapeVersion
                 ...(static::$extendedFeedShape ? ['carrier' => ['name' => 'ACME', 'code' => 'AC']] : []),
             ],
             component: 'Resource',
+            body: static::$feedBody,
         );
     }
 
@@ -98,6 +110,10 @@ class Delivery extends Model implements Feedable, HasFeedShapeVersion
         // it with empty data (see FrictionRegressionTest).
         $data = $context->data();
 
-        return FeedMedia::make("/deliveries/{$data['id']}", attributes: ['data-status' => $data['status'] ?? null]);
+        return FeedMedia::make(
+            "/deliveries/{$data['id']}",
+            attributes: ['data-status' => $data['status'] ?? null],
+            body: static::$mintsBody,
+        );
     }
 }

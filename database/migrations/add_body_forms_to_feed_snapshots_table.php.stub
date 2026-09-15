@@ -1,0 +1,41 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+/*
+ * The body slot: the forms an entity shows beneath a headline.
+ *
+ * Its own column rather than a key inside `data`, because `data` is the app's
+ * map and this is core's slot. Keeping them apart is what lets a renderer find
+ * a form without walking somebody else's keys, and lets `data` go back to
+ * being handed over unread.
+ *
+ * Nullable, so every snapshot written before tonight is a row with no body —
+ * which is what it is, rather than a row to backfill.
+ */
+return new class extends Migration
+{
+    public function up(): void
+    {
+        $table = config('storyfeed.tables.snapshots', 'feed_snapshots');
+
+        if (! Schema::hasColumn($table, 'body')) {
+            Schema::table($table, function (Blueprint $blueprint) {
+                $blueprint->json('body')->nullable();
+            });
+        }
+    }
+
+    public function down(): void
+    {
+        $table = config('storyfeed.tables.snapshots', 'feed_snapshots');
+
+        if (Schema::hasColumn($table, 'body')) {
+            Schema::table($table, function (Blueprint $blueprint) {
+                $blueprint->dropColumn('body');
+            });
+        }
+    }
+};

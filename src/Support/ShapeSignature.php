@@ -2,6 +2,7 @@
 
 namespace Storyfeed\Support;
 
+use Storyfeed\Contracts\FeedBody;
 use Storyfeed\Contracts\HasFeedShapeVersion;
 use Storyfeed\FeedEntity;
 
@@ -46,6 +47,25 @@ class ShapeSignature
 
         if ($body !== []) {
             $shape[] = self::keyPaths($body);
+        }
+
+        /*
+         * The body slot, on the same terms and for the same reason: appended
+         * only when there is one, so an entity that has never written a form
+         * fingerprints exactly as it did before the slot existed.
+         *
+         * The NAMES, never the values. Which forms an entity shows is its
+         * shape and the trickle should converge a change to it; what a form
+         * says is a value, and rewriting every snapshot because a price moved
+         * is the churn this whole mechanism exists to avoid.
+         */
+        $forms = array_map(
+            static fn (array $form): string => (string) ($form[FeedBody::KEY] ?? ''),
+            $entity->body,
+        );
+
+        if ($forms !== []) {
+            $shape[] = $forms;
         }
 
         return sha1(json_encode($shape));

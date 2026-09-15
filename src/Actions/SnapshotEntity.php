@@ -33,6 +33,7 @@ class SnapshotEntity
             'label' => $entity->label,
             'component' => $entity->component,
             'data' => $entity->data,
+            'body' => $entity->body === [] ? null : $entity->body,
             'content' => $entity->content,
             'media_type' => $entity->mediaType,
             'attributed_to' => $entity->attributedTo,
