@@ -28,6 +28,7 @@ use Storyfeed\Exceptions\UnknownVerb;
 use Storyfeed\Models\Activity;
 use Storyfeed\Models\Grouping;
 use Storyfeed\Models\Party;
+use Storyfeed\Support\BodySlot;
 use Storyfeed\Testing\StoryfeedFake;
 
 /**
@@ -345,7 +346,12 @@ class PendingActivity
      */
     public function data(array|Arrayable $data): static
     {
-        $this->activity->data = $data instanceof Arrayable ? $data->toArray() : $data;
+        // A NESTED Arrayable is flattened too, not just the argument itself.
+        // `['ip' => $ip, 'diff' => Change::make(…)]` used to store `{}` for the
+        // diff unless the app remembered `->toArray()`, which is a silent loss
+        // that shows up months later in rows nobody can regenerate. The entity
+        // half was fixed on 2026-09-15 and this one was missed.
+        $this->activity->data = BodySlot::data($data);
 
         $this->writeThread();
         $this->writeChange();

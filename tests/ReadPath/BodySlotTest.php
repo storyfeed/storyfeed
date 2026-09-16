@@ -88,3 +88,15 @@ it('leaves data the app\'s own, and flattens a form nested in it', function () {
         ->and($entity->data['diff'])->toBe(KeyValue::make(['A' => 'b'])->toArray())
         ->and($entity->body)->toBe([]);
 });
+
+it('flattens a form nested in an activity\'s data too, not only an entity\'s', function () {
+    $activity = Storyfeed::activity('confirm', Delivery::create(['tracking_number' => 'TN-2']))
+        ->data(['ip' => '1.1.1.1', 'diff' => KeyValue::make(['A' => 'b'])])
+        ->publish();
+
+    $data = $activity->fresh()->data;
+
+    expect($data['ip'])->toBe('1.1.1.1')
+        // Stored `{}` until 2026-09-16 unless the app remembered ->toArray().
+        ->and($data['diff'])->toBe(KeyValue::make(['A' => 'b'])->toArray());
+});
