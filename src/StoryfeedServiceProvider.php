@@ -38,6 +38,7 @@ class StoryfeedServiceProvider extends PackageServiceProvider
                 'add_precision_to_feed_timestamps',
             ])
             ->hasCommands([
+                Console\CacheSnapshotsCommand::class,
                 Console\RebuildCommand::class,
                 Console\HealCommand::class,
                 Console\TrickleCommand::class,
@@ -167,7 +168,7 @@ class StoryfeedServiceProvider extends PackageServiceProvider
          * when the connection is absent.
          */
         $this->optimizes(
-            optimize: 'storyfeed:rebuild --recent='.Console\RebuildCommand::RECENT,
+            optimize: 'storyfeed:cache-snapshots',
             key: 'storyfeed-snapshots',
         );
 
