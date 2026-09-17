@@ -5,6 +5,7 @@ namespace Storyfeed\Diagnostics\Checks;
 use Illuminate\Support\Facades\Schema;
 use Storyfeed\Diagnostics\Finding;
 use Storyfeed\StoryfeedManager;
+use Storyfeed\Support\SchemaState;
 
 /**
  * Columns added after 1.x tables were first published. A consumer whose
@@ -18,12 +19,6 @@ use Storyfeed\StoryfeedManager;
  */
 class Columns extends Check
 {
-    /** @var array<string, list<string>> */
-    protected const EXPECTED = [
-        'snapshots' => ['shape', 'body'],
-        'groupings' => ['winner'],
-    ];
-
     public function name(): string
     {
         return 'columns';
@@ -31,7 +26,7 @@ class Columns extends Check
 
     public function run(StoryfeedManager $storyfeed): iterable
     {
-        foreach (self::EXPECTED as $key => $columns) {
+        foreach (SchemaState::EXPECTED as $key => $columns) {
             $table = $this->table($key);
 
             if (! Schema::hasTable($table)) {

@@ -6,6 +6,7 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Schema;
 use Storyfeed\Actions\RebuildSnapshots;
 use Storyfeed\Support\MaintenanceHistory;
+use Storyfeed\Support\SchemaState;
 
 /**
  * Recompile snapshots — exhaustively, or bounded to the newest activities.
@@ -106,10 +107,29 @@ class RebuildCommand extends Command
         $this->line('  Older ones follow with the trickle.');
     }
 
+    /**
+     * Is there a database, and is its schema current enough to write to?
+     *
+     * BOTH HALVES ARE ABOUT DEPLOY ORDER. A build machine has the code and no
+     * connection. A Forge deploy — where `migrate` runs AFTER the caching step
+     * — has a connection and yesterday's schema, so on the deploy that adds a
+     * column this pass meets a table it cannot write. It threw
+     * SQLSTATE[42S22] and failed the deploy on 2026-09-17, against a column
+     * `Diagnostics\Checks\Columns` already knew to look for.
+     *
+     * Declining is quiet on purpose. The condition clears the moment
+     * `migrate` runs, the doctor reports it as an error for as long as it is
+     * true, and a warning printed here would fire on every schema-changing
+     * deploy pointing at nothing the operator should do.
+     */
     private function reachable(): bool
     {
         try {
-            return Schema::hasTable(config('storyfeed.tables.activities', 'feed_activities'));
+            if (! Schema::hasTable(config('storyfeed.tables.activities', 'feed_activities'))) {
+                return false;
+            }
+
+            return SchemaState::current('snapshots');
         } catch (\Throwable) {
             return false;
         }

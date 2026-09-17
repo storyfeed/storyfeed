@@ -368,3 +368,25 @@ it('declines quietly when a deploy has no database to reach', function () {
 
     $this->artisan('storyfeed:rebuild --recent=10')->assertSuccessful();
 });
+
+it('declines quietly when the deploy has not run its migrations yet', function () {
+    /*
+     * Forge's deploy script — and every script derived from it — runs
+     * `php artisan migrate` AFTER the caching step. So on the deploy that
+     * introduces a column, this pass meets yesterday's schema and today's
+     * code, and a write touching the new column throws SQLSTATE[42S22].
+     *
+     * That is what failed newsroom's deploy on 2026-09-17, on a column the
+     * doctor's `columns` check already knew to look for. The two now read the
+     * same map, so they cannot disagree about it again.
+     */
+    Storyfeed::activity()->actor($this->ines)
+        ->verb('order.note', $this->order)
+        ->publish();
+
+    Schema::table(config('storyfeed.tables.snapshots', 'feed_snapshots'), function ($table) {
+        $table->dropColumn('body');
+    });
+
+    $this->artisan('storyfeed:cache-snapshots')->assertSuccessful();
+});
