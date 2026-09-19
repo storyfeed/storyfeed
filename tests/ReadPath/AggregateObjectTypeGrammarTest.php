@@ -62,3 +62,19 @@ it('reports the qualified key to coverage, so the doctor sees what renders', fun
         ->and(Storyfeed::aggregateTemplateKey('repeat', 'update'))
         ->toBe('repeat.update');
 });
+
+it('does not report a qualified key as missing coverage', function () {
+    /*
+     * The half-fix this guards against: resolution learned the three-segment
+     * key and coverage did not, so an app that qualified its aggregate
+     * grammar was told it had none. Ops hit exactly this — `repeat.add (no
+     * aggregate headline)` reported against a registered
+     * `repeat.clause_template.add` that rendered correctly.
+     */
+    Storyfeed::aggregateGrammar(['repeat.clause_template.add' => ':actors added :count clauses']);
+
+    expect(Storyfeed::aggregateTemplateKey('repeat', 'add', 'clause_template'))
+        ->toBe('repeat.clause_template.add')
+        ->and(Storyfeed::aggregateTemplateKey('repeat', 'add'))
+        ->toBeNull();
+});

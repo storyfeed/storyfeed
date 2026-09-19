@@ -163,7 +163,7 @@ class GrammarCoverage
                     ->on('clustered.hash', '=', "{$groupings}.hash");
             })
             ->distinct()
-            ->get(["{$groupings}.bucket as axis", "{$activities}.verb"]);
+            ->get(["{$groupings}.bucket as axis", "{$activities}.verb", "{$activities}.object_type"]);
 
         Assert::assertNotEmpty(
             $pairs,
@@ -172,10 +172,33 @@ class GrammarCoverage
 
         $missing = [];
 
+        /*
+         * OBJECT TYPE RIDES ALONG, because aggregate grammar may be keyed
+         * `axis.objectType.verb`. Reading only (axis, verb) makes a qualified
+         * entry invisible and reports it as missing — a coverage guard failing
+         * on grammar that is registered and renders correctly.
+         *
+         * Only when the axis PINS the object type, the same condition
+         * NodePresenter applies before qualifying: otherwise the group may
+         * hold several object types and the key would name whichever member
+         * came first.
+         */
         foreach ($pairs as $pair) {
-            if (! self::covered($storyfeed->aggregateTemplateKey($pair->axis, $pair->verb), $allowWildcard)) {
-                $missing[] = "{$pair->axis}.{$pair->verb} (no aggregate headline)";
+            $objectType = $storyfeed->axis((string) $pair->axis)?->pinsType('object') === true
+                ? $pair->object_type
+                : null;
+
+            if (self::covered($storyfeed->aggregateTemplateKey($pair->axis, $pair->verb, $objectType), $allowWildcard)) {
+                continue;
             }
+
+            // Name the qualified key in the failure, so the register-this
+            // instruction is the key that would actually have matched.
+            $key = $objectType === null
+                ? "{$pair->axis}.{$pair->verb}"
+                : "{$pair->axis}.{$objectType}.{$pair->verb}";
+
+            $missing[] = "{$key} (no aggregate headline)";
         }
 
         Assert::assertSame(

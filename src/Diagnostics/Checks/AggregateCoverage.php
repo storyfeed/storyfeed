@@ -82,12 +82,27 @@ class AggregateCoverage extends Check
             ->distinct()
             // toBase(): aliased tuples, not Activity models.
             ->toBase()
-            ->get(["{$groupings}.bucket as axis", "{$activities}.verb"]);
+            ->get(["{$groupings}.bucket as axis", "{$activities}.verb", "{$activities}.object_type"]);
 
         $missing = [];
 
+        /*
+         * OBJECT TYPE RIDES ALONG, because aggregate grammar may be keyed
+         * `axis.objectType.verb`. Reading only (axis, verb) makes a qualified
+         * entry invisible and reports it as missing — a coverage guard failing
+         * on grammar that is registered and renders correctly.
+         *
+         * Only when the axis PINS the object type, the same condition
+         * NodePresenter applies before qualifying: otherwise the group may
+         * hold several object types and the key would name whichever member
+         * came first.
+         */
         foreach ($pairs as $pair) {
-            if ($storyfeed->aggregateTemplate($pair->axis, $pair->verb) !== null) {
+            $objectType = $storyfeed->axis((string) $pair->axis)?->pinsType('object') === true
+                ? $pair->object_type
+                : null;
+
+            if ($storyfeed->aggregateTemplate($pair->axis, $pair->verb, $objectType) !== null) {
                 continue;
             }
 
