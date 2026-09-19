@@ -191,6 +191,29 @@ enum Verb: string implements FeedVerb
     case Travel = 'travel';
     case Move = 'move';
 
+    /**
+     * The registration map for a chosen subset of the vocabulary.
+     *
+     *   Storyfeed::verbs(Verb::only(Verb::Add, Verb::Update, Verb::Retire));
+     *
+     * WHY A SUBSET IS THE NORMAL CASE. `Storyfeed::verbs(Verb::class)` would
+     * register all of them, and the doctor's grammar coverage would then
+     * report every verb the app does not use as unauthored — dozens of
+     * findings nobody can act on. An app declares the words it actually says.
+     *
+     * @return array<string, ActivityType>
+     */
+    public static function only(self ...$verbs): array
+    {
+        $map = [];
+
+        foreach ($verbs as $verb) {
+            $map[$verb->value] = $verb->activityType();
+        }
+
+        return $map;
+    }
+
     public function activityType(): ActivityType
     {
         return match ($this) {

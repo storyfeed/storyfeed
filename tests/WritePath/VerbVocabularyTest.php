@@ -60,3 +60,23 @@ it('records with a shipped verb the same way an app enum does', function () {
     expect($activity->verb)->toBe('send')
         ->and(Verb::Send->activityType())->toBe(ActivityType::Offer);
 });
+
+it('registers only the verbs an app actually says', function () {
+    /*
+     * Registering the whole vocabulary would make the doctor report every
+     * unused verb as unauthored grammar — dozens of findings nobody can act
+     * on. The subset map is the normal case, not the exception.
+     */
+    $map = Verb::only(Verb::Add, Verb::Update, Verb::Retire);
+
+    expect($map)->toBe([
+        'add' => ActivityType::Add,
+        'update' => ActivityType::Update,
+        'retire' => ActivityType::Remove,
+    ]);
+
+    // And it is the shape Storyfeed::verbs() accepts: a MAP, never a list.
+    Storyfeed\Facades\Storyfeed::verbs($map);
+
+    expect(array_keys($map))->each->toBeString();
+});
