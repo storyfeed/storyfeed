@@ -133,6 +133,11 @@ enum Verb: string implements FeedVerb
 
     case Offer = 'offer';
     case Send = 'send';
+    // Delivery completed. The one act in the surveyed corpus with no clean
+    // AS2 home: `Arrive` is intransitive and the thing arriving is the
+    // object, not the actor. Mapped to Create, matching the corpus decision
+    // that a delivery outcome is a delivery record coming into existence.
+    case Deliver = 'deliver';
     case Propose = 'propose';
     case Request = 'request';
     case Invite = 'invite';
@@ -143,6 +148,9 @@ enum Verb: string implements FeedVerb
     case Accept = 'accept';
     case Approve = 'approve';
     case Agree = 'agree';
+    // Signing is accepting, and worth its own word: no reader of a feed
+    // thinks "accepted the agreement" when they mean a signature.
+    case Sign = 'sign';
     case Reject = 'reject';
     case Decline = 'decline';
 
@@ -186,7 +194,8 @@ enum Verb: string implements FeedVerb
     public function activityType(): ActivityType
     {
         return match ($this) {
-            self::Create, self::Upload, self::Draft, self::Reply => ActivityType::Create,
+            self::Create, self::Upload, self::Draft, self::Reply,
+            self::Deliver => ActivityType::Create,
 
             self::Update, self::Rename, self::Amend, self::Correct,
             self::Supersede, self::Complete, self::Confirm, self::Cancel,
@@ -210,7 +219,7 @@ enum Verb: string implements FeedVerb
             self::Offer, self::Send, self::Propose, self::Request => ActivityType::Offer,
             self::Invite => ActivityType::Invite,
 
-            self::Accept, self::Approve, self::Agree => ActivityType::Accept,
+            self::Accept, self::Approve, self::Agree, self::Sign => ActivityType::Accept,
             self::Reject, self::Decline => ActivityType::Reject,
             self::TentativelyAccept => ActivityType::TentativeAccept,
             self::TentativelyReject => ActivityType::TentativeReject,
