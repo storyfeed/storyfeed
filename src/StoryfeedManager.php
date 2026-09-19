@@ -1417,11 +1417,37 @@ class StoryfeedManager
      * Resolve the aggregate grammar entry for a group's axis + verb.
      * Resolution order: axis.verb → axis.* → *.verb → *.*
      */
-    public function aggregateTemplate(?string $axis, string $verb): string|Closure|null
+    public function aggregateTemplate(?string $axis, string $verb, ?string $objectType = null): string|Closure|null
     {
         $this->ensureStoriesCompiled();
 
-        return $this->resolve($this->aggregateGrammar, $axis, $verb);
+        return $this->aggregateGrammar[self::qualifiedKey($axis, $verb, $objectType)]
+            ?? $this->resolve($this->aggregateGrammar, $axis, $verb);
+    }
+
+    /**
+     * The three-segment aggregate key, `axis.objectType.verb`.
+     *
+     * WHY IT EXISTS. Singular grammar is keyed `objectType.verb`, so two acts
+     * that share a verb stay apart by their object. Aggregate grammar is keyed
+     * `axis.verb` and has no such second dimension, so collapsing an app's
+     * verbs onto a shared vocabulary makes `repeat.update` catch every update
+     * there is — and the entry that used to name one act now narrates all of
+     * them. Found converting a consumer's doctrine verbs: two families that
+     * read as different sentences became one aggregate key.
+     *
+     * ONLY SAFE WHEN THE AXIS PINS THE OBJECT TYPE, which is the caller's
+     * check (`Axis::pinsType('object')`). Otherwise the members of one group
+     * may hold different object types and the key would name whichever
+     * happened to be first.
+     *
+     * Tried BEFORE the two-segment order and never instead of it: every
+     * existing key keeps its meaning, and an app that never writes a
+     * three-segment key never sees a difference.
+     */
+    private static function qualifiedKey(?string $axis, string $verb, ?string $objectType): string
+    {
+        return $objectType === null ? "\0" : "{$axis}.{$objectType}.{$verb}";
     }
 
     /**
@@ -1702,8 +1728,13 @@ class StoryfeedManager
         return $this->resolveKey($this->glyphIntents, $type, $verb);
     }
 
-    public function aggregateTemplateKey(?string $axis, string $verb): ?string
+    public function aggregateTemplateKey(?string $axis, string $verb, ?string $objectType = null): ?string
     {
+        if (($qualified = self::qualifiedKey($axis, $verb, $objectType)) !== "\0"
+            && isset($this->aggregateGrammar[$qualified])) {
+            return $qualified;
+        }
+
         $this->ensureStoriesCompiled();
 
         return $this->resolveKey($this->aggregateGrammar, $axis, $verb);

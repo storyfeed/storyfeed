@@ -234,7 +234,16 @@ class NodePresenter
      */
     protected function aggregateHeadline(GroupSlice $slice, array $distinct): array
     {
-        $entry = $this->storyfeed->aggregateTemplate($slice->axis, (string) $slice->members->first()?->verb);
+        $head = $slice->members->first();
+
+        // The object type qualifies the key only when the axis pins it —
+        // otherwise the group may hold several object types and the key would
+        // name whichever member came first.
+        $objectType = $this->storyfeed->axis((string) $slice->axis)?->pinsType('object') === true
+            ? $head?->object_type
+            : null;
+
+        $entry = $this->storyfeed->aggregateTemplate((string) $slice->axis, (string) $head?->verb, $objectType);
 
         if ($entry === null) {
             return $this->safeSingularFallback($slice, $distinct);
