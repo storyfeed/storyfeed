@@ -1,5 +1,3 @@
-<img src="art/storyfeed-readme.png" alt="Storyfeed — Activity streams for Laravel" width="600">
-
 # Storyfeed — Activity streams for Laravel
 
 [![Latest Version on Packagist](https://img.shields.io/packagist/v/storyfeed/storyfeed.svg?style=flat-square)](https://packagist.org/packages/storyfeed/storyfeed)
