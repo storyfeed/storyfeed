@@ -1,3 +1,5 @@
+<img src="art/storyfeed-mark.png" alt="" width="80" height="80">
+
 # Storyfeed — Activity streams for Laravel
 
 [![Latest Version on Packagist](https://img.shields.io/packagist/v/storyfeed/storyfeed.svg?style=flat-square)](https://packagist.org/packages/storyfeed/storyfeed)
