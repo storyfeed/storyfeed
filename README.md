@@ -1,4 +1,4 @@
-<img src="art/storyfeed-mark.png" alt="" width="80" height="80">
+<img src="art/storyfeed-readme.png" alt="Storyfeed — Activity streams for Laravel" width="600">
 
 # Storyfeed — Activity streams for Laravel
 
