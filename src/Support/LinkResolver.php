@@ -45,15 +45,30 @@ use Throwable;
  * NOT A CACHE. Only the fact that a class was reported is kept; the media
  * itself is resolved fresh for every entity, because two entities of a
  * class have two different links.
+ *
+ * THE ALIAS IS REMEMBERED, THE SAME WAY (2026-09-23, todo 1338). What an
+ * alias names is the one answer that IS the same for every entity on the
+ * page: a summary page asks about ~200 entities of ~4 aliases, and each ask
+ * cost three config() reads inside MorphResolver::classFor(). So each alias
+ * is resolved once per scope, as Laravel's CompiledRouteCollection keeps
+ * its `nameCache`. Scoped to the instance for the reason above: a page
+ * never sees the morph map or config of the page before it.
  */
 class LinkResolver
 {
     /** @var array<class-string, true> classes whose resolver has thrown and been reported in this scope */
     private array $reported = [];
 
+    /** @var array<string, class-string|null> what each alias resolved to in this scope, null included */
+    private array $classes = [];
+
     public function resolve(FeedContext $context): ?FeedMedia
     {
-        $class = MorphResolver::classFor($context->type());
+        $alias = $context->type();
+
+        $class = array_key_exists($alias, $this->classes)
+            ? $this->classes[$alias]
+            : $this->classes[$alias] = MorphResolver::classFor($alias);
 
         if ($class === null || ! app(Feedables::class)->isFeedable($class)) {
             return null;
