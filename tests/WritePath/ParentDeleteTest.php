@@ -3,6 +3,7 @@
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
+use Storyfeed\Actions\TrickleSnapshots;
 use Storyfeed\Concerns\InteractsWithFeed;
 use Storyfeed\Contracts\Feedable;
 use Storyfeed\Facades\Storyfeed;
@@ -109,10 +110,24 @@ describe('a Feedable subclass deleted through its parent', function () {
             ->and($this->activity->fresh()->object_type)->toBe(FeedTombstone::MORPH_ALIAS);
     })->with(['trashed first' => true, 'straight away' => false]);
 
-    it('does nothing while recording is off, and the trickle still finds it', function () {
-        Storyfeed::withoutRecording(fn () => Photo::findOrFail($this->photo->id)->delete());
+    it('does nothing while recording is off, and the trickle still finds it, restorably', function () {
+        $parent = Photo::findOrFail($this->photo->id);
+        Storyfeed::withoutRecording(fn () => $parent->delete());
 
         expect(FeedTombstone::query()->count())->toBe(0);
+
+        // The sweep sees the trashed row as absent (the default scope hides
+        // it) but checks existence without scopes, so it knows it can return.
+        (new TrickleSnapshots)();
+        $tombstone = FeedTombstone::for('feedable_photo', $this->photo->id);
+
+        expect($tombstone->restorable)->toBeTrue()
+            ->and($this->activity->fresh()->object_type)->toBe(FeedTombstone::MORPH_ALIAS);
+
+        $parent->restore();
+
+        expect(FeedTombstone::query()->count())->toBe(0)
+            ->and($this->activity->fresh()->object_type)->toBe('feedable_photo');
     });
 });
 
