@@ -35,7 +35,8 @@ use Storyfeed\Support\ManifestClosure;
  *      half-manifest that boots.
  *
  * CLOSURES are serialised the way `route:cache` serialises closure routes
- * (ManifestClosure). One that can't be fails the write, naming its line.
+ * (ManifestClosure), and unserialised on first use, as a cached route's
+ * closure is. One that can't be fails the write, naming its line.
  * FeedHeadline and FeedNoun values export themselves (`__set_state`).
  *
  * THE DEFINITIONS FILE (`routes/feed.php`) gets `route:cache` semantics: the

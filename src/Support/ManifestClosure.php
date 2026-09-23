@@ -14,9 +14,14 @@ use Throwable;
  * serialises closure routes: `serialize(SerializableClosure::unsigned(…))`.
  *
  * var_export() writes it as `ManifestClosure::__set_state([...])`, and
- * __set_state() hands back the CLOSURE, so the manifest's registries hold
+ * __set_state() hands back a CLOSURE, so the manifest's registries hold
  * closures again the moment it is required and nothing downstream knows it
  * was cached.
+ *
+ * That closure unserialises the headline on its first call, not at boot, as
+ * a cached route's closure is unserialised only when the route matches
+ * (`Route::runCallable`). A page pays for the verbs it renders, not the
+ * ~21µs per closure that unserialising all of them at boot cost every request.
  *
  * @internal
  */
@@ -53,8 +58,37 @@ final class ManifestClosure
      */
     public static function __set_state(array $state): Closure
     {
+        $serialized = $state['serialized'];
+        $closure = null;
+
+        return static function (mixed ...$arguments) use ($serialized, &$closure): mixed {
+            $closure ??= self::unserialize($serialized);
+
+            return $closure(...$arguments);
+        };
+    }
+
+    /**
+     * The headline a manifest closure stands in for, unserialised now; any
+     * other closure as it is.
+     */
+    public static function resolve(Closure $closure): Closure
+    {
+        $reflection = new ReflectionFunction($closure);
+
+        if ($reflection->getClosureScopeClass()?->getName() !== self::class) {
+            return $closure;
+        }
+
+        $used = $reflection->getClosureUsedVariables();
+
+        return $used['closure'] ?? self::unserialize($used['serialized']);
+    }
+
+    private static function unserialize(string $serialized): Closure
+    {
         /** @var SerializableClosure $closure */
-        $closure = unserialize($state['serialized']);
+        $closure = unserialize($serialized);
 
         return $closure->getClosure();
     }
@@ -66,7 +100,7 @@ final class ManifestClosure
     public static function fingerprint(Closure $closure): string
     {
         try {
-            return 'closure:'.(new ReflectionClosure($closure))->getCode();
+            return 'closure:'.(new ReflectionClosure(self::resolve($closure)))->getCode();
         } catch (Throwable) {
             return 'closure';
         }
@@ -75,7 +109,7 @@ final class ManifestClosure
     /** `routes/feed.php:14`, relative to the app. */
     public static function location(Closure $closure): string
     {
-        $reflection = new ReflectionFunction($closure);
+        $reflection = new ReflectionFunction(self::resolve($closure));
         $file = (string) $reflection->getFileName();
         $base = app()->basePath().DIRECTORY_SEPARATOR;
 

@@ -154,3 +154,26 @@ it('caches a FeedHeadline and a closure headline', function () {
         ->and($cached['grammar']['delivery.ship'])->toBeInstanceOf(Closure::class)
         ->and(($cached['grammar']['delivery.ship'])())->toBe('Shipped');
 });
+
+it('unserialises a cached closure headline only when its verb renders', function () {
+    Story::for(Delivery::class)->verb('confirm')->headline(static fn (Activity $activity) => ':actor confirmed :object[ for :target]');
+    Story::for(Delivery::class)->verb('ship')->headline(static fn () => 'Shipped');
+
+    $uncached = confirmNode();
+
+    $this->artisan('storyfeed:cache')->assertSuccessful();
+    app(StoryManifest::class)->apply($storyfeed = Storyfeed::getFacadeRoot());
+    app(StoryManifest::class)->delete();
+    $storyfeed->compileStories();
+
+    // Still serialised: `closure` fills on the first call, as a cached
+    // route's closure is unserialised only when the route matches.
+    $unserialised = fn (string $verb) => (new ReflectionFunction($storyfeed->template('delivery', $verb)))
+        ->getClosureUsedVariables()['closure'] !== null;
+
+    expect($unserialised('confirm'))->toBeFalse()
+        ->and($unserialised('ship'))->toBeFalse()
+        ->and(Storyfeed::feed()->get()->toArray()['items'][0])->toBe($uncached)
+        ->and($unserialised('confirm'))->toBeTrue()
+        ->and($unserialised('ship'))->toBeFalse();
+});
