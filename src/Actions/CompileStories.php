@@ -49,7 +49,7 @@ use Storyfeed\StoryfeedManager;
 class CompileStories
 {
     /** The registries a compile produces, in the order they are applied. */
-    public const REGISTRIES = ['grammar', 'aggregateGrammar', 'actorlessGrammar', 'icons', 'glyphIntents', 'nouns', 'objectTypes', 'verbs', 'missing'];
+    public const REGISTRIES = ['grammar', 'aggregateGrammar', 'actorlessGrammar', 'icons', 'glyphIntents', 'nouns', 'objectTypes', 'verbs', 'missing', 'middleware'];
 
     /**
      * @param  array<int, StoryDefinition>  $definitions
@@ -66,6 +66,7 @@ class CompileStories
         $objectTypes = [];
         $verbs = [];
         $missing = [];
+        $middleware = [];
 
         /** @var array<string, string> $owners registry:key => the story that authored it */
         $owners = [];
@@ -111,6 +112,11 @@ class CompileStories
                     $missing[$key] = $roles;
                 }
 
+                // R&D: middleware accumulates per key; never claimed.
+                if ($definition->middlewareList() !== []) {
+                    $middleware[$key] = [...$middleware[$key] ?? [], ...$definition->middlewareList()];
+                }
+
                 if (($objectType = $definition->objectActivityStreamsType()) !== null) {
                     if ($alias === '*') {
                         throw StoryMisconfigured::wildcardObjectType($source);
@@ -153,6 +159,7 @@ class CompileStories
             'objectTypes' => $objectTypes,
             'verbs' => $verbs,
             'missing' => $missing,
+            'middleware' => $middleware,
         ];
     }
 

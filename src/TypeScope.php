@@ -95,6 +95,16 @@ final class TypeScope
     }
 
     /**
+     * R&D: middleware for every verb on these types (`type.*`).
+     */
+    public function middleware(string|Closure ...$middleware): self
+    {
+        $this->manager->define($this->objectTypes, '*')->middleware(...$middleware);
+
+        return $this;
+    }
+
+    /**
      * The plural forms of the thing these types are, `'dish|dishes'`, used
      * where a group can't name one entity. Both forms are required.
      */

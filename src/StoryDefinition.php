@@ -70,6 +70,9 @@ final class StoryDefinition
     /** @var list<string>|null null: the default set (the object) */
     protected ?array $missing = null;
 
+    /** @var list<string|Closure> R&D: publish middleware, class strings (`Class:arg`) or closures */
+    protected array $middleware = [];
+
     /** Made by `Story::for(…)`: its group headlines are keyed per type. */
     protected bool $typeScoped = false;
 
@@ -346,6 +349,28 @@ final class StoryDefinition
         $this->missing = array_values(array_unique($roles));
 
         return $this;
+    }
+
+    /**
+     * R&D: middleware the activity passes through when it is published.
+     * Accumulates down the ladder (`*.*`, `type.*`, `*.verb`, `type.verb`)
+     * rather than the most specific winning. Appends.
+     */
+    public function middleware(string|Closure ...$middleware): self
+    {
+        $this->middleware = [...$this->middleware, ...array_values($middleware)];
+
+        return $this;
+    }
+
+    /**
+     * @return list<string|Closure>
+     *
+     * @internal
+     */
+    public function middlewareList(): array
+    {
+        return $this->middleware;
     }
 
     public function groups(Group ...$groups): self

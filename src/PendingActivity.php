@@ -6,6 +6,7 @@ use BackedEnum;
 use DateTimeInterface;
 use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Pipeline\Pipeline;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -443,6 +444,51 @@ class PendingActivity
 
         $manager = app(StoryfeedManager::class);
 
+        // R&D: the matched definition's middleware wraps the rest of publish.
+        $middleware = $manager->publishMiddleware($this->activity->object_type, (string) $this->activity->verb);
+
+        if ($middleware !== []) {
+            $matched = [$this->activity->object_type, $this->activity->verb];
+
+            return app(Pipeline::class)
+                ->send($this)
+                ->through($middleware)
+                ->then(function (PendingActivity $activity) use ($manager, $matched) {
+                    if ([$activity->activity->object_type, $activity->activity->verb] !== $matched) {
+                        throw new \LogicException('Publish middleware may not change the verb or the object type: the definition was already matched.');
+                    }
+
+                    return $activity->persist($manager);
+                });
+        }
+
+        return $this->persist($manager);
+    }
+
+    /** R&D: has an actor been given, either way (a model, a party, or anonymously())? */
+    public function hasActor(): bool
+    {
+        return $this->anonymous || $this->activity->actor_type !== null || $this->activity->actor_id !== null;
+    }
+
+    public function isAnonymous(): bool
+    {
+        return $this->anonymous;
+    }
+
+    public function hasRole(string $role): bool
+    {
+        return $this->activity->{$role.'_type'} !== null;
+    }
+
+    /** R&D: leave without publishing, from middleware. Returns the unsaved activity, as recording-off does. */
+    public function discard(): Activity
+    {
+        return $this->decline();
+    }
+
+    private function persist(StoryfeedManager $manager): Activity
+    {
         $this->resolveDefaultActor($manager);
 
         $this->assertAuthored($manager);

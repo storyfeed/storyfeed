@@ -41,6 +41,9 @@ use Throwable;
  */
 class StoryfeedManager
 {
+    /** @var array<string, list<string|Closure>> R&D: compiled publish middleware */
+    protected array $publishMiddleware = [];
+
     protected ?Closure $actorResolver = null;
 
     /**
@@ -948,6 +951,8 @@ class StoryfeedManager
             $rules->set($key, $roles);
         }
 
+        $this->publishMiddleware = $compiled['middleware'] ?? [];
+
         $this->applied = $compiled;
     }
 
@@ -970,7 +975,7 @@ class StoryfeedManager
 
         foreach (CompileStories::REGISTRIES as $registry) {
             // Held by TombstoneRules, not here; a recompile sets it again.
-            if ($registry === 'missing') {
+            if ($registry === 'missing' || $registry === 'middleware') {
                 continue;
             }
 
@@ -1045,6 +1050,7 @@ class StoryfeedManager
         $compiled['nouns'] ??= [];
         $compiled['objectTypes'] ??= [];
         $compiled['missing'] ??= [];
+        $compiled['middleware'] ??= [];
 
         $this->compiled = $compiled;
         $this->storiesCompiled = false;
@@ -1930,6 +1936,28 @@ class StoryfeedManager
      * order. Exposed so coverage tooling can tell a deliberate entry from a
      * `*.*` catch-all.
      */
+    /**
+     * R&D: the publish middleware for a type and verb, broad to specific:
+     * `*.*`, `type.*`, `*.verb`, `type.verb`. Every rung contributes.
+     *
+     * @return list<string|Closure>
+     */
+    public function publishMiddleware(?string $type, string $verb): array
+    {
+        $this->ensureStoriesCompiled();
+
+        $type ??= '*';
+        $keys = array_unique(['*.*', "{$type}.*", "*.{$verb}", "{$type}.{$verb}"]);
+
+        $middleware = [];
+
+        foreach ($keys as $key) {
+            array_push($middleware, ...($this->publishMiddleware[$key] ?? []));
+        }
+
+        return $middleware;
+    }
+
     public function templateKey(?string $type, string $verb): ?string
     {
         $this->ensureStoriesCompiled();
