@@ -8,7 +8,7 @@ use Storyfeed\Concerns\HasPayload;
  * One entry in FeedMedia::attachments — a typed resource link, a PDF or an
  * archive. The href is resolved at read time, just like FeedImage::src. Field
  * names follow AS2 Link; the attachment owns its object type, separate from its
- * Link. Core owns this payload slot, so no detail discriminator or storage
+ * Link. Core owns this payload slot, so no `$body` discriminator or storage
  * version travels with it.
  */
 final readonly class FeedResource

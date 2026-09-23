@@ -20,10 +20,10 @@ namespace Storyfeed;
  * {@see FeedImage} is what `feedMedia()` RETURNS and not what `toFeed()`
  * stores: a src ages, so the snapshot keeps the intrinsic facts and the
  * location is resolved at read time. Anything that IS stored — a
- * detail in `data`, most of all — therefore cannot hold a `FeedImage`
+ * body in `data`, most of all — therefore cannot hold a `FeedImage`
  * without storing exactly the URL that rule forbids. What it can hold is a
  * reference: "my picture is my `icon`". At read time the renderer takes
- * `entity.media.icon` — already resolved, already beside the detail in the
+ * `entity.media.icon` — already resolved, already beside the body in the
  * payload — and draws it with a live src, a live aspect box and live alt.
  * Change a thumbnail conversion and every historical row draws the new one,
  * because none of them stored a size.
@@ -34,7 +34,7 @@ namespace Storyfeed;
  * as the payload spells them (`entity.media.icon`, `.preview`, `.image`),
  * which is why the enum lives here rather than in the library that first
  * needed it: the slots are FeedMedia's, so their names are core's. Core
- * learns no detail's name or shape from this — the enum names core's own
+ * learns no body's name or shape from this — the enum names core's own
  * slots, and that is all it does.
  *
  * The slot answers what the media IS to the entity. `icon` is which thing
@@ -57,8 +57,8 @@ namespace Storyfeed;
  *
  * Naming a slot does not fetch it, and it does not check that the entity's
  * resolver will ever fill it. A stored block naming an empty slot draws
- * nothing, silently — the same rule as an unknown detail. Whether a model's
- * resolver actually sets the slot its details name is statically knowable
+ * nothing, silently — the same rule as an unknown body. Whether a model's
+ * resolver actually sets the slot its bodies name is statically knowable
  * and is a doctor check's business, not this enum's.
  *
  * The forwarding helpers on {@see Concerns\InteractsWithFeed} —

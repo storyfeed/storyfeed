@@ -13,7 +13,7 @@ use Storyfeed\StoryfeedManager;
  * The body types that are actually in the `data` column, and the two ways
  * one can be malformed without anything ever going wrong out loud.
  *
- * {@see FeedBody} is a spec core publishes and never implements: a detail is
+ * {@see FeedBody} is a spec core publishes and never implements: a body is
  * the app's value, at the app's key, drawn by a renderer core knows nothing
  * about. Core reads one here, and only here, because a spec nobody can see the
  * state of is a spec that drifts — this package's history is that the doctor is
@@ -25,7 +25,7 @@ use Storyfeed\StoryfeedManager;
  * vocabulary, so neither is here:
  *
  *   an unknown type token         core has no list of known names, on purpose.
- *                                 A "detail this renderer never heard of"
+ *                                 A "body this renderer never heard of"
  *                                 renders as nothing by rule 3 and is a fact
  *                                 about ONE renderer, not about the row. Core
  *                                 answering it would require a registry, and
@@ -41,7 +41,7 @@ use Storyfeed\StoryfeedManager;
  *
  * ## Silence means clean, and there is nothing to skip
  *
- * An app that records no details gets no findings, the way `hydration` is
+ * An app that records no bodies gets no findings, the way `hydration` is
  * silent where no resolver hydrates. It is not "skipped": the column was read
  * and there was nothing in it.
  *
@@ -58,12 +58,12 @@ use Storyfeed\StoryfeedManager;
  *   those rows read correctly today and will keep reading correctly forever.
  *   Info.
  * - a body type that declares version 2 on some rows and nothing on others,
- *   and a map that meant to be a detail and cannot be dispatched, are
+ *   and a map that meant to be a body and cannot be dispatched, are
  *   Warnings: the
  *   first upgrades down the wrong path and renders plausible, wrong output;
  *   the second renders nothing at all, on every page, with no error anywhere.
  *
- * NOTHING HERE IS AN ERROR. A malformed detail is fail-open by rule 3 — the
+ * NOTHING HERE IS AN ERROR. A malformed body is fail-open by rule 3 — the
  * activity still renders, minus a preview — so what the reader sees is an
  * absence, not a sentence that reads wrong, and a diagnostic that failed the
  * build on it would contradict the rule it is checking. `version_ambiguous`
@@ -82,11 +82,11 @@ class Body extends Check
     /**
      * How deep the walk looks before it stops.
      *
-     * A detail sits ALONGSIDE the app's own keys, so finding one means walking
+     * A body sits ALONGSIDE the app's own keys, so finding one means walking
      * the map rather than reading a fixed key — the same walk, and deliberately
-     * the same cap, as the Filament adapter's `Detail\Registry`. Details never
+     * the same cap, as the Filament adapter's `Detail\Registry`. Bodies never
      * nest (rule 4), so anything deeper is an app's own data structure that
-     * happens to be deep, not a detail hiding.
+     * happens to be deep, not a body hiding.
      */
     protected const MAX_DEPTH = 4;
 
@@ -98,7 +98,7 @@ class Body extends Check
      *
      * The walk steps over them, and `$thread` is why the list has to exist at
      * all: it carries a `$v` of its own and no `$body`, so a naive walk would
-     * report every threaded activity in the table as a broken detail.
+     * report every threaded activity in the table as a broken body.
      *
      * @var list<string>
      */
@@ -184,11 +184,11 @@ class Body extends Check
                 'body.untokenized',
                 "{$count} ".str('map')->plural($count).' inside `data` '.($count === 1 ? 'carries' : 'carry')
                 .' a `'.FeedBody::VERSION.'` but no `'.FeedBody::KEY.'` (e.g. '
-                .implode(', ', $untokenized['examples']).'). A renderer finds a detail by its NAME, so a versioned '
+                .implode(', ', $untokenized['examples']).'). A renderer finds a body by its NAME, so a versioned '
                 .'map with no name is drawn by nobody: it renders as nothing, on every page it appears on, with no '
                 .'error anywhere to say so. Name the body type '
                 ."(`'".FeedBody::KEY."' => 'Acme/Shipment'`), or drop the `".FeedBody::VERSION
-                .'` if the map was never meant to be a detail.'.$sampled,
+                .'` if the map was never meant to be a body.'.$sampled,
                 ['maps' => $count, 'examples' => implode(', ', $untokenized['examples'])],
             );
         }
@@ -273,7 +273,7 @@ class Body extends Check
             .$missing.' '.($missing === 1 ? 'other' : 'others').' (e.g. '.implode(', ', $type['examples'])
             .'). The unversioned rows read as version 1, so they take the 1→'.$newest.' upgrade — which is the '
             .'WRONG path if they were in fact written by version '.$newest.' of the body type before it started declaring '
-            .'itself. Nothing throws when that happens: the detail upgrades down a path meant for an older shape '
+            .'itself. Nothing throws when that happens: the body upgrades down a path meant for an older shape '
             .'and renders output that looks entirely plausible. Establish what those rows are and set their '
             .'`'.FeedBody::VERSION.'`, or confirm they really are version 1.'.$sampled,
             $subject,
@@ -283,7 +283,7 @@ class Body extends Check
     /**
      * The newest rows of each table that carries a `data` column, keyed by id.
      *
-     * Both tables, because a detail hangs off either: an ACTIVITY's `data`
+     * Both tables, because a body hangs off either: an ACTIVITY's `data`
      * describes the act, and an entity SNAPSHOT's describes the noun — the
      * adapter's `Registry::forEntity()` reads the second and would find
      * nothing here if this check only read the first.
@@ -318,7 +318,7 @@ class Body extends Check
     }
 
     /**
-     * Every map in a `data` column that claims to be a detail, whether or not
+     * Every map in a `data` column that claims to be a body, whether or not
      * it succeeds at it.
      *
      * A map CLAIMS to be one by carrying either reserved key: the name without
@@ -332,7 +332,7 @@ class Body extends Check
     protected function walk(array $data, int $depth): array
     {
         if (array_key_exists(FeedBody::KEY, $data) || array_key_exists(FeedBody::VERSION, $data)) {
-            // A detail is a leaf by rule 4, so the walk stops rather than
+            // A body is a leaf by rule 4, so the walk stops rather than
             // looking inside one — the same stop the adapter's Registry makes,
             // for the same reason.
             return [$data];

@@ -47,7 +47,7 @@ use Storyfeed\Concerns\HasPayload;
  * "variant" — the name is wrong again and the same class is being rebuilt.
  * The correct response to that proposal is not a fourth field.
  *
- * Nothing ever stored the old one, so there is no repeat of the detail
+ * Nothing ever stored the old one, so there is no repeat of the body
  * vocabulary fork, where two same-named classes held different shapes in
  * rows that were already written.
  *
@@ -72,7 +72,7 @@ use Storyfeed\Concerns\HasPayload;
  * somewhere. If the only honest label is a verb, the row does not want a
  * link — it wants a different sentence.
  *
- * Core owns this payload slot, so no detail discriminator or storage version
+ * Core owns this payload slot, so no `$body` discriminator or storage version
  * travels with it.
  */
 final readonly class FeedLink
@@ -105,7 +105,7 @@ final readonly class FeedLink
      * method only ever answers about a link.
      *
      * Anything else is null: a malformed stored value renders as nothing,
-     * never as a broken row. Same rule as an unknown detail.
+     * never as a broken row. Same rule as an unknown body.
      */
     public static function from(mixed $value): ?self
     {

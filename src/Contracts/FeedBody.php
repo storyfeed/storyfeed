@@ -13,7 +13,7 @@ use Storyfeed\FeedThread;
  * `data` is the app's map and this package hands it over without reading it,
  * which is right and is not changing. But it leaves every consumer in the same
  * place — a payload of loose keys and a view to write before anything appears
- * on screen. A DETAIL is app data with a conventional shape: the app writes its
+ * on screen. A BODY is app data with a known body type: the app writes its
  * sentence once at record time, where the domain knowledge already is, and any
  * renderer that recognises the body type draws it with no view at all.
  *
@@ -25,28 +25,28 @@ use Storyfeed\FeedThread;
  * ## Core owns the SPEC, and ships a starter vocabulary beside it
  *
  * The interface is the thing renderers agree on: a renderer depending on core
- * can draw a body type defined by a package it has never heard of, and a detail
+ * can draw a body type defined by a package it has never heard of, and a body
  * outlives whichever library defined it. Nothing below assumes otherwise.
  *
  * Core also ships seven body types under `Storyfeed\Body` — Change, Excerpt,
  * KeyValue, File, Prose, ItemList, MediaObject. **They are a vocabulary, not a
  * mechanism**: nothing in this package reads them, and an app may write its own
  * and owe them nothing. They were in `storyfeed/ui` until 2026-09-14 and moved
- * for one reason — their names always said `Storyfeed/`, because a detail's
+ * for one reason — their names always said `Storyfeed/`, because a body's
  * name must not contain the library that defined it, so the vocabulary was
  * core's while the classes were not. `storyfeed/ui` is the renderers now: Vue,
  * Blade, Livewire, React.
  *
  * That leaves one property to protect deliberately. A body type in core must
- * not acquire core's release gravity: a detail carries its own `$v` and the
+ * not acquire core's release gravity: a body carries its own `$v` and the
  * renderer upgrades it, so these seven evolve on their own timeline and NOT on
  * the payload contract's.
  *
  * So core learns NO NAME and NO SHAPE. Nothing here is a registry, nothing
  * validates a token against a list, and `docs/payload.md` grows no key: a
- * detail is stored as the array it produces, in the app's own map, and comes
- * back out of the read path byte-identical. An activity recorded from a detail
- * is indistinguishable from one recorded from the array that detail produces.
+ * body is stored as the array it produces, in the app's own map, and comes
+ * back out of the read path byte-identical. An activity recorded from a body
+ * is indistinguishable from one recorded from the array that body produces.
  * That is what lets the vocabulary evolve on a library's timeline instead of
  * being frozen with the payload.
  *
@@ -64,8 +64,8 @@ use Storyfeed\FeedThread;
  * and emit one shape forever — a renderer never learns that core versions
  * anything.
  *
- * A detail is the second case, and the difference is STRUCTURAL rather than a
- * preference. A detail lands at an APP-CHOSEN key inside the app's own map, so
+ * A body is the second case, and the difference is STRUCTURAL rather than a
+ * preference. A body lands at an APP-CHOSEN key inside the app's own map, so
  * core cannot find it to normalize it: a reader has to walk `data` looking for
  * {@see KEY}, and core does not walk the app's data. Therefore {@see VERSION}
  * travels all the way to the renderer, and the renderer calls
@@ -85,15 +85,15 @@ use Storyfeed\FeedThread;
  *    already exist. `FeedThread` shipped without a version on 2026-09-06 and
  *    spent a commit the following day defining what its absence meant.
  * 2. **Upgraded at READ time** ({@see upgrade()}), never written back. Every
- *    renderer sees the current shape, so there is one render path per detail
+ *    renderer sees the current shape, so there is one render path per body
  *    forever. The alternative — each renderer branching on `$v` — multiplies
  *    that branching across Blade, Vue, Filament and everything after them.
- * 3. **An unknown detail renders as NOTHING, and never as an error.** The same
+ * 3. **An unknown body renders as NOTHING, and never as an error.** The same
  *    rule this package already applies to unknown verbs and to extension
  *    types, and the same reason: activities are never withheld by the read
  *    path. It covers version skew too — an app on a newer vocabulary than the
  *    renderer reading it is a blank space, not a broken feed.
- * 4. **Details never nest.** With a one-to-one component mapping the word
+ * 4. **Bodies never nest.** With a one-to-one component mapping the word
  *    "block" was defensible, but people expect blocks to nest, and the moment
  *    they do, `data` is a template and the activity row is a view file. The
  *    payload's headline is a SENTENCE rather than a structure for exactly this
@@ -101,7 +101,7 @@ use Storyfeed\FeedThread;
  *
  * ## Key names: AS2's word only where the value reaches AS2
  *
- * A DETAIL'S KEYS NEVER REACH THE WIRE. A detail has no Activity Streams
+ * A BODY'S KEYS NEVER REACH THE WIRE. A body has no Activity Streams
  * mapping (docs/payload.md): it rides inside `data` and comes back
  * byte-identical, and this package neither reads nor serializes it. So
  * transcribing AS2 inside a body type buys no interoperability — only the look
@@ -138,10 +138,10 @@ use Storyfeed\FeedThread;
  *
  * ## What core does NOT do with any of this
  *
- * It does not read a detail, strip one, upgrade one, count one, or mention one
+ * It does not read a body, strip one, upgrade one, count one, or mention one
  * in a payload key or an Activity Streams document. `storyfeed:doctor`'s
  * `body` check reads the column and reports what it finds, which is the one
- * place core looks at a detail at all — and it reports only what is knowable
+ * place core looks at a body at all — and it reports only what is knowable
  * without a vocabulary, because core having a vocabulary is the thing this
  * interface exists to avoid.
  *
@@ -155,15 +155,15 @@ interface FeedBody extends Arrayable
      * warrant overriding toArray(). The trait documents why this direction
      * prevents permanent leaks into the frozen payload contract.
      *
-     * This belongs on the published interface so every future detail DTO,
+     * This belongs on the published interface so every future body DTO,
      * including the seven core ships, must supply a payload deliberately. A
      * trait alone would leave that obligation optional; widening the interface
      * is affordable before the v0.3 freeze, not after it.
      *
-     * Include KEY and VERSION: a detail's version is NOT storage-only.
-     * Core passes details through unchanged and the renderer upgrades them,
+     * Include KEY and VERSION: a body's version is NOT storage-only.
+     * Core passes bodies through unchanged and the renderer upgrades them,
      * as the versioning rule above explains. Core does not call this method
-     * by walking data or reconstructing detail objects on the read path.
+     * by walking data or reconstructing body objects on the read path.
      *
      * @return array<string, mixed>
      */
@@ -209,7 +209,7 @@ interface FeedBody extends Arrayable
      * "change" do not collide in a column.
      *
      * Use PascalCase for the owner and body type, never the shipping package: a
-     * detail outlives whichever library defined it. The name is a pure lookup
+     * body outlives whichever library defined it. The name is a pure lookup
      * key; nothing reflects on it or autoloads from it. Registries match it
      * exactly with isset(), so casing is part of the name.
      *

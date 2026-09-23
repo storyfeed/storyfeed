@@ -48,7 +48,7 @@ use Stringable;
  * came from; it never says what it used to be.
  *
  * The version travels in both storage and payload: core does not own the app's
- * key, so the renderer must upgrade the detail at read time, never write it back.
+ * key, so the renderer must upgrade the body at read time, never write it back.
  */
 class Excerpt implements FeedBody
 {
@@ -72,7 +72,7 @@ class Excerpt implements FeedBody
     /**
      * `Storyfeed/Body/Excerpt` — the VOCABULARY'S name, not a package's.
      *
-     * A detail outlives whichever library defined it ({@see FeedBody}), so the
+     * A body outlives whichever library defined it ({@see FeedBody}), so the
      * name must not contain the library: this body type has already moved
      * packages once, and a `storyfeed-ui/` or `storyfeed-filament/` prefix
      * would have moved with it. The name is a pure lookup key — no reflection,

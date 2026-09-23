@@ -24,7 +24,7 @@ use Storyfeed\Concerns\HasPayload;
  * A consumer's row said "· 1 reply" in its headline and quoted, underneath,
  * a passage that was NOT the reply — it was the thread's opening question.
  * The count came out of a grammar closure; the quote came out of a renderer
- * detail. TWO HOMES, NO SHARED TRUTH, so they could disagree, and did. The
+ * body. TWO HOMES, NO SHARED TRUTH, so they could disagree, and did. The
  * fix is not a better closure: it is one object that carries both facts, so
  * a renderer painting the count and a renderer painting the quote are
  * reading the same row of the same table.
@@ -45,9 +45,9 @@ use Storyfeed\Concerns\HasPayload;
  * Core cannot know whether a domain calls it "asked", "raised" or "flagged",
  * and a fixed vocabulary would be wrong in the first app that needed a
  * fourth word. Same reasoning as verbs staying free-form strings in storage,
- * and the same as `Detail\Excerpt`'s `from`.
+ * and the same as `Body\Excerpt`'s `from`.
  *
- * ## Which do I use — this or `Detail\Excerpt`?
+ * ## Which do I use — this or `Body\Excerpt`?
  *
  * They quote text and they are not the same tool.
  *
@@ -90,8 +90,8 @@ final class FeedThread
     public const KEY = '$thread';
 
     /**
-     * The reserved key carrying the STORED version, spelled as the adapter's
-     * `Detail::VERSION` is — two values sharing one `data` column follow one
+     * The reserved key carrying the STORED version, spelled as
+     * `FeedBody::VERSION` is — two values sharing one `data` column follow one
      * rule, or the rule is not a rule.
      *
      * It rides the column and it does NOT ride the payload: see
@@ -162,7 +162,7 @@ final class FeedThread
     /**
      * The version this class writes today.
      *
-     * `Detail`'s rule 1, and it is about the COLUMN rather than the contract:
+     * `FeedBody`'s rule 1, and it is about the COLUMN rather than the contract:
      * a row recorded today outlives the class that recorded it, and "we will
      * add the version later" is provably wrong because later, the
      * unversioned rows already exist. They do — this class shipped without a
@@ -203,7 +203,7 @@ final class FeedThread
     /**
      * Normalize a stored payload of version `$from` into the current shape.
      *
-     * Called at READ time and never persisted back — `Detail`'s rule 2. The
+     * Called at READ time and never persisted back — `FeedBody`'s rule 2. The
      * point is that every renderer sees ONE shape forever, so no Blade, Vue
      * or Filament view ever branches on `$v`. Core owns this class and
      * upgrades before anyone downstream looks, which is why the payload does
@@ -230,7 +230,7 @@ final class FeedThread
      * Rebuild from what the column holds, or null when it holds nothing
      * usable.
      *
-     * TOTAL BY CONTRACT, for the reason `Detail::upgrade()` is total: the row
+     * TOTAL BY CONTRACT, for the reason `FeedBody::upgrade()` is total: the row
      * is in the database either way, and a feed that 500s on a payload some
      * earlier version wrote is worse than one that reads a stray value as
      * absent. Anything that is not an array is not a thread; a missing or
@@ -285,7 +285,7 @@ final class FeedThread
      * **no `$v`**.
      *
      * The version does not travel, and this is the load-bearing half of the
-     * change. It differs from `Detail`, where `$v` reaches the renderer
+     * change. It differs from a body, where `$v` reaches the renderer
      * because the renderer does the upgrading — core owns `FeedThread` and
      * upgrades on read ({@see upgrade()}), so a renderer is handed the
      * current shape by construction and has nothing to ask. A `$v` on

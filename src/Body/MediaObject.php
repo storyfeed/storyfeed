@@ -43,7 +43,7 @@ use Storyfeed\MediaSlot;
  * ## It stores no media, it names a slot
  *
  * `FeedImage` is what `feedMedia()` RETURNS and not what `toFeed()` stores:
- * a src ages, so the location is resolved at read time. A detail is
+ * a src ages, so the location is resolved at read time. A body is
  * stored, so a `MediaObject` holding a `FeedImage` would store exactly the
  * URL that rule forbids. It holds a slot name instead — `image: "icon"` —
  * and no src, no mediaType, no width, no height, no alt. The `FeedImage`
@@ -77,7 +77,7 @@ use Storyfeed\MediaSlot;
  * alone — `image` still names a slot and still stores nothing at all.
  *
  * A `FeedResource` is a VALUE, so a list of them is fine in every position:
- * the rule details answer to is that a body may hold a list of values, and
+ * the rule bodies answer to is that a body may hold a list of values, and
  * may not hold a list of bodies.
  *
  * ## `footnote` — small print, and the name is the constraint
@@ -223,7 +223,7 @@ use Storyfeed\MediaSlot;
  * Naming a slot does not check that the entity's resolver fills it. If
  * `feedMedia()` never sets `icon`, a block saying `image: "icon"` draws its
  * subject and content and no picture — correct, and silent, the same rule
- * as an unknown detail. That mismatch is statically knowable without any
+ * as an unknown body. That mismatch is statically knowable without any
  * traffic, and it is a doctor check's job, not a renderer's.
  *
  * ## Only on an entity, for now
@@ -263,7 +263,7 @@ use Storyfeed\MediaSlot;
  * removed from the object icon the same day.
  *
  * The version travels in both storage and payload: core does not own the
- * app's key, so the renderer must upgrade the detail at read time, never
+ * app's key, so the renderer must upgrade the body at read time, never
  * write it back.
  */
 class MediaObject implements FeedBody
@@ -339,7 +339,7 @@ class MediaObject implements FeedBody
     /**
      * `Storyfeed/Body/MediaObject` — the VOCABULARY'S name, not a package's.
      *
-     * A detail outlives whichever library defined it ({@see FeedBody}), so the
+     * A body outlives whichever library defined it ({@see FeedBody}), so the
      * name must not contain the library: this body type has already moved
      * packages once, and a `storyfeed-ui/` or `storyfeed-filament/` prefix
      * would have moved with it. The name is a pure lookup key — no reflection,

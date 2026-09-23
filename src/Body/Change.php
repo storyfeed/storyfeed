@@ -11,11 +11,11 @@ use Storyfeed\Contracts\FeedBody;
  *
  * Index 0 is before and index 1 is after. Omit an index for an added or removed
  * field; null is a present value. Values stay scalar or null: coercing an object
- * would lose its meaning, and accepting arrays would allow details to nest.
+ * would lose its meaning, and accepting arrays would allow bodies to nest.
  * An empty map is legal and has nothing to draw.
  *
  * The version travels in both storage and payload: core does not own the app's
- * key, so the renderer must upgrade the detail at read time, never write it back.
+ * key, so the renderer must upgrade the body at read time, never write it back.
  */
 class Change implements FeedBody
 {
@@ -41,7 +41,7 @@ class Change implements FeedBody
     /**
      * `Storyfeed/Body/Change` — the VOCABULARY'S name, not a package's.
      *
-     * A detail outlives whichever library defined it ({@see FeedBody}), so the
+     * A body outlives whichever library defined it ({@see FeedBody}), so the
      * name must not contain the library: this body type has already moved
      * packages once, and a `storyfeed-ui/` or `storyfeed-filament/` prefix
      * would have moved with it. The name is a pure lookup key — no reflection,
