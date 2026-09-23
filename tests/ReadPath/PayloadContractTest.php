@@ -112,7 +112,7 @@ it('emits a byte-identical payload whether authored as a Story or a registry ent
 
     Storyfeed::stories([DeliveryWasConfirmed::class]);
 
-    DeliveryWasConfirmed::activity(Delivery::create(['tracking_number' => 'TN-2']))
+    DeliveryWasConfirmed::of(Delivery::create(['tracking_number' => 'TN-2']))
         ->actor($user)->for($customer)->publish();
 
     $viaStory = $strip(Storyfeed::feed()->get()->toArray());

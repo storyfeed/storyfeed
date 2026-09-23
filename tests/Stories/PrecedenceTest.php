@@ -92,7 +92,7 @@ it('satisfies GrammarCoverage from stories alone', function () {
 
     $user = User::create(['name' => 'Sally', 'email' => 's@example.com']);
 
-    DeliveryWasConfirmed::activity(Delivery::create(['tracking_number' => 'TN-1']))
+    DeliveryWasConfirmed::of(Delivery::create(['tracking_number' => 'TN-1']))
         ->actor($user)
         ->publish();
 

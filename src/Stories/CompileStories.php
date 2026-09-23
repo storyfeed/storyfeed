@@ -28,6 +28,7 @@ use Storyfeed\StoryfeedManager;
  *      this currently picks one at random and says nothing. Every registry
  *      entry is claimed, and the error names both sources (`file:line` for
  *      the registrar and ad-hoc definitions, the class for Story classes).
+ *      A verb an action or a one-verb Story class defines is claimed whole.
  *
  * Output is closure-free unless a definition authored a closure headline
  * (the registrar allows it). Closure-free output is var_export-able into the
@@ -79,12 +80,27 @@ class CompileStories
         /** @var array<string, string> $owners registry:key => the story that authored it */
         $owners = [];
 
+        /** @var array<string, array{0: string, 1: string|null}> $defined type.verb => [the first source, the action that owns it] */
+        $defined = [];
+
+        /** @var array<string, string> $classVerbs a one-verb Story class => its verb */
+        $classVerbs = [];
+
         foreach ($definitions as $definition) {
             $verb = $definition->verb;
             $source = $definition->source;
 
+            if (($uses = $definition->action()) !== null && ! str_contains($uses, '@')
+                && ($classVerbs[$uses] ??= $verb) !== $verb) {
+                throw StoryMisconfigured::storyBoundTwice($uses, [$classVerbs[$uses], $verb]);
+            }
+
             foreach ($definition->objectTypes as $alias) {
                 $key = "{$alias}.{$verb}";
+
+                if ($verb !== '*') {
+                    $this->define($defined, $key, $source, $definition->action());
+                }
 
                 if (($template = $definition->template()) !== null) {
                     $this->claim($owners, 'grammar', $key, $source);
@@ -323,6 +339,25 @@ class CompileStories
 
         if (! array_key_exists("*.{$definition->verb}", $grammar)) {
             throw StoryMisconfigured::missingParentGrammar($definition->source, $definition->verb);
+        }
+    }
+
+    /**
+     * A verb an action or a one-verb Story class defines is defined there
+     * whole, as a route bound to a controller is: any other definition of
+     * the same `type.verb`, whatever it says, is a conflict naming both.
+     * Lines in the file may still share a key between them, each saying a
+     * different part, as they always could.
+     *
+     * @param  array<string, array{0: string, 1: string|null}>  $defined
+     */
+    protected function define(array &$defined, string $key, string $source, ?string $action): void
+    {
+        $defined[$key] ??= [$source, null];
+        $defined[$key][1] ??= $action;
+
+        if ($defined[$key][0] !== $source && $defined[$key][1] !== null) {
+            throw StoryMisconfigured::verbDefinedTwice($key, $defined[$key][0], $source);
         }
     }
 

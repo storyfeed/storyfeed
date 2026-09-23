@@ -96,7 +96,7 @@ final class Verb
     /** Per publish: who acted, when the call site and `Storyfeed::as()` didn't say. */
     protected Model|string|null $actor = null;
 
-    /** `App\Stories\OrderStory@place`: the action this definition came from. */
+    /** `App\Stories\OrderStory@place`, or a one-verb class: the action this definition came from. */
     protected ?string $action = null;
 
     /** Whether that action takes the request, and so runs again at each publish. */
@@ -156,20 +156,37 @@ final class Verb
         return $definition;
     }
 
-    public static function fromStory(string|Story $story): self
-    {
+    /**
+     * From a one-verb Story class. Bound in routes/feed.php, the line gives
+     * the types (null outside a scope), the verb and the source; otherwise
+     * the class declares both and is its own source.
+     *
+     * @param  array<int, string>|null  $objectTypes
+     */
+    public static function fromStory(
+        string|Story $story,
+        ?array $objectTypes = null,
+        string|FeedVerb|BackedEnum|null $verb = null,
+        ?string $source = null,
+    ): self {
         $instance = is_string($story) ? new $story : $story;
         $class = $instance::class;
+        $objectTypes ??= $instance->objectType;
+        $verb ??= $instance->verb;
 
-        if ($instance->objectType === null) {
+        if ($objectTypes === null) {
             throw StoryMisconfigured::missingObjectType($class);
         }
 
-        if ($instance->verb === null) {
+        if ($verb === null) {
             throw StoryMisconfigured::missingVerb($class);
         }
 
-        $definition = self::for($instance->objectType, $instance->verb, $class)
+        // The class is the action, as an invokable controller is a route's:
+        // it is what storyfeed:list shows, what `Class::of()` finds its verb
+        // by, and what makes a second definition of the verb a conflict.
+        $definition = self::for($objectTypes, $verb, $source ?? $class)
+            ->fromAction($class, false)
             ->headline($instance->headline())
             ->groups(...$instance->groups());
 
@@ -641,7 +658,7 @@ final class Verb
         return $this;
     }
 
-    /** `App\Stories\OrderStory@place`, or null for a definition no action returned. */
+    /** `App\Stories\OrderStory@place`, a one-verb Story class, or null for a line or an array. */
     public function action(): ?string
     {
         return $this->action;

@@ -129,11 +129,7 @@ class ListCommand extends Command
      */
     protected function action(Verb $definition): ?string
     {
-        if (($uses = $definition->action()) !== null) {
-            return $uses;
-        }
-
-        return class_exists($definition->source) ? $definition->source : null;
+        return $definition->action();
     }
 
     protected function describe(string|Closure|FeedHeadline|null $headline): ?string

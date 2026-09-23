@@ -27,7 +27,7 @@ it('names the story class as the source of what it publishes', function () {
 
     $user = User::create(['name' => 'Sally', 'email' => 's@example.com']);
 
-    DeliveryWasConfirmed::activity(Delivery::create(['tracking_number' => 'TN-1']))
+    DeliveryWasConfirmed::of(Delivery::create(['tracking_number' => 'TN-1']))
         ->actor($user)
         ->publish();
 
@@ -124,7 +124,7 @@ it('reports every story as ok when there is nothing to flag', function () {
     $user = User::create(['name' => 'Sally', 'email' => 's@example.com']);
     $customer = Customer::create(['name' => 'Acme']);
 
-    DeliveryWasConfirmed::activity(Delivery::create(['tracking_number' => 'TN-1']))
+    DeliveryWasConfirmed::of(Delivery::create(['tracking_number' => 'TN-1']))
         ->actor($user)->for($customer)->context(Courier::create(['name' => 'Ada']))->publish();
 
     // And every Feedable model is now in the feed in SOME role — the actor and
@@ -140,7 +140,7 @@ it('warns when the newest activity is older than --since', function () {
     $user = User::create(['name' => 'Sally', 'email' => 's@example.com']);
     $customer = Customer::create(['name' => 'Acme']);
 
-    DeliveryWasConfirmed::activity(Delivery::create(['tracking_number' => 'TN-1']))
+    DeliveryWasConfirmed::of(Delivery::create(['tracking_number' => 'TN-1']))
         ->actor($user)->for($customer)
         ->publishedAt(now()->subDays(90))
         ->publish();
@@ -173,7 +173,7 @@ it('passes once every declared model appears in SOME role', function () {
     // `Feedable` means the model APPEARS in the feed, not that it publishes.
     // Publishing from an Action class while the model is merely a role is an
     // ordinary Laravel shape, and must satisfy this.
-    DeliveryWasConfirmed::activity(Delivery::create(['tracking_number' => 'TN-1']))
+    DeliveryWasConfirmed::of(Delivery::create(['tracking_number' => 'TN-1']))
         ->actor($user)->for($customer)->context(Courier::create(['name' => 'Ada']))->publish();
 
     StorySurface::assertNoUnwiredSurface();
@@ -207,7 +207,7 @@ it('works under Storyfeed::fake(), like its two sibling assertions', function ()
     $user = User::create(['name' => 'Sally', 'email' => 's@example.com']);
     $customer = Customer::create(['name' => 'Acme']);
 
-    DeliveryWasConfirmed::activity(Delivery::create(['tracking_number' => 'TN-1']))
+    DeliveryWasConfirmed::of(Delivery::create(['tracking_number' => 'TN-1']))
         ->actor($user)->for($customer)->context(Courier::create(['name' => 'Ada']))->publish();
 
     // Nothing reached the table, and this still returns a real verdict.

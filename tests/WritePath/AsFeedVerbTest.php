@@ -96,8 +96,8 @@ it('forwards every chainable builder method', function () {
             continue; // Conditionable's when()/unless()
         }
 
-        if ($method->isStatic() || $method->getName() === 'verb') {
-            continue; // verb() belongs to the FeedVerb contract
+        if ($method->isStatic() || in_array($method->getName(), ['verb', 'action'], true)) {
+            continue; // verb() belongs to the FeedVerb contract; action() is its alias, and an enum case is already a verb
         }
 
         if ((string) $method->getReturnType() === 'static') {

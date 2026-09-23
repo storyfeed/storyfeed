@@ -22,3 +22,18 @@ if (! function_exists('storyfeed')) {
         return $verb === null ? $manager : $manager->activity($verb, $object);
     }
 }
+
+if (! function_exists('story')) {
+    /**
+     * A pending activity for a verb. The verb is the public handle, as a
+     * route's name is, so this is the feed's `route()`: call sites name the
+     * verb and never the Story class that declares it.
+     *
+     *   story('ship', $order)->by($user)->publish();
+     *   story(Act::Ship)->by($user)->objects($orders)->publish();
+     */
+    function story(string|FeedVerb|BackedEnum $verb, Model|string|null $object = null): PendingActivity
+    {
+        return app(StoryfeedManager::class)->activity($verb, $object);
+    }
+}

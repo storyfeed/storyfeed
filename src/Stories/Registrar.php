@@ -26,6 +26,7 @@ use Storyfeed\StoryfeedManager;
  *
  *     Story::resource(Document::class)->except('restore');   // created, updated, deleted
  *     Story::resource(Order::class, OrderStory::class);      // the four, plus each OrderStory action
+ *     Story::for(Task::class)->verb('complete', TaskWasCompleted::class);   // a one-verb Story class
  *
  * WHAT IT IS. A front door onto {@see Verb}. Every call makes a
  * definition, registers it with the manager at once (the way `Route::get()`
@@ -65,9 +66,23 @@ class Registrar
      * Define a verb: inside a `group()` for the scope's object types, and
      * outside one for any object type (`*.verb`), which is also where group
      * headlines and a composite parent's headline belong.
+     *
+     * With a one-verb Story class, binds the class to the verb instead, as
+     * `Route::post('…', ShipOrder::class)` binds an invokable controller, and
+     * returns nothing to configure: the class says it all. Outside a group,
+     * the class's own `$objectType` names the types.
+     *
+     * @param  class-string<Story>|null  $story
+     * @return ($story is null ? Verb : null)
      */
-    public function verb(string|FeedVerb|BackedEnum $verb): Verb
+    public function verb(string|FeedVerb|BackedEnum $verb, ?string $story = null): ?Verb
     {
+        if ($story !== null) {
+            $this->bind(end($this->scopes) ?: null, $verb, $story);
+
+            return null;
+        }
+
         return $this->define(end($this->scopes) ?: ['*'], $verb);
     }
 
@@ -116,6 +131,19 @@ class Registrar
         } finally {
             array_pop($this->scopes);
         }
+    }
+
+    /**
+     * Bind a one-verb Story class to a verb, for these object types or,
+     * with none, the class's own.
+     *
+     * @param  array<int, string>|null  $objectTypes
+     *
+     * @internal Use Story::for(…)->verb('complete', TaskWasCompleted::class).
+     */
+    public function bind(?array $objectTypes, string|FeedVerb|BackedEnum $verb, string $story): void
+    {
+        app(StoryfeedManager::class)->stories([BoundStory::make($objectTypes, $verb, $story, Verb::caller())]);
     }
 
     /**

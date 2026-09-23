@@ -74,6 +74,7 @@ use Storyfeed\Testing\StoryfeedFake;
  * @method static array<string, string> storyActors()
  * @method static array<int|string, mixed> registeredStories()
  * @method static bool hasStory(string $class)
+ * @method static string|null boundVerb(string $class)
  * @method static array<string, string|\Closure|\Storyfeed\FeedHeadline> registeredAggregateGrammar()
  * @method static string|\Closure|null aggregateTemplate(?string $axis, string $verb, ?string $objectType = null)
  * @method static array<int, string>|null aggregateTokens(string $axis)

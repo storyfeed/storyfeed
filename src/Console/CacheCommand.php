@@ -5,6 +5,7 @@ namespace Storyfeed\Console;
 use Illuminate\Console\Command;
 use RuntimeException;
 use Storyfeed\Exceptions\StoryMisconfigured;
+use Storyfeed\Stories\BoundStory;
 use Storyfeed\Stories\DefinitionsFile;
 use Storyfeed\Stories\Story;
 use Storyfeed\Stories\StoryManifest;
@@ -78,10 +79,10 @@ class CacheCommand extends Command
             return self::SUCCESS;
         }
 
-        $classes = array_values(array_filter(
+        $classes = array_values(array_unique(array_filter(array_map(
+            fn (mixed $story) => $story instanceof BoundStory ? $story->class : $story,
             $storyfeed->registeredStories(),
-            fn (mixed $story) => is_string($story) && is_a($story, Story::class, true),
-        ));
+        ), fn (mixed $story) => is_string($story) && is_a($story, Story::class, true))));
 
         try {
             $path = $manifest->write($compiled, $classes);

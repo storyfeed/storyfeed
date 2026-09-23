@@ -103,7 +103,11 @@ class PendingActivity
     }
 
     /**
-     * Publish the activity a registered Story describes.
+     * Begin the activity a registered Story class describes:
+     * `PendingActivity::of(OrderWasShipped::class)->object($order)`.
+     *
+     * This `of()` takes the Story CLASS. `OrderWasShipped::of($order)` is the
+     * other one: the class is the receiver there, so it takes the OBJECT.
      *
      * Throws for an unregistered Story rather than publishing a verbless
      * activity — a typo'd or unregistered class must not degrade into a row

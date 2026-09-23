@@ -111,7 +111,7 @@ it('refuses to publish an unregistered Story rather than a verbless row', functi
     } catch (UnknownStory $e) {
         expect($e->getMessage())
             ->toContain('is not registered')
-            ->toContain('Storyfeed::stories([')
+            ->toContain("Story::for(Order::class)->verb('ship', ")
             // Says what would otherwise happen.
             ->toContain('nobody authored a headline for');
     }

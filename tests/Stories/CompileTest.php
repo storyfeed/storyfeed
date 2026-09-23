@@ -96,7 +96,7 @@ it('publishes through a story identically to the builder', function () {
 it('exposes the chainable builder rather than a parallel surface', function () {
     Storyfeed::stories([DeliveryWasConfirmed::class]);
 
-    $activity = DeliveryWasConfirmed::activity(Delivery::create(['tracking_number' => 'TN-1']))
+    $activity = DeliveryWasConfirmed::of(Delivery::create(['tracking_number' => 'TN-1']))
         ->actor(User::create(['name' => 'Sally', 'email' => 's@example.com']))
         ->for(Customer::create(['name' => 'Acme']))
         ->publish();

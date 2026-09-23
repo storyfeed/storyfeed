@@ -24,7 +24,7 @@ use Storyfeed\PendingActivity;
  *   }
  *
  * The return type is the plain builder, so the event writes exactly the line a
- * listener would, minus `->publish()`. `SomeStory::activity($object)`,
+ * listener would, minus `->publish()`. `SomeStory::of($object)`,
  * `PendingActivity::of(SomeStory::class)` and `PendingActivity::inline($verb)`
  * all build one; nothing downstream needs anything narrower — `publishFor()`
  * only publishes.

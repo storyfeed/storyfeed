@@ -22,6 +22,8 @@ use Storyfeed\FeedNoun;
  *         ->verb('place', fn (Verb $verb) => $verb->headline(':actor placed :object'))
  *         ->verb('complete', fn (Verb $verb) => $verb->headline(':actor completed :object'));
  *
+ *     Story::for(Task::class)->verb('complete', TaskWasCompleted::class);
+ *
  *     Story::for(MenuItem::class)->noun('dish|dishes');
  *
  * The group closure also receives this scope, for anyone who prefers
@@ -55,13 +57,23 @@ final class TypeScope
      * verb's definition to configure; with one, configures it and returns
      * this scope, so more `->verb()` calls chain.
      *
-     * @template TConfigure of (Closure(Verb): mixed)|null
+     * With a one-verb Story class, binds the class to the verb, as a route
+     * binds an invokable controller, and returns this scope:
+     * `->verb('complete', TaskWasCompleted::class)`.
+     *
+     * @template TConfigure of (Closure(Verb): mixed)|string|null
      *
      * @param  TConfigure  $configure
      * @return (TConfigure is null ? Verb : self)
      */
-    public function verb(string|FeedVerb|BackedEnum $verb, ?Closure $configure = null): Verb|self
+    public function verb(string|FeedVerb|BackedEnum $verb, Closure|string|null $configure = null): Verb|self
     {
+        if (is_string($configure)) {
+            $this->manager->bind($this->objectTypes, $verb, $configure);
+
+            return $this;
+        }
+
         $definition = $this->manager->define($this->objectTypes, $verb);
 
         if ($configure === null) {

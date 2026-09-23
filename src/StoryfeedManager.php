@@ -31,6 +31,7 @@ use Storyfeed\Grouping\Axis;
 use Storyfeed\Models\Activity;
 use Storyfeed\Models\FeedTombstone;
 use Storyfeed\Models\Party;
+use Storyfeed\Stories\BoundStory;
 use Storyfeed\Stories\CompileStories;
 use Storyfeed\Stories\DefinitionsFile;
 use Storyfeed\Stories\PendingResource;
@@ -1118,7 +1119,7 @@ class StoryfeedManager
      * Register story definitions — classes, Stories\Verb objects, or
      * `'type.verb' => [...]` arrays (see Storyfeed\Stories\Story).
      *
-     * @param  array<int|string, class-string<Story>|Verb|PendingResource|array<string, mixed>>  $stories
+     * @param  array<int|string, class-string<Story>|Verb|PendingResource|BoundStory|array<string, mixed>>  $stories
      */
     public function stories(array $stories, bool $merge = true): static
     {
@@ -1255,6 +1256,7 @@ class StoryfeedManager
             array_push($definitions, ...match (true) {
                 $story instanceof Verb => [$story],
                 $story instanceof PendingResource => $story->definitions(),
+                $story instanceof BoundStory => [$story->definition()],
                 is_array($story) => [Verb::fromArray((string) $key, $story)],
                 is_string($story) && is_a($story, Story::class, true) => [Verb::fromStory($story)],
                 default => throw StoryMisconfigured::notAStory(is_string($story) ? $story : get_debug_type($story)),
@@ -1328,12 +1330,31 @@ class StoryfeedManager
         }
 
         foreach ($this->stories as $entry) {
-            if ($entry === $class || $entry instanceof $class) {
+            if ($entry === $class || $entry instanceof $class || ($entry instanceof BoundStory && $entry->class === $class)) {
                 return true;
             }
         }
 
         return false;
+    }
+
+    /**
+     * The verb a one-verb Story class publishes, as the compiled stories
+     * know it — which is how a class bound in routes/feed.php, with no `$verb`
+     * of its own, learns its verb, cached or not. Null for a class nothing
+     * registered.
+     */
+    public function boundVerb(string $class): ?string
+    {
+        $this->ensureStoriesCompiled();
+
+        foreach ($this->storyActions as $key => $action) {
+            if ($action['uses'] === $class) {
+                return explode('.', $key, 2)[1];
+            }
+        }
+
+        return null;
     }
 
     /**

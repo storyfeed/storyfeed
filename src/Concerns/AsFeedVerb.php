@@ -23,6 +23,7 @@ use Storyfeed\StoryfeedManager;
  *   }
  *
  *   ActivityVerb::Comment->actor($user)->object($comment)->in($project)->publish();
+ *   ActivityVerb::Confirm->of($delivery)->by($user)->publish();
  *   ActivityVerb::Confirm->publish($delivery);
  *
  * Requires a backed enum — `$this->value` is the stored verb.
@@ -52,15 +53,26 @@ trait AsFeedVerb
 
     // ── Entry points ─────────────────────────────────────────────────────
 
-    public function activity(Model|string|null $object = null): PendingActivity
+    /**
+     * Begin this verb's activity, about this object:
+     * `ActivityVerb::Upload->of($document)->by($user)->publish()`. The same
+     * word a one-verb Story class uses, `DocumentWasUploaded::of($document)`.
+     */
+    public function of(Model|string|null $object = null): PendingActivity
     {
         return PendingActivity::make($this, $object);
+    }
+
+    /** @deprecated Use of(): `ActivityVerb::Upload->of($document)`. */
+    public function activity(Model|string|null $object = null): PendingActivity
+    {
+        return $this->of($object);
     }
 
     /** Begin this verb's activity with an explicitly unknown actor. */
     public function anonymous(Model|string|null $object = null): PendingActivity
     {
-        return $this->activity($object)->anonymously();
+        return $this->of($object)->anonymously();
     }
 
     /**
@@ -116,32 +128,22 @@ trait AsFeedVerb
 
     public function anonymously(): PendingActivity
     {
-        return $this->activity()->anonymously();
+        return $this->of()->anonymously();
     }
 
     public function actor(Model|string|null $model = null): PendingActivity
     {
-        return $this->activity()->actor($model);
-    }
-
-    /**
-     * On an enum the verb is already known, so this only takes the object —
-     * `ActivityVerb::Upload->action($document)` is `->activity($document)` with
-     * the sentence's word.
-     */
-    public function action(Model|string|null $object = null): PendingActivity
-    {
-        return $this->activity($object);
+        return $this->of()->actor($model);
     }
 
     public function by(Model|string|null $model = null): PendingActivity
     {
-        return $this->activity()->by($model);
+        return $this->of()->by($model);
     }
 
     public function object(Model|string|null $model = null): PendingActivity
     {
-        return $this->activity()->object($model);
+        return $this->of()->object($model);
     }
 
     /**
@@ -151,77 +153,77 @@ trait AsFeedVerb
      */
     public function objects(iterable $models): PendingActivity
     {
-        return $this->activity()->objects($models);
+        return $this->of()->objects($models);
     }
 
     public function target(Model|string|null $model = null): PendingActivity
     {
-        return $this->activity()->target($model);
+        return $this->of()->target($model);
     }
 
     public function origin(Model|string|null $model = null): PendingActivity
     {
-        return $this->activity()->origin($model);
+        return $this->of()->origin($model);
     }
 
     public function result(Model|string|null $model = null): PendingActivity
     {
-        return $this->activity()->result($model);
+        return $this->of()->result($model);
     }
 
     public function instrument(Model|string|null $model = null): PendingActivity
     {
-        return $this->activity()->instrument($model);
+        return $this->of()->instrument($model);
     }
 
     public function using(Model|string|null $model = null): PendingActivity
     {
-        return $this->activity()->using($model);
+        return $this->of()->using($model);
     }
 
     public function resulting(Model|string|null $model = null): PendingActivity
     {
-        return $this->activity()->resulting($model);
+        return $this->of()->resulting($model);
     }
 
     public function context(Model|string|null $model = null): PendingActivity
     {
-        return $this->activity()->context($model);
+        return $this->of()->context($model);
     }
 
     public function in(Model|string|null $model = null): PendingActivity
     {
-        return $this->activity()->in($model);
+        return $this->of()->in($model);
     }
 
     public function to(Model|string|null $model = null): PendingActivity
     {
-        return $this->activity()->to($model);
+        return $this->of()->to($model);
     }
 
     public function for(Model|string|null $model = null): PendingActivity
     {
-        return $this->activity()->for($model);
+        return $this->of()->for($model);
     }
 
     public function from(Model|string|null $model = null): PendingActivity
     {
-        return $this->activity()->from($model);
+        return $this->of()->from($model);
     }
 
     public function on(Model|string|null $model = null): PendingActivity
     {
-        return $this->activity()->on($model);
+        return $this->of()->on($model);
     }
 
     public function with(Model|string|null $model = null): PendingActivity
     {
-        return $this->activity()->with($model);
+        return $this->of()->with($model);
     }
 
     public function into(Model|string|null $model = null): PendingActivity
     {
-        return $this->activity()->into($model);
+        return $this->of()->into($model);
     }
 
     /**
@@ -229,38 +231,38 @@ trait AsFeedVerb
      */
     public function data(array|Arrayable $data): PendingActivity
     {
-        return $this->activity()->data($data);
+        return $this->of()->data($data);
     }
 
     public function change(FeedChange $change): PendingActivity
     {
-        return $this->activity()->change($change);
+        return $this->of()->change($change);
     }
 
     public function thread(FeedThread $thread): PendingActivity
     {
-        return $this->activity()->thread($thread);
+        return $this->of()->thread($thread);
     }
 
     public function publishedAt(DateTimeInterface|string $date): PendingActivity
     {
-        return $this->activity()->publishedAt($date);
+        return $this->of()->publishedAt($date);
     }
 
     public function replace(bool $replace = true): PendingActivity
     {
-        return $this->activity()->replace($replace);
+        return $this->of()->replace($replace);
     }
 
     // ── Terminals ────────────────────────────────────────────────────────
 
     public function publish(Model|string|null $object = null): Activity
     {
-        return $this->activity($object)->publish();
+        return $this->of($object)->publish();
     }
 
     public function publishAndReplace(Model|string|null $object = null): Activity
     {
-        return $this->activity($object)->publishAndReplace();
+        return $this->of($object)->publishAndReplace();
     }
 }

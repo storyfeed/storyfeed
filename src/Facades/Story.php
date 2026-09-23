@@ -20,7 +20,7 @@ use Storyfeed\Stories\Registrar;
  * one: `use Storyfeed\Stories\Story as BaseStory;`.
  *
  * @method static \Storyfeed\Stories\TypeScope for(string|array<int, string> $objectType)
- * @method static \Storyfeed\Stories\Verb verb(string|\Storyfeed\Contracts\FeedVerb|\BackedEnum $verb)
+ * @method static \Storyfeed\Stories\Verb verb(string|\Storyfeed\Contracts\FeedVerb|\BackedEnum $verb, ?string $story = null)
  * @method static \Storyfeed\Stories\Verb fallback()
  * @method static \Storyfeed\Stories\PendingResource resource(string|array<int, string> $objectType, ?string $class = null)
  *

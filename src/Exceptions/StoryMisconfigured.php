@@ -3,6 +3,7 @@
 namespace Storyfeed\Exceptions;
 
 use LogicException;
+use Storyfeed\Stories\Story;
 
 /**
  * Thrown at compile time when a Story cannot produce valid registry entries.
@@ -31,7 +32,8 @@ class StoryMisconfigured extends LogicException
             "Story [{$story}] must declare \$verb — a string or a FeedVerb enum case. It is not inferred at "
             .'runtime: a Story REGISTERS its own verb, so a wrong guess would self-register and sail past '
             .'verbs.strict. `php artisan make:story` writes the verb into the file instead, where a wrong '
-            .'guess is visible in the diff.'
+            .'guess is visible in the diff. Or bind the class to its verb in routes/feed.php: '
+            ."Story::for(Order::class)->verb('ship', ".class_basename($story).'::class).'
         );
     }
 
@@ -62,6 +64,14 @@ class StoryMisconfigured extends LogicException
             "[{$key}] is defined twice: {$first} and {$second}. "
             .'The array registries are last-writer-wins, so this would silently pick one — declaring it an error is the main '
             .'guarantee the Story layer adds. Keep one definition, or give them distinct (objectType, verb) pairs.'
+        );
+    }
+
+    public static function verbDefinedTwice(string $key, string $first, string $second): self
+    {
+        return new self(
+            "[{$key}] is defined twice: {$first} and {$second}. A verb a Story class defines is defined there whole, "
+            .'as a route bound to a controller is, so say everything about it in that one place.'
         );
     }
 
@@ -207,6 +217,47 @@ class StoryMisconfigured extends LogicException
             "[{$uses}] returned a different {$part} for this request than when stories compiled. An action "
             .'that takes the request may only use it to choose the actor: everything else is read when no '
             .'request exists (the feed, storyfeed:list, the doctor, storyfeed:cache), so it must not depend on one.'
+        );
+    }
+
+    public static function notAOneVerbStory(string $source, string $class): self
+    {
+        $hint = class_exists($class) && ! is_a($class, Story::class, true)
+            ? " A resource Story class is bound with Story::resource(Order::class, {$class}::class)."
+            : '';
+
+        return new self(
+            "The verb at {$source} binds [{$class}], which is not a one-verb Story class (one that extends "
+            .'Storyfeed\Stories\Story).'.$hint
+        );
+    }
+
+    public static function boundVerbDiffers(string $source, string $class, string $declared, string $bound): self
+    {
+        return new self(
+            "{$source} binds [{$class}] to the verb [{$bound}], but the class declares [{$declared}]. "
+            .'Remove $verb from the class, so the line names it, or make them agree.'
+        );
+    }
+
+    /**
+     * @param  list<string>  $declared
+     * @param  list<string>  $bound
+     */
+    public static function boundTypeDiffers(string $source, string $class, array $declared, array $bound): self
+    {
+        return new self(
+            "{$source} binds [{$class}] for [".implode(', ', $bound).'], but the class declares ['.implode(', ', $declared).']. '
+            .'Remove $objectType from the class, so the line names it, or make them agree.'
+        );
+    }
+
+    /** @param list<string> $verbs */
+    public static function storyBoundTwice(string $class, array $verbs): self
+    {
+        return new self(
+            "[{$class}] is bound to the verbs [".implode('] and [', $verbs).']. A one-verb Story class has one verb, '
+            .'which is what '.class_basename($class).'::of($object) publishes. Give the other verb its own class.'
         );
     }
 }

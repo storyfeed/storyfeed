@@ -3,9 +3,11 @@
 use Illuminate\Support\ServiceProvider;
 use Orchestra\Testbench\Attributes\WithConfig;
 use Storyfeed\Facades\Storyfeed;
+use Storyfeed\PendingActivity;
 use Storyfeed\Stories\DefinitionsFile;
 use Storyfeed\Stories\StoryManifest;
 use Storyfeed\StoryfeedServiceProvider;
+use Storyfeed\Tests\Fixtures\Stories\DeliveryWasDispatched;
 use Storyfeed\Tests\TestCase;
 use Workbench\App\Stories\DeliveryWasConfirmed;
 
@@ -140,6 +142,22 @@ it('knows a Story class registered in the file once cached', function () {
     expect(app(DefinitionsFile::class)->isLoaded())->toBeFalse()
         ->and(Storyfeed::hasStory(DeliveryWasConfirmed::class))->toBeTrue()
         ->and(Storyfeed::template('delivery', 'confirm'))->not->toBeNull();
+});
+
+it('knows a class bound in the file, and its verb, once cached', function () {
+    $path = writeDefinitions(<<<'PHP'
+        Story::for(Delivery::class)->verb('dispatch', \Storyfeed\Tests\Fixtures\Stories\DeliveryWasDispatched::class);
+        PHP);
+
+    bootWithDefinitions($this, $path);
+    $this->artisan('storyfeed:cache')->assertSuccessful();
+    bootWithDefinitions($this, $path);
+
+    expect(app(DefinitionsFile::class)->isLoaded())->toBeFalse()
+        ->and(Storyfeed::hasStory(DeliveryWasDispatched::class))->toBeTrue()
+        ->and(DeliveryWasDispatched::verb())->toBe('dispatch')
+        ->and(DeliveryWasDispatched::of())->toBeInstanceOf(PendingActivity::class)
+        ->and(Storyfeed::template('delivery', 'dispatch'))->toBe(':actor dispatched :object');
 });
 
 it('refuses to cache a file that calls a hand-written registry', function () {
