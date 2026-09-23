@@ -255,6 +255,13 @@ it('leaves a stale curation winner when overlapping workers cross a threshold', 
 // two batches: both workers took a gap lock on the empty range, both then
 // tried to insert into it, and one publish died with a deadlock.
 //
+// Every case runs on an empty feed and on 300 rows of history. On a handful
+// of rows the optimizer may scan instead of using an index, and a locking
+// scan on MariaDB takes rows two publishes never share: the empty feed is
+// the case that found todo 1349, where curation updated `feed_groupings` by
+// `activity_id` and two unrelated first publishes deadlocked. With history
+// the indexes are used, so it is the case a grown feed sees.
+//
 // Opt-in and skipped in CI, so a green matrix says nothing about it. One
 // disposable database per engine: W102_PG_DATABASE (socket in /tmp), and
 // W102_MYSQL_PORT / W102_MARIADB_PORT (root, no password, 127.0.0.1) with
@@ -262,12 +269,14 @@ it('leaves a stale curation winner when overlapping workers cross a threshold', 
 dataset('first batch engines', function () {
     foreach (['pgsql' => 'W102_PG_DATABASE', 'mysql' => 'W102_MYSQL_PORT', 'mariadb' => 'W102_MARIADB_PORT'] as $engine => $variable) {
         foreach (['party', 'plain model', 'two actors', 'two parties'] as $actor) {
-            yield "{$engine}, {$actor}" => [$engine, $variable, $actor];
+            foreach (['empty feed' => 0, '300 rows' => 300] as $size => $rows) {
+                yield "{$engine}, {$actor}, {$size}" => [$engine, $variable, $actor, $rows];
+            }
         }
     }
 });
 
-it('joins two first publishes by one actor into one batch', function (string $engine, string $variable, string $actor) {
+it('joins two first publishes by one actor into one batch', function (string $engine, string $variable, string $actor, int $rows) {
     if (! function_exists('pcntl_fork') || ! getenv($variable)) {
         $this->markTestSkipped("Opt-in two-process probe: set {$variable} to a disposable local {$engine} database; requires pcntl.");
     }
@@ -314,13 +323,9 @@ it('joins two first publishes by one actor into one batch', function (string $en
         foreach ([1, 2] as $worker) {
             $inputs[$worker] = ['delivery' => Delivery::create(['tracking_number' => 'FIRST-'.$worker])->id, ...$who($worker)];
         }
-        // Filler history by another actor, so the tables are big enough that
-        // the optimizer uses their indexes. On a handful of rows MariaDB scans
-        // the whole table and locks every row it passes, which deadlocks
-        // statements that never touch each other's rows in a real feed.
-        // W102_FILLER=0 shows that small-table case.
+        // History by another actor, or none (see the dataset).
         $filler = PlainTarget::create(['name' => 'Filler actor']);
-        foreach (range(1, getenv('W102_FILLER') === false ? 300 : (int) getenv('W102_FILLER')) as $n) {
+        for ($n = 1; $n <= $rows; $n++) {
             (new PublishListener)->handle(['delivery' => Delivery::create(['tracking_number' => 'FILLER-'.$n])->id, 'plain_actor' => $filler->id]);
         }
         if ($engine !== 'pgsql') {

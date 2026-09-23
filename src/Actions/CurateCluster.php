@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Query\JoinClause;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use stdClass;
 use Storyfeed\Events\Snapshots\ActivitySnapshot;
 use Storyfeed\Models\Activity;
 use Storyfeed\Models\Builders\ActivityBuilder;
@@ -92,8 +93,13 @@ class CurateCluster
 
         // A force-deleted activity can never come back, so its candidate
         // hashes are orphans — the same cleanup PruneActivities does.
+        // Deleted by key for the reason settle() writes by key.
         if ($forced) {
-            $this->groupings()->where('activity_id', $activity->id)->delete();
+            $orphans = $this->groupings()->where('activity_id', $activity->id)->pluck($this->groupingKey())->all();
+
+            if ($orphans !== []) {
+                $this->groupings()->whereKey($orphans)->delete();
+            }
         }
 
         foreach ($hashes as $axis => $hash) {
@@ -120,35 +126,44 @@ class CurateCluster
      * (and, under maintenance accounting, a second read). On a settled
      * cluster that is every settle but the new member's own.
      *
+     * The writes go by primary key, never by `activity_id`: on a small
+     * table InnoDB may scan rather than use the index, and a locking scan
+     * takes every row it passes — including a concurrent publish's
+     * uncommitted rows, which is a deadlock between two publishes that share
+     * nothing (MariaDB, todo 1349). A row gone between the read and the
+     * write is simply not updated.
+     *
      * @param  array<string, string>  $hashes  bucket => hash
-     * @param  array<string, bool|null>|null  $before  the stamps, when the caller already read them (see winnerState())
+     * @param  array<string, array{int|string, bool|null}>|null  $stamps  bucket => [id, winner], when the caller already read them (see winnerState())
      */
-    protected function settle(int|string $activityId, array $hashes, ?array $before = null): void
+    protected function settle(int|string $activityId, array $hashes, ?array $stamps = null): void
     {
         if ($hashes === []) {
             return;
         }
 
         $winner = $this->decide($hashes);
-        $before ??= $this->winnerState($activityId);
+        $stamps ??= $this->winnerState($activityId);
+        $before = array_map(fn (array $stamp) => $stamp[1], $stamps);
         $after = array_map(fn (string $bucket) => $bucket === $winner, array_combine(array_keys($before), array_keys($before)));
 
         $changed = $before !== $after;
 
         if ($changed) {
-            DB::transaction(function () use ($activityId, $winner) {
-                // Cleared first, so there is never a moment with two winners.
-                // Batch rows stay winner = null — they are outside curation.
-                $this->groupings()
-                    ->where('activity_id', $activityId)
-                    ->where('bucket', '!=', $winner)
-                    ->whereNotIn('bucket', app(StoryfeedManager::class)->rowBackedBuckets())
-                    ->update(['winner' => false]);
+            $ids = array_map(fn (array $stamp) => $stamp[0], $stamps);
+            $losers = array_values(array_diff_key($ids, [$winner => true]));
 
-                $this->groupings()
-                    ->where('activity_id', $activityId)
-                    ->where('bucket', $winner)
-                    ->update(['winner' => true]);
+            DB::transaction(function () use ($ids, $losers, $winner) {
+                // Cleared first, so there is never a moment with two winners.
+                // Batch rows stay winner = null — they are outside curation,
+                // and never among the stamps.
+                if ($losers !== []) {
+                    $this->groupings()->whereKey($losers)->update(['winner' => false]);
+                }
+
+                if (isset($ids[$winner])) {
+                    $this->groupings()->whereKey($ids[$winner])->update(['winner' => true]);
+                }
             });
         }
 
@@ -158,18 +173,31 @@ class CurateCluster
     }
 
     /**
-     * The activity's current stamps, normalised: drivers return the winner
-     * column as int, bool or null and the comparison in settle() must not
-     * care which.
+     * The activity's current stamps and the keys to write them by,
+     * normalised: drivers return the winner column as int, bool or null and
+     * the comparison in settle() must not care which.
      *
-     * @return array<string, bool|null> bucket => winner
+     * @return array<string, array{int|string, bool|null}> bucket => [id, winner]
      */
     protected function winnerState(int|string $activityId): array
     {
-        return $this->groupings()->where('activity_id', $activityId)
+        return $this->stamps($this->groupings()->where('activity_id', $activityId)
             ->whereNotIn('bucket', $this->manager()->rowBackedBuckets())
-            ->orderBy('bucket')->pluck('winner', 'bucket')
-            ->map(fn ($winner) => $winner === null ? null : (bool) $winner)
+            ->orderBy('bucket')
+            ->toBase()
+            ->get([$this->groupingKey(), 'bucket', 'winner']));
+    }
+
+    /**
+     * @param  Collection<int, stdClass>  $rows  one activity's grouping rows, ordered by bucket
+     * @return array<string, array{int|string, bool|null}> bucket => [id, winner]
+     */
+    protected function stamps(Collection $rows): array
+    {
+        $key = $this->groupingKey();
+
+        return $rows
+            ->mapWithKeys(fn (stdClass $row) => [$row->bucket => [$row->{$key}, $row->winner === null ? null : (bool) $row->winner]])
             ->all();
     }
 
@@ -290,14 +318,11 @@ class CurateCluster
                     ->whereNotIn('bucket', $this->manager()->rowBackedBuckets())
                     ->orderBy('bucket')
                     ->toBase()
-                    ->get(['activity_id', 'bucket', 'hash', 'winner'])
+                    ->get([$this->groupingKey(), 'activity_id', 'bucket', 'hash', 'winner'])
                     ->groupBy('activity_id');
 
                 foreach ($rows as $id => $own) {
-                    $this->settle($id, $own->pluck('hash', 'bucket')->all(), $own
-                        ->pluck('winner', 'bucket')
-                        ->map(fn ($winner) => $winner === null ? null : (bool) $winner)
-                        ->all());
+                    $this->settle($id, $own->pluck('hash', 'bucket')->all(), $this->stamps($own));
                 }
             }
         } finally {
@@ -441,6 +466,13 @@ class CurateCluster
     protected function activitiesTable(): string
     {
         return $this->activityModel()->getTable();
+    }
+
+    protected function groupingKey(): string
+    {
+        $model = config('storyfeed.models.grouping', Grouping::class);
+
+        return (new $model)->getKeyName();
     }
 
     protected function groupingsTable(): string

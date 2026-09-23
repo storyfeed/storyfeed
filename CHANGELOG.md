@@ -584,6 +584,13 @@
   already have. Until it runs, a publish with an actor throws, and
   `storyfeed:doctor` reports the missing table. New config key
   `storyfeed.tables.batch_locks`.
+- **On MariaDB, two publishes to a new, near-empty feed no longer deadlock.**
+  Curation stamped its winner with `UPDATE feed_groupings … WHERE
+  activity_id = ?`. On a table of a few rows MariaDB scans instead of using
+  the index, and locks every row it passes, including the other publish's, so
+  two publishes that shared nothing deadlocked and one activity was lost. It
+  now reads the rows' keys and updates them by primary key. With 300 rows of
+  history the index was already used, which is why it looked fixed.
 - **A job dispatched inside `Storyfeed::as()` runs as that actor.** The worker
   used to see only the user logged in at dispatch, or nobody. The scoped actor
   now travels with the job (a Party by name and key, a model by morph alias and
