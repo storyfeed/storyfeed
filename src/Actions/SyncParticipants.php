@@ -28,7 +28,11 @@ class SyncParticipants
     /** The roles an activity can fill. Each is 0-or-1 per activity row. */
     public const ROLES = ActivityRoles::STORED;
 
-    public function __invoke(Activity $activity): void
+    /**
+     * @param  bool  $inserted  the activity was inserted by the publish that
+     *                          is calling, so it has no rows to rewrite
+     */
+    public function __invoke(Activity $activity, bool $inserted = false): void
     {
         $table = self::table();
         $key = $activity->getKey();
@@ -62,7 +66,15 @@ class SyncParticipants
 
         // Rewrite rather than diff: an activity edited to drop a role must
         // stop being findable by it, and the roles are cheap to re-derive.
-        DB::table($table)->where('activity_id', $key)->delete();
+        //
+        // Not for a row the calling publish just inserted: it has nothing to delete,
+        // and on InnoDB under REPEATABLE READ deleting nothing still locks the
+        // gap at the end of the index, where every new activity's rows go. Two
+        // concurrent publishes, by any actors, then each hold that gap and
+        // wait to insert into it, and one dies with a deadlock (todo 1339).
+        if (! $inserted) {
+            DB::table($table)->where('activity_id', $key)->delete();
+        }
 
         if ($rows !== []) {
             DB::table($table)->insert($rows);

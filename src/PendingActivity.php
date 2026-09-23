@@ -73,6 +73,9 @@ class PendingActivity
 
     private bool $anonymous = false;
 
+    /** This publish inserted the row, so it has no groupings or participants to rewrite yet. */
+    private bool $inserted = false;
+
     /** @var array<string, Model> */
     protected array $entities = [];
 
@@ -470,6 +473,8 @@ class PendingActivity
         $activity = DB::transaction(function () {
             $this->snapshotEntities();
 
+            $this->inserted = ! $this->activity->exists;
+
             $this->activity->save();
 
             $this->writeGroupings();
@@ -573,6 +578,8 @@ class PendingActivity
             // WithoutModelEvents lesson as published_at.
             $this->activity->uid ??= (string) Str::ulid();
 
+            $this->inserted = ! $this->activity->exists;
+
             $this->activity->save();
 
             $grouping::query()->create([
@@ -582,7 +589,7 @@ class PendingActivity
                 'winner' => null,
             ]);
 
-            (new SyncParticipants)($this->activity);
+            (new SyncParticipants)($this->activity, $this->inserted);
 
             foreach ($this->objects as $model) {
                 $member = $this->activity->replicate([
@@ -609,7 +616,7 @@ class PendingActivity
                 // Members carry the object, so involving($file) finds the
                 // member — and the composite it belongs to surfaces through
                 // the grouping join.
-                (new SyncParticipants)($member);
+                (new SyncParticipants)($member, inserted: true);
             }
 
             (new AssignToBatch)($this->activity);
@@ -784,11 +791,11 @@ class PendingActivity
      */
     private function writeGroupings(): void
     {
-        (new WriteGroupings)($this->activity);
+        (new WriteGroupings)($this->activity, $this->inserted);
 
         // The involving index. In the same transaction as the activity, so a
         // participant row can never outlive (or precede) the row it points at.
-        (new SyncParticipants)($this->activity);
+        (new SyncParticipants)($this->activity, $this->inserted);
 
         // Batching is invisible to the recording code: the activity joins
         // (or opens) its actor's current batch here, in the same

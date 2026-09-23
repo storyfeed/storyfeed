@@ -47,6 +47,7 @@ class StoryfeedServiceProvider extends PackageServiceProvider
                 'add_precision_to_feed_timestamps',
                 'add_meta_to_feed_snapshots_table',
                 'create_feed_tombstones_table',
+                'create_feed_batch_locks_table',
             ])
             ->hasCommands([
                 Console\CacheSnapshotsCommand::class,

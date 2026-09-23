@@ -49,6 +49,7 @@ return [
         'batches' => 'feed_batches',
         'meta' => 'feed_meta',
         'tombstones' => 'feed_tombstones',
+        'batch_locks' => 'feed_batch_locks',
     ],
 
     /*

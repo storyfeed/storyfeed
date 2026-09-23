@@ -239,47 +239,96 @@ it('leaves a stale curation winner when overlapping workers cross a threshold', 
     }
 });
 
-// Todo 843's remaining BatchClosed exposure, which W98 listed as unestablished:
-// two publishes by the SAME actor with no open batch. AssignToBatch locks an
-// existing open row, but when there is none there is nothing to lock, so each
-// transaction may open its own — one burst, two batches, two BatchClosed.
-// Workers wait for each other after publishing and before committing, up to a
-// deadline: if something upstream serializes them, the second blocks inside
-// publish and never arrives, and the probe records that instead of hanging.
+// Todo 843's remaining BatchClosed exposure, fixed by todo 1339: two publishes
+// by the SAME actor with no open batch. There is no batch row to lock, so each
+// transaction used to open its own — one burst, two batches, two BatchClosed.
+// AssignToBatch now upserts the actor's `feed_batch_locks` row first, so the
+// second publish waits there and joins the first one's batch.
 //
-// A CHARACTERIZATION, like the curation test above. Measured on PostgreSQL 18:
-// a Feedable actor (a Party) is serialized by a row lock taken earlier in
-// publish, so one batch — incidental protection, not a guarantee anyone wrote.
-// A plain-model actor is not, and gets two. When that is fixed, the plain-model
-// case should fail here and be rewritten to assert one batch.
-it('characterizes two first publishes by one actor', function (string $actor) {
-    if (! function_exists('pcntl_fork') || ! getenv('W102_PG_DATABASE')) {
-        $this->markTestSkipped('Opt-in two-process probe: set W102_PG_DATABASE to a disposable local PostgreSQL database; requires pcntl.');
+// Workers wait for each other after publishing and before committing, up to a
+// deadline: the second is blocked inside publish and never arrives, and the
+// probe records that instead of hanging.
+//
+// Before the lock, measured: PostgreSQL 18 gave a plain-model actor two
+// batches, while a Party got one only by accident (its snapshot upsert already
+// serialized the two). MySQL and MariaDB, under REPEATABLE READ, did not give
+// two batches: both workers took a gap lock on the empty range, both then
+// tried to insert into it, and one publish died with a deadlock.
+//
+// Opt-in and skipped in CI, so a green matrix says nothing about it. One
+// disposable database per engine: W102_PG_DATABASE (socket in /tmp), and
+// W102_MYSQL_PORT / W102_MARIADB_PORT (root, no password, 127.0.0.1) with
+// W102_MYSQL_DATABASE naming a database to connect through first.
+dataset('first batch engines', function () {
+    foreach (['pgsql' => 'W102_PG_DATABASE', 'mysql' => 'W102_MYSQL_PORT', 'mariadb' => 'W102_MARIADB_PORT'] as $engine => $variable) {
+        foreach (['party', 'plain model', 'two actors', 'two parties'] as $actor) {
+            yield "{$engine}, {$actor}" => [$engine, $variable, $actor];
+        }
+    }
+});
+
+it('joins two first publishes by one actor into one batch', function (string $engine, string $variable, string $actor) {
+    if (! function_exists('pcntl_fork') || ! getenv($variable)) {
+        $this->markTestSkipped("Opt-in two-process probe: set {$variable} to a disposable local {$engine} database; requires pcntl.");
     }
     $directory = sys_get_temp_dir().'/storyfeed-first-batch-'.bin2hex(random_bytes(6));
     mkdir($directory);
     $schema = 'first_batch_'.bin2hex(random_bytes(6));
     $previous = config('database.connections.testing');
-    config()->set('database.connections.testing', [
-        'driver' => 'pgsql', 'host' => '/tmp', 'port' => 5432,
-        'database' => getenv('W102_PG_DATABASE'), 'username' => 'postgres',
-        'password' => '', 'charset' => 'utf8', 'prefix' => '', 'search_path' => $schema,
-    ]);
-    DB::purge('testing');
-    DB::statement('CREATE SCHEMA '.$schema);
+    $mysql = [
+        'driver' => $engine, 'host' => '127.0.0.1', 'port' => (int) getenv($variable),
+        'database' => getenv('W102_MYSQL_DATABASE') ?: 'storyfeed_w102_probe', 'username' => 'root',
+        'password' => '', 'charset' => 'utf8mb4', 'collation' => 'utf8mb4_unicode_ci', 'prefix' => '', 'strict' => true,
+    ];
+    if ($engine === 'pgsql') {
+        config()->set('database.connections.testing', [
+            'driver' => 'pgsql', 'host' => '/tmp', 'port' => 5432,
+            'database' => getenv('W102_PG_DATABASE'), 'username' => 'postgres',
+            'password' => '', 'charset' => 'utf8', 'prefix' => '', 'search_path' => $schema,
+        ]);
+        DB::purge('testing');
+        DB::statement('CREATE SCHEMA '.$schema);
+    } else {
+        config()->set('database.connections.testing', $mysql);
+        DB::purge('testing');
+        DB::statement('CREATE DATABASE '.$schema);
+        config()->set('database.connections.testing.database', $schema);
+        DB::purge('testing');
+    }
 
     try {
         $this->defineDatabaseMigrations();
         Relation::morphMap(['queue-target' => PlainTarget::class]);
         // A Party is Feedable, so both publishes write its snapshot row; a
-        // plain model is not, so nothing shared is written before the batch.
-        $who = $actor === 'party'
-            ? ['actor' => Storyfeed::party('Importer')->name]
-            : ['plain_actor' => PlainTarget::create(['name' => 'Plain actor'])->id];
+        // plain model is not, so before the lock nothing shared was written
+        // ahead of the batch decision.
+        // Two actors is the control: nothing is shared, so each gets a batch
+        // and neither publish may wait on, or deadlock with, the other.
+        $who = match ($actor) {
+            'party' => fn () => ['actor' => Storyfeed::party('Importer')->name],
+            'plain model' => fn () => ['plain_actor' => PlainTarget::firstOrCreate(['name' => 'Plain actor'])->id],
+            'two actors' => fn (int $worker) => ['plain_actor' => PlainTarget::create(['name' => 'Actor '.$worker])->id],
+            'two parties' => fn (int $worker) => ['actor' => Storyfeed::party('Importer '.$worker)->name],
+        };
         $inputs = [];
         foreach ([1, 2] as $worker) {
-            $inputs[$worker] = ['delivery' => Delivery::create(['tracking_number' => 'FIRST-'.$worker])->id, ...$who];
+            $inputs[$worker] = ['delivery' => Delivery::create(['tracking_number' => 'FIRST-'.$worker])->id, ...$who($worker)];
         }
+        // Filler history by another actor, so the tables are big enough that
+        // the optimizer uses their indexes. On a handful of rows MariaDB scans
+        // the whole table and locks every row it passes, which deadlocks
+        // statements that never touch each other's rows in a real feed.
+        // W102_FILLER=0 shows that small-table case.
+        $filler = PlainTarget::create(['name' => 'Filler actor']);
+        foreach (range(1, getenv('W102_FILLER') === false ? 300 : (int) getenv('W102_FILLER')) as $n) {
+            (new PublishListener)->handle(['delivery' => Delivery::create(['tracking_number' => 'FILLER-'.$n])->id, 'plain_actor' => $filler->id]);
+        }
+        if ($engine !== 'pgsql') {
+            foreach (array_intersect_key(config('storyfeed.tables'), array_flip(['activities', 'groupings', 'participants', 'batches', 'batch_locks'])) as $table) {
+                DB::statement('ANALYZE TABLE '.$table);
+            }
+        }
+        $history = Activity::count();
 
         DB::disconnect('testing');
         $children = [];
@@ -292,7 +341,7 @@ it('characterizes two first publishes by one actor', function (string $actor) {
                 $result = ['worker' => $worker];
                 try {
                     DB::purge('testing');
-                    DB::statement("SET lock_timeout = '5s'");
+                    DB::statement($engine === 'pgsql' ? "SET lock_timeout = '5s'" : 'SET SESSION innodb_lock_wait_timeout = 5');
                     DB::beginTransaction();
                     (new PublishListener)->handle($inputs[$worker]);
                     touch($directory.'/ready-'.$worker);
@@ -319,26 +368,36 @@ it('characterizes two first publishes by one actor', function (string $actor) {
             $statuses[] = pcntl_wexitstatus($status);
         }
         $results = array_map(fn ($worker) => json_decode(file_get_contents($directory.'/result-'.$worker.'.json'), true), [1, 2]);
-        $this->assertSame([0, 0], $statuses, json_encode($results));
 
         DB::purge('testing');
 
-        $batches = Batch::query()->count();
+        $mine = fn ($query) => $query->whereNot(fn ($query) => $query->where('actor_type', 'queue-target')->where('actor_id', $filler->id));
+        $batches = $mine(Batch::query())->count();
 
         file_put_contents(sys_get_temp_dir().'/storyfeed-843-first-batch.jsonl', json_encode([
-            'engine' => DB::selectOne('select version()')->version,
+            'engine' => DB::selectOne('select version() as version')->version,
             'actor' => $actor,
             'workers' => $results,
-            'activities' => Activity::count(),
+            'filler' => $history,
+            'activities' => Activity::count() - $history,
             'batches' => $batches,
-            'open_batches' => Batch::query()->whereNull('closed_at')->count(),
+            'open_batches' => $mine(Batch::query())->whereNull('closed_at')->count(),
+            'members' => $mine(Batch::query())->pluck('activities_count')->all(),
         ]).PHP_EOL, FILE_APPEND);
 
-        expect(Activity::count())->toBe(2)
-            ->and($batches)->toBe($actor === 'party' ? 1 : 2);
+        $this->assertSame([0, 0], $statuses, json_encode($results));
+        $expected = str_starts_with($actor, 'two ') ? 2 : 1;
+        expect(Activity::count() - $history)->toBe(2)
+            ->and($batches)->toBe($expected)
+            ->and((int) $mine(Batch::query())->sum('activities_count'))->toBe(2)
+            ->and(Grouping::query()->where('bucket', 'batch')->where('activity_id', '>', $history)->distinct()->count('hash'))->toBe($expected);
     } finally {
         DB::purge('testing');
-        DB::statement('DROP SCHEMA '.$schema.' CASCADE');
+        if ($engine === 'pgsql') {
+            DB::statement('DROP SCHEMA '.$schema.' CASCADE');
+        } else {
+            DB::statement('DROP DATABASE IF EXISTS '.$schema);
+        }
         config()->set('database.connections.testing', $previous);
         DB::purge('testing');
         foreach (glob($directory.'/*') as $file) {
@@ -346,4 +405,4 @@ it('characterizes two first publishes by one actor', function (string $actor) {
         }
         rmdir($directory);
     }
-})->with(['party', 'plain model']);
+})->with('first batch engines');

@@ -15,7 +15,11 @@ use Storyfeed\StoryfeedManager;
  */
 class WriteGroupings
 {
-    public function __invoke(Activity $activity): void
+    /**
+     * @param  bool  $inserted  the activity was inserted by the publish that
+     *                          is calling, so no stale bucket can exist yet
+     */
+    public function __invoke(Activity $activity, bool $inserted = false): void
     {
         $grouping = config('storyfeed.models.grouping', Grouping::class);
 
@@ -47,6 +51,13 @@ class WriteGroupings
         // The batch bucket is exempt: batch membership is written by the
         // publish path, not the strategy, so it is never in $hashes — the
         // delete would otherwise destroy it on every re-run (trickle!).
+        // A row the calling publish just inserted has nothing to drop, and on InnoDB
+        // deleting nothing still locks the index's tail, where every
+        // concurrent publish inserts (see SyncParticipants).
+        if ($inserted) {
+            return;
+        }
+
         $grouping::query()
             ->where('activity_id', $activity->getKey())
             ->whereNotIn('bucket', app(StoryfeedManager::class)->rowBackedBuckets())

@@ -556,6 +556,23 @@
 
 ### Fixed
 
+- **Two publishes at once by one actor share a batch, and on MySQL and
+  MariaDB concurrent publishes no longer deadlock.** An actor with no open
+  batch had nothing to lock, so two overlapping first publishes each opened a
+  batch (PostgreSQL) or, under REPEATABLE READ, one of them died with a
+  deadlock and its activity was lost (MySQL 8.4, MariaDB 10.11). The deadlock
+  was not limited to one actor: any two concurrent publishes could hit it. Each
+  actor now has a row in the new `feed_batch_locks` table, upserted at the
+  batch decision: a second publish waits on it and joins the first one's
+  batch. The row lists the actor's open batches, so they are locked by key
+  instead of by searching `feed_batches`. Publish also skips the participant
+  and grouping deletes that a new activity has nothing to delete for, which
+  locked the tail of those indexes. Which batch a publish joins is unchanged,
+  late arrivals included. **Publish and run the new
+  `create_feed_batch_locks_table` migration**; it lists the open batches you
+  already have. Until it runs, a publish with an actor throws, and
+  `storyfeed:doctor` reports the missing table. New config key
+  `storyfeed.tables.batch_locks`.
 - **A job dispatched inside `Storyfeed::as()` runs as that actor.** The worker
   used to see only the user logged in at dispatch, or nobody. The scoped actor
   now travels with the job (a Party by name and key, a model by morph alias and

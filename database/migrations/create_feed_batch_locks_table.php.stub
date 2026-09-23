@@ -1,0 +1,56 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        $locks = config('storyfeed.tables.batch_locks', 'feed_batch_locks');
+
+        // One row per actor that has ever been batched. Publish upserts it
+        // before deciding which batch to join, so two first publishes by the
+        // same actor queue on this row instead of each opening a batch. It
+        // holds nothing the feed reads.
+        Schema::create($locks, function (Blueprint $table) {
+            $table->string('actor_type');
+            // A string, like a tombstone's key, so UUID and ULID actors lock too.
+            $table->string('actor_id');
+            // The actor's open batch ids, so publish can lock them by key
+            // instead of searching feed_batches. May still name a batch the
+            // sweeper has since closed; publish drops it on the next write.
+            $table->json('open_batches')->nullable();
+            $table->timestamp('locked_at')->nullable();
+
+            $table->primary(['actor_type', 'actor_id']);
+        });
+
+        // An existing install already has open batches, and publish finds
+        // them only through this list.
+        $batches = config('storyfeed.tables.batches', 'feed_batches');
+
+        if (! Schema::hasTable($batches)) {
+            return;
+        }
+
+        DB::table($batches)
+            ->whereNull('closed_at')
+            ->whereNotNull('actor_type')
+            ->orderBy('id')
+            ->get(['id', 'actor_type', 'actor_id'])
+            ->groupBy(fn ($batch) => $batch->actor_type."\0".$batch->actor_id)
+            ->each(fn ($open) => DB::table($locks)->insert([
+                'actor_type' => $open->first()->actor_type,
+                'actor_id' => (string) $open->first()->actor_id,
+                'open_batches' => json_encode($open->pluck('id')->map(fn ($id) => (int) $id)->all()),
+            ]));
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists(config('storyfeed.tables.batch_locks', 'feed_batch_locks'));
+    }
+};
