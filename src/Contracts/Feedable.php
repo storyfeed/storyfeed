@@ -54,7 +54,7 @@ interface Feedable
      * rather than warning. One broken resolver never breaks a feed.
      *
      * CHEAP AND SIDE-EFFECT-FREE. This may be called for entities that are
-     * never rendered as links: a group node's `exemplars` go through the
+     * never rendered as links: a group node's `sample` goes through the
      * same presenter path as a singular entity, so a grouped feed can mint
      * URLs it never paints. Nothing here should write, or assume the
      * result will be shown — it is a pure function of the context, and a

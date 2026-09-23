@@ -116,7 +116,7 @@ it('pluralises by the objects it cannot see, not just the ones nested in childre
     // would say "1 distinct object" and leave `:object` alone for the
     // renderer to name a.docx — one file standing in for five. The plural
     // form must come from the TRUE distinct total. A floor is fine for an
-    // exemplar list that admits to "and N others"; it is not fine for the
+    // sample list that admits to "and N others"; it is not fine for the
     // form a sentence asserts outright.
     expect($item['children'])->toHaveCount(1)
         ->and($item['children_truncated'])->toBeTrue()
@@ -134,11 +134,11 @@ it('names a role shared by every member rather than saying "1 file"', function (
     $item = Storyfeed::feed()->get()->toArray()['items'][0];
 
     // One distinct object across three members: the token is LEFT ALONE, so
-    // the renderer resolves it from `exemplars` and the reader gets "Sally
+    // the renderer resolves it from `sample` and the reader gets "Sally
     // uploaded a.docx". "1 file" would be a regression, not a fallback.
     expect($item['distinct']['objects'])->toBe(1)
         ->and($item['headline_template'])->toBe(':actor uploaded :object')
-        ->and($item['exemplars']['objects'])->toHaveCount(1);
+        ->and($item['sample']['objects'])->toHaveCount(1);
 });
 
 it('falls to the verb label when the template names a role nothing carries', function () {

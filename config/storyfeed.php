@@ -156,11 +156,11 @@ return [
         'strategy' => MultiAxisStrategy::class,
         'children_limit' => 25,
 
-        // App-wide exemplar limits, keyed by singular role. Set object to 6
+        // App-wide sample limits, keyed by singular role. Set object to 6
         // to show six objects while every other role stays at three. These
         // draw from the loaded children; children_limit still bounds them.
         // Missing or invalid limits fall back to 3; use positive integers.
-        'exemplar_limits' => [
+        'sample_limits' => [
             'actor' => 3,
             'object' => 3,
             'target' => 3,

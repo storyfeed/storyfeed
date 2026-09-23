@@ -54,7 +54,7 @@ use Throwable;
  *
  * THAT IS READ-ONLY BY CONTRACT, not by hope. `Feedable::feedMedia()` is
  * documented as a pure function of its context — cheap, side-effect-free,
- * and already called for group exemplars that are never painted. The probe
+ * and already called for group samples that are never painted. The probe
  * is that same call with a map that cannot reach the database; a resolver
  * that writes on it was already writing on every page it never appeared on.
  *

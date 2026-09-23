@@ -4,6 +4,12 @@
 
 ### Changed
 
+- **A group node's `exemplars` is now `sample`.** The key holds the same
+  per-role lists (`actors`, `objects`, …) as before. The config key follows:
+  `grouping.exemplar_limits` is now `grouping.sample_limits`. Both renames are
+  breaking and neither is aliased; a renderer reading `exemplars` gets nothing,
+  and a published config still carrying `exemplar_limits` falls back to three.
+
 - **An activity's body is a slot, and the vocabulary is `Storyfeed\Body\*`.**
   A form used to hide inside `data` at a key the app chose; it now goes in
   `body`, which core owns and still never reads.

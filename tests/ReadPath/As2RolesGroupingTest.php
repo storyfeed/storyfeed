@@ -66,10 +66,10 @@ it('exposes pinned group entities and refuses to attribute mixed provenance to o
     $presenter = app(NodePresenter::class);
     $node = $presenter->groupNode(GroupSlice::group('promoted', 'test', 2, collect([$one, $two])));
     expect($node[$role]['label'])->toBe('First')
-        ->and($node['exemplars'][$role.'s'])->toHaveCount(1)
+        ->and($node['sample'][$role.'s'])->toHaveCount(1)
         ->and($node['distinct'][$role.'s'])->toBe(1);
 
-    // A misdeclared custom pin must not name the loaded exemplar for unseen members.
+    // A misdeclared custom pin must not name the loaded sample for unseen members.
     $mixed = $presenter->groupNode(GroupSlice::group('promoted', 'test', 20, collect([$one, $two]), [$role => 8]));
     expect($mixed[$role])->toBeNull()
         ->and($mixed['distinct'][$role.'s'])->toBe(8)
@@ -89,7 +89,7 @@ it('counts promoted roles beyond capped children on an existing live group', fun
     foreach (['origin', 'result', 'instrument'] as $role) {
         expect($group[$role])->toBeNull()
             ->and($group['distinct'][$role.'s'])->toBe(5)
-            ->and($group['exemplars'][$role.'s'])->toHaveCount(2)
+            ->and($group['sample'][$role.'s'])->toHaveCount(2)
             ->and($group['children'][0][$role])->not->toBeNull();
     }
 });

@@ -64,7 +64,7 @@ class NodePresenter
      * build would hand one page's models to the next page rendered in the
      * same process, and a singleton-bound presenter would do exactly that.
      * Seeded from the loaded members, so a group's capped children and the
-     * exemplars drawn from them are covered; nothing beyond the page is.
+     * sample drawn from them are covered; nothing beyond the page is.
      *
      * A presenter that was never given a page still works — entity() falls
      * back to a private, unseeded map, which makes model() a single lookup.
@@ -336,7 +336,7 @@ class NodePresenter
      * WHERE IT DECLINES, AND WHY EACH REFUSAL IS THE RIGHT ANSWER:
      *
      *  - The count is 1. Then the role is shared in fact, and the renderer
-     *    can NAME it from `exemplars` (FeedPresenter::groupRole). "1 clause"
+     *    can NAME it from `sample` (FeedPresenter::groupRole). "1 clause"
      *    where the clause could have been named is a regression, not a
      *    fallback, so the token is left alone rather than substituted.
      *  - The count is 0. The role is ABSENT, not plural. A template naming a
@@ -354,7 +354,7 @@ class NodePresenter
      *    Nothing can be counted, so nothing is claimed.
      *  - The slice carries no true distinct counts. The in-page count is
      *    capped at `grouping.children_limit` and would understate; a floor
-     *    is fine for an exemplar list that says "and N others", and not fine
+     *    is fine for a sample list that says "and N others", and not fine
      *    for a number the sentence asserts outright.
      *
      * Failing any of these, the rung returns null and the ladder falls to
@@ -429,7 +429,7 @@ class NodePresenter
         return [$entry, null];
     }
 
-    /** role => [plural exemplars key, snapshot relation] */
+    /** role => [plural sample key, snapshot relation] */
     protected const GROUP_ROLES = [
         'actor' => ['actors', 'cachedActor'],
         'object' => ['objects', 'cachedObject'],
@@ -446,13 +446,13 @@ class NodePresenter
         $members = $slice->members;
         $first = $members->first();
 
-        // Every role has its own exemplar limit (default 3), with distinct
+        // Every role has its own sample limit (default 3), with distinct
         // entities drawn from the loaded (capped) members. A role
         // the axis pins collapses to exactly one entry BY CONSTRUCTION —
         // all members share it — so no axis-conditional logic exists here,
         // and the collapsed dimensions ("which projects? which tasks?")
         // are finally nameable via the plural tokens.
-        $exemplars = [];
+        $sample = [];
         $distinct = [];
 
         foreach (self::GROUP_ROLES as $role => [$key, $relation]) {
@@ -461,9 +461,9 @@ class NodePresenter
                 ->unique(fn (Activity $a) => $a->{"{$role}_type"}.':'.$a->{"{$role}_id"})
                 ->values();
 
-            $limit = config("storyfeed.grouping.exemplar_limits.{$role}", 3);
+            $limit = config("storyfeed.grouping.sample_limits.{$role}", 3);
 
-            $exemplars[$key] = $unique
+            $sample[$key] = $unique
                 ->take(is_int($limit) && $limit > 0 ? $limit : 3)
                 ->map(fn (Activity $a) => $this->entity($a->{"{$role}_type"}, $a->{"{$role}_id"}, $a->{$relation}))
                 ->all();
@@ -478,7 +478,7 @@ class NodePresenter
         /*
          * PINNED ROLES ALSO ANSWER THE SINGULAR TOKEN (2026-08-26).
          *
-         * A group used to carry roles ONLY as exemplar lists, on the sound
+         * A group used to carry roles ONLY as sample lists, on the sound
          * reasoning that a group is many activities. But an axis that PINS a
          * role collapses it to exactly one entity by construction — and
          * `aggregateTokens()` already says so, which is how
@@ -487,7 +487,7 @@ class NodePresenter
          *
          * So the registry promised a token the node did not carry, and every
          * renderer had to discover that for itself. Two did: the Vue renderer
-         * quietly reconstructs the singular from `exemplars[0]`, and the
+         * quietly reconstructs the singular from `sample[0]`, and the
          * Filament adapter rendered ":actor" as "Someone" — a shrug with the
          * authority of a fact — on a vault row summarising client link opens.
          * A promise the payload does not keep is the payload's bug.
@@ -504,9 +504,9 @@ class NodePresenter
 
         foreach (self::GROUP_ROLES as $role => [$key, $relation]) {
             $singulars[$role] = in_array(":{$role}", $pinnedTokens, true)
-                && count($exemplars[$key]) === 1
+                && count($sample[$key]) === 1
                 && $distinct[$key] === 1
-                    ? $exemplars[$key][0]
+                    ? $sample[$key][0]
                     : null;
         }
 
@@ -526,7 +526,7 @@ class NodePresenter
             'glyph' => $this->storyfeed->icon($first->object_type, $first->verb),
             'glyph_intent' => $this->storyfeed->glyphIntent($first->object_type, $first->verb),
             ...$singulars,
-            'exemplars' => $exemplars,
+            'sample' => $sample,
             'distinct' => $distinct,
             'children' => $children,
             'children_truncated' => $slice->count > count($children),

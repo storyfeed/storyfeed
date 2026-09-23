@@ -38,10 +38,10 @@ it('collapses on the actors axis once enough distinct actors join', function () 
         ->and($items[0]['kind'])->toBe('group')
         ->and($items[0]['axis'])->toBe('actors')
         ->and($items[0]['count'])->toBe(3)
-        ->and($items[0]['exemplars']['actors'])->toHaveCount(3)
-        ->and($items[0]['exemplars']['targets'][0]['label'])->toBe('Concur')
+        ->and($items[0]['sample']['actors'])->toHaveCount(3)
+        ->and($items[0]['sample']['targets'][0]['label'])->toBe('Concur')
         ->and($items[0]['distinct']['actors'])->toBe(3)
-        ->and($items[0]['exemplars']['targets'])->toHaveCount(1); // pinned role: list of one, by construction
+        ->and($items[0]['sample']['targets'])->toHaveCount(1); // pinned role: list of one, by construction
 });
 
 it('reports true distinct counts, not just the ones nested in capped children', function () {
@@ -59,7 +59,7 @@ it('reports true distinct counts, not just the ones nested in capped children', 
         ->and($item['count'])->toBe(5)
         ->and($item['children'])->toHaveCount(2)
         ->and($item['children_truncated'])->toBeTrue()
-        ->and($item['exemplars']['actors'])->toHaveCount(2)
+        ->and($item['sample']['actors'])->toHaveCount(2)
         ->and($item['distinct']['actors'])->toBe(5);
 });
 
@@ -384,7 +384,7 @@ it('collapses repeated acts on one object onto the object axis', function () {
     expect($items)->toHaveCount(1)
         ->and($items[0]['axis'])->toBe('object')
         ->and($items[0]['count'])->toBe(5)
-        ->and($items[0]['exemplars']['objects'][0]['label'])->toBe('Delivery #Aut Beatae.docx')
+        ->and($items[0]['sample']['objects'][0]['label'])->toBe('Delivery #Aut Beatae.docx')
         ->and($items[0]['headline_template'])->toBe(':actor made :count revisions to :object');
 });
 
@@ -407,9 +407,9 @@ it('fragments a mixed day into precise stories instead of one wrong one', functi
     expect($items)->toHaveCount(2)
         ->and($items->pluck('axis')->sort()->values()->all())->toBe(['object', 'repeat'])
         ->and($items->firstWhere('axis', 'object')['count'])->toBe(2)
-        ->and($items->firstWhere('axis', 'object')['exemplars']['objects'][0]['label'])->toBe('Delivery #Aut Beatae.docx')
+        ->and($items->firstWhere('axis', 'object')['sample']['objects'][0]['label'])->toBe('Delivery #Aut Beatae.docx')
         ->and($items->firstWhere('axis', 'repeat')['count'])->toBe(3)
-        ->and($items->firstWhere('axis', 'repeat')['exemplars']['objects'])->toHaveCount(3);
+        ->and($items->firstWhere('axis', 'repeat')['sample']['objects'])->toHaveCount(3);
 });
 
 it('keeps distinct objects on the repeat axis', function () {
@@ -426,7 +426,7 @@ it('keeps distinct objects on the repeat axis', function () {
     // dimension is nameable as a list now.
     expect($items)->toHaveCount(1)
         ->and($items[0]['axis'])->toBe('repeat')
-        ->and($items[0]['exemplars']['objects'])->toHaveCount(3)
+        ->and($items[0]['sample']['objects'])->toHaveCount(3)
         ->and($items[0]['distinct']['objects'])->toBe(3);
 });
 
@@ -489,12 +489,12 @@ it('names the collapsed projects on a targets-axis group — the "added 5 items"
     // The screenshot's vagueness, fixed: the collapsed dimension is listed.
     expect($item['axis'])->toBe('targets')
         ->and($item['headline_template'])->toBe(':actor added :count items in :targets')
-        ->and($item['exemplars']['targets'])->toHaveCount(3)
+        ->and($item['sample']['targets'])->toHaveCount(3)
         ->and($item['distinct']['targets'])->toBe(4)
-        // Exemplars draw newest-first from the capped members, so the most
+        // The sample draws newest-first from the capped members, so the most
         // recent project leads and the oldest overflows into `distinct`.
-        ->and(collect($item['exemplars']['targets'])->pluck('label'))->toContain('Spring Campaign')
-        ->and($item['exemplars']['actors'])->toHaveCount(1); // pinned: Sally, list of one
+        ->and(collect($item['sample']['targets'])->pluck('label'))->toContain('Spring Campaign')
+        ->and($item['sample']['actors'])->toHaveCount(1); // pinned: Sally, list of one
 });
 
 it('names the collapsed tasks on a repeat-axis group — the "completed 3 tasks" fix', function () {
@@ -510,6 +510,6 @@ it('names the collapsed tasks on a repeat-axis group — the "completed 3 tasks"
 
     expect($item['axis'])->toBe('repeat')
         ->and($item['headline_template'])->toBe(':actor completed :objects')
-        ->and($item['exemplars']['objects'])->toHaveCount(3)
+        ->and($item['sample']['objects'])->toHaveCount(3)
         ->and($item['distinct']['objects'])->toBe(3);
 });

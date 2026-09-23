@@ -190,7 +190,7 @@ function talk_seed(): array
 
 /**
  * A throwaway renderer: the payload carries `headline_template` plus entities
- * and exemplars, and rendering is the renderer package's job. Enough here to
+ * and a group sample, and rendering is the renderer package's job. Enough here to
  * read a row aloud.
  *
  * @param  array<string, mixed>  $item
@@ -214,7 +214,7 @@ function talk_headline(array $item): string
     foreach (['actor', 'object', 'target', 'context', 'origin', 'result'] as $role) {
         $tokens[":{$role}"] = $label($item[$role] ?? null);
         $plural = "{$role}s";
-        $list = array_map($label, $item['exemplars'][$plural] ?? []);
+        $list = array_map($label, $item['sample'][$plural] ?? []);
         $distinct = $item['distinct'][$plural] ?? count($list);
         $others = $distinct - count($list);
         $tokens[":{$plural}"] = implode(', ', $list).($others > 0 ? " and {$others} others" : '');

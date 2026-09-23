@@ -232,7 +232,7 @@ class Axis
      */
     /**
      * Universal tokens, allowed on every axis: the PLURAL role tokens
-     * render exemplar lists ("Onboarding Portal, Analytics Dashboard and
+     * render sample lists ("Onboarding Portal, Analytics Dashboard and
      * 2 others"), and a list of length one — a pinned role — is still
      * true. Singular tokens remain pinned-only (the anti-lie rule).
      */

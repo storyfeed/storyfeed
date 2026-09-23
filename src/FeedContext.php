@@ -182,7 +182,7 @@ final readonly class FeedContext
      * A resolver that has paid for the model can close that gap itself by
      * returning FeedMedia with a `label:` from the model, which overrides
      * the snapshot's on the node. What it must not do is write: this runs
-     * for exemplars that are never painted, and it is read-time.
+     * for sampled entities that are never painted, and it is read-time.
      *
      * @param  array<int|string, mixed>  $with  relations to eager load with the batch, in the shape Builder::with() accepts
      * @param  bool  $withTrashed  include soft-deleted rows; ignored on classes that do not soft-delete

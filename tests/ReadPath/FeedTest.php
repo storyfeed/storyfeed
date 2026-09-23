@@ -32,7 +32,7 @@ it('nests same-repeat-hash activities into a group node', function () {
         ->and($items[0]['axis'])->toBe('repeat')
         ->and($items[0]['count'])->toBe(3)
         ->and($items[0]['children'])->toHaveCount(3)
-        ->and($items[0]['exemplars']['actors'][0]['label'])->toBe('Sally');
+        ->and($items[0]['sample']['actors'][0]['label'])->toBe('Sally');
 });
 
 it('keeps singletons as activity nodes', function () {

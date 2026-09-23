@@ -428,7 +428,7 @@ it('reports no feed to the AS2.0 serializer, even when a named feed exists', fun
         ->and($document['object']['url'])->not->toContain('/kitchen/');
 });
 
-it('carries the feed into every entity of a group node, exemplars and children alike', function () {
+it('carries the feed into every entity of a group node, sample and children alike', function () {
     Storyfeed::feeds(['kitchen' => fn (FeedBuilder $feed) => $feed->live()]);
 
     $ines = User::create(['name' => 'Ines', 'email' => 'ines@example.com']);
@@ -441,7 +441,7 @@ it('carries the feed into every entity of a group node, exemplars and children a
     $item = Storyfeed::feed('kitchen')->get()->toArray()['items'][0];
 
     expect($item['kind'])->toBe('group')
-        ->and($item['exemplars']['objects'][0]['url'])->toBe("/kitchen/customers/{$customer->id}")
+        ->and($item['sample']['objects'][0]['url'])->toBe("/kitchen/customers/{$customer->id}")
         ->and($item['children'][0]['object']['url'])->toBe("/kitchen/customers/{$customer->id}");
 });
 
