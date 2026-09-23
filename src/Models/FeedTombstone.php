@@ -74,6 +74,44 @@ class FeedTombstone extends Model implements Feedable, HasActivityStreamsType
         return static::query()->where('model_type', $type)->where('model_id', (string) $id)->first();
     }
 
+    /** The deleted model's morph alias: AS2's `formerType`, in the app's own words. */
+    public function formerType(): string
+    {
+        return $this->model_type;
+    }
+
+    /**
+     * When the model was deleted, or null when nobody knows. For a deletion
+     * the trickle found, this is when it was found (see isApproximate()).
+     */
+    public function deletedAt(): ?Carbon
+    {
+        return $this->deleted_at;
+    }
+
+    /** Whether deletedAt() is when the deletion was found rather than when it happened. */
+    public function isApproximate(): bool
+    {
+        return (bool) $this->approximate;
+    }
+
+    /**
+     * The tombstone's entry on a payload entity (docs/payload.md,
+     * `entity.tombstone`). `removedBy` is reserved: who removed it, as a
+     * relation and never a name, which redaction will fill.
+     *
+     * @return array{formerType: string, deleted: string|null, approximate: bool, removedBy: null}
+     */
+    public function toPayload(): array
+    {
+        return [
+            'formerType' => $this->formerType(),
+            'deleted' => $this->deletedAt()?->toISOString(),
+            'approximate' => $this->isApproximate(),
+            'removedBy' => null,
+        ];
+    }
+
     public function toFeed(): FeedEntity
     {
         return FeedEntity::make(label: $this->label);

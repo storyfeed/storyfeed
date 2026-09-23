@@ -10,11 +10,13 @@ use Storyfeed\FeedHeadline;
 use Storyfeed\FeedNoun;
 use Storyfeed\FeedThread;
 use Storyfeed\Models\Activity;
+use Storyfeed\Models\FeedTombstone;
 use Storyfeed\Models\Snapshot;
 use Storyfeed\StoryfeedManager;
 use Storyfeed\Support\ActivityRoles;
 use Storyfeed\Support\LinkResolver;
 use Storyfeed\Support\ModelHydrator;
+use Storyfeed\Support\TombstoneRules;
 use Throwable;
 
 /**
@@ -28,6 +30,15 @@ use Throwable;
  */
 class NodePresenter
 {
+    /**
+     * The page's tombstones, by key, loaded in one query by forPage(). Null
+     * off a page, where each is a single lookup; never shared between pages,
+     * for the reason the identity map isn't.
+     *
+     * @var array<string, FeedTombstone|null>|null
+     */
+    protected ?array $tombstones = null;
+
     /**
      * @param  string|null  $feed  the registered name of the feed this page was
      *                             read through, or null for an ad-hoc builder
@@ -82,11 +93,16 @@ class NodePresenter
     public function forPage(Collection $slices): static
     {
         $hydrator = new ModelHydrator;
+        $tombstoneIds = [];
 
         foreach ($slices as $slice) {
             foreach ($slice->members as $activity) {
                 foreach (ActivityRoles::PAYLOAD as $role) {
                     $hydrator->seed($activity->{"{$role}_type"}, $activity->{"{$role}_id"});
+
+                    if ($activity->{"{$role}_type"} === FeedTombstone::MORPH_ALIAS && $activity->{"{$role}_id"} !== null) {
+                        $tombstoneIds[(string) $activity->{"{$role}_id"}] = true;
+                    }
                 }
             }
         }
@@ -94,6 +110,7 @@ class NodePresenter
         $presenter = clone $this;
         $presenter->hydrator = $hydrator;
         $presenter->links = new LinkResolver;
+        $presenter->tombstones = self::loadTombstones(array_keys($tombstoneIds));
 
         return $presenter;
     }
@@ -110,6 +127,8 @@ class NodePresenter
     public function activityNode(Activity $activity): array
     {
         [$template, $headline] = $this->headline($activity);
+        [$tombstoned, $redundant] = $this->tombstoneFact($activity);
+        $type = $this->objectType($activity);
 
         [$data, $thread] = $this->thread($activity);
         $change = FeedChange::fromArray($data[FeedChange::KEY] ?? null);
@@ -128,7 +147,7 @@ class NodePresenter
             // token, not Activity Streams' `icon` — which is an image and lives at
             // `entity.media.icon`. One word must not mean two things in one
             // document. See docs/payload.md, `glyph`.
-            'glyph' => $this->storyfeed->icon($activity->object_type, $activity->verb),
+            'glyph' => $this->storyfeed->icon($type, $activity->verb),
             // Additive (2026-09-09): the glyph's INTENT — an app-owned word
             // (`success`, `danger`, whatever the renderer's palette speaks)
             // resolved on the same ladder as the token but from its own
@@ -138,7 +157,7 @@ class NodePresenter
             // in. Core names no intents and no colours; the AS2 document has
             // no term for it and never carries it. See docs/payload.md,
             // `glyph_intent`.
-            'glyph_intent' => $this->storyfeed->glyphIntent($activity->object_type, $activity->verb),
+            'glyph_intent' => $this->storyfeed->glyphIntent($type, $activity->verb),
             'actor' => $this->entity($activity->actor_type, $activity->actor_id, $activity->cachedActor),
             'object' => $this->entity($activity->object_type, $activity->object_id, $activity->cachedObject),
             'target' => $this->entity($activity->target_type, $activity->target_id, $activity->cachedTarget),
@@ -152,6 +171,14 @@ class NodePresenter
             // activity that has not opted in. See docs/payload.md, `thread`.
             'thread' => $thread?->toPayload(),
             'change' => $change?->toPayload(),
+            // Additive (2026-09-23): the roles whose entity was deleted, and
+            // whether one of them is constitutive for this verb, so the
+            // activity is redundant as news though still true as history.
+            // A fact, never wording: the renderer chooses between "Dana
+            // placed a removed order" and "an order Dana placed was later
+            // removed". See docs/payload.md, tombstones.
+            'tombstoned' => $tombstoned,
+            'redundant' => $redundant,
         ];
     }
 
@@ -203,10 +230,11 @@ class NodePresenter
     {
         // Inspect recorded identity, not the relation: an unresolved/deleted
         // participant is not a genuinely absent actor. Party identities stay normal.
+        $type = $this->objectType($activity);
         $entry = $activity->actor_type === null && $activity->actor_id === null
-            ? $this->storyfeed->actorlessTemplate($activity->object_type, $activity->verb)
+            ? $this->storyfeed->actorlessTemplate($type, $activity->verb)
             : null;
-        $entry ??= $this->storyfeed->template($activity->object_type, $activity->verb);
+        $entry ??= $this->storyfeed->template($type, $activity->verb);
 
         if ($entry instanceof Closure) {
             try {
@@ -258,8 +286,8 @@ class NodePresenter
         // The object type qualifies the key only when the axis pins it —
         // otherwise the group may hold several object types and the key would
         // name whichever member came first.
-        $objectType = $this->storyfeed->axis((string) $slice->axis)?->pinsType('object') === true
-            ? $head?->object_type
+        $objectType = $this->storyfeed->axis((string) $slice->axis)?->pinsType('object') === true && $head !== null
+            ? $this->objectType($head)
             : null;
 
         $entry = $this->storyfeed->aggregateTemplate((string) $slice->axis, (string) $head?->verb, $objectType);
@@ -297,7 +325,7 @@ class NodePresenter
     {
         $first = $slice->members->first();
 
-        $entry = $this->storyfeed->template($first->object_type, $first->verb);
+        $entry = $this->storyfeed->template($this->objectType($first), $first->verb);
 
         if (! is_string($entry)) {
             return [null, null];
@@ -473,6 +501,7 @@ class NodePresenter
         // are finally nameable via the plural tokens.
         $sample = [];
         $distinct = [];
+        $distinctTombstoned = [];
 
         foreach (self::GROUP_ROLES as $role => [$key, $relation]) {
             $unique = $members
@@ -482,14 +511,23 @@ class NodePresenter
 
             $limit = config("storyfeed.grouping.sample_limits.{$role}", 3);
 
+            // Live entities first, tombstones after, each in member order:
+            // "Dana, Sam and a former customer" over "a former customer, a
+            // former customer and Dana". Curation, not contract.
             $sample[$key] = $unique
+                ->sortBy(fn (Activity $a) => $a->{"{$role}_type"} === FeedTombstone::MORPH_ALIAS ? 1 : 0)
                 ->take(is_int($limit) && $limit > 0 ? $limit : 3)
                 ->map(fn (Activity $a) => $this->entity($a->{"{$role}_type"}, $a->{"{$role}_id"}, $a->{$relation}))
+                ->values()
                 ->all();
 
             // True totals from the aggregate query; the in-page unique count
             // is the floor when a caller built the slice without them.
             $distinct[$key] = max($slice->distinct[$role] ?? 0, $unique->count());
+            $distinctTombstoned[$key] = max(
+                $slice->tombstoned[$role] ?? 0,
+                $unique->filter(fn (Activity $a) => $a->{"{$role}_type"} === FeedTombstone::MORPH_ALIAS)->count(),
+            );
         }
 
         [$template, $headline] = $this->aggregateHeadline($slice, $distinct);
@@ -537,6 +575,8 @@ class NodePresenter
 
         $children = $members->map(fn (Activity $a) => $this->activityNode($a))->values()->all();
 
+        [$tombstoned, $redundant] = $this->groupTombstoneFact($slice, $children, $distinct, $distinctTombstoned);
+
         return [
             'kind' => 'group',
             // Namespaced and versioned: the digest must not collide across
@@ -548,13 +588,20 @@ class NodePresenter
             'published_at' => $first->published_at?->toISOString(),
             'headline_template' => $template,
             'headline' => $headline,
-            'glyph' => $this->storyfeed->icon($first->object_type, $first->verb),
-            'glyph_intent' => $this->storyfeed->glyphIntent($first->object_type, $first->verb),
+            'glyph' => $this->storyfeed->icon($this->objectType($first), $first->verb),
+            'glyph_intent' => $this->storyfeed->glyphIntent($this->objectType($first), $first->verb),
             ...$singulars,
             'sample' => $sample,
             'distinct' => $distinct,
             'children' => $children,
             'children_truncated' => $slice->count > count($children),
+            // Additive (2026-09-23): the activity node's tombstone fact, for
+            // the group as a whole, and how many of each role's distinct
+            // entities are tombstones, keyed as `distinct` is, so "5 orders,
+            // 2 since removed" is written without guessing.
+            'tombstoned' => $tombstoned,
+            'redundant' => $redundant,
+            'distinct_tombstoned' => $distinctTombstoned,
         ];
     }
 
@@ -600,12 +647,135 @@ class NodePresenter
             // ORDER IS NOT CONTRACT beyond that — arrangement is a renderer's,
             // and a renderer that draws them another way is not wrong.
             'body' => self::bodyOrNull([...($snapshot->body ?? []), ...($link->body ?? [])]),
+            // Additive (2026-09-23): what a deleted entity left behind, or
+            // null. Distinct from DEGRADED (a live entity with no snapshot
+            // yet: `label: null`, `tombstone: null`) and from ANONYMOUS (no
+            // entity at all: the role is null). See docs/payload.md.
+            'tombstone' => $type === FeedTombstone::MORPH_ALIAS && $id !== null
+                ? $this->tombstone($id)?->toPayload()
+                : null,
             ...array_filter([
                 'content' => $snapshot?->content,
                 'mediaType' => $snapshot?->media_type,
                 'attributedTo' => $snapshot?->attributed_to,
             ], fn ($value) => $value !== null),
         ];
+    }
+
+    /**
+     * The object type the registries are asked about: for a tombstoned
+     * object, the deleted model's own alias, so `order.place` still finds
+     * its headline, glyph and tombstone rule once the order is gone.
+     */
+    protected function objectType(Activity $activity): ?string
+    {
+        if ($activity->object_type === FeedTombstone::MORPH_ALIAS && $activity->object_id !== null) {
+            return $this->tombstone($activity->object_id)?->formerType() ?? $activity->object_type;
+        }
+
+        return $activity->object_type;
+    }
+
+    /**
+     * [the tombstoned roles, whether one is constitutive] for one activity.
+     *
+     * @return array{0: list<string>, 1: bool}
+     */
+    protected function tombstoneFact(Activity $activity): array
+    {
+        $tombstoned = array_values(array_filter(
+            ActivityRoles::PAYLOAD,
+            fn (string $role): bool => $activity->{"{$role}_type"} === FeedTombstone::MORPH_ALIAS,
+        ));
+
+        if ($tombstoned === []) {
+            return [[], false];
+        }
+
+        $constitutive = app(TombstoneRules::class)->constitutiveRoles($this->objectType($activity), (string) $activity->verb);
+
+        return [$tombstoned, array_intersect($tombstoned, $constitutive) !== []];
+    }
+
+    /**
+     * The same fact for a group. `tombstoned` names every role with a
+     * tombstone among the group's distinct entities; `redundant` holds only
+     * when the whole group is: every loaded member is redundant, and some
+     * constitutive role is tombstoned for EVERY distinct entity it holds,
+     * which the true counts can vouch for beyond the loaded members.
+     *
+     * @param  list<array<string, mixed>>  $children
+     * @param  array<string, int>  $distinct
+     * @param  array<string, int>  $distinctTombstoned
+     * @return array{0: list<string>, 1: bool}
+     */
+    protected function groupTombstoneFact(GroupSlice $slice, array $children, array $distinct, array $distinctTombstoned): array
+    {
+        $tombstoned = [];
+
+        foreach (self::GROUP_ROLES as $role => [$key]) {
+            if (($distinctTombstoned[$key] ?? 0) > 0) {
+                $tombstoned[] = $role;
+            }
+        }
+
+        if ($tombstoned === [] || $children === [] || in_array(false, array_column($children, 'redundant'), true)) {
+            return [$tombstoned, false];
+        }
+
+        $first = $slice->members->first();
+        $constitutive = app(TombstoneRules::class)->constitutiveRoles($this->objectType($first), (string) $first->verb);
+
+        foreach ($constitutive as $role) {
+            $key = self::GROUP_ROLES[$role][0] ?? null;
+
+            if ($key !== null && ($distinct[$key] ?? 0) > 0 && ($distinctTombstoned[$key] ?? 0) === $distinct[$key]) {
+                return [$tombstoned, true];
+            }
+        }
+
+        return [$tombstoned, false];
+    }
+
+    /** One tombstone, from the page's map when there is one. */
+    protected function tombstone(int|string $id): ?FeedTombstone
+    {
+        $id = (string) $id;
+
+        if ($this->tombstones !== null && array_key_exists($id, $this->tombstones)) {
+            return $this->tombstones[$id];
+        }
+
+        return self::loadTombstones([$id])[$id] ?? null;
+    }
+
+    /**
+     * Every tombstone with one of these keys, in one query; a key with no
+     * row maps to null. A failure is reported and every key reads as
+     * missing: the entity still renders, with `tombstone: null`.
+     *
+     * @param  list<int|string>  $ids
+     * @return array<string, FeedTombstone|null>
+     */
+    protected static function loadTombstones(array $ids): array
+    {
+        $map = array_fill_keys(array_map(strval(...), $ids), null);
+
+        if ($map === []) {
+            return [];
+        }
+
+        try {
+            $model = config('storyfeed.models.tombstone', FeedTombstone::class);
+
+            foreach ($model::query()->whereKey(array_keys($map))->get() as $tombstone) {
+                $map[(string) $tombstone->getKey()] = $tombstone;
+            }
+        } catch (Throwable $e) {
+            report($e);
+        }
+
+        return $map;
     }
 
     /**

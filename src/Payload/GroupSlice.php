@@ -21,6 +21,9 @@ final class GroupSlice
      * @param  array<string, int>  $distinct  TRUE distinct counts per role
      *                                        across ALL members (not just
      *                                        the capped list)
+     * @param  array<string, int>  $tombstoned  TRUE counts per role of the
+     *                                          distinct entities that are
+     *                                          tombstones, from the same query
      */
     public function __construct(
         public readonly ?string $axis,
@@ -28,15 +31,17 @@ final class GroupSlice
         public readonly int $count,
         public readonly Collection $members,
         public readonly array $distinct = [],
+        public readonly array $tombstoned = [],
     ) {}
 
     /**
      * @param  Collection<int, Activity>  $members
      * @param  array<string, int>  $distinct
+     * @param  array<string, int>  $tombstoned
      */
-    public static function group(string $axis, string $hash, int $count, Collection $members, array $distinct = []): self
+    public static function group(string $axis, string $hash, int $count, Collection $members, array $distinct = [], array $tombstoned = []): self
     {
-        return new self($axis, $hash, $count, $members, $distinct);
+        return new self($axis, $hash, $count, $members, $distinct, $tombstoned);
     }
 
     public static function solo(Activity $activity): self

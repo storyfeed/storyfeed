@@ -19,6 +19,7 @@ use Storyfeed\Exceptions\FeedMisconfigured;
 use Storyfeed\Grouping\NullStrategy;
 use Storyfeed\Models\Activity;
 use Storyfeed\Models\Builders\ActivityBuilder;
+use Storyfeed\Models\FeedTombstone;
 use Storyfeed\Models\Grouping;
 use Storyfeed\Models\Party;
 use Storyfeed\Payload\FeedPage;
@@ -686,9 +687,9 @@ class FeedBuilder
         $groups = $candidates->filter(fn (FeedCandidate $candidate) => $candidate->isGroup())->values();
 
         $members = $this->fetchMembers($now, $groups);
-        $distinct = $this->countDistinctRoles($now, $groups);
+        ['distinct' => $distinct, 'tombstoned' => $tombstoned] = $this->countDistinctRoles($now, $groups);
 
-        $slices = $candidates->map(function (FeedCandidate $candidate) use ($members, $distinct): GroupSlice {
+        $slices = $candidates->map(function (FeedCandidate $candidate) use ($members, $distinct, $tombstoned): GroupSlice {
             if ($candidate->activity !== null) {
                 return GroupSlice::solo($candidate->activity);
             }
@@ -701,6 +702,7 @@ class FeedBuilder
                 $candidate->count,
                 $members->get($key) ?? $this->activityModel()->newCollection(),
                 $distinct[$key] ?? [],
+                $tombstoned[$key] ?? [],
             );
         })
             // PHASE 2 IS AUTHORITATIVE (2026-08-12, found in the Newsroom's
@@ -1317,19 +1319,24 @@ class FeedBuilder
      * (group, role) rows because multi-column COUNT(DISTINCT …) is not
      * portable.
      *
+     * The same rows count the tombstones among them (the payload's
+     * `distinct_tombstoned`): a distinct entity is tombstoned when its type
+     * is the tombstone alias, so it costs a SUM, not another query.
+     *
      * @param  Collection<int, FeedCandidate>  $groups
-     * @return array<string, array<string, int>> groupKey => role => count
+     * @return array{distinct: array<string, array<string, int>>, tombstoned: array<string, array<string, int>>} groupKey => role => count
      */
     protected function countDistinctRoles(Carbon $now, Collection $groups): array
     {
         if ($groups->isEmpty()) {
-            return [];
+            return ['distinct' => [], 'tombstoned' => []];
         }
 
         $activities = $this->activityModel()->getTable();
         $groupings = $this->groupingModel()->getTable();
 
         $counts = [];
+        $tombstoned = [];
 
         foreach (ActivityRoles::GROUPABLE as $role) {
             $distinct = $this->selectedGroupMembers($now, $groups)
@@ -1348,14 +1355,17 @@ class FeedBuilder
                 ->groupBy('group_bucket', 'group_hash')
                 ->select(['group_bucket', 'group_hash'])
                 ->selectRaw('count(*) as total')
+                ->selectRaw("sum(case when {$role}_type = ? then 1 else 0 end) as tombstoned", [FeedTombstone::MORPH_ALIAS])
                 ->get();
 
             foreach ($rows as $row) {
-                $counts[$row->group_bucket."\x1f".$row->group_hash][$role] = (int) $row->total;
+                $key = $row->group_bucket."\x1f".$row->group_hash;
+                $counts[$key][$role] = (int) $row->total;
+                $tombstoned[$key][$role] = (int) $row->tombstoned;
             }
         }
 
-        return $counts;
+        return ['distinct' => $counts, 'tombstoned' => $tombstoned];
     }
 
     /**

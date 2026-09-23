@@ -6,6 +6,7 @@ use Closure;
 use Storyfeed\ActivityStreams\ActivityType;
 use Storyfeed\ActivityStreams\Context;
 use Storyfeed\ActivityStreams\CoreType;
+use Storyfeed\ActivityStreams\ObjectType;
 use Storyfeed\ActivityStreams\Property;
 use Storyfeed\FeedContext;
 use Storyfeed\FeedHeadline;
@@ -13,6 +14,7 @@ use Storyfeed\FeedImage;
 use Storyfeed\FeedResource;
 use Storyfeed\FeedThread;
 use Storyfeed\Models\Activity;
+use Storyfeed\Models\FeedTombstone;
 use Storyfeed\Models\Grouping;
 use Storyfeed\Models\Snapshot;
 use Storyfeed\StoryfeedManager;
@@ -100,8 +102,8 @@ class ActivitySerializer
         foreach (ActivityRoles::STORED as $role) {
             $roles[$role] = $role === 'object'
                 ? $this->collectionObject($activity, $links)
-                    ?? $this->entity($activity->object_type, $activity->cachedObject, $links)
-                : $this->entity($activity->{$role.'_type'}, $activity->{'cached'.ucfirst($role)}, $links, actor: $role === 'actor');
+                    ?? $this->entity($activity->object_type, $activity->cachedObject, $links, id: $activity->object_id)
+                : $this->entity($activity->{$role.'_type'}, $activity->{'cached'.ucfirst($role)}, $links, actor: $role === 'actor', id: $activity->{$role.'_id'});
         }
 
         return $roles;
@@ -195,10 +197,16 @@ class ActivitySerializer
     {
         // The same entry the payload presenter picks: the actorless ladder
         // first for a row with no actor, then the grammar ladder.
+        // A tombstoned object answers with the deleted model's alias, as
+        // the presenter's does, so `order.place` keeps its sentence.
+        $type = $activity->object_type === FeedTombstone::MORPH_ALIAS && $activity->object_id !== null
+            ? ($this->tombstone($activity->object_id)?->formerType() ?? $activity->object_type)
+            : $activity->object_type;
+
         $entry = $activity->actor_type === null && $activity->actor_id === null
-            ? $this->storyfeed->actorlessTemplate($activity->object_type, $activity->verb)
+            ? $this->storyfeed->actorlessTemplate($type, $activity->verb)
             : null;
-        $entry ??= $this->storyfeed->template($activity->object_type, $activity->verb);
+        $entry ??= $this->storyfeed->template($type, $activity->verb);
 
         if ($entry === null) {
             return null;
@@ -319,7 +327,7 @@ class ActivitySerializer
             'type' => 'OrderedCollection',
             'totalItems' => $members->count(),
             'orderedItems' => $members
-                ->map(fn (Activity $member) => $this->entity($member->object_type, $member->cachedObject, $links))
+                ->map(fn (Activity $member) => $this->entity($member->object_type, $member->cachedObject, $links, id: $member->object_id))
                 ->filter()
                 ->values()
                 ->all(),
@@ -332,10 +340,14 @@ class ActivitySerializer
      *
      * @return array<string, mixed>|null
      */
-    protected function entity(?string $alias, ?Snapshot $snapshot, LinkResolver $links, bool $actor = false): ?array
+    protected function entity(?string $alias, ?Snapshot $snapshot, LinkResolver $links, bool $actor = false, int|string|null $id = null): ?array
     {
         if ($alias === null) {
             return null;
+        }
+
+        if ($alias === FeedTombstone::MORPH_ALIAS) {
+            return $this->tombstoneEntity($id ?? $snapshot?->model_id, $snapshot, $actor);
         }
 
         $data = $snapshot->data ?? [];
@@ -405,6 +417,54 @@ class ActivitySerializer
                 Property::Url->value => $this->link($resource),
             ], $media->attachments),
         ], fn ($value) => $value !== null);
+    }
+
+    /**
+     * A deleted entity, as Activity Streams 2.0 draws one: a `Tombstone`
+     * carrying `formerType` (the deleted model's AS2 type) and `deleted`.
+     * An ACTOR keeps its original type beside `Tombstone` instead (FEP-e965,
+     * a deactivated actor): a consumer that doesn't know Tombstone still
+     * sees a Person, and AS2 Core §5 obliges it to carry on processing.
+     *
+     * Nothing links: a removed entity has nowhere to go. The name appears
+     * only when the tombstone kept its label.
+     *
+     * @return array<string, mixed>
+     */
+    protected function tombstoneEntity(int|string|null $id, ?Snapshot $snapshot, bool $actor): array
+    {
+        $tombstone = $id === null ? null : $this->tombstone($id);
+        $former = $tombstone === null ? null : $this->storyfeed->objectTypeValue($tombstone->formerType());
+        $deleted = $tombstone?->deletedAt()?->utc()->format('Y-m-d\TH:i:s\Z');
+        $name = $snapshot->label ?? $tombstone?->label;
+
+        return array_filter([
+            'type' => $actor && $former !== null
+                ? [$former, ObjectType::Tombstone->value]
+                : ObjectType::Tombstone->value,
+            Property::Name->value => $name,
+            Property::FormerType->value => $actor ? null : $former,
+            Property::Deleted->value => $deleted,
+        ], fn ($value) => $value !== null);
+    }
+
+    /**
+     * One tombstone, looked up alone. This serializer builds one document at
+     * a time and is a container singleton, so a memo here would outlive the
+     * document (see activity()): one query per tombstoned role, correct and
+     * not amortised.
+     */
+    protected function tombstone(int|string $id): ?FeedTombstone
+    {
+        $model = config('storyfeed.models.tombstone', FeedTombstone::class);
+
+        try {
+            return $model::query()->whereKey($id)->first();
+        } catch (Throwable $e) {
+            report($e);
+
+            return null;
+        }
     }
 
     /**

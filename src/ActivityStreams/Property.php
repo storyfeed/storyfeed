@@ -58,6 +58,11 @@ enum Property: string implements VocabularyTerm
     // holding an array (docs/payload.md, `entity.media.attachments`).
     case Attachment = 'attachment';
 
+    // A Tombstone's two properties: the deleted object's type (non-functional,
+    // though Storyfeed emits one) and when it was deleted.
+    case FormerType = 'formerType';
+    case Deleted = 'deleted';
+
     public function iri(): string
     {
         // orderedItems is the JSON-LD list alias for as:items, not a

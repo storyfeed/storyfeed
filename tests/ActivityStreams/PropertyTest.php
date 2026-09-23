@@ -8,6 +8,7 @@ it('models only the AS2 properties currently emitted by the activity serializer'
         'actor', 'object', 'target', 'context', 'origin', 'result', 'instrument', 'published',
         'totalItems', 'orderedItems', 'replies', 'summary', 'name', 'url',
         'icon', 'image', 'preview', 'href', 'mediaType', 'width', 'height', 'attachment',
+        'formerType', 'deleted',
     ]);
 });
 

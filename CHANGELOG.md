@@ -28,6 +28,28 @@
   and `--prune`, now cover only roles whose class no longer resolves (or
   isn't `Feedable`). Its result, and `MaintenanceHistory`'s trickle record,
   gain `tombstoned` and `restored`.
+- **A tombstone is its own state in the payload.** Every entity gains
+  `tombstone`: null, or `{formerType, deleted, approximate, removedBy}` for a
+  `storyfeed.tombstone` entity (`formerType` is the deleted model's alias;
+  `deleted` is null or ISO; `approximate` when the trickle found it;
+  `removedBy` is reserved, always null for now). Degraded (`label: null`,
+  `tombstone: null`) and anonymous (a null role) are unchanged. Every activity
+  node gains `tombstoned` (the roles holding a tombstone) and `redundant`
+  (one of them is constitutive for the verb). Group nodes gain the same two for
+  the whole group plus `distinct_tombstoned`, keyed as `distinct`. Group
+  samples list live entities before tombstoned ones. A tombstoned object's
+  former alias is what the headline, glyph and intent ladders are asked, so
+  `order.place` keeps its sentence after the order is gone.
+- **`Support\TombstoneRules`** (a container singleton) answers which roles are
+  constitutive for an object type and verb: an explicit rule on the
+  `type.verb` ladder (`set()`), else `[]` for a removal verb (AS2 `Delete`,
+  `Remove`, `Undo` or `Reject`, the registered type first and a
+  `Storyfeed\Verb` case of the same name second), else `['object']`.
+- **The AS2 serializer emits `Tombstone`** for a tombstoned entity, with
+  `formerType` (the deleted model's AS2 type) and `deleted`; a tombstoned actor
+  is typed `[<its type>, "Tombstone"]` (FEP-e965). `Property` gains
+  `FormerType` and `Deleted`. `FeedTombstone` gains `formerType()`,
+  `deletedAt()`, `isApproximate()` and `toPayload()`.
 - **`WriteGroupings::many()` and `CurateCluster::repairMany()`** do for many
   activities or clusters what `__invoke()` and `repair()` do for one, in a
   handful of queries. A tombstone on an entity with 5,000 activities takes

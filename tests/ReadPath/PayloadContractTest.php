@@ -24,9 +24,10 @@ it('emits the same payload shape as before the recording API change', function (
     expect(array_keys($payload['items'][0]))->toBe([
         'kind', 'id', 'verb', 'published_at', 'headline_template', 'headline',
         'glyph', 'glyph_intent', 'actor', 'object', 'target', 'context', 'origin', 'result', 'instrument', 'data', 'thread', 'change',
+        'tombstoned', 'redundant',
     ]);
     expect(array_keys($payload['items'][0]['object']))->toBe([
-        'type', 'id', 'label', 'url', 'attributes', 'modal', 'data', 'media', 'body',
+        'type', 'id', 'label', 'url', 'attributes', 'modal', 'data', 'media', 'body', 'tombstone',
     ]);
 });
 
@@ -47,6 +48,7 @@ it('emits the frozen group-node shape', function () {
         'kind', 'id', 'axis', 'count', 'verb', 'published_at', 'headline_template',
         'headline', 'glyph', 'glyph_intent', 'actor', 'object', 'target', 'context', 'origin', 'result', 'instrument',
         'sample', 'distinct', 'children', 'children_truncated',
+        'tombstoned', 'redundant', 'distinct_tombstoned',
     ]);
     // PINNED SINGULAR ROLES (2026-08-26, ADDITIVE): a role the axis pins is one
     // entity by construction, and `aggregateTokens()` already promised the
@@ -69,6 +71,7 @@ it('emits the frozen group-node shape', function () {
     expect(array_keys($item['children'][0]))->toBe([
         'kind', 'id', 'verb', 'published_at', 'headline_template', 'headline',
         'glyph', 'glyph_intent', 'actor', 'object', 'target', 'context', 'origin', 'result', 'instrument', 'data', 'thread', 'change',
+        'tombstoned', 'redundant',
     ]);
 });
 
