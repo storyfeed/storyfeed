@@ -653,6 +653,19 @@
   commonest cause becomes visible without any SQL: a stored alias that is not
   the alias the model reports today, because the rows predate a morph-map entry.
 
+- **A group headline in a resource Story class belongs to that class's type.**
+  When several activities collapse into one row, the row's sentence ("Dana
+  placed 3 orders") was filed under the verb alone when written in
+  `OrderStory::place()`, so `ReservationStory::place()` shared it: two such
+  headlines failed as "defined twice", and one alone was used for the other
+  type too, so three reservations read "placed 3 orders". It is now filed
+  under the class's type, as one written in `Story::for(Order::class)` already
+  was. A grouping that can gather several kinds of thing into one row
+  (`Group::byActors()`, `Group::byTargets()`) has no one type to belong to, so
+  a headline for it in a resource class now fails when stories compile,
+  naming the method and pointing at `routes/feed.php`:
+  `Story::verb('place')->grouped(…)`, worded so it names no type.
+
 ## v0.10.0 — The slot that was read as an instruction (2026-09-10)
 
 Two doctor checks, both from the same discovery: a check can be entirely right

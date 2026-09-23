@@ -286,23 +286,31 @@ class CompileStories
     }
 
     /**
-     * The aggregate keys a group headline compiles to. `axis.verb`, except
-     * inside `Story::for(…)`, where it is per type (`repeat.order.place`),
-     * which the read path tries first when the axis pins the object type.
-     * An axis that doesn't pin it can gather several types into one group,
-     * so a per-type headline would name whichever came first: that throws,
-     * pointing at `Story::verb(…)->grouped()`. Row-backed axes (composite,
+     * The aggregate keys a group headline compiles to: what the sentence for
+     * a collapsed row is filed under, so the feed finds it again.
+     *
+     * Written on a verb, it is filed under the verb (`repeat.place`). Written
+     * inside `Story::for(Order::class)`, or in a resource Story class method
+     * such as `OrderStory::place()`, it is about orders, so it is filed under
+     * orders too (`repeat.order.place`), which the read path tries first.
+     * Filed under the verb alone, `ReservationStory::place()` would share the
+     * drawer, and three reservations would read "Dana placed 3 orders".
+     *
+     * A grouping that can gather several types (everything one person did,
+     * say) has no one type to file under, so a type's headline for it throws
+     * rather than being filed somewhere untrue. Row-backed axes (composite,
      * batch) keep `axis.verb`; their headline belongs to the verb already.
      *
-     * Story classes and Verb::make()/for() keep `axis.verb`.
+     * One-verb Story classes and Verb::make()/for() keep `axis.verb`.
      *
      * @return list<string>
      */
     protected function groupKeys(Group $group, Verb $definition, StoryfeedManager $storyfeed): array
     {
         $verb = $definition->verb;
+        $method = $this->resourceMethod($definition);
 
-        if (! $definition->isTypeScoped() || $storyfeed->axis($group->axis)?->isRowBacked() === true) {
+        if ((! $definition->isTypeScoped() && $method === null) || $storyfeed->axis($group->axis)?->isRowBacked() === true) {
             return ["{$group->axis}.{$verb}"];
         }
 
@@ -311,10 +319,27 @@ class CompileStories
         }
 
         if (! $storyfeed->pinsType($group->axis, 'object')) {
-            throw StoryMisconfigured::typeScopedGroup($definition->source, $group->axis, $verb, $definition->objectTypes[0]);
+            throw $method === null
+                ? StoryMisconfigured::typeScopedGroup($definition->source, $group->axis, $verb, $definition->objectTypes[0])
+                : StoryMisconfigured::classGroupSpansTypes($method, $group->axis, $verb, $definition->objectTypes[0]);
         }
 
         return array_map(fn (string $alias) => "{$group->axis}.{$alias}.{$verb}", $definition->objectTypes);
+    }
+
+    /**
+     * `App\Stories\OrderStory@place`, for a definition a resource Story class
+     * method made about a type; null for anything else.
+     */
+    protected function resourceMethod(Verb $definition): ?string
+    {
+        $action = $definition->action();
+
+        if ($action === null || ! str_contains($action, '@') || in_array('*', $definition->objectTypes, true)) {
+            return null;
+        }
+
+        return $action;
     }
 
     /**

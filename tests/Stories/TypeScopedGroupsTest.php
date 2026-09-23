@@ -64,3 +64,73 @@ it('keeps axis.verb for an unscoped verb and for the other authoring forms', fun
 
     expect(Storyfeed::registeredAggregateGrammar())->toHaveKeys(['actors.ship', 'actors.hold']);
 });
+
+/*
+ * A resource Story class is about its type as plainly as Story::for() is:
+ * `DeliveryStory::place()` and `CustomerStory::place()` must not file their
+ * group headlines in the same place, or one type's rows read as the other's.
+ */
+
+it('files a resource class headline under its type, so two classes sharing a verb keep their own', function () {
+    $deliveries = new class
+    {
+        public function place(Verb $verb): Verb
+        {
+            return $verb->headline(':actor placed :object')
+                ->grouped(Group::repeat()->headline(':actor placed :count deliveries'));
+        }
+    };
+
+    $customers = new class
+    {
+        public function place(Verb $verb): Verb
+        {
+            return $verb->headline(':actor placed :object')
+                ->grouped(Group::repeat()->headline(':actor placed :count customers'));
+        }
+    };
+
+    Story::resource(Delivery::class, $deliveries::class)->only('place');
+    Story::resource(Customer::class, $customers::class)->only('place');
+
+    expect(Storyfeed::registeredAggregateGrammar())->not->toHaveKey('repeat.place')
+        ->and(Storyfeed::aggregateTemplate('repeat', 'place', 'delivery'))->toBe(':actor placed :count deliveries')
+        ->and(Storyfeed::aggregateTemplate('repeat', 'place', 'customer'))->toBe(':actor placed :count customers');
+});
+
+it('never lends one type\'s headline to another type with the same verb', function () {
+    $deliveries = new class
+    {
+        public function place(Verb $verb): Verb
+        {
+            return $verb->headline(':actor placed :object')
+                ->grouped(Group::repeat()->headline(':actor placed :count deliveries'));
+        }
+    };
+
+    Story::resource(Delivery::class, $deliveries::class)->only('place');
+    Story::for(Customer::class)->verb('place')->headline(':actor placed :object');
+
+    // Three customers placed must not read "placed 3 deliveries".
+    expect(Storyfeed::aggregateTemplate('repeat', 'place', 'customer'))->toBeNull();
+});
+
+it('refuses a resource class headline on a grouping that can hold several types, naming the method', function () {
+    $deliveries = new class
+    {
+        public function place(Verb $verb): Verb
+        {
+            return $verb->grouped(Group::byActors()->headline(':actors placed :count deliveries'));
+        }
+    };
+
+    Story::resource(Delivery::class, $deliveries::class)->only('place');
+
+    expect(fn () => Storyfeed::compiledStories())->toThrow(function (StoryMisconfigured $e) {
+        expect($e->getMessage())
+            ->toContain('::place() gives its Group::byActors() grouping a headline')
+            ->toContain('other kinds of thing in the same row')
+            ->toContain("routes/feed.php instead, worded so it names no type: Story::verb('place')->grouped(Group::byActors()->headline('…'))")
+            ->not->toContain('actors.place');
+    });
+});

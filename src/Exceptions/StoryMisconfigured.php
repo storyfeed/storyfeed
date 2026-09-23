@@ -109,6 +109,28 @@ class StoryMisconfigured extends LogicException
         );
     }
 
+    /**
+     * A resource Story class method gave a headline to a grouping that can
+     * hold more than one type. Said in terms of the sentence and the rows,
+     * never of keys: that is what the reader was writing.
+     */
+    public static function classGroupSpansTypes(string $uses, string $axis, string $verb, string $type): self
+    {
+        $method = str_replace('@', '::', $uses).'()';
+        $group = match ($axis) {
+            'actors' => 'Group::byActors()',
+            'targets' => 'Group::byTargets()',
+            default => "Group::on('{$axis}')",
+        };
+
+        return new self(
+            "{$method} gives its {$group} grouping a headline. A headline written in a Story class is about that "
+            ."class's type, [{$type}], but this grouping can put other kinds of thing in the same row, so the headline "
+            .'would describe things that are not all [{$type}]. Remove it here and declare it in routes/feed.php '
+            ."instead, worded so it names no type: Story::verb('{$verb}')->grouped({$group}->headline('…'))."
+        );
+    }
+
     public static function nestedScope(): self
     {
         return new self(
