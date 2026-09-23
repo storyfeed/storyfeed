@@ -30,7 +30,8 @@ class DoctorCommand extends Command
 {
     protected $signature = 'storyfeed:doctor
         {--json : Emit the report as JSON}
-        {--stubs : Print only the registrations the findings imply}
+        {--stubs : Print only the definitions the findings imply, for routes/feed.php}
+        {--arrays : With --stubs, print them as registry arrays for a service provider}
         {--only=* : Limit to named checks (see --list)}
         {--list : List the available check names}
         {--fail-on= : Exit non-zero when findings reach this severity (warning|error)}';
@@ -104,9 +105,47 @@ class DoctorCommand extends Command
             return;
         }
 
+        if ($this->option('arrays')) {
+            foreach ($fixes as $fix) {
+                $this->line($fix->snippet());
+                $this->newLine();
+            }
+
+            return;
+        }
+
+        // routes/feed.php form: the imports once, then one line per edit.
+        // A fix the Story facade can't express keeps its array form.
+        $imports = [];
+        $lines = [];
+
         foreach ($fixes as $fix) {
-            $this->line($fix->snippet());
+            $definition = $fix->definition();
+
+            if ($definition === null) {
+                $imports[] = 'Storyfeed\\Facades\\Storyfeed';
+                $lines[] = $fix->snippet();
+
+                continue;
+            }
+
+            array_push($imports, ...$definition['imports']);
+            $lines[] = $definition['code'];
+        }
+
+        $imports = array_unique($imports);
+        sort($imports);
+
+        foreach ($imports as $import) {
+            $this->line("use {$import};");
+        }
+
+        if ($imports !== []) {
             $this->newLine();
+        }
+
+        foreach ($lines as $line) {
+            $this->line($line);
         }
     }
 

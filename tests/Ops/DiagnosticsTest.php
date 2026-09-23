@@ -75,9 +75,19 @@ it('prints stubs as bare code, with nothing to strip before pasting', function (
     confirmOne();
 
     $this->artisan('storyfeed:doctor --stubs')
-        ->expectsOutputToContain('Storyfeed::grammar([')
+        ->expectsOutputToContain('use Storyfeed\Facades\Story;')
+        ->expectsOutputToContain("->verb('confirm')->headline('TODO")
         ->doesntExpectOutputToContain('finding(s)')
         ->doesntExpectOutputToContain('healthy')
+        ->assertSuccessful();
+});
+
+it('prints stubs as registry arrays with --arrays', function () {
+    confirmOne();
+
+    $this->artisan('storyfeed:doctor --stubs --arrays')
+        ->expectsOutputToContain('Storyfeed::grammar([')
+        ->doesntExpectOutputToContain('Story::for(')
         ->assertSuccessful();
 });
 

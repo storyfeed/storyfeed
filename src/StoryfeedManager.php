@@ -27,6 +27,7 @@ use Storyfeed\Exceptions\UnknownFeed;
 use Storyfeed\Grouping\Axis;
 use Storyfeed\Models\Activity;
 use Storyfeed\Models\Party;
+use Storyfeed\Support\DefinitionsFile;
 use Storyfeed\Support\Feedables;
 use Storyfeed\Support\MorphResolver;
 use Storyfeed\Support\QueuedActor;
@@ -193,6 +194,15 @@ class StoryfeedManager
      * @var Compiled|null
      */
     protected ?array $applied = null;
+
+    /**
+     * The Story classes a cached manifest was compiled from. The definitions
+     * file isn't loaded when cached, so a class it registered is known only
+     * from here (see hasStory()).
+     *
+     * @var list<string>
+     */
+    protected array $cachedStories = [];
 
     /**
      * Health checks. Null means "the shipped set" — resolved lazily so
@@ -862,7 +872,7 @@ class StoryfeedManager
      * Register story definitions — classes, StoryDefinition objects, or
      * `'type.verb' => [...]` arrays (see Storyfeed\Story).
      *
-     * @param  array<int|string, class-string<Story>|StoryDefinition|array<string, mixed>>  $stories
+     * @param  array<int|string, class-string<Story>|StoryDefinition|PendingResource|array<string, mixed>>  $stories
      */
     public function stories(array $stories, bool $merge = true): static
     {
@@ -897,7 +907,9 @@ class StoryfeedManager
 
         $this->retractApplied();
 
-        if ($this->stories === []) {
+        // A manifest may hold everything with nothing registered at boot:
+        // the definitions file isn't loaded when cached.
+        if ($this->stories === [] && $this->compiled === null) {
             return;
         }
 
@@ -963,15 +975,21 @@ class StoryfeedManager
      */
     public function storyDefinitions(): array
     {
+        // Skipped at boot when a manifest is cached; tooling that needs the
+        // definitions themselves (doctor, storyfeed:list, storyfeed:cache)
+        // reads it here. A no-op once loaded, or when there is no file.
+        app(DefinitionsFile::class)->load($this);
+
         $definitions = [];
 
         foreach ($this->stories as $key => $story) {
-            $definitions[] = match (true) {
-                $story instanceof StoryDefinition => $story,
-                is_array($story) => StoryDefinition::fromArray((string) $key, $story),
-                is_string($story) && is_a($story, Story::class, true) => StoryDefinition::fromStory($story),
+            array_push($definitions, ...match (true) {
+                $story instanceof StoryDefinition => [$story],
+                $story instanceof PendingResource => $story->definitions(),
+                is_array($story) => [StoryDefinition::fromArray((string) $key, $story)],
+                is_string($story) && is_a($story, Story::class, true) => [StoryDefinition::fromStory($story)],
                 default => throw StoryMisconfigured::notAStory(is_string($story) ? $story : get_debug_type($story)),
-            };
+            });
         }
 
         return $definitions;
@@ -1000,9 +1018,12 @@ class StoryfeedManager
      * types.
      *
      * @param  array{grammar: array<string, string|Closure|FeedHeadline>, aggregateGrammar: array<string, string>, actorlessGrammar?: array<string, string|Closure|FeedHeadline>, icons: array<string, string>, glyphIntents?: array<string, string>, nouns?: array<string, string|FeedNoun>, objectTypes?: array<string, ObjectType|string>, verbs: array<string, mixed>}  $compiled
+     * @param  list<string>  $stories  the Story classes the manifest was compiled from
      */
-    public function useCompiledStories(array $compiled): static
+    public function useCompiledStories(array $compiled, array $stories = []): static
     {
+        $this->cachedStories = $stories;
+
         $compiled['glyphIntents'] ??= [];
         $compiled['actorlessGrammar'] ??= [];
         $compiled['nouns'] ??= [];
@@ -1018,6 +1039,62 @@ class StoryfeedManager
     public function registeredStories(): array
     {
         return $this->stories;
+    }
+
+    /**
+     * Is this Story class registered, here or in the cached manifest? The
+     * definitions file isn't loaded when cached, so a class registered there
+     * is only in the manifest.
+     */
+    public function hasStory(string $class): bool
+    {
+        if (in_array($class, $this->cachedStories, true)) {
+            return true;
+        }
+
+        foreach ($this->stories as $entry) {
+            if ($entry === $class || $entry instanceof $class) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * The keys (and scalar values) of every hand-written registry, so the
+     * definitions file loader can tell whether the file wrote to one.
+     *
+     * @return array<string, array<array-key, mixed>>
+     *
+     * @internal
+     */
+    public function handWrittenRegistries(): array
+    {
+        $signature = fn (array $registry): array => array_map(
+            fn (mixed $value) => match (true) {
+                is_object($value) => spl_object_id($value),
+                is_array($value) => count($value),
+                default => $value,
+            },
+            $registry,
+        );
+
+        return [
+            'grammar' => $signature($this->grammar),
+            'aggregateGrammar' => $signature($this->aggregateGrammar),
+            'actorlessGrammar' => $signature($this->actorlessGrammar),
+            'icons' => $signature($this->icons),
+            'glyphIntents' => $signature($this->glyphIntents),
+            'nouns' => $signature($this->nouns),
+            'objectTypes' => $signature($this->objectTypes),
+            'verbs' => [...$signature($this->verbs), ...array_keys($this->declaredVerbs)],
+            'axes' => $signature($this->axes ?? []),
+            'feeds' => $signature($this->feeds),
+            'healers' => $signature($this->healers),
+            'checks' => $signature($this->checks ?? []),
+            'bundleables' => $signature($this->bundleables),
+        ];
     }
 
     /**

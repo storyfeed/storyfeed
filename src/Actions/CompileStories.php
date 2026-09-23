@@ -192,14 +192,47 @@ class CompileStories
                 throw StoryMisconfigured::unpinnedToken($source, $group->axis, $token, $allowed);
             }
 
-            $key = "{$group->axis}.{$verb}";
-            $this->claim($owners, 'aggregateGrammar', $key, $source);
-            $aggregateGrammar[$key] = $template;
+            foreach ($this->groupKeys($group, $definition, $storyfeed) as $key) {
+                $this->claim($owners, 'aggregateGrammar', $key, $source);
+                $aggregateGrammar[$key] = $template;
+            }
         }
 
         if ($group->parentTemplate() !== null) {
             $grammar["*.{$verb}"] = $group->parentTemplate();
         }
+    }
+
+    /**
+     * The aggregate keys a group headline compiles to. `axis.verb`, except
+     * inside `Story::for(…)`, where it is per type (`repeat.order.place`),
+     * which the read path tries first when the axis pins the object type.
+     * An axis that doesn't pin it can gather several types into one group,
+     * so a per-type headline would name whichever came first: that throws,
+     * pointing at `Story::verb(…)->grouped()`. Row-backed axes (composite,
+     * batch) keep `axis.verb`; their headline belongs to the verb already.
+     *
+     * Story classes and StoryDefinition::make()/for() keep `axis.verb`.
+     *
+     * @return list<string>
+     */
+    protected function groupKeys(Group $group, StoryDefinition $definition, StoryfeedManager $storyfeed): array
+    {
+        $verb = $definition->verb;
+
+        if (! $definition->isTypeScoped() || $storyfeed->axis($group->axis)?->isRowBacked() === true) {
+            return ["{$group->axis}.{$verb}"];
+        }
+
+        if ($verb === '*') {
+            throw StoryMisconfigured::typeScopedFallbackGroup($definition->source, $definition->objectTypes[0]);
+        }
+
+        if (! $storyfeed->pinsType($group->axis, 'object')) {
+            throw StoryMisconfigured::typeScopedGroup($definition->source, $group->axis, $verb, $definition->objectTypes[0]);
+        }
+
+        return array_map(fn (string $alias) => "{$group->axis}.{$alias}.{$verb}", $definition->objectTypes);
     }
 
     /**

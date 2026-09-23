@@ -118,12 +118,7 @@ class PendingActivity
             throw UnknownStory::notAStory($class);
         }
 
-        $registered = array_filter(
-            app(StoryfeedManager::class)->registeredStories(),
-            fn (mixed $entry) => $entry === $class || $entry instanceof $class,
-        );
-
-        if ($registered === []) {
+        if (! app(StoryfeedManager::class)->hasStory($class)) {
             throw UnknownStory::unregistered($class);
         }
 

@@ -2,6 +2,9 @@
 
 namespace Storyfeed\Diagnostics;
 
+use Illuminate\Database\Eloquent\Relations\Relation;
+use Storyfeed\Grouping\GroupBuilder;
+
 /**
  * The registry edit that resolves a finding — as data, not prose.
  *
@@ -70,6 +73,79 @@ final class Fix
         );
     }
 
+    /**
+     * The same edit as a `routes/feed.php` definition, with the imports it
+     * needs: `Story::for(Order::class)->verb('place')->headline('TODO …');`.
+     * Null for a registry the Story facade doesn't write, or a hand-built
+     * snippet, which stay in the array form.
+     *
+     * @return array{code: string, imports: list<string>}|null
+     */
+    public function definition(): ?array
+    {
+        if ($this->snippet !== null || ! str_contains($this->key, '.')) {
+            return null;
+        }
+
+        [$first, $verb] = explode('.', $this->key, 2);
+        $template = $this->tokens === [] ? 'TODO write the headline' : 'TODO '.implode(' ', $this->tokens);
+        $imports = ['Storyfeed\Facades\Story'];
+
+        if ($this->registry === 'aggregateGrammar') {
+            $imports[] = GroupBuilder::class;
+            $group = match ($first) {
+                '*' => "any('{$template}')",
+                'repeat', 'actors', 'targets', 'object', 'composite' => "{$first}('{$template}')",
+                default => "axis('{$first}', '{$template}')",
+            };
+
+            return [
+                'code' => $this->scope('*', $verb, $imports)."->grouped(fn (GroupBuilder \$group) => \$group->{$group});",
+                'imports' => $imports,
+            ];
+        }
+
+        $call = match ($this->registry) {
+            'grammar' => "headline('{$template}')",
+            'actorlessGrammar' => "anonymousHeadline('TODO write the headline without an actor')",
+            'icons' => "icon('TODO')",
+            'glyphIntents' => "intent('TODO')",
+            default => null,
+        };
+
+        if ($call === null) {
+            return null;
+        }
+
+        return ['code' => $this->scope($first, $verb, $imports)."->{$call};", 'imports' => $imports];
+    }
+
+    /**
+     * `Story::for(Order::class)->verb('place')`, `Story::verb('place')`,
+     * `Story::for(Order::class)->fallback()` or `Story::fallback()`. A morph
+     * alias becomes its model class where the morph map knows it.
+     *
+     * @param  list<string>  $imports
+     */
+    private function scope(string $type, string $verb, array &$imports): string
+    {
+        $call = $verb === '*' ? 'fallback()' : "verb('{$verb}')";
+
+        if ($type === '*') {
+            return "Story::{$call}";
+        }
+
+        $class = Relation::getMorphedModel($type) ?? (class_exists($type) ? $type : null);
+
+        if ($class === null) {
+            return "Story::for('{$type}')->{$call}";
+        }
+
+        $imports[] = ltrim($class, '\\');
+
+        return 'Story::for('.class_basename($class)."::class)->{$call}";
+    }
+
     /** @return array<string, mixed> */
     public function toArray(): array
     {
@@ -78,6 +154,7 @@ final class Fix
             'key' => $this->key,
             'tokens' => $this->tokens,
             'snippet' => $this->snippet(),
+            'definition' => $this->definition()['code'] ?? null,
         ];
     }
 }

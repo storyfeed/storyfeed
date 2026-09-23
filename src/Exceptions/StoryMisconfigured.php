@@ -82,6 +82,23 @@ class StoryMisconfigured extends LogicException
         );
     }
 
+    public static function typeScopedFallbackGroup(string $source, string $type): self
+    {
+        return new self(
+            "[{$source}] gives Story::for('{$type}')->fallback() a group headline. A group headline names a verb, "
+            ."so it belongs on Story::for('{$type}')->verb('…') or, for every type, Story::fallback()->grouped(…)."
+        );
+    }
+
+    public static function typeScopedGroup(string $source, string $axis, string $verb, string $type): self
+    {
+        return new self(
+            "[{$source}] gives [{$verb}] a `{$axis}` group headline inside Story::for('{$type}'). The `{$axis}` axis "
+            .'can gather several object types into one group, so its headline belongs to the verb, not to one '
+            ."type: Story::verb('{$verb}')->grouped(…), outside the group() closure."
+        );
+    }
+
     public static function nestedScope(): self
     {
         return new self(

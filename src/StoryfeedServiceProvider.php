@@ -12,6 +12,7 @@ use Spatie\LaravelPackageTools\PackageServiceProvider;
 use Storyfeed\Actions\CurateCluster;
 use Storyfeed\Events\ActivityDeleted;
 use Storyfeed\Models\Party;
+use Storyfeed\Support\DefinitionsFile;
 use Storyfeed\Support\Feedables;
 use Storyfeed\Support\QueuedActor;
 use Storyfeed\Support\StoryManifest;
@@ -57,6 +58,8 @@ class StoryfeedServiceProvider extends PackageServiceProvider
                 Console\StoryMakeCommand::class,
                 Console\FeedMakeCommand::class,
                 Console\DemoCommand::class,
+                Console\InstallCommand::class,
+                Console\ListCommand::class,
             ]);
     }
 
@@ -93,11 +96,17 @@ class StoryfeedServiceProvider extends PackageServiceProvider
         $this->app->alias(StoryfeedManager::class, 'storyfeed');
         $this->app->singleton(StoryManager::class);
         $this->app->singleton(Feedables::class);
+        $this->app->singleton(DefinitionsFile::class);
     }
 
     public function packageBooted(): void
     {
         Context::dehydrating(QueuedActor::capture(...));
+
+        // storyfeed:install creates it too, and never overwrites.
+        $this->publishes([
+            __DIR__.'/../stubs/definitions.stub' => $this->app->basePath('routes/feed.php'),
+        ], 'storyfeed-definitions');
 
         $this->app->booted(function () {
             if (config('storyfeed.curate.schedule', true)) {
@@ -131,8 +140,13 @@ class StoryfeedServiceProvider extends PackageServiceProvider
 
             // A cached manifest short-circuits compilation. Applied HERE, not
             // during registration, because every provider's stories() calls
-            // must already have landed.
-            $this->app->make(StoryManifest::class)->apply($storyfeed);
+            // must already have landed. Without one, routes/feed.php loads
+            // now, after every provider (so the morph map is set): the
+            // channels.php timing. With one, the file is skipped, as a route
+            // file is after route:cache.
+            if (! $this->app->make(StoryManifest::class)->apply($storyfeed)) {
+                $this->app->make(DefinitionsFile::class)->load($storyfeed);
+            }
 
             $storyfeed->compileStories();
         });

@@ -23,6 +23,8 @@ use Storyfeed\Exceptions\StoryMisconfigured;
  *     Story::verb('place')->grouped(fn ($group) => $group->repeat(':actor placed :count orders'));   // *.place
  *     Story::fallback()->icon('activity');                   // *.*
  *
+ *     Story::resource(Document::class)->except('restore');   // created, updated, deleted
+ *
  * WHAT IT IS. A front door onto {@see StoryDefinition}. Every call makes a
  * definition, registers it with the manager at once (the way `Route::get()`
  * returns a Route already in the collection), and hands it back to be
@@ -77,6 +79,22 @@ class StoryManager
     }
 
     /**
+     * Define the lifecycle verbs of a model in one line (create, update,
+     * delete, restore), as `Route::resource()` defines a controller's
+     * actions. Narrow them with `->only()` / `->except()`.
+     *
+     * @param  string|array<int, string>  $objectType  a model class, a morph alias, or a list
+     */
+    public function resource(string|array $objectType): PendingResource
+    {
+        $resource = new PendingResource($objectType, StoryDefinition::caller());
+
+        app(StoryfeedManager::class)->stories([$resource]);
+
+        return $resource;
+    }
+
+    /**
      * Run a group closure with the scope's object types pushed.
      *
      * @param  array<int, string>  $objectTypes
@@ -103,7 +121,7 @@ class StoryManager
      */
     public function define(array $objectTypes, string|FeedVerb|BackedEnum $verb): StoryDefinition
     {
-        $definition = StoryDefinition::for($objectTypes, $verb, StoryDefinition::caller());
+        $definition = StoryDefinition::for($objectTypes, $verb, StoryDefinition::caller())->scopedToType();
 
         app(StoryfeedManager::class)->stories([$definition]);
 

@@ -11,7 +11,7 @@ it('discovers distinct null actor verbs and supplies actorless registration stub
     expect($findings)->toHaveCount(2)
         ->and($findings->pluck('subject.verb')->all())->toEqualCanonicalizing(['confirm', 'publish']);
     $this->artisan('storyfeed:doctor', ['--only' => ['actorless'], '--stubs' => true])
-        ->expectsOutputToContain('Storyfeed::actorlessGrammar([')
+        ->expectsOutputToContain("Story::verb('confirm')->anonymousHeadline('TODO")
         ->doesntExpectOutputToContain(':actor')->assertSuccessful();
     Storyfeed::actorlessGrammar(['confirm' => 'Confirmed', 'publish' => fn () => 'Published']);
     expect(Storyfeed::doctor(['actorless'])->all())->toBeEmpty();

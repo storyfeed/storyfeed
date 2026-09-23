@@ -12,6 +12,25 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Definitions File
+    |--------------------------------------------------------------------------
+    |
+    | The file that holds what each activity says, the way routes/web.php
+    | holds routes: `Story::for(Order::class)->verb('place')->headline(…)`.
+    | `php artisan storyfeed:install` creates it. It is loaded after every
+    | service provider has booted, so your morph map is already in place.
+    |
+    | `php artisan storyfeed:cache` caches it the way `route:cache` caches
+    | route files: once cached, the file isn't loaded at all. Point this
+    | elsewhere if your app already has a routes/feed.php, or set it to false
+    | to turn loading off.
+    |
+    */
+
+    'definitions' => base_path('routes/feed.php'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Tables
     |--------------------------------------------------------------------------
     |

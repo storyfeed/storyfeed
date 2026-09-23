@@ -139,20 +139,18 @@ it('uses the anonymous headline for an actorless row, on the type ladder', funct
     expect(confirmNode(actor: false, target: false)['headline_template'])->toBe(':object was confirmed');
 });
 
-it('caches a FeedHeadline and refuses a closure by key', function () {
+it('caches a FeedHeadline and a closure headline', function () {
     Story::for(Delivery::class)->verb('confirm')->headline(FeedHeadline::trans('feed.confirmed'));
+    Story::for(Delivery::class)->verb('ship')->headline(static fn () => 'Shipped');
 
     $this->artisan('storyfeed:cache')->assertSuccessful();
 
     $cached = app(StoryManifest::class)->read();
+    app(StoryManifest::class)->delete();
 
-    expect($cached['grammar']['delivery.confirm'])->toEqual(FeedHeadline::trans('feed.confirmed'));
-
-    Story::for(Delivery::class)->verb('ship')->headline(fn () => 'Shipped');
-
-    $this->artisan('storyfeed:cache')
-        ->expectsOutputToContain('grammar[delivery.ship]')
-        ->assertFailed();
-
-    expect(app(StoryManifest::class)->exists())->toBeFalse();
+    // Serialised the way route:cache serialises closure routes, and a
+    // closure again once the manifest is required.
+    expect($cached['grammar']['delivery.confirm'])->toEqual(FeedHeadline::trans('feed.confirmed'))
+        ->and($cached['grammar']['delivery.ship'])->toBeInstanceOf(Closure::class)
+        ->and(($cached['grammar']['delivery.ship'])())->toBe('Shipped');
 });

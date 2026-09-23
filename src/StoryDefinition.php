@@ -66,6 +66,9 @@ final class StoryDefinition
 
     protected ActivityType|string|null $type = null;
 
+    /** Made by `Story::for(…)`: its group headlines are keyed per type. */
+    protected bool $typeScoped = false;
+
     /**
      * @param  array<int, string>  $objectTypes  morph aliases; ['*'] for object-less
      */
@@ -335,6 +338,25 @@ final class StoryDefinition
         }
 
         return $this;
+    }
+
+    /**
+     * Mark a definition made inside `Story::for(…)`, whose group headlines
+     * compile per type (`repeat.order.place`) rather than per verb.
+     *
+     * @internal
+     */
+    public function scopedToType(): self
+    {
+        $this->typeScoped = ! in_array('*', $this->objectTypes, true);
+
+        return $this;
+    }
+
+    /** @internal */
+    public function isTypeScoped(): bool
+    {
+        return $this->typeScoped;
     }
 
     /** @internal */

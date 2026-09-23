@@ -61,6 +61,18 @@
   `actorless.missing` finding names the `type.verb` pair. The AS2 `summary`
   now uses the actorless headline for an actorless row, as the payload does.
 
+- **`storyfeed:doctor --stubs` prints `routes/feed.php` definitions**
+  (`Story::for(Order::class)->verb('place')->headline('TODO …');`, with their
+  `use` lines). `--stubs --arrays` prints the registry arrays as before. The
+  JSON report adds each fix's `definition`.
+
+- **A group headline inside `Story::for(…)` is keyed per type**
+  (`repeat.order.place`), which the read path already tries first. On an axis
+  that doesn't pin the object type (`actors`, `targets`) it throws, pointing at
+  `Story::verb(…)->grouped()`; so does one on `Story::for(…)->fallback()`.
+  Story classes, `StoryDefinition::make()`/`for()` and unscoped verbs keep
+  `axis.verb`.
+
 - **A closure headline may return a template.** A closure in `grammar()`,
   `actorlessGrammar()` or a definition's `headline()` whose result names a role
   token (`:actor`, `:object`, …) now fills `headline_template`, so its names
@@ -235,6 +247,40 @@
   and `forceDeleted` events reach the feed. Registration is by exact class; a
   class that already implements `Feedable` can't be registered.
 
+- **`routes/feed.php`, the definitions file.** `Story::` definitions live
+  there the way routes live in `routes/web.php`. The package loads it after
+  every provider has booted (the `routes/channels.php` timing), so the morph
+  map is in place. `storyfeed.definitions` points elsewhere, or `false` turns
+  it off.
+
+- **`php artisan storyfeed:install`** publishes the config and migrations,
+  creates `routes/feed.php` from a stub (the Quickstart's example, commented
+  out) and offers to migrate. It never overwrites an existing
+  `routes/feed.php`. The stub alone publishes with
+  `vendor:publish --tag=storyfeed-definitions`.
+
+- **`storyfeed:cache` caches `routes/feed.php` the way `route:cache` caches
+  route files.** Once cached, the file isn't loaded at boot. Closure headlines
+  are serialised as closure routes are, and one that can't be fails the
+  command naming its `file:line`. The file may hold definitions only: a
+  `Storyfeed::grammar()` (or any hand-written registry) call in it makes the
+  command fail, since it would stop running once cached. `manifest.stale`
+  compares against the file as it is now. New dependency:
+  `laravel/serializable-closure` (already installed with the framework).
+
+- **`php artisan storyfeed:list`**: every definition, `route:list`-style, with
+  its headline, anonymous headline, icon, intent, group headlines and source
+  `file:line`. `--type=` (alias or class), `--verb=`, `--json`.
+
+- **`Story::resource(Order::class)`** defines `create`, `update`, `delete` and
+  `restore` in one line (`:actor created :object`, `:object was created`, an
+  icon each), narrowed with `->only()` / `->except()`, with `->noun()` for the
+  type's noun, which is how a group of them reads.
+
+- **Doctor: `grammar.unrecorded`** (Info), a type-and-verb pair defined but
+  never recorded while its verb is recorded on other types, naming the line.
+  `verbs.dead` names the line that defined the verb.
+
 - **`Storyfeed\Body\Component`, the eighth body type**, stored as
   `Storyfeed/Body/Component`: an app's own frontend component by `name`
   (verbatim) with its `props`.
@@ -267,8 +313,7 @@
 
 - **`FeedHeadline::trans('feed.order_placed')`**, a headline translated when
   the feed is read, in the reader's locale. Usable in `headline()` and every
-  grammar registry, and cacheable by `storyfeed:cache`. A closure headline is
-  not cacheable yet: `storyfeed:cache` names it and writes nothing.
+  grammar registry, and cacheable by `storyfeed:cache`.
 
 - **`FeedContext::routeKey()`: the model's `getRouteKey()`, recorded when the
   snapshot is written**, the way the label is. A resolver can write

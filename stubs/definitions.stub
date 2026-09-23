@@ -1,0 +1,21 @@
+<?php
+
+// use App\Models\Order;
+use Storyfeed\Facades\Story;
+
+/*
+|--------------------------------------------------------------------------
+| Feed Definitions
+|--------------------------------------------------------------------------
+|
+| What each activity says in the feed: its headline, icon and intent, the
+| way routes/web.php says what each URL does. This file is loaded after
+| your service providers boot. `php artisan storyfeed:cache` caches it the
+| way route:cache caches route files, so keep only definitions here.
+|
+*/
+
+// Story::for(Order::class)->group(function () {
+//     Story::verb('place')->headline(':actor placed :object with :target')->icon('shopping-bag');
+//     Story::verb('confirm')->headline(':actor confirmed :object')->icon('circle-check');
+// });

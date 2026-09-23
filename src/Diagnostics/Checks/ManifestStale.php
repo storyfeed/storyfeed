@@ -8,10 +8,15 @@ use Storyfeed\Exceptions\StoryMisconfigured;
 use Storyfeed\FeedHeadline;
 use Storyfeed\FeedNoun;
 use Storyfeed\StoryfeedManager;
+use Storyfeed\Support\ManifestClosure;
 use Storyfeed\Support\StoryManifest;
 
 /**
  * Does the cached manifest still match what the stories compile to?
+ *
+ * Covers `routes/feed.php`: it isn't loaded at boot while cached, so the
+ * fresh compile below requires it in memory (storyDefinitions() does) and
+ * compares what it compiles to now with what the manifest serves.
  *
  * A cached manifest is a NEW INSTANCE of the silent-drift class that already
  * cost this package a production outage: edit a Story, forget `storyfeed:cache`,
@@ -106,9 +111,11 @@ class ManifestStale extends Check
                 $value instanceof \BackedEnum => (string) $value->value,
                 $value instanceof FeedHeadline => "trans:{$value->key}",
                 $value instanceof FeedNoun => ($value->translated ? 'trans:' : '').$value->value,
+                // A deserialised closure keeps its code, not its file.
+                $value instanceof \Closure => ManifestClosure::fingerprint($value),
                 default => (string) $value,
             },
-            array_filter($registry, fn (mixed $value) => ! $value instanceof \Closure),
+            $registry,
         );
     }
 }

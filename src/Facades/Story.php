@@ -22,6 +22,7 @@ use Storyfeed\StoryManager;
  * @method static \Storyfeed\TypeScope for(string|array<int, string> $objectType)
  * @method static \Storyfeed\StoryDefinition verb(string|\Storyfeed\Contracts\FeedVerb|\BackedEnum $verb)
  * @method static \Storyfeed\StoryDefinition fallback()
+ * @method static \Storyfeed\PendingResource resource(string|array<int, string> $objectType)
  *
  * @see StoryManager
  */
