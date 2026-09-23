@@ -37,13 +37,26 @@ jobs:
         php: [8.5, 8.4]
         laravel: [13.*, 12.*]
         stability: [prefer-lowest, prefer-stable]
+        runner: [serial]
         include:
           - laravel: 13.*
             testbench: 11.*
           - laravel: 12.*
             testbench: 10.*
+          # One extra cell runs the suite under --parallel, so a test that
+          # shares a file across workers (the testbench skeleton is shared)
+          # goes red here instead of only on a laptop. Newest stack on the
+          # fastest runner: the bug class is shared files, not OS or version.
+          # It sets `runner`, an original key, so it is a 17th job rather
+          # than being merged into its serial twin.
+          - os: ubuntu-latest
+            php: 8.5
+            laravel: 13.*
+            testbench: 11.*
+            stability: prefer-stable
+            runner: parallel
 
-    name: P${{ matrix.php }} - L${{ matrix.laravel }} - ${{ matrix.stability }} - ${{ matrix.os }}
+    name: P${{ matrix.php }} - L${{ matrix.laravel }} - ${{ matrix.stability }} - ${{ matrix.os }}${{ matrix.runner == 'parallel' && ' - parallel' || '' }}
 
     steps:
       - name: Checkout code
@@ -70,4 +83,4 @@ jobs:
         run: composer show -D
 
       - name: Execute tests
-        run: vendor/bin/pest --ci
+        run: vendor/bin/pest --ci ${{ matrix.runner == 'parallel' && '--parallel' || '' }}

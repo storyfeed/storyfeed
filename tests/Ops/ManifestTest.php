@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Contracts\Console\Kernel;
+use Illuminate\Support\Facades\ParallelTesting;
 use Illuminate\Support\ServiceProvider;
 use Storyfeed\Facades\Storyfeed;
 use Storyfeed\Grouping\Group;
@@ -18,6 +19,26 @@ use Workbench\App\Stories\DeliveryWasConfirmed;
 
 afterEach(function () {
     app(StoryManifest::class)->delete();
+});
+
+it('gives each parallel test worker a manifest of its own', function () {
+    // Workers share one bootstrap/cache; a manifest one writes would otherwise
+    // boot into every other (todo 1325: 2 to 6 failures per --parallel run).
+    ParallelTesting::resolveTokenUsing(fn () => '7');
+
+    try {
+        expect(app(StoryManifest::class)->path())->toBe(app()->bootstrapPath('cache/storyfeed-7.php'));
+    } finally {
+        ParallelTesting::resolveTokenUsing(null);
+    }
+
+    ParallelTesting::resolveTokenUsing(fn () => false);
+
+    try {
+        expect(app(StoryManifest::class)->path())->toBe(app()->bootstrapPath('cache/storyfeed.php'));
+    } finally {
+        ParallelTesting::resolveTokenUsing(null);
+    }
 });
 
 it('produces registries identical to an uncached boot', function () {

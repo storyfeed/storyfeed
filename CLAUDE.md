@@ -67,10 +67,12 @@ Write it while it's fresh; never reconstruct after the fact. See
 - Checks before commit: `vendor/bin/pest`, `vendor/bin/phpstan analyse`,
   `vendor/bin/pint`.
 - CI matrix: PHP 8.4/8.5 × Laravel 12/13 × prefer-lowest/stable × **ubuntu and
-  windows** — **sixteen test jobs, eight of them Windows.** Windows is supported
+  windows**, plus one ubuntu/8.5/L13/prefer-stable cell that runs `--parallel`
+  — **seventeen test jobs, eight of them Windows.** Windows is supported
   and the cells are real: they were red for days on a CRLF-only defect nobody
-  saw, because local checks are one cell of sixteen. **`vendor/bin/pest` passing
-  locally is not "green" — check `gh run list --repo storyfeed/storyfeed` after
-  pushing.**
+  saw, because local checks are one cell of seventeen. The parallel cell exists
+  because tests sharing a file across workers passed serially for weeks.
+  **`vendor/bin/pest` passing locally is not "green" — check
+  `gh run list --repo storyfeed/storyfeed` after pushing.**
   When touching composer constraints, dry-run the combos locally
   (`COMPOSER=composer.citest.json composer update --prefer-lowest --dry-run`).

@@ -568,6 +568,13 @@
 
 ### Fixed
 
+- **Parallel test workers each get their own story manifest.** Under
+  `php artisan test --parallel`, `bootstrap/cache/storyfeed.php` becomes
+  `storyfeed-{token}.php` per worker, as Laravel already does for the test
+  database and cache prefix, so a test that runs `storyfeed:cache` no longer
+  boots its manifest into every other worker. Outside parallel testing the
+  path is unchanged.
+
 - **`forceDeleteFromFeed()` releases a composite parent's members, as prune
   and an Eloquent force delete already did.** It forgot the parent's own
   claim row and left the members', so the composite went on rendering from

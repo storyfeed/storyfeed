@@ -4,6 +4,7 @@ namespace Storyfeed\Stories;
 
 use Closure;
 use Illuminate\Contracts\Foundation\Application;
+use Illuminate\Testing\ParallelTesting;
 use Storyfeed\StoryfeedManager;
 use Storyfeed\Support\ManifestClosure;
 
@@ -52,9 +53,19 @@ class StoryManifest
         protected Application $app,
     ) {}
 
+    /**
+     * Under `--parallel`, each worker gets its own file (`storyfeed-{token}.php`),
+     * as Laravel gives each its own database and cache prefix: the workers
+     * share one `bootstrap/cache`, and a manifest one writes would otherwise
+     * boot into every other.
+     */
     public function path(): string
     {
-        return $this->app->bootstrapPath('cache/storyfeed.php');
+        $token = $this->app->bound(ParallelTesting::class)
+            ? $this->app->make(ParallelTesting::class)->token()
+            : false;
+
+        return $this->app->bootstrapPath($token ? "cache/storyfeed-{$token}.php" : 'cache/storyfeed.php');
     }
 
     public function exists(): bool

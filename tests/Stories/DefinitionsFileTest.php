@@ -1,5 +1,7 @@
 <?php
 
+use Illuminate\Console\Command;
+use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Support\ServiceProvider;
 use Orchestra\Testbench\Attributes\WithConfig;
 use Storyfeed\Facades\Storyfeed;
@@ -199,39 +201,52 @@ it('creates the file on install from the stub, and never overwrites one', functi
     $GLOBALS['storyfeedDefinitionsFiles'][] = $path;
     config()->set('storyfeed.definitions', $path);
 
-    $published = config_path('storyfeed.php');
-    $hadConfig = file_exists($published);
+    // vendor:publish would write config/storyfeed.php into the testbench
+    // skeleton, which every parallel worker boots from: a worker listing the
+    // config directory while this test deletes the file fails to require it.
+    // What the command publishes is vendor:publish's business; record the tag.
+    $published = [];
+    $this->app->make(Kernel::class)->registerCommand(new class($published) extends Command
+    {
+        protected $signature = 'vendor:publish {--tag=}';
 
-    try {
-        $this->artisan('storyfeed:install', ['--without-migrations' => true])
-            ->expectsOutputToContain('Created')
-            ->assertSuccessful();
-
-        $stub = (string) file_get_contents($path);
-
-        expect($stub)->toContain('use Storyfeed\Facades\Story;')
-            // No live code: every definition is commented out.
-            ->and(preg_match('/^Story::/m', $stub))->toBe(0)
-            ->and($stub)->toContain('// Story::for(Order::class)->group(function () {');
-
-        // Run again: a Storyfeed file is left as it is.
-        $this->artisan('storyfeed:install', ['--without-migrations' => true])
-            ->expectsOutputToContain('already exists; left as it is')
-            ->assertSuccessful();
-
-        // An app's own routes/feed.php (RSS, a feed page) is never touched.
-        file_put_contents($path, "<?php\n\nRoute::get('/feed.xml', RssController::class);\n");
-
-        $this->artisan('storyfeed:install', ['--without-migrations' => true])
-            ->expectsOutputToContain("isn't a Storyfeed file")
-            ->assertSuccessful();
-
-        expect((string) file_get_contents($path))->toContain('RssController');
-    } finally {
-        if (! $hadConfig) {
-            @unlink($published);
+        /** @param  list<string>  $published */
+        public function __construct(private array &$published)
+        {
+            parent::__construct();
         }
-    }
+
+        public function handle(): void
+        {
+            $this->published[] = (string) $this->option('tag');
+        }
+    });
+
+    $this->artisan('storyfeed:install', ['--without-migrations' => true])
+        ->expectsOutputToContain('Created')
+        ->assertSuccessful();
+
+    $stub = (string) file_get_contents($path);
+
+    expect($stub)->toContain('use Storyfeed\Facades\Story;')
+        // No live code: every definition is commented out.
+        ->and(preg_match('/^Story::/m', $stub))->toBe(0)
+        ->and($stub)->toContain('// Story::for(Order::class)->group(function () {');
+
+    // Run again: a Storyfeed file is left as it is.
+    $this->artisan('storyfeed:install', ['--without-migrations' => true])
+        ->expectsOutputToContain('already exists; left as it is')
+        ->assertSuccessful();
+
+    // An app's own routes/feed.php (RSS, a feed page) is never touched.
+    file_put_contents($path, "<?php\n\nRoute::get('/feed.xml', RssController::class);\n");
+
+    $this->artisan('storyfeed:install', ['--without-migrations' => true])
+        ->expectsOutputToContain("isn't a Storyfeed file")
+        ->assertSuccessful();
+
+    expect((string) file_get_contents($path))->toContain('RssController');
+    expect($published)->toBe(['storyfeed-config', 'storyfeed-config', 'storyfeed-config']);
 });
 
 it('publishes the stub with the storyfeed-definitions tag', function () {
