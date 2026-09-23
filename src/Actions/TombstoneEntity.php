@@ -54,13 +54,13 @@ class TombstoneEntity
         $forcing = method_exists($model, 'isForceDeleting') && $model->isForceDeleting();
         $trashedAt = $forcing ? null : self::trashedAt($model);
 
-        return $this->reference(
+        return $this->unlessUnnamed($this->reference(
             $model->getMorphClass(),
             $model->getKey(),
             restorable: $trashedAt !== null,
             deletedAt: $trashedAt,
             label: $this->keptLabel($model),
-        );
+        ));
     }
 
     /**
@@ -73,7 +73,24 @@ class TombstoneEntity
             return null;
         }
 
-        return $this->reference($model->getMorphClass(), $model->getKey(), restorable: false, label: $this->keptLabel($model));
+        return $this->unlessUnnamed(
+            $this->reference($model->getMorphClass(), $model->getKey(), restorable: false, label: $this->keptLabel($model)),
+        );
+    }
+
+    /**
+     * On the model-event paths, a tombstone no activity names is not kept,
+     * as a prune run leaves things: the model was never in the feed, or a
+     * soft-deletable model's `forceDeleted` followed its `deleted`, whose
+     * `->forgetWhenMissing()` had already taken the last row naming it and
+     * the tombstone with it. An explicit `Storyfeed::tombstone()` keeps what
+     * it was asked to make.
+     */
+    protected function unlessUnnamed(FeedTombstone $tombstone): FeedTombstone
+    {
+        (new PurgeActivities)->sweep([$tombstone->getMorphClass() => [(string) $tombstone->getKey() => true]]);
+
+        return $tombstone;
     }
 
     /**
@@ -228,7 +245,7 @@ class TombstoneEntity
     }
 
     /**
-     * Delete, through ForceDeleteFromFeed, the activities where the tombstone
+     * Delete, through PurgeActivities, the activities where the tombstone
      * fills a role their verb is about and whose verb forgets
      * (TombstoneRules), and nothing else.
      *
@@ -285,7 +302,10 @@ class TombstoneEntity
             return 0;
         }
 
-        return (new ForceDeleteFromFeed)->activities(fn () => $involving()->where(function ($query) use ($pairs, $alias, $id) {
+        // Through PurgeActivities, as a prune run deletes: the groups these
+        // rows sat in are repaired, and a snapshot or tombstone nothing else
+        // names goes with them, this tombstone included.
+        return (new PurgeActivities)(fn () => $involving()->where(function ($query) use ($pairs, $alias, $id) {
             foreach ($pairs as [$object, $verb, $roles]) {
                 $query->orWhere(function ($query) use ($object, $verb, $roles, $alias, $id) {
                     $object($query);
@@ -297,7 +317,7 @@ class TombstoneEntity
                     });
                 });
             }
-        }));
+        }))['activities'];
     }
 
     /**

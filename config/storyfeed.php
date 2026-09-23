@@ -358,6 +358,18 @@ return [
     |--------------------------------------------------------------------------
     | Pruning
     |--------------------------------------------------------------------------
+    |
+    | `storyfeed:prune` permanently deletes activities older than their
+    | verb's window, with the snapshots and tombstones only they named, and
+    | what remains of each group is re-decided ("viewed 12 orders" becomes
+    | "viewed 3"). Nothing is scheduled for you; `--pretend` shows a run.
+    |
+    | `after_days` is the window for every verb that declares none. Null (the
+    | default) keeps them. A verb's own window wins in either direction:
+    |
+    |     Story::verb('view')->keepFor('30 days');
+    |     Story::verb('sign')->keepForever();   // exempt from after_days
+    |
     */
 
     'prune' => [

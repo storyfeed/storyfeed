@@ -45,6 +45,7 @@ use Storyfeed\StoryfeedManager;
  *     missing: array<string, list<string>>,
  *     missingGrammar: array<string, string|Closure|FeedHeadline>,
  *     forget: array<string, bool>,
+ *     retention: array<string, string>,
  *     actors: array<string, string>,
  *     actions: array<string, array{uses: string, request: bool, parts: array<string, string>|null}>,
  * }
@@ -52,7 +53,7 @@ use Storyfeed\StoryfeedManager;
 class CompileStories
 {
     /** The registries a compile produces, in the order they are applied. */
-    public const REGISTRIES = ['grammar', 'aggregateGrammar', 'actorlessGrammar', 'icons', 'glyphIntents', 'nouns', 'objectTypes', 'verbs', 'missing', 'missingGrammar', 'forget', 'actors', 'actions'];
+    public const REGISTRIES = ['grammar', 'aggregateGrammar', 'actorlessGrammar', 'icons', 'glyphIntents', 'nouns', 'objectTypes', 'verbs', 'missing', 'missingGrammar', 'forget', 'retention', 'actors', 'actions'];
 
     /**
      * @param  array<int, Verb>  $definitions
@@ -71,6 +72,7 @@ class CompileStories
         $missing = [];
         $missingGrammar = [];
         $forget = [];
+        $retention = [];
         $actors = [];
         $actions = [];
 
@@ -128,6 +130,13 @@ class CompileStories
                 if (($forgets = $definition->forgetsWhenMissing()) !== null) {
                     $this->claim($owners, 'forget', $key, $source);
                     $forget[$key] = $forgets;
+                }
+
+                // How long the verb's activities are kept: an ISO 8601
+                // duration, or `forever`. Unsaid, the global window stands.
+                if (($window = $definition->retention()) !== null) {
+                    $this->claim($owners, 'retention', $key, $source);
+                    $retention[$key] = $window;
                 }
 
                 // A fixed actor. An action that takes the request chooses its
@@ -196,6 +205,7 @@ class CompileStories
             'missing' => $missing,
             'missingGrammar' => $missingGrammar,
             'forget' => $forget,
+            'retention' => $retention,
             'actors' => $actors,
             'actions' => $actions,
         ];

@@ -3,6 +3,7 @@
 namespace Storyfeed\Stories;
 
 use BackedEnum;
+use DateInterval;
 use DateTimeInterface;
 use Illuminate\Database\Eloquent\Model;
 use Storyfeed\ActivityStreams\ActivityType;
@@ -145,6 +146,21 @@ abstract class Story
     public function missing(): ?array
     {
         return null;
+    }
+
+    /**
+     * How long these activities are worth keeping — see Verb::keepFor().
+     * Null, the default, leaves them to `storyfeed.prune.after_days`.
+     */
+    public function keepFor(): string|DateInterval|null
+    {
+        return null;
+    }
+
+    /** Never prune these activities — see Verb::keepForever(). */
+    public function keepForever(): bool
+    {
+        return false;
     }
 
     /** The compiled verb string. */

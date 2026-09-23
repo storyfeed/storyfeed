@@ -118,6 +118,15 @@ class StoryfeedManager
     protected array $missingGrammar = [];
 
     /**
+     * How long a verb's activities are kept (`->keepFor()`, `->keepForever()`):
+     * an ISO 8601 duration or `forever`, on the type → verb ladder.
+     * Story-compiled only.
+     *
+     * @var array<string, string>
+     */
+    protected array $storyRetention = [];
+
+    /**
      * A verb's fixed actor (`->actor('Stripe')`), a party name on the
      * type → verb ladder. Story-compiled only.
      *
@@ -1189,6 +1198,7 @@ class StoryfeedManager
         // No hand-written form either: these three are the Story layer's own.
         $this->missingGrammar = $compiled['missingGrammar'];
         $this->storyActors = $compiled['actors'];
+        $this->storyRetention = $compiled['retention'];
         $this->storyActions = $compiled['actions'];
 
         $this->applied = $compiled;
@@ -1213,7 +1223,7 @@ class StoryfeedManager
 
         foreach (CompileStories::REGISTRIES as $registry) {
             // Held by TombstoneRules, or replaced whole by the next compile.
-            if (in_array($registry, ['missing', 'forget', 'missingGrammar', 'actors', 'actions'], true)) {
+            if (in_array($registry, ['missing', 'forget', 'retention', 'missingGrammar', 'actors', 'actions'], true)) {
                 continue;
             }
 
@@ -1276,7 +1286,7 @@ class StoryfeedManager
      * with the Story facade (2026-09-23): actorless grammar, nouns and object
      * types.
      *
-     * @param  array{grammar: array<string, string|Closure|FeedHeadline>, aggregateGrammar: array<string, string>, actorlessGrammar?: array<string, string|Closure|FeedHeadline>, icons: array<string, string>, glyphIntents?: array<string, string>, nouns?: array<string, string|FeedNoun>, objectTypes?: array<string, ObjectType|string>, verbs: array<string, mixed>, missing?: array<string, list<string>>, missingGrammar?: array<string, string|Closure|FeedHeadline>, forget?: array<string, bool>, actors?: array<string, string>, actions?: array<string, array{uses: string, request: bool, parts: array<string, string>|null}>}  $compiled
+     * @param  array{grammar: array<string, string|Closure|FeedHeadline>, aggregateGrammar: array<string, string>, actorlessGrammar?: array<string, string|Closure|FeedHeadline>, icons: array<string, string>, glyphIntents?: array<string, string>, nouns?: array<string, string|FeedNoun>, objectTypes?: array<string, ObjectType|string>, verbs: array<string, mixed>, missing?: array<string, list<string>>, missingGrammar?: array<string, string|Closure|FeedHeadline>, forget?: array<string, bool>, retention?: array<string, string>, actors?: array<string, string>, actions?: array<string, array{uses: string, request: bool, parts: array<string, string>|null}>}  $compiled
      * @param  list<string>  $stories  the Story classes the manifest was compiled from
      */
     public function useCompiledStories(array $compiled, array $stories = []): static
@@ -1290,6 +1300,7 @@ class StoryfeedManager
         $compiled['missing'] ??= [];
         $compiled['missingGrammar'] ??= [];
         $compiled['forget'] ??= [];
+        $compiled['retention'] ??= [];
         $compiled['actors'] ??= [];
         $compiled['actions'] ??= [];
 
@@ -2201,6 +2212,30 @@ class StoryfeedManager
         $this->ensureStoriesCompiled();
 
         return array_map(fn (array $action) => $action['uses'], $this->storyActions);
+    }
+
+    /**
+     * The window a verb declared for its activities, on the type → verb
+     * ladder: an ISO 8601 duration, `forever` (Verb::FOREVER), or null when
+     * no declaration reaches it and `storyfeed.prune.after_days` decides.
+     */
+    public function retention(?string $type, string $verb): ?string
+    {
+        $this->ensureStoriesCompiled();
+
+        return $this->resolve($this->storyRetention, $type, $verb);
+    }
+
+    /**
+     * Every declared window, keyed `type.verb` (wildcards allowed).
+     *
+     * @return array<string, string>
+     */
+    public function storyRetention(): array
+    {
+        $this->ensureStoriesCompiled();
+
+        return $this->storyRetention;
     }
 
     /**

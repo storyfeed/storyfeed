@@ -3,7 +3,9 @@
 namespace Storyfeed\Stories;
 
 use BackedEnum;
+use Carbon\CarbonInterval;
 use Closure;
+use DateInterval;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Traits\Conditionable;
 use InvalidArgumentException;
@@ -60,6 +62,9 @@ final class Verb
 {
     use Conditionable;
 
+    /** What `keepForever()` compiles to. */
+    public const FOREVER = 'forever';
+
     /** @var array<int, Group> */
     protected array $groups = [];
 
@@ -84,6 +89,9 @@ final class Verb
 
     /** Null: not said, so a wildcard's answer stands. */
     protected ?bool $forgetWhenMissing = null;
+
+    /** An ISO 8601 duration, `forever`, or null: not said, so `prune.after_days` stands. */
+    protected ?string $retention = null;
 
     /** Per publish: who acted, when the call site and `Storyfeed::as()` didn't say. */
     protected Model|string|null $actor = null;
@@ -181,11 +189,17 @@ final class Verb
             $definition = $definition->missing(...$missing);
         }
 
+        if ($instance->keepForever()) {
+            $definition = $definition->keepForever();
+        } elseif (($window = $instance->keepFor()) !== null) {
+            $definition = $definition->keepFor($window);
+        }
+
         return $definition;
     }
 
     /** The keys the array form accepts. */
-    public const ARRAY_KEYS = ['headline', 'anonymousHeadline', 'icon', 'intent', 'type', 'noun', 'activityStreamsType', 'missing', 'missingHeadline', 'forgetWhenMissing', 'actor', 'groups'];
+    public const ARRAY_KEYS = ['headline', 'anonymousHeadline', 'icon', 'intent', 'type', 'noun', 'activityStreamsType', 'missing', 'missingHeadline', 'forgetWhenMissing', 'keepFor', 'keepForever', 'actor', 'groups'];
 
     /**
      * @param  array<string, mixed>  $spec
@@ -264,6 +278,16 @@ final class Verb
 
         if (isset($spec['forgetWhenMissing'])) {
             $definition = $definition->forgetWhenMissing((bool) $spec['forgetWhenMissing']);
+        }
+
+        if (isset($spec['keepFor'])) {
+            /** @var string|DateInterval $window */
+            $window = $spec['keepFor'];
+            $definition = $definition->keepFor($window);
+        }
+
+        if (! empty($spec['keepForever'])) {
+            $definition = $definition->keepForever();
         }
 
         if (isset($spec['actor'])) {
@@ -437,6 +461,35 @@ final class Verb
     }
 
     /**
+     * How long this verb's activities are worth keeping: `storyfeed:prune`
+     * permanently deletes the ones published longer ago than this.
+     *
+     *     Story::verb('view')->keepFor('30 days');
+     *
+     * Overrides `storyfeed.prune.after_days` for this verb, in either
+     * direction, and works with it unset. A string Carbon reads as an
+     * interval (`'30 days'`, `'6 months'`, `'P2W'`) or a DateInterval.
+     */
+    public function keepFor(string|DateInterval $window): self
+    {
+        $this->retention = self::window($window, $this->key());
+
+        return $this;
+    }
+
+    /**
+     * Never prune this verb's activities, whatever `storyfeed.prune.after_days`
+     * says: what makes a global window safe to switch on for a feed where
+     * some verbs are the record.
+     */
+    public function keepForever(): self
+    {
+        $this->retention = self::FOREVER;
+
+        return $this;
+    }
+
+    /**
      * Who acted, when the call site didn't say and no `Storyfeed::as()` scope
      * is open: a party name (`'Stripe'`), or, from an action that takes the
      * request, a model. Ranks below both and above the default actor (the
@@ -558,6 +611,16 @@ final class Verb
         return $this->forgetWhenMissing;
     }
 
+    /**
+     * An ISO 8601 duration, `forever`, or null when the verb said nothing.
+     *
+     * @internal
+     */
+    public function retention(): ?string
+    {
+        return $this->retention;
+    }
+
     /** @internal */
     public function actorGiven(): Model|string|null
     {
@@ -626,6 +689,7 @@ final class Verb
             'activityStreamsType' => $this->activityStreamsType,
             'missing' => $this->missing === null ? null : ['[', ...$this->missing],
             'forgetWhenMissing' => $this->forgetWhenMissing,
+            'retention' => $this->retention,
             'groups' => $this->groups,
         ]);
     }
@@ -727,6 +791,33 @@ final class Verb
         }
 
         return $objectType;
+    }
+
+    /**
+     * A window as the ISO 8601 duration the manifest stores: `'30 days'` and
+     * `CarbonInterval::days(30)` both compile to `P30D`. Months stay months,
+     * so `'6 months'` is measured on the calendar when the prune runs.
+     */
+    protected static function window(string|DateInterval $window, string $key): string
+    {
+        try {
+            $interval = $window instanceof DateInterval
+                ? CarbonInterval::instance($window)
+                : CarbonInterval::make(trim($window));
+        } catch (\Throwable) {
+            $interval = null;
+        }
+
+        if ($interval === null || $interval->invert || $interval->totalSeconds <= 0) {
+            $given = $window instanceof DateInterval ? 'the interval given' : "'{$window}'";
+
+            throw new InvalidArgumentException(
+                "->keepFor() on [{$key}] was given {$given}, which is not a positive interval. "
+                ."Give one Carbon reads, like '30 days' or '6 months', or call ->keepForever().",
+            );
+        }
+
+        return $interval->spec();
     }
 
     protected static function normalizeVerb(string|FeedVerb|BackedEnum $verb): string
