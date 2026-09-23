@@ -51,16 +51,27 @@ class LinkResolver
     /** @var array<class-string, true> classes whose resolver has thrown and been reported in this scope */
     private array $reported = [];
 
+    /** @var array<string, class-string|false> */
+    private array $classes = [];
+
+    private ?Feedables $feedables = null;
+
     public function resolve(FeedContext $context): ?FeedMedia
     {
-        $class = MorphResolver::classFor($context->type());
+        // R&D 1336: resolve each alias once per page, as CompiledRouteCollection
+        // memoises a hydrated route by name (nameCache).
+        $class = $this->classes[$context->type()] ??= (function (string $alias): string|false {
+            $class = MorphResolver::classFor($alias);
 
-        if ($class === null || ! app(Feedables::class)->isFeedable($class)) {
+            return $class !== null && app(Feedables::class)->isFeedable($class) ? $class : false;
+        })($context->type());
+
+        if ($class === false) {
             return null;
         }
 
         try {
-            return app(Feedables::class)->feedMedia($class, $context);
+            return ($this->feedables ??= app(Feedables::class))->feedMedia($class, $context);
         } catch (Throwable $e) {
             if (! isset($this->reported[$class])) {
                 $this->reported[$class] = true;
