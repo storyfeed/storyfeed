@@ -43,19 +43,25 @@ class TombstoneEntity
     /** How many activities the last reference() moved onto its tombstone. */
     private int $moved = 0;
 
+    /** Whether the last reference() found the tombstone already there. */
+    private bool $reused = false;
+
     /**
-     * The event path. A soft delete leaves a restorable tombstone; a hard
-     * delete (a model without SoftDeletes, or a force delete) leaves a
-     * permanent one.
+     * The event path. A soft delete leaves a restorable tombstone; a delete
+     * of a model without SoftDeletes leaves a permanent one.
+     *
+     * A force delete is left to forceDeleted(): SoftDeletes fires `deleted`
+     * first and `forceDeleted` always follows, so doing the work here too
+     * only did it twice. The parents' listener in Feedables skips it the
+     * same way.
      */
     public function __invoke(Model $model): ?FeedTombstone
     {
-        if (! self::installed()) {
+        if (! self::installed() || (method_exists($model, 'isForceDeleting') && $model->isForceDeleting())) {
             return null;
         }
 
-        $forcing = method_exists($model, 'isForceDeleting') && $model->isForceDeleting();
-        $trashedAt = $forcing ? null : self::trashedAt($model);
+        $trashedAt = self::trashedAt($model);
 
         return $this->unlessUnnamed($this->reference(
             $model->getMorphClass(),
@@ -67,8 +73,9 @@ class TombstoneEntity
     }
 
     /**
-     * A soft-deleted model was force-deleted: its tombstone becomes
-     * permanent. Created if the model's deletion was never heard.
+     * A soft-deletable model was force-deleted, whether or not it was trashed
+     * first: its tombstone is made, or becomes, permanent. Created if the
+     * model's soft delete was never heard.
      */
     public function forceDeleted(Model $model): ?FeedTombstone
     {
@@ -92,20 +99,45 @@ class TombstoneEntity
      * Not swept when reference() has just moved activities onto it: they
      * name it, trashed ones included, so the sweep could delete nothing. The
      * only way they stop naming it within the call is forgetRedundant(),
-     * whose PurgeActivities already sweeps it. A soft delete of a model in
-     * the feed pays no sweep, and a force delete pays one (its `deleted`
-     * moved everything, so its `forceDeleted` moves nothing): on Postgres a
-     * sweep statement costs ~0.7ms, nearly all of it planning.
+     * whose PurgeActivities already sweeps it.
+     *
+     * Nor when it was already there and an activity still names it
+     * (named()): a force delete of a model trashed earlier, whose soft
+     * delete moved everything, so nothing moves now. The earlier move is no
+     * proof on its own — rows can be deleted in between without a sweep, and
+     * then the tombstone must still go — so this asks, with one indexed
+     * probe in place of the sweep's two statements of anti-joins: on
+     * Postgres a sweep statement costs ~0.7ms, nearly all of it planning.
      */
     protected function unlessUnnamed(FeedTombstone $tombstone): FeedTombstone
     {
-        if ($this->moved > 0) {
+        if ($this->moved > 0 || ($this->reused && $this->named($tombstone))) {
             return $tombstone;
         }
 
         (new PurgeActivities)->sweep([$tombstone->getMorphClass() => [(string) $tombstone->getKey() => true]]);
 
         return $tombstone;
+    }
+
+    /**
+     * Whether any activity names the tombstone in any role, trashed ones
+     * included — the same test the sweep makes before deleting it or its
+     * snapshot, so true proves the sweep would delete nothing. Without
+     * global scopes, as the sweep reads the table: a scope could only hide a
+     * row, and a hidden row answers false, which sweeps as before.
+     */
+    protected function named(FeedTombstone $tombstone): bool
+    {
+        $model = config('storyfeed.models.activity', Activity::class);
+        $alias = $tombstone->getMorphClass();
+        $id = $tombstone->getKey();
+
+        return $model::query()->withoutGlobalScopes()->where(function ($query) use ($alias, $id) {
+            foreach (ActivityRoles::STORED as $role) {
+                $query->orWhere(fn ($query) => $query->where("{$role}_type", $alias)->where("{$role}_id", $id));
+            }
+        })->exists();
     }
 
     /**
@@ -194,6 +226,8 @@ class TombstoneEntity
                 'deleted_at' => $deletedAt ?? Carbon::now(),
             ],
         );
+
+        $this->reused = ! $tombstone->wasRecentlyCreated;
 
         if (! $tombstone->wasRecentlyCreated && ! $restorable && $tombstone->restorable) {
             $tombstone->forceFill(['restorable' => false])->save();

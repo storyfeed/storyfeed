@@ -413,11 +413,18 @@ it('keeps no tombstone for a deleted model no activity names', function () {
 describe('the sweep after a model event', function () {
     beforeEach(function () {
         $this->sweeps = 0;
+        $this->probes = 0;
         $table = (new FeedTombstone)->getTable();
 
         DB::listen(function ($query) use ($table) {
             if (str_starts_with(strtolower($query->sql), 'delete from') && str_contains($query->sql, $table) && str_contains($query->sql, 'referencing')) {
                 $this->sweeps++;
+            }
+
+            // TombstoneEntity::named(): whether an activity names a tombstone
+            // that was already there.
+            if (str_starts_with(strtolower($query->sql), 'select exists') && in_array(FeedTombstone::MORPH_ALIAS, $query->bindings, true)) {
+                $this->probes++;
             }
         });
     });
@@ -432,17 +439,18 @@ describe('the sweep after a model event', function () {
             ->and(tombstoneState($delivery))->toBe([true, 1, 1, 0]);
     });
 
-    it('runs one for a force delete of a model in the feed', function () {
+    it('runs none for a force delete of a model in the feed', function () {
         $delivery = Delivery::create(['tracking_number' => 'In the feed']);
         aged('confirm', '1 hour', $delivery);
 
         $delivery->forceDelete();
 
-        expect($this->sweeps)->toBe(1)
+        // `deleted` leaves a force delete to `forceDeleted`, which moves the rows.
+        expect([$this->sweeps, $this->probes])->toBe([0, 0])
             ->and(tombstoneState($delivery))->toBe([false, 1, 1, 0]);
     });
 
-    it('runs two for a force delete of a model already trashed', function () {
+    it('runs none for a force delete of a model already trashed, asking once instead', function () {
         $delivery = Delivery::create(['tracking_number' => 'In the feed']);
         aged('confirm', '1 hour', $delivery);
         $delivery->delete();
@@ -450,9 +458,9 @@ describe('the sweep after a model event', function () {
 
         $delivery->forceDelete();
 
-        // The soft delete moved everything, so neither event moves anything
-        // and neither can tell the tombstone is named without asking.
-        expect($this->sweeps)->toBe(2)
+        // The soft delete moved everything, so nothing moves now: one probe
+        // finds the reused tombstone named, in place of the sweep.
+        expect([$this->sweeps, $this->probes])->toBe([0, 1])
             ->and(tombstoneState($delivery))->toBe([false, 1, 1, 0]);
     });
 
@@ -463,9 +471,22 @@ describe('the sweep after a model event', function () {
 
         Delivery::create(['tracking_number' => 'Never in the feed'])->forceDelete();
 
-        expect($this->sweeps)->toBe(3)
+        expect($this->sweeps)->toBe(2)
             ->and(FeedTombstone::query()->count())->toBe(0)
             ->and(Snapshot::query()->where('model_type', FeedTombstone::MORPH_ALIAS)->count())->toBe(0);
+    });
+
+    it('keeps a tombstone only trashed activities name, without a sweep', function () {
+        $delivery = Delivery::create(['tracking_number' => 'Trashed rows']);
+        aged('confirm', '1 hour', $delivery);
+        $delivery->delete();
+
+        DB::table((new Activity)->getTable())->update(['deleted_at' => now()]);
+        $this->sweeps = 0;
+        $delivery->forceDelete();
+
+        expect([$this->sweeps, $this->probes])->toBe([0, 1])
+            ->and(FeedTombstone::query()->count())->toBe(1);
     });
 
     it('still sweeps a tombstone whose activities were deleted before the force delete', function () {
@@ -474,9 +495,12 @@ describe('the sweep after a model event', function () {
         $delivery->delete();
 
         DB::table((new Activity)->getTable())->delete();
+        $this->sweeps = 0;
         $delivery->forceDelete();
 
-        expect(FeedTombstone::query()->count())->toBe(0)
+        // The probe finds nothing naming it, so the sweep runs and takes it.
+        expect([$this->sweeps, $this->probes])->toBe([1, 1])
+            ->and(FeedTombstone::query()->count())->toBe(0)
             ->and(Snapshot::query()->where('model_type', FeedTombstone::MORPH_ALIAS)->count())->toBe(0);
     });
 });
