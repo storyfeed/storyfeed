@@ -85,7 +85,7 @@ it('drops a collapsed single-member group whose member vanishes mid-flight', fun
     expect(Storyfeed::feed()->get()->toArray()['items'])->toBe([]);
 });
 
-it('still paginates when every slice on a page is dropped', function () {
+it('follows its own cursor when every slice on a page is dropped', function (string $mode) {
     $user = User::create(['name' => 'Sally', 'email' => 'sally@example.com']);
 
     $members = collect(range(1, 3))->map(fn (int $i) => Storyfeed::activity()
@@ -95,20 +95,65 @@ it('still paginates when every slice on a page is dropped', function () {
 
     // Enough solos to force a second page behind the group.
     foreach (range(1, 3) as $i) {
-        Storyfeed::activity()->verb('ping')->publishedAt(now()->subHours($i))->publish();
+        // Distinct verbs, so the solos never group among themselves.
+        Storyfeed::activity()->verb("ping-{$i}")->publishedAt(now()->subHours($i))->publish();
     }
 
     deleteAfterGroupSelection(...$members);
 
-    $page = Storyfeed::feed()->limit(1)->get()->toArray();
+    $page = Storyfeed::feed()->{$mode}()->limit(1)->get()->toArray();
 
-    // The group was page 1 in its entirety; dropping it must still hand back
-    // a cursor, or the client stalls one page short of the rest of the feed.
-    expect($page['items'])->toBe([])
+    // The group was page 1 in its entirety. Rather than hand back an empty
+    // page and make every client loop, the read follows its own cursor.
+    expect($page['items'])->toHaveCount(1)
+        ->and($page['items'][0]['verb'])->toBe('ping-1')
         ->and($page['next_cursor'])->not->toBeNull();
 
+    // The cursor is the hopped page's, not the emptied one's.
+    $next = Storyfeed::feed()->{$mode}()->limit(1)->cursor($page['next_cursor'])->get()->toArray();
+
+    expect($next['items'])->toHaveCount(1)
+        ->and($next['items'][0]['verb'])->toBe('ping-2');
+})->with(['live', 'summary']);
+
+it('gives up after five further reads and still returns a resumable page', function () {
+    // Seven groups, newest first. Each read of one item selects the newest
+    // group left, and the listener deletes exactly that group mid-read.
+    $groups = collect(range(1, 7))->map(function (int $g) {
+        $user = User::create(['name' => "User {$g}", 'email' => "user{$g}@example.com"]);
+
+        return collect(range(1, 2))->map(fn (int $i) => Storyfeed::activity()
+            ->actor($user)
+            ->verb('upload', Delivery::create(['tracking_number' => "TN-{$g}-{$i}"]))
+            ->publishedAt(now()->subHours($g)->subMinutes($i))
+            ->publish());
+    });
+
+    $reads = 0;
+    $armed = true;
+
+    DB::listen(function ($query) use (&$reads, &$armed, $groups) {
+        if (! $armed || ! str_contains($query->sql, 'count(*) as members')) {
+            return;
+        }
+
+        $groups->get($reads++)?->each->delete();
+    });
+
+    $page = Storyfeed::feed()->limit(1)->get()->toArray();
+    $armed = false;
+
+    // The first read plus five hops, every one emptied.
+    expect($reads)->toBe(6)
+        ->and($page['payload_version'])->toBe(1)
+        ->and($page['items'])->toBe([])
+        ->and($page['next_cursor'])->not->toBeNull();
+
+    // The last cursor reached resumes where the burst stopped: group 7.
     $next = Storyfeed::feed()->limit(1)->cursor($page['next_cursor'])->get()->toArray();
 
     expect($next['items'])->toHaveCount(1)
-        ->and($next['items'][0]['verb'])->toBe('ping');
+        ->and(collect($next['items'][0]['sample']['objects'])->pluck('label')->all())
+        ->toBe(['Delivery #TN-7-1', 'Delivery #TN-7-2'])
+        ->and($next['next_cursor'])->toBeNull();
 });

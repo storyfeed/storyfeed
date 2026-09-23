@@ -135,6 +135,12 @@ class FeedBuilder
 
     protected const RANK_SOLO = 1;
 
+    /**
+     * How many further reads groupedPage() makes when every slice on a page
+     * was deleted mid-read. See groupedPage().
+     */
+    protected const MAX_EMPTY_HOPS = 5;
+
     public function actor(Model|string $model): static
     {
         $this->assertUnlocked('actor');
@@ -587,6 +593,13 @@ class FeedBuilder
         return $this;
     }
 
+    /**
+     * One page of the feed. An empty `items` means the end of the feed: a
+     * read whose activities were all deleted mid-read follows its own cursor
+     * and reads again, up to five times. Only a pruning burst that empties
+     * every one of those reads returns an empty page with a live
+     * `next_cursor`. `next_cursor: null` is always the end.
+     */
     public function get(): FeedPage
     {
         // Captured once: the published() gate must not shift between the
@@ -625,7 +638,43 @@ class FeedBuilder
             && ! is_a(config('storyfeed.grouping.strategy'), NullStrategy::class, true);
     }
 
+    /**
+     * NO EMPTY PAGE MID-FEED (2026-09-22). A read that drops every slice (see
+     * groupedSlices()) follows its own cursor and reads again, so a reader
+     * never has to loop: an empty `items` means the end of the feed. The one
+     * exception is the bound — MAX_EMPTY_HOPS further reads, all emptied —
+     * which only a pathological pruning burst can reach; the page then comes
+     * back empty with the last cursor reached, still well-formed and still
+     * resumable.
+     *
+     * `log()` cannot drop: it selects and hydrates in one query.
+     */
     protected function groupedPage(Carbon $now): FeedPage
+    {
+        $cursor = $this->cursor;
+
+        try {
+            for ($hop = 0; ; $hop++) {
+                [$slices, $next] = $this->groupedSlices($now);
+
+                if ($slices->isNotEmpty() || $next === null || $hop === self::MAX_EMPTY_HOPS) {
+                    return new FeedPage($slices, $next, $this->presenter(), SyncToken::current());
+                }
+
+                $this->cursor = $next;
+            }
+        } finally {
+            // The builder is reusable; hopping must not move the caller's cursor.
+            $this->cursor = $cursor;
+        }
+    }
+
+    /**
+     * One read: phase 1 selects the page, phase 2 hydrates it.
+     *
+     * @return array{Collection<int, GroupSlice>, string|null}
+     */
+    protected function groupedSlices(Carbon $now): array
     {
         $candidates = $this->selectItems($now);
 
@@ -677,12 +726,12 @@ class FeedBuilder
             // genuinely gone, so omitting their node degrades gracefully the
             // way a missing snapshot does. `$next` is already computed above
             // from the unfiltered candidates, so pagination neither skips a
-            // page nor stalls; a page that drops every slice still carries a
-            // usable cursor.
+            // page nor stalls. A read that drops every slice is not returned
+            // empty: groupedPage() follows `$next` and reads again.
             ->reject(fn (GroupSlice $slice) => $slice->members->isEmpty())
             ->values();
 
-        return new FeedPage($slices, $next, $this->presenter(), SyncToken::current());
+        return [$slices, $next];
     }
 
     /**

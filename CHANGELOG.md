@@ -4,6 +4,16 @@
 
 ### Changed
 
+- **A page never comes back empty mid-feed.** When every activity on a page
+  was deleted between selecting it and hydrating it (a trickle prune racing a
+  read), `get()` used to return `items: []` with a live `next_cursor`, and
+  every client had to loop. It now follows its own cursor and reads again, up
+  to five times, and returns the first page with items. An empty `items` now
+  means the end of the feed; only a pruning burst that empties all six reads
+  still returns an empty page, and its cursor resumes where the burst stopped.
+  Affects `live()` and `summary()`; `log()` reads in one query and never
+  dropped. A client-side hop loop is now redundant and can go.
+
 - **`FeedContext::id()` is now `key()`**, matching Eloquent's `getKey()` the
   way `type()` and `label()` match theirs. The constructor's `id:` argument is
   now `key:`. Breaking and not aliased: a resolver calling `$context->id()`
