@@ -1,11 +1,12 @@
 <?php
 
-namespace Storyfeed;
+namespace Storyfeed\Stories;
 
 use BackedEnum;
 use Closure;
 use Storyfeed\ActivityStreams\ObjectType;
 use Storyfeed\Contracts\FeedVerb;
+use Storyfeed\FeedNoun;
 
 /**
  * Definitions for one object type (or a list of them), returned by
@@ -18,8 +19,8 @@ use Storyfeed\Contracts\FeedVerb;
  *     Story::for(Order::class)->verb('place')->headline(':actor placed :object');
  *
  *     Story::for(Order::class)
- *         ->verb('place', fn (StoryDefinition $verb) => $verb->headline(':actor placed :object'))
- *         ->verb('complete', fn (StoryDefinition $verb) => $verb->headline(':actor completed :object'));
+ *         ->verb('place', fn (Verb $verb) => $verb->headline(':actor placed :object'))
+ *         ->verb('complete', fn (Verb $verb) => $verb->headline(':actor completed :object'));
  *
  *     Story::for(MenuItem::class)->noun('dish|dishes');
  *
@@ -32,7 +33,7 @@ final class TypeScope
      * @param  array<int, string>  $objectTypes  model classes or morph aliases, resolved per definition
      */
     public function __construct(
-        private readonly StoryManager $manager,
+        private readonly Registrar $manager,
         public readonly array $objectTypes,
     ) {}
 
@@ -54,12 +55,12 @@ final class TypeScope
      * verb's definition to configure; with one, configures it and returns
      * this scope, so more `->verb()` calls chain.
      *
-     * @template TConfigure of (Closure(StoryDefinition): mixed)|null
+     * @template TConfigure of (Closure(Verb): mixed)|null
      *
      * @param  TConfigure  $configure
-     * @return (TConfigure is null ? StoryDefinition : self)
+     * @return (TConfigure is null ? Verb : self)
      */
-    public function verb(string|FeedVerb|BackedEnum $verb, ?Closure $configure = null): StoryDefinition|self
+    public function verb(string|FeedVerb|BackedEnum $verb, ?Closure $configure = null): Verb|self
     {
         $definition = $this->manager->define($this->objectTypes, $verb);
 
@@ -76,12 +77,12 @@ final class TypeScope
      * The fallback for these object types, `type.*`. Without a closure,
      * returns its definition; with one, configures it and returns this scope.
      *
-     * @template TConfigure of (Closure(StoryDefinition): mixed)|null
+     * @template TConfigure of (Closure(Verb): mixed)|null
      *
      * @param  TConfigure  $configure
-     * @return (TConfigure is null ? StoryDefinition : self)
+     * @return (TConfigure is null ? Verb : self)
      */
-    public function fallback(?Closure $configure = null): StoryDefinition|self
+    public function fallback(?Closure $configure = null): Verb|self
     {
         $definition = $this->manager->define($this->objectTypes, '*');
 

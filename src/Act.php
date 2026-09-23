@@ -9,7 +9,7 @@ use Storyfeed\Contracts\FeedVerb;
 /**
  * The common verbs, so an application does not have to invent them.
  *
- *   Verb::Send->actor($user)->object($proposal)->to($client)->publish();
+ *   Act::Send->actor($user)->object($proposal)->to($client)->publish();
  *
  * WHY THIS EXISTS. Activity Streams gives 28 activity types, and they are
  * deliberately abstract: sending an invoice is `Offer`, a spam complaint is
@@ -54,7 +54,7 @@ use Storyfeed\Contracts\FeedVerb;
  * Verbs remain free-form strings in storage. This is an authoring
  * convenience, never a closed set — an app is free to ignore it entirely.
  */
-enum Verb: string implements FeedVerb
+enum Act: string implements FeedVerb
 {
     use AsFeedVerb;
 
@@ -194,9 +194,9 @@ enum Verb: string implements FeedVerb
     /**
      * The registration map for a chosen subset of the vocabulary.
      *
-     *   Storyfeed::verbs(Verb::only(Verb::Add, Verb::Update, Verb::Retire));
+     *   Storyfeed::verbs(Act::only(Act::Add, Act::Update, Act::Retire));
      *
-     * WHY A SUBSET IS THE NORMAL CASE. `Storyfeed::verbs(Verb::class)` would
+     * WHY A SUBSET IS THE NORMAL CASE. `Storyfeed::verbs(Act::class)` would
      * register all of them, and the doctor's grammar coverage would then
      * report every verb the app does not use as unauthored — dozens of
      * findings nobody can act on. An app declares the words it actually says.

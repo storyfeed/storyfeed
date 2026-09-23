@@ -4,9 +4,9 @@ use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Support\ServiceProvider;
 use Storyfeed\Facades\Storyfeed;
 use Storyfeed\Grouping\Group;
-use Storyfeed\StoryDefinition;
+use Storyfeed\Stories\StoryManifest;
+use Storyfeed\Stories\Verb;
 use Storyfeed\StoryfeedManager;
-use Storyfeed\Support\StoryManifest;
 use Workbench\App\Stories\DeliveryWasConfirmed;
 
 /*
@@ -81,7 +81,7 @@ it('removes the manifest on clear', function () {
 it('writes nothing when a story fails to compile', function () {
     Storyfeed::stories([
         // Composite with no parent grammar — a compile error.
-        StoryDefinition::make('delivery.upload')
+        Verb::make('delivery.upload')
             ->headline(':actor uploaded :object')
             ->groups(Group::composite()->headline(':actor uploaded :objects')),
     ]);
@@ -104,7 +104,7 @@ it('says so plainly when there are no stories to cache', function () {
 
 it('reports a stale manifest, naming what drifted', function () {
     Storyfeed::stories([
-        StoryDefinition::make('delivery.confirm')->headline(':actor confirmed :object'),
+        Verb::make('delivery.confirm')->headline(':actor confirmed :object'),
     ]);
 
     $this->artisan('storyfeed:cache')->assertSuccessful();
@@ -116,7 +116,7 @@ it('reports a stale manifest, naming what drifted', function () {
     app()->forgetInstance(StoryfeedManager::class);
     Storyfeed::clearResolvedInstances();
     Storyfeed::stories([
-        StoryDefinition::make('delivery.confirm')->headline(':actor CONFIRMED :object'),
+        Verb::make('delivery.confirm')->headline(':actor CONFIRMED :object'),
     ]);
 
     $report = Storyfeed::doctor(['manifest']);
@@ -138,7 +138,7 @@ it('reports nothing when no manifest is cached', function () {
 
 it('flags a cached manifest whose source no longer compiles', function () {
     Storyfeed::stories([
-        StoryDefinition::make('delivery.confirm')->headline(':actor confirmed :object'),
+        Verb::make('delivery.confirm')->headline(':actor confirmed :object'),
     ]);
 
     $this->artisan('storyfeed:cache')->assertSuccessful();
@@ -148,7 +148,7 @@ it('flags a cached manifest whose source no longer compiles', function () {
     app()->forgetInstance(StoryfeedManager::class);
     Storyfeed::clearResolvedInstances();
     Storyfeed::stories([
-        StoryDefinition::make('delivery.confirm')
+        Verb::make('delivery.confirm')
             ->headline(':actor confirmed :object')
             ->groups(Group::on('nonexistent')->headline(':actors confirmed')),
     ]);

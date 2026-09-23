@@ -4,7 +4,7 @@ namespace Storyfeed\Diagnostics\Checks;
 
 use Storyfeed\Diagnostics\Finding;
 use Storyfeed\Exceptions\StoryMisconfigured;
-use Storyfeed\StoryDefinition;
+use Storyfeed\Stories\Verb;
 use Storyfeed\StoryfeedManager;
 
 /**
@@ -97,7 +97,7 @@ class VerbDrift extends Check
     }
 
     /**
-     * @param  array<int, StoryDefinition>  $definitions
+     * @param  array<int, Verb>  $definitions
      * @param  array<int, mixed>  $recorded
      * @return iterable<Finding>
      */
@@ -139,7 +139,7 @@ class VerbDrift extends Check
      * A definition that doesn't compile is another check's finding; this one
      * reads what it can.
      *
-     * @return array<int, StoryDefinition>
+     * @return array<int, Verb>
      */
     protected function definitions(StoryfeedManager $storyfeed): array
     {

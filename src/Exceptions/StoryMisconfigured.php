@@ -139,8 +139,8 @@ class StoryMisconfigured extends LogicException
     public static function notAStory(string $given): self
     {
         return new self(
-            "[{$given}] is not a Storyfeed\\Story subclass. Storyfeed::stories() takes Story class-strings, "
-            .'StoryDefinition objects, or `\'type.verb\' => [...]` arrays.'
+            "[{$given}] is not a Storyfeed\\Stories\\Story subclass. Storyfeed::stories() takes Story class-strings, "
+            .'Stories\Verb objects, or `\'type.verb\' => [...]` arrays.'
         );
     }
 }

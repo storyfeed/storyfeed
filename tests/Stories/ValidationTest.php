@@ -4,8 +4,8 @@ use Storyfeed\Contracts\FeedVerb;
 use Storyfeed\Exceptions\StoryMisconfigured;
 use Storyfeed\Facades\Storyfeed;
 use Storyfeed\Grouping\Group;
-use Storyfeed\Story;
-use Storyfeed\StoryDefinition;
+use Storyfeed\Stories\Story;
+use Storyfeed\Stories\Verb;
 use Workbench\App\Models\Delivery;
 
 /*
@@ -26,11 +26,11 @@ it('refuses a story with no object type, and says why it is not inferred', funct
         }
     };
 
-    expect(fn () => StoryDefinition::fromStory($story))
+    expect(fn () => Verb::fromStory($story))
         ->toThrow(StoryMisconfigured::class, 'must declare $objectType');
 
     try {
-        StoryDefinition::fromStory($story);
+        Verb::fromStory($story);
     } catch (StoryMisconfigured $e) {
         // The reason matters: token-guessing on class names is what died.
         expect($e->getMessage())->toContain('CreatePurchaseOrder');
@@ -49,7 +49,7 @@ it('refuses a story with no verb, and says why inference would be unsafe', funct
     };
 
     try {
-        StoryDefinition::fromStory($story);
+        Verb::fromStory($story);
         $this->fail('Expected a StoryMisconfigured.');
     } catch (StoryMisconfigured $e) {
         // The actual reason inference is generator-time, not boot-time.
@@ -62,7 +62,7 @@ it('refuses a story with no verb, and says why inference would be unsafe', funct
 
 it('refuses an unpinned aggregate token before any traffic exists', function () {
     Storyfeed::stories([
-        StoryDefinition::make('delivery.revise')
+        Verb::make('delivery.revise')
             ->headline(':actor revised :object')
             // :object on the repeat axis is the documented lie: the group can
             // span five different documents.
@@ -82,7 +82,7 @@ it('refuses an unpinned aggregate token before any traffic exists', function () 
 
 it('refuses a group on an unregistered axis', function () {
     Storyfeed::stories([
-        StoryDefinition::make('delivery.confirm')
+        Verb::make('delivery.confirm')
             ->headline(':actor confirmed :object')
             ->groups(Group::on('nonexistent')->headline(':actors confirmed :count')),
     ]);
@@ -101,7 +101,7 @@ it('refuses a group on an unregistered axis', function () {
 
 it('refuses a composite without parent grammar, and refuses to suggest *.*', function () {
     Storyfeed::stories([
-        StoryDefinition::make('delivery.upload')
+        Verb::make('delivery.upload')
             ->headline(':actor uploaded :object')
             // No ->parentHeadline(): the parent would render a blank line.
             ->groups(Group::composite()->headline(':actor uploaded :objects')),
@@ -121,8 +121,8 @@ it('refuses a composite without parent grammar, and refuses to suggest *.*', fun
 it('accepts parent grammar from another story instead of parentHeadline', function () {
     // The invariant is that the entry EXISTS, not where it came from.
     Storyfeed::stories([
-        StoryDefinition::make('*.upload')->headline(':actor uploaded deliveries'),
-        StoryDefinition::make('delivery.upload')
+        Verb::make('*.upload')->headline(':actor uploaded deliveries'),
+        Verb::make('delivery.upload')
             ->headline(':actor uploaded :object')
             ->groups(Group::composite()->headline(':actor uploaded :objects')),
     ]);
@@ -132,8 +132,8 @@ it('accepts parent grammar from another story instead of parentHeadline', functi
 
 it('refuses two stories authoring the same key', function () {
     Storyfeed::stories([
-        StoryDefinition::make('delivery.confirm', 'FirstStory')->headline(':actor confirmed :object'),
-        StoryDefinition::make('delivery.confirm', 'SecondStory')->headline(':actor OK-ed :object'),
+        Verb::make('delivery.confirm', 'FirstStory')->headline(':actor confirmed :object'),
+        Verb::make('delivery.confirm', 'SecondStory')->headline(':actor OK-ed :object'),
     ]);
 
     try {
@@ -163,12 +163,12 @@ it('refuses Group::min(), pointing at the axis instead of ignoring it', function
 });
 
 it('refuses a typod ad-hoc option rather than dropping it', function () {
-    expect(fn () => StoryDefinition::fromArray('delivery.confirm', ['headine' => ':actor confirmed']))
+    expect(fn () => Verb::fromArray('delivery.confirm', ['headine' => ':actor confirmed']))
         ->toThrow(StoryMisconfigured::class, 'unrecognized option [headine]');
 });
 
 it('refuses a malformed ad-hoc key', function () {
-    expect(fn () => StoryDefinition::make('confirm'))
+    expect(fn () => Verb::make('confirm'))
         ->toThrow(StoryMisconfigured::class, '`{type}.{verb}` form');
 });
 
@@ -176,5 +176,5 @@ it('refuses a non-Story class-string', function () {
     Storyfeed::stories([Delivery::class]);
 
     expect(fn () => Storyfeed::registeredGrammar())
-        ->toThrow(StoryMisconfigured::class, 'is not a Storyfeed\Story subclass');
+        ->toThrow(StoryMisconfigured::class, 'is not a Storyfeed\Stories\Story subclass');
 });

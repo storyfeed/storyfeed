@@ -121,9 +121,9 @@ it('does not call a removal verb redundant when its object is gone', function (s
     expect(tombstonedFeedNode())->tombstoned->toBe(['object'])->redundant->toBeFalse();
 })->with([
     'registered as Delete' => 'delete',
-    'a Storyfeed\Verb case (Remove)' => 'archive',
-    'a Storyfeed\Verb case (Undo)' => 'void',
-    'a Storyfeed\Verb case (Reject)' => 'decline',
+    'a Storyfeed\Act case (Remove)' => 'archive',
+    'a Storyfeed\Act case (Undo)' => 'void',
+    'a Storyfeed\Act case (Reject)' => 'decline',
 ]);
 
 it('follows an explicit rule, looked up by the deleted model\'s type', function () {

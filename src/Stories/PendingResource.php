@@ -1,8 +1,9 @@
 <?php
 
-namespace Storyfeed;
+namespace Storyfeed\Stories;
 
 use InvalidArgumentException;
+use Storyfeed\FeedNoun;
 
 /**
  * The four lifecycle verbs of one model, defined in a line, as
@@ -93,7 +94,7 @@ final class PendingResource
     /**
      * The definitions this resource stands for.
      *
-     * @return list<StoryDefinition>
+     * @return list<Verb>
      *
      * @internal
      */
@@ -104,7 +105,7 @@ final class PendingResource
         foreach ($this->verbs as $verb) {
             [$headline, $anonymous, $icon] = self::VERBS[$verb];
 
-            $definition = StoryDefinition::for($this->objectType, $verb, $this->source)
+            $definition = Verb::for($this->objectType, $verb, $this->source)
                 ->headline($headline)
                 ->anonymousHeadline($anonymous)
                 ->icon($icon);
@@ -121,7 +122,7 @@ final class PendingResource
         }
 
         if ($this->noun !== null) {
-            $definitions[] = StoryDefinition::for($this->objectType, '*', $this->source)->noun($this->noun);
+            $definitions[] = Verb::for($this->objectType, '*', $this->source)->noun($this->noun);
         }
 
         return $definitions;

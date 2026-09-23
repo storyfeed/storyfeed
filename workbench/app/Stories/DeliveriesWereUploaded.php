@@ -5,7 +5,7 @@ namespace Workbench\App\Stories;
 use BackedEnum;
 use Storyfeed\Contracts\FeedVerb;
 use Storyfeed\Grouping\Group;
-use Storyfeed\Story;
+use Storyfeed\Stories\Story;
 use Workbench\App\Enums\ActivityVerb;
 use Workbench\App\Models\Delivery;
 

@@ -52,7 +52,7 @@ use Storyfeed\Support\BodySlot;
  *
  * Named arguments for the one-expression case; fluent setters for the
  * resolver that decides slot by slot. Every `make()` argument has a method of
- * the same name. The setters mutate and return $this, as StoryDefinition's
+ * the same name. The setters mutate and return $this, as Stories\Verb's
  * do; lists append (`attachments()`, `body()`) and maps merge in
  * `View::with()`'s manner (`attributes()`). The properties are
  * `private(set)`, so a presenter can read every slot and change none.

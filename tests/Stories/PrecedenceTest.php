@@ -2,7 +2,7 @@
 
 use Storyfeed\Facades\Storyfeed;
 use Storyfeed\Grouping\Group;
-use Storyfeed\StoryDefinition;
+use Storyfeed\Stories\Verb;
 use Storyfeed\Testing\GrammarCoverage;
 use Workbench\App\Models\Delivery;
 use Workbench\App\Models\User;
@@ -47,7 +47,7 @@ it('picks up stories registered after a compile has already happened', function 
     expect(Storyfeed::template('delivery', 'confirm'))->not->toBeNull();
 
     // A second provider, or a test, registering later must not be ignored.
-    Storyfeed::stories([StoryDefinition::make('delivery.archive')->headline(':actor archived :object')]);
+    Storyfeed::stories([Verb::make('delivery.archive')->headline(':actor archived :object')]);
 
     expect(Storyfeed::template('delivery', 'archive'))->toBe(':actor archived :object');
 });
@@ -61,7 +61,7 @@ it('compiles the three authoring forms to identical registries', function () {
 
     $forms = [
         'fluent' => [
-            StoryDefinition::make('delivery.confirm')
+            Verb::make('delivery.confirm')
                 ->headline(':actor confirmed :object')
                 ->icon('bi-truck')
                 ->groups(Group::byActors()->headline(':actors confirmed :count deliveries')),

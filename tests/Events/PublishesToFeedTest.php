@@ -6,7 +6,7 @@ use Storyfeed\Contracts\PublishesToFeed;
 use Storyfeed\Exceptions\UnknownStory;
 use Storyfeed\Facades\Storyfeed;
 use Storyfeed\PendingActivity;
-use Storyfeed\Story;
+use Storyfeed\Stories\Story;
 use Workbench\App\Enums\ActivityVerb;
 use Workbench\App\Events\DeliveryConfirmed;
 use Workbench\App\Models\Customer;

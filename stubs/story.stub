@@ -3,7 +3,7 @@
 namespace {{ namespace }};
 
 use Storyfeed\Grouping\Group;
-use Storyfeed\Story;
+use Storyfeed\Stories\Story;
 
 class {{ class }} extends Story
 {

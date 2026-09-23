@@ -28,6 +28,7 @@ use Storyfeed\Exceptions\UnknownVerb;
 use Storyfeed\Models\Activity;
 use Storyfeed\Models\Grouping;
 use Storyfeed\Models\Party;
+use Storyfeed\Stories\Story;
 use Storyfeed\Support\BodySlot;
 use Storyfeed\Support\Feedables;
 use Storyfeed\Testing\StoryfeedFake;

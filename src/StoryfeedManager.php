@@ -11,7 +11,6 @@ use Illuminate\Log\Context\Repository;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
-use Storyfeed\Actions\CompileStories;
 use Storyfeed\Actions\TombstoneEntity;
 use Storyfeed\ActivityStreams\ActivityType;
 use Storyfeed\ActivityStreams\CoreType;
@@ -30,7 +29,11 @@ use Storyfeed\Grouping\Axis;
 use Storyfeed\Models\Activity;
 use Storyfeed\Models\FeedTombstone;
 use Storyfeed\Models\Party;
-use Storyfeed\Support\DefinitionsFile;
+use Storyfeed\Stories\CompileStories;
+use Storyfeed\Stories\DefinitionsFile;
+use Storyfeed\Stories\PendingResource;
+use Storyfeed\Stories\Story;
+use Storyfeed\Stories\Verb;
 use Storyfeed\Support\Feedables;
 use Storyfeed\Support\MorphResolver;
 use Storyfeed\Support\QueuedActor;
@@ -539,7 +542,7 @@ class StoryfeedManager
      * activity READS, this describes which activities a surface is about.
      *
      * Both forms normalize into one FeedDefinition, exactly as a Story class
-     * and an ad-hoc StoryDefinition do — so the closure stays first-class (a
+     * and an ad-hoc Stories\Verb do — so the closure stays first-class (a
      * two-line admin preset should not need a file) and nothing downstream can
      * tell which form declared a feed. Only a class can carry a SUBJECT: a
      * closure receives the builder at boot, before any subject exists, which is
@@ -972,10 +975,10 @@ class StoryfeedManager
     }
 
     /**
-     * Register story definitions — classes, StoryDefinition objects, or
-     * `'type.verb' => [...]` arrays (see Storyfeed\Story).
+     * Register story definitions — classes, Stories\Verb objects, or
+     * `'type.verb' => [...]` arrays (see Storyfeed\Stories\Story).
      *
-     * @param  array<int|string, class-string<Story>|StoryDefinition|PendingResource|array<string, mixed>>  $stories
+     * @param  array<int|string, class-string<Story>|Verb|PendingResource|array<string, mixed>>  $stories
      */
     public function stories(array $stories, bool $merge = true): static
     {
@@ -1087,7 +1090,7 @@ class StoryfeedManager
     /**
      * The normalized definitions, in registration order.
      *
-     * @return array<int, StoryDefinition>
+     * @return array<int, Verb>
      */
     public function storyDefinitions(): array
     {
@@ -1100,10 +1103,10 @@ class StoryfeedManager
 
         foreach ($this->stories as $key => $story) {
             array_push($definitions, ...match (true) {
-                $story instanceof StoryDefinition => [$story],
+                $story instanceof Verb => [$story],
                 $story instanceof PendingResource => $story->definitions(),
-                is_array($story) => [StoryDefinition::fromArray((string) $key, $story)],
-                is_string($story) && is_a($story, Story::class, true) => [StoryDefinition::fromStory($story)],
+                is_array($story) => [Verb::fromArray((string) $key, $story)],
+                is_string($story) && is_a($story, Story::class, true) => [Verb::fromStory($story)],
                 default => throw StoryMisconfigured::notAStory(is_string($story) ? $story : get_debug_type($story)),
             });
         }

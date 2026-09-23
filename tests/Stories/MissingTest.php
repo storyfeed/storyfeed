@@ -1,15 +1,15 @@
 <?php
 
 use Illuminate\Support\Facades\Artisan;
+use Storyfeed\Act;
 use Storyfeed\Contracts\FeedVerb;
 use Storyfeed\Exceptions\StoryMisconfigured;
 use Storyfeed\Facades\Story;
 use Storyfeed\Facades\Storyfeed;
-use Storyfeed\Story as BaseStory;
-use Storyfeed\StoryDefinition;
-use Storyfeed\Support\StoryManifest;
+use Storyfeed\Stories\Story as BaseStory;
+use Storyfeed\Stories\StoryManifest;
+use Storyfeed\Stories\Verb;
 use Storyfeed\Support\TombstoneRules;
-use Storyfeed\Verb;
 use Workbench\App\Models\Delivery;
 
 /*
@@ -25,9 +25,9 @@ function constitutive(?string $type, string $verb): array
 it('defaults to the object, and to no role for a removal verb', function () {
     expect(constitutive('delivery', 'confirm'))->toBe(['object'])
         ->and(constitutive('delivery', 'delete'))->toBe([])
-        // A Storyfeed\Verb case brings its AS2 type: archive is Remove, void is Undo.
-        ->and(constitutive('delivery', Verb::Archive->value))->toBe([])
-        ->and(constitutive('delivery', Verb::Void->value))->toBe([]);
+        // A Storyfeed\Act case brings its AS2 type: archive is Remove, void is Undo.
+        ->and(constitutive('delivery', Act::Archive->value))->toBe([])
+        ->and(constitutive('delivery', Act::Void->value))->toBe([]);
 });
 
 it('declares roles on a registrar verb, on the type ladder', function () {
@@ -50,8 +50,8 @@ it('declares roles on a registrar verb, on the type ladder', function () {
 
 it('declares roles with a chained verb closure and on a fallback', function () {
     Story::for(Delivery::class)
-        ->verb('route', fn (StoryDefinition $verb) => $verb->headline(':actor routed :object')->missing('origin'))
-        ->fallback(fn (StoryDefinition $verb) => $verb->missing('context'));
+        ->verb('route', fn (Verb $verb) => $verb->headline(':actor routed :object')->missing('origin'))
+        ->fallback(fn (Verb $verb) => $verb->missing('context'));
 
     expect(constitutive('delivery', 'route'))->toBe(['origin'])
         ->and(constitutive('delivery', 'pack'))->toBe(['context']);
@@ -68,7 +68,7 @@ it('declares roles in the array form, where an empty list means none', function 
     Storyfeed::stories([
         'delivery.note' => ['headline' => ':actor noted :object', 'missing' => ['target']],
         'delivery.mention' => ['missing' => []],
-        StoryDefinition::make('delivery.pack')->missing('instrument'),
+        Verb::make('delivery.pack')->missing('instrument'),
     ]);
 
     expect(constitutive('delivery', 'note'))->toBe(['target'])
@@ -94,11 +94,11 @@ it('declares roles on a Story class with missing()', function () {
         }
     };
 
-    Storyfeed::stories([StoryDefinition::fromStory($story)]);
+    Storyfeed::stories([Verb::fromStory($story)]);
 
     expect(constitutive('delivery', 'hand_over'))->toBe(['object', 'target'])
         // A class that doesn't override it keeps the default.
-        ->and(StoryDefinition::fromStory(new class extends BaseStory
+        ->and(Verb::fromStory(new class extends BaseStory
         {
             public string|array|null $objectType = 'delivery';
 

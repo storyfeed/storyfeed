@@ -1,6 +1,6 @@
 <?php
 
-use Storyfeed\Story;
+use Storyfeed\Stories\Story;
 use Symfony\Component\Process\Process;
 
 /*
@@ -23,7 +23,7 @@ function loadStorySubclass(string $objectTypeLine, string $verbLine): Process
     $php = <<<PHP
     require '{$autoload}';
     use Storyfeed\\Contracts\\FeedVerb;
-    use Storyfeed\\Story;
+    use Storyfeed\\Stories\\Story;
     use Workbench\\App\\Enums\\ActivityVerb;
     use Workbench\\App\\Models\\Document;
     final class DocumentWasUploaded extends Story
@@ -48,7 +48,7 @@ function docblockDeclarations(): array
     // checkout and every declaration silently reads as absent. This test was
     // red on all seven Windows matrix cells, and green everywhere else, for
     // days before anyone looked at CI.
-    $source = str_replace("\r\n", "\n", file_get_contents(__DIR__.'/../../src/Story.php'));
+    $source = str_replace("\r\n", "\n", file_get_contents(__DIR__.'/../../src/Stories/Story.php'));
 
     preg_match('/^\s*\*\s+(public string\|array\|null \$objectType = .+;)$/m', $source, $objectType);
     preg_match('/^\s*\*\s+(public .+ \$verb = .+;)$/m', $source, $verb);

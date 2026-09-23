@@ -7,7 +7,7 @@ use ReflectionClass;
 use SplFileInfo;
 use Storyfeed\Contracts\Feedable;
 use Storyfeed\Contracts\PublishesToFeed;
-use Storyfeed\Story;
+use Storyfeed\Stories\Story;
 use Symfony\Component\Finder\Finder;
 use Throwable;
 

@@ -1,11 +1,12 @@
 <?php
 
-namespace Storyfeed;
+namespace Storyfeed\Stories;
 
 use BackedEnum;
 use Closure;
 use Storyfeed\Contracts\FeedVerb;
 use Storyfeed\Exceptions\StoryMisconfigured;
+use Storyfeed\StoryfeedManager;
 
 /**
  * The registrar behind the `Story` facade: Route-style definitions of what
@@ -25,7 +26,7 @@ use Storyfeed\Exceptions\StoryMisconfigured;
  *
  *     Story::resource(Document::class)->except('restore');   // created, updated, deleted
  *
- * WHAT IT IS. A front door onto {@see StoryDefinition}. Every call makes a
+ * WHAT IT IS. A front door onto {@see Verb}. Every call makes a
  * definition, registers it with the manager at once (the way `Route::get()`
  * returns a Route already in the collection), and hands it back to be
  * configured. Definitions compile through CompileStories beside Story
@@ -39,7 +40,7 @@ use Storyfeed\Exceptions\StoryMisconfigured;
  * `Storyfeed::` stays the facade for recording and reading; this one only
  * defines. One facade per concern, as `Route`, `Schedule` and `Broadcast` are.
  */
-class StoryManager
+class Registrar
 {
     /** @var list<array<int, string>> the object types of each open group() */
     protected array $scopes = [];
@@ -64,7 +65,7 @@ class StoryManager
      * outside one for any object type (`*.verb`), which is also where group
      * headlines and a composite parent's headline belong.
      */
-    public function verb(string|FeedVerb|BackedEnum $verb): StoryDefinition
+    public function verb(string|FeedVerb|BackedEnum $verb): Verb
     {
         return $this->define(end($this->scopes) ?: ['*'], $verb);
     }
@@ -73,7 +74,7 @@ class StoryManager
      * The fallback for every verb: `type.*` inside a `group()`, `*.*` outside
      * one. It is `Route::fallback()` for headlines, icons and intents.
      */
-    public function fallback(): StoryDefinition
+    public function fallback(): Verb
     {
         return $this->define(end($this->scopes) ?: ['*'], '*');
     }
@@ -87,7 +88,7 @@ class StoryManager
      */
     public function resource(string|array $objectType): PendingResource
     {
-        $resource = new PendingResource($objectType, StoryDefinition::caller());
+        $resource = new PendingResource($objectType, Verb::caller());
 
         app(StoryfeedManager::class)->stories([$resource]);
 
@@ -119,9 +120,9 @@ class StoryManager
      *
      * @internal
      */
-    public function define(array $objectTypes, string|FeedVerb|BackedEnum $verb): StoryDefinition
+    public function define(array $objectTypes, string|FeedVerb|BackedEnum $verb): Verb
     {
-        $definition = StoryDefinition::for($objectTypes, $verb, StoryDefinition::caller())->scopedToType();
+        $definition = Verb::for($objectTypes, $verb, Verb::caller())->scopedToType();
 
         app(StoryfeedManager::class)->stories([$definition]);
 

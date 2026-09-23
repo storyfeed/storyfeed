@@ -5,10 +5,10 @@ namespace Storyfeed\Console;
 use Illuminate\Console\Command;
 use RuntimeException;
 use Storyfeed\Exceptions\StoryMisconfigured;
-use Storyfeed\Story;
+use Storyfeed\Stories\DefinitionsFile;
+use Storyfeed\Stories\Story;
+use Storyfeed\Stories\StoryManifest;
 use Storyfeed\StoryfeedManager;
-use Storyfeed\Support\DefinitionsFile;
-use Storyfeed\Support\StoryManifest;
 
 /**
  * Compile registered stories into `bootstrap/cache/storyfeed.php`.

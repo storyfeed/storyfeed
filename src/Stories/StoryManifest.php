@@ -1,11 +1,11 @@
 <?php
 
-namespace Storyfeed\Support;
+namespace Storyfeed\Stories;
 
 use Closure;
 use Illuminate\Contracts\Foundation\Application;
-use Storyfeed\Actions\CompileStories;
 use Storyfeed\StoryfeedManager;
+use Storyfeed\Support\ManifestClosure;
 
 /**
  * The compiled-story manifest: `bootstrap/cache/storyfeed.php`.

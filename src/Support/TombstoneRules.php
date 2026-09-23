@@ -2,9 +2,9 @@
 
 namespace Storyfeed\Support;
 
+use Storyfeed\Act;
 use Storyfeed\ActivityStreams\ActivityType;
 use Storyfeed\StoryfeedManager;
-use Storyfeed\Verb;
 
 /**
  * Which roles, when tombstoned, make an activity redundant: the fact the
@@ -24,7 +24,7 @@ use Storyfeed\Verb;
  *  2. Otherwise, a REMOVAL VERB answers `[]`: a verb whose AS2 type is
  *     Delete, Remove, Undo or Reject records the removal itself, so its
  *     object being gone is expected, not news. The registered type wins; a
- *     verb nobody registered falls back to the Storyfeed\Verb case of the
+ *     verb nobody registered falls back to the Storyfeed\Act case of the
  *     same name, so `archive` recorded as a plain string still counts.
  *  3. Otherwise `['object']`, the shipped default.
  *
@@ -94,7 +94,7 @@ final class TombstoneRules
             $type = ActivityType::tryFrom($type);
         }
 
-        $type ??= Verb::tryFrom($verb)?->activityType();
+        $type ??= Act::tryFrom($verb)?->activityType();
 
         return in_array($type, self::REMOVALS, true);
     }

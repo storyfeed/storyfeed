@@ -4,7 +4,7 @@ use Storyfeed\Facades\Story;
 use Storyfeed\Facades\Storyfeed;
 use Storyfeed\FeedHeadline;
 use Storyfeed\Models\Activity;
-use Storyfeed\Support\StoryManifest;
+use Storyfeed\Stories\StoryManifest;
 use Workbench\App\Models\Customer;
 use Workbench\App\Models\Delivery;
 use Workbench\App\Models\User;

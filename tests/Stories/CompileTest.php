@@ -3,7 +3,7 @@
 use Storyfeed\Facades\Storyfeed;
 use Storyfeed\Grouping\Axis;
 use Storyfeed\Grouping\Group;
-use Storyfeed\StoryDefinition;
+use Storyfeed\Stories\Verb;
 use Storyfeed\StoryfeedManager;
 use Workbench\App\Enums\ActivityVerb;
 use Workbench\App\Models\Customer;
@@ -48,7 +48,7 @@ it('compiles to exactly what the hand-written registries would hold', function (
 
 it('registers the verb even when the story declares no AS2 type', function () {
     Storyfeed::stories([
-        StoryDefinition::make('delivery.frobnicate')->headline(':actor frobnicated :object'),
+        Verb::make('delivery.frobnicate')->headline(':actor frobnicated :object'),
     ]);
 
     // Without this, strict mode would throw UnknownVerb for every
@@ -138,7 +138,7 @@ it('accepts an ad-hoc group on a custom axis', function () {
     ]);
 
     Storyfeed::stories([
-        StoryDefinition::make('delivery.confirm')
+        Verb::make('delivery.confirm')
             ->headline(':actor confirmed :object')
             ->groups(Group::on('scene')->headline(':actors confirmed :count deliveries in :context')),
     ]);

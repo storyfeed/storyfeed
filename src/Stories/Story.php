@@ -1,14 +1,16 @@
 <?php
 
-namespace Storyfeed;
+namespace Storyfeed\Stories;
 
 use BackedEnum;
 use DateTimeInterface;
 use Illuminate\Database\Eloquent\Model;
 use Storyfeed\ActivityStreams\ActivityType;
 use Storyfeed\Contracts\FeedVerb;
+use Storyfeed\FeedThread;
 use Storyfeed\Grouping\Group;
 use Storyfeed\Models\Activity;
+use Storyfeed\PendingActivity;
 
 /**
  * One class per meaningful activity type — the declarative authoring layer.
@@ -134,7 +136,7 @@ abstract class Story
 
     /**
      * The roles this activity is about, which make it redundant once one of
-     * them is a tombstone — see StoryDefinition::missing(). Null, the
+     * them is a tombstone — see Verb::missing(). Null, the
      * default, keeps the default set (the object; none for a removal verb);
      * an empty list means no role.
      *
@@ -148,7 +150,7 @@ abstract class Story
     /** The compiled verb string. */
     public static function verb(): string
     {
-        return StoryDefinition::fromStory(static::class)->verb;
+        return Verb::fromStory(static::class)->verb;
     }
 
     /**

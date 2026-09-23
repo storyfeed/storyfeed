@@ -3,7 +3,7 @@
 use Storyfeed\Concerns\AsFeedVerb;
 use Storyfeed\Facades\Storyfeed;
 use Storyfeed\Models\Activity;
-use Storyfeed\Story;
+use Storyfeed\Stories\Story;
 use Workbench\App\Models\Delivery;
 use Workbench\App\Models\User;
 

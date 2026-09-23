@@ -2,14 +2,14 @@
 
 namespace Storyfeed\Diagnostics\Checks;
 
-use Storyfeed\Actions\CompileStories;
 use Storyfeed\Diagnostics\Finding;
 use Storyfeed\Exceptions\StoryMisconfigured;
 use Storyfeed\FeedHeadline;
 use Storyfeed\FeedNoun;
+use Storyfeed\Stories\CompileStories;
+use Storyfeed\Stories\StoryManifest;
 use Storyfeed\StoryfeedManager;
 use Storyfeed\Support\ManifestClosure;
-use Storyfeed\Support\StoryManifest;
 
 /**
  * Does the cached manifest still match what the stories compile to?

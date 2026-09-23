@@ -1,6 +1,6 @@
 <?php
 
-namespace Storyfeed;
+namespace Storyfeed\Stories;
 
 use BackedEnum;
 use Closure;
@@ -11,6 +11,8 @@ use Storyfeed\ActivityStreams\ActivityType;
 use Storyfeed\ActivityStreams\ObjectType;
 use Storyfeed\Contracts\FeedVerb;
 use Storyfeed\Exceptions\StoryMisconfigured;
+use Storyfeed\FeedHeadline;
+use Storyfeed\FeedNoun;
 use Storyfeed\Grouping\Group;
 use Storyfeed\Grouping\GroupBuilder;
 use Storyfeed\Models\Activity;
@@ -24,7 +26,7 @@ use Storyfeed\Support\ActivityRoles;
  *   Storyfeed::stories([
  *       DocumentWasUploaded::class,                       // a class
  *
- *       StoryDefinition::make('comment.comment')          // fluent, ad-hoc
+ *       Verb::make('comment.comment')                     // fluent, ad-hoc
  *           ->headline(':actor commented on :target'),
  *
  *       'member.join' => [                                // array, ad-hoc
@@ -39,14 +41,14 @@ use Storyfeed\Support\ActivityRoles;
  * registries come out byte-for-byte the same.
  *
  * The `Story` facade is the front door onto this class: `Story::verb('place')`
- * returns a StoryDefinition that is already registered, the way `Route::get()`
+ * returns a Verb that is already registered, the way `Route::get()`
  * returns a Route already in the collection. That is why it is a MUTABLE
  * builder: a definition is registered when it is made and configured after.
  *
  * Every definition knows where it was written (`routes/feed.php:14`), so two
  * definitions of one key fail naming both lines.
  */
-final class StoryDefinition
+final class Verb
 {
     use Conditionable;
 

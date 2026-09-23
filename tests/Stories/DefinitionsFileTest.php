@@ -3,9 +3,9 @@
 use Illuminate\Support\ServiceProvider;
 use Orchestra\Testbench\Attributes\WithConfig;
 use Storyfeed\Facades\Storyfeed;
+use Storyfeed\Stories\DefinitionsFile;
+use Storyfeed\Stories\StoryManifest;
 use Storyfeed\StoryfeedServiceProvider;
-use Storyfeed\Support\DefinitionsFile;
-use Storyfeed\Support\StoryManifest;
 use Storyfeed\Tests\TestCase;
 use Workbench\App\Stories\DeliveryWasConfirmed;
 

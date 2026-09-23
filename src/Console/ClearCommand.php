@@ -3,7 +3,7 @@
 namespace Storyfeed\Console;
 
 use Illuminate\Console\Command;
-use Storyfeed\Support\StoryManifest;
+use Storyfeed\Stories\StoryManifest;
 
 /**
  * Remove the compiled-story manifest. Registered with `optimize:clear`.

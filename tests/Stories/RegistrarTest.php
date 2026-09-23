@@ -9,16 +9,16 @@ use Storyfeed\FeedHeadline;
 use Storyfeed\FeedNoun;
 use Storyfeed\Grouping\Group;
 use Storyfeed\Grouping\GroupBuilder;
-use Storyfeed\StoryDefinition;
+use Storyfeed\Stories\Registrar;
+use Storyfeed\Stories\TypeScope;
+use Storyfeed\Stories\Verb;
 use Storyfeed\StoryfeedManager;
-use Storyfeed\StoryManager;
-use Storyfeed\TypeScope;
 use Workbench\App\Enums\ActivityVerb;
 use Workbench\App\Models\Customer;
 use Workbench\App\Models\Delivery;
 
 /*
- * The Story facade is a front door onto StoryDefinition: every call registers
+ * The Story facade is a front door onto Stories\Verb: every call registers
  * a definition that compiles through CompileStories beside Story classes. The
  * load-bearing test is the first one — the fluent form and the hand-written
  * arrays must produce the same registries.
@@ -42,7 +42,7 @@ function registries(): array
 function freshManager(): void
 {
     app()->forgetInstance(StoryfeedManager::class);
-    app()->forgetInstance(StoryManager::class);
+    app()->forgetInstance(Registrar::class);
     Storyfeed::clearResolvedInstances();
     Story::clearResolvedInstances();
 }
@@ -155,12 +155,12 @@ it('refuses a nested scope', function () {
 
 it('chains verbs with a closure and returns the builder without one', function () {
     $scope = Story::for(Delivery::class)
-        ->verb('confirm', fn (StoryDefinition $verb) => $verb->headline(':actor confirmed :object'))
-        ->verb('ship', fn (StoryDefinition $verb) => $verb->headline(':actor shipped :object'))
-        ->fallback(fn (StoryDefinition $fallback) => $fallback->icon('bi-box'));
+        ->verb('confirm', fn (Verb $verb) => $verb->headline(':actor confirmed :object'))
+        ->verb('ship', fn (Verb $verb) => $verb->headline(':actor shipped :object'))
+        ->fallback(fn (Verb $fallback) => $fallback->icon('bi-box'));
 
     expect($scope)->toBeInstanceOf(TypeScope::class)
-        ->and(Story::for(Delivery::class)->verb('upload'))->toBeInstanceOf(StoryDefinition::class)
+        ->and(Story::for(Delivery::class)->verb('upload'))->toBeInstanceOf(Verb::class)
         ->and(Storyfeed::registeredGrammar())->toMatchArray([
             'delivery.confirm' => ':actor confirmed :object',
             'delivery.ship' => ':actor shipped :object',
@@ -181,7 +181,7 @@ it('compiles fallback() to type.* and *.*', function () {
 it('does not declare * as a verb for a wildcard key', function () {
     // Defect 2 of todo 1311: `order.*` put `*` in the verb registry, where it
     // reached storyfeed:verbs and satisfied verbs.strict.
-    Storyfeed::stories([StoryDefinition::make('delivery.*')->headline(':actor did :object')]);
+    Storyfeed::stories([Verb::make('delivery.*')->headline(':actor did :object')]);
     Story::fallback()->icon('bi-activity');
     Story::for(Delivery::class)->noun('delivery|deliveries');
 
@@ -193,8 +193,8 @@ it('does not declare * as a verb for a wildcard key', function () {
 it('names both sources when one key is defined twice', function () {
     // Defect 3 of todo 1311: two ad-hoc definitions shared the source string
     // `ad-hoc [key]`, so the conflict guard saw one author and the second won.
-    Storyfeed::stories([StoryDefinition::make('delivery.confirm')->headline('FIRST')]);
-    Storyfeed::stories([StoryDefinition::make('delivery.confirm')->headline('SECOND')]);
+    Storyfeed::stories([Verb::make('delivery.confirm')->headline('FIRST')]);
+    Storyfeed::stories([Verb::make('delivery.confirm')->headline('SECOND')]);
 
     $first = __LINE__ - 3;
     $second = __LINE__ - 3;
@@ -278,8 +278,8 @@ it('validates nouns and anonymous headlines when they are written', function () 
 
 it('supports when() on a definition', function () {
     Story::verb('confirm')->headline(':actor confirmed :object')
-        ->when(true, fn (StoryDefinition $verb) => $verb->icon('bi-bug'))
-        ->when(false, fn (StoryDefinition $verb) => $verb->intent('danger'));
+        ->when(true, fn (Verb $verb) => $verb->icon('bi-bug'))
+        ->when(false, fn (Verb $verb) => $verb->intent('danger'));
 
     expect(Storyfeed::registeredIcons())->toHaveKey('*.confirm')
         ->and(Storyfeed::registeredGlyphIntents())->not->toHaveKey('*.confirm');

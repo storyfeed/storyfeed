@@ -4,7 +4,7 @@ use Illuminate\Foundation\Console\AboutCommand;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schema;
 use Orchestra\Testbench\Attributes\WithConfig;
-use Storyfeed\Support\StoryManifest;
+use Storyfeed\Stories\StoryManifest;
 use Storyfeed\Tests\TestCase;
 
 /*

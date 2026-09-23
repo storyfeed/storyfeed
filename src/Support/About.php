@@ -8,6 +8,8 @@ use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Foundation\Console\AboutCommand;
 use Storyfeed\Diagnostics\Finding;
+use Storyfeed\Stories\DefinitionsFile;
+use Storyfeed\Stories\StoryManifest;
 use Storyfeed\StoryfeedManager;
 use Throwable;
 

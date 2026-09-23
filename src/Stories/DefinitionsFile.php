@@ -1,6 +1,6 @@
 <?php
 
-namespace Storyfeed\Support;
+namespace Storyfeed\Stories;
 
 use Illuminate\Contracts\Foundation\Application;
 use Storyfeed\StoryfeedManager;

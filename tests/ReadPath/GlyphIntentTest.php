@@ -3,10 +3,10 @@
 use Storyfeed\Facades\Storyfeed;
 use Storyfeed\Models\Activity;
 use Storyfeed\Serialization\ActivitySerializer;
-use Storyfeed\Story;
-use Storyfeed\StoryDefinition;
+use Storyfeed\Stories\Story;
+use Storyfeed\Stories\StoryManifest;
+use Storyfeed\Stories\Verb;
 use Storyfeed\StoryfeedManager;
-use Storyfeed\Support\StoryManifest;
 use Workbench\App\Models\Delivery;
 use Workbench\App\Models\User;
 
@@ -131,7 +131,7 @@ it('compiles the three authoring forms to the same intent registry', function ()
     $forms = [
         'class' => [$story::class],
         'fluent' => [
-            StoryDefinition::make('delivery.confirm')
+            Verb::make('delivery.confirm')
                 ->headline(':actor confirmed :object')
                 ->icon('bi-truck')
                 ->intent('success'),
@@ -157,7 +157,7 @@ it('compiles the three authoring forms to the same intent registry', function ()
 
 it('leaves the registry empty when no story declares an intent', function () {
     Storyfeed::stories([
-        StoryDefinition::make('delivery.confirm')->headline(':actor confirmed :object')->icon('bi-truck'),
+        Verb::make('delivery.confirm')->headline(':actor confirmed :object')->icon('bi-truck'),
     ]);
 
     expect(Storyfeed::compiledStories()['glyphIntents'])->toBe([])
@@ -166,7 +166,7 @@ it('leaves the registry empty when no story declares an intent', function () {
 
 it('lets a hand-written registration win over a compiled one, like every registry', function () {
     Storyfeed::stories([
-        StoryDefinition::make('delivery.confirm')->headline(':actor confirmed :object')->intent('success'),
+        Verb::make('delivery.confirm')->headline(':actor confirmed :object')->intent('success'),
     ]);
     Storyfeed::glyphIntents(['delivery.confirm' => 'overridden']);
 
@@ -175,7 +175,7 @@ it('lets a hand-written registration win over a compiled one, like every registr
 
 it('round-trips through the cached manifest and tolerates a manifest written before it existed', function () {
     $stories = [
-        StoryDefinition::make('delivery.confirm')->headline(':actor confirmed :object')->intent('success'),
+        Verb::make('delivery.confirm')->headline(':actor confirmed :object')->intent('success'),
     ];
     Storyfeed::stories($stories);
 

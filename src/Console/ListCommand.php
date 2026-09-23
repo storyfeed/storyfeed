@@ -7,7 +7,7 @@ use Illuminate\Console\Command;
 use Illuminate\Database\Eloquent\Model;
 use Storyfeed\FeedHeadline;
 use Storyfeed\Grouping\Group;
-use Storyfeed\StoryDefinition;
+use Storyfeed\Stories\Verb;
 use Storyfeed\StoryfeedManager;
 use Storyfeed\Support\ManifestClosure;
 
@@ -98,7 +98,7 @@ class ListCommand extends Command
     /**
      * @return array{type: string, verb: string, headline: string|null, anonymous_headline: string|null, icon: string|null, intent: string|null, groups: array<string, string|null>, source: string}
      */
-    protected function row(StoryDefinition $definition, string $type): array
+    protected function row(Verb $definition, string $type): array
     {
         $groups = [];
 

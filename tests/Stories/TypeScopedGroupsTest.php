@@ -5,7 +5,7 @@ use Storyfeed\Facades\Story;
 use Storyfeed\Facades\Storyfeed;
 use Storyfeed\Grouping\Group;
 use Storyfeed\Grouping\GroupBuilder;
-use Storyfeed\StoryDefinition;
+use Storyfeed\Stories\Verb;
 use Workbench\App\Models\Customer;
 use Workbench\App\Models\Delivery;
 
@@ -58,7 +58,7 @@ it('keeps axis.verb for an unscoped verb and for the other authoring forms', fun
     Story::verb('ship')->grouped(Group::byActors()->headline(':actors shipped :count things'));
 
     Storyfeed::stories([
-        StoryDefinition::for(Delivery::class, 'hold')
+        Verb::for(Delivery::class, 'hold')
             ->grouped(Group::byActors()->headline(':actors held :count things')),
     ]);
 

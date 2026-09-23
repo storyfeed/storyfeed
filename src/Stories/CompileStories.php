@@ -1,6 +1,6 @@
 <?php
 
-namespace Storyfeed\Actions;
+namespace Storyfeed\Stories;
 
 use Closure;
 use Storyfeed\ActivityStreams\CoreType;
@@ -9,7 +9,6 @@ use Storyfeed\Exceptions\StoryMisconfigured;
 use Storyfeed\FeedHeadline;
 use Storyfeed\FeedNoun;
 use Storyfeed\Grouping\Group;
-use Storyfeed\StoryDefinition;
 use Storyfeed\StoryfeedManager;
 
 /**
@@ -52,7 +51,7 @@ class CompileStories
     public const REGISTRIES = ['grammar', 'aggregateGrammar', 'actorlessGrammar', 'icons', 'glyphIntents', 'nouns', 'objectTypes', 'verbs', 'missing'];
 
     /**
-     * @param  array<int, StoryDefinition>  $definitions
+     * @param  array<int, Verb>  $definitions
      * @return Compiled
      */
     public function __invoke(array $definitions, StoryfeedManager $storyfeed): array
@@ -178,7 +177,7 @@ class CompileStories
      */
     protected function compileGroup(
         Group $group,
-        StoryDefinition $definition,
+        Verb $definition,
         StoryfeedManager $storyfeed,
         array &$aggregateGrammar,
         array &$grammar,
@@ -223,11 +222,11 @@ class CompileStories
      * pointing at `Story::verb(…)->grouped()`. Row-backed axes (composite,
      * batch) keep `axis.verb`; their headline belongs to the verb already.
      *
-     * Story classes and StoryDefinition::make()/for() keep `axis.verb`.
+     * Story classes and Verb::make()/for() keep `axis.verb`.
      *
      * @return list<string>
      */
-    protected function groupKeys(Group $group, StoryDefinition $definition, StoryfeedManager $storyfeed): array
+    protected function groupKeys(Group $group, Verb $definition, StoryfeedManager $storyfeed): array
     {
         $verb = $definition->verb;
 
@@ -255,7 +254,7 @@ class CompileStories
      *
      * @param  array<string, string|Closure|FeedHeadline>  $grammar
      */
-    protected function assertCompositeHasParentGrammar(StoryDefinition $definition, array $grammar): void
+    protected function assertCompositeHasParentGrammar(Verb $definition, array $grammar): void
     {
         $composite = array_filter(
             $definition->groupList(),

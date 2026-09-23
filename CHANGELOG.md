@@ -4,6 +4,20 @@
 
 ### Changed
 
+- **The verb enum is `Act`, and the story subsystem moves into
+  `Storyfeed\Stories\`.** Names only; nothing behaves differently.
+  `Storyfeed\Verb` → `Storyfeed\Act` (`Act::Create` still stores `create`, so
+  nothing in any table changes). `Storyfeed\StoryDefinition` →
+  `Storyfeed\Stories\Verb`. `Storyfeed\Story` → `Storyfeed\Stories\Story`.
+  `Storyfeed\StoryManager` → `Storyfeed\Stories\Registrar`, the class behind
+  the `Story` facade. `Storyfeed\TypeScope` → `Storyfeed\Stories\TypeScope`.
+  `Storyfeed\PendingResource` → `Storyfeed\Stories\PendingResource`.
+  `Storyfeed\Support\DefinitionsFile` → `Storyfeed\Stories\DefinitionsFile`.
+  `Storyfeed\Actions\CompileStories` → `Storyfeed\Stories\CompileStories`.
+  `Storyfeed\Support\StoryManifest` → `Storyfeed\Stories\StoryManifest`.
+  `Facades\Story`, `Contracts\FeedVerb` and `FeedDefinition` keep their names.
+  Update your imports, then re-run `storyfeed:cache` if you use it, the same
+  way you re-run `route:cache` after a deploy.
 - **Deleting a model no longer deletes its activities.** A `Feedable`'s
   `deleted` event now leaves an entity tombstone, a `Storyfeed\Models\FeedTombstone`
   row (alias `storyfeed.tombstone`, resolved whatever the app's morph map

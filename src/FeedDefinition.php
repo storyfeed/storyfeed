@@ -20,12 +20,12 @@ use Storyfeed\Exceptions\FeedMisconfigured;
  *       'kitchen' => fn (FeedBuilder $feed) => $feed->only(...),  // a closure, ad-hoc
  *   ]);
  *
- * The closure form is the StoryDefinition analogue and stays first-class: a
+ * The closure form is the Stories\Verb analogue and stays first-class: a
  * two-line admin preset should not need a file. Because the manager and doctor
  * consume only this type, the forms are provably the same thing — a test
  * asserts a class feed and its equivalent closure produce identical queries.
  *
- * WHERE THE STORY ANALOGY STOPS. A StoryDefinition compiles to DATA, which is
+ * WHERE THE STORY ANALOGY STOPS. A Stories\Verb compiles to DATA, which is
  * what lets `storyfeed:cache` var_export the registries and skip compilation
  * altogether. A feed compiles to BEHAVIOUR — define() may call query() with a
  * closure, scope() binds a live model — so it can never enter the manifest.

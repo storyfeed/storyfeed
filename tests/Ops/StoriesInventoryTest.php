@@ -4,7 +4,7 @@ use Illuminate\Support\Facades\Artisan;
 use PHPUnit\Framework\AssertionFailedError;
 use Storyfeed\Facades\Storyfeed;
 use Storyfeed\Grouping\Group;
-use Storyfeed\StoryDefinition;
+use Storyfeed\Stories\Verb;
 use Storyfeed\StoryfeedManager;
 use Storyfeed\Testing\GrammarCoverage;
 use Storyfeed\Testing\StorySurface;
@@ -68,7 +68,7 @@ it('marks a recorded pair with no grammar as unauthored', function () {
 
 it('marks an authored-but-never-recorded story as dead', function () {
     Storyfeed::stories([
-        StoryDefinition::make('delivery.confirm')->headline(':actor confirmed :object'),
+        Verb::make('delivery.confirm')->headline(':actor confirmed :object'),
     ]);
 
     $this->artisan('storyfeed:stories --gaps')
@@ -79,7 +79,7 @@ it('marks an authored-but-never-recorded story as dead', function () {
 it('marks a story missing an applicable axis as a gap', function () {
     Storyfeed::stories([
         // Authored singular, and only ONE of the axes `upload` can reach.
-        StoryDefinition::make('delivery.upload')
+        Verb::make('delivery.upload')
             ->headline(':actor uploaded :object')
             ->groups(Group::repeat()->headline(':actor uploaded :count')),
     ]);

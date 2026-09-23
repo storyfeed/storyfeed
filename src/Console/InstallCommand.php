@@ -4,7 +4,7 @@ namespace Storyfeed\Console;
 
 use Illuminate\Console\Command;
 use Illuminate\Filesystem\Filesystem;
-use Storyfeed\Support\DefinitionsFile;
+use Storyfeed\Stories\DefinitionsFile;
 
 /**
  * Install Storyfeed: publish the config and migrations, create

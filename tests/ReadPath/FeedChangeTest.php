@@ -4,7 +4,7 @@ use Storyfeed\Facades\Storyfeed;
 use Storyfeed\FeedChange;
 use Storyfeed\FeedThread;
 use Storyfeed\Serialization\ActivitySerializer;
-use Storyfeed\Story;
+use Storyfeed\Stories\Story;
 use Workbench\App\Models\Delivery;
 
 class ChangeStory extends Story
