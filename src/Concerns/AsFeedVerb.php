@@ -63,12 +63,6 @@ trait AsFeedVerb
         return PendingActivity::make($this, $object);
     }
 
-    /** @deprecated Use of(): `ActivityVerb::Upload->of($document)`. */
-    public function activity(Model|string|null $object = null): PendingActivity
-    {
-        return $this->of($object);
-    }
-
     /** Begin this verb's activity with an explicitly unknown actor. */
     public function anonymous(Model|string|null $object = null): PendingActivity
     {

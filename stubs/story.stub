@@ -7,10 +7,6 @@ use Storyfeed\Stories\Story;
 
 class {{ class }} extends Story
 {
-    public string|array|null $objectType = {{ objectType }};
-
-    public string|\Storyfeed\Contracts\FeedVerb|\BackedEnum|null $verb = '{{ verb }}';
-
     public function headline(): string
     {
         return '{{ headline }}';

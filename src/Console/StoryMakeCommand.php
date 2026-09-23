@@ -16,20 +16,24 @@ use Symfony\Component\Console\Input\InputOption;
  * Generate a Story class.
  *
  *   php artisan make:story DocumentWasUploaded
- *   php artisan make:story DocumentWasUploaded --object=App\Models\Document
+ *   php artisan make:story TaskWasCompleted --verb=complete --model=Task
  *   php artisan make:story OrderStory --resource --model=Order
  *   php artisan make:story --from-doctor
  *
+ * Every form PRINTS the line that binds the class, and the line names the
+ * verb and the object type, so a one-verb class doesn't repeat them:
+ *
+ *   Story::for(\App\Models\Task::class)->verb('complete', \App\Stories\TaskWasCompleted::class);
+ *
  * `--resource` writes a resource Story class, one method per verb, with the
- * four conventional ones filled in, and PRINTS the line that binds it. Like
- * make:controller, it never edits routes/feed.php: the binding is yours to
- * place.
+ * four conventional ones filled in. Like make:controller, it never edits
+ * routes/feed.php: the binding is yours to place.
  *
  * THIS IS WHERE INFERENCE LIVES, and nowhere else. The `Was` infix is parsed
- * into an object and a verb, and both are WRITTEN INTO THE FILE as literals. A
- * wrong guess is therefore visible in the diff and editable, rather than a
- * runtime behaviour that self-registers a wrong verb past strict mode. It also
- * means the heuristic can be aggressive: a human reviews every result.
+ * into an object and a verb, and both are PRINTED in the binding line. A wrong
+ * guess is therefore visible and editable, rather than a runtime behaviour that
+ * self-registers a wrong verb past strict mode. The verb is named only when the
+ * app's declared vocabulary settles it; otherwise the line says TODO.
  *
  * `--from-doctor` scaffolds from doctor's findings. That is NOT the parked
  * `storyfeed:eject`, and the distinction matters: eject was rejected because it
@@ -48,6 +52,9 @@ class StoryMakeCommand extends GeneratorCommand
 
     protected $type = 'Story';
 
+    /** @var list<string> the binding line of each class written this run */
+    protected array $bindings = [];
+
     public function handle(): ?bool
     {
         // NOTE on return values: Command::execute() does `(int) handle()`, so
@@ -55,6 +62,7 @@ class StoryMakeCommand extends GeneratorCommand
         // fail() for real failures rather than relying on that inversion.
         if ($this->option('from-doctor')) {
             $this->fromDoctor();
+            $this->printBindings();
 
             return null;
         }
@@ -66,12 +74,31 @@ class StoryMakeCommand extends GeneratorCommand
         $result = parent::handle();
 
         if ($this->option('resource') && $result !== false) {
-            $this->components->info('Bind it in '.app(DefinitionsFile::class)->relativePath().':');
-            $this->line('    Story::resource('.$this->modelReference().', \\'.$this->qualifyClass($this->getNameInput()).'::class);');
-            $this->newLine();
+            $this->bindings[] = 'Story::resource('.$this->modelReference().', \\'.$this->qualifyClass($this->getNameInput()).'::class);';
         }
 
+        $this->printBindings();
+
         return $result;
+    }
+
+    /**
+     * Print the line that binds each class written, for routes/feed.php.
+     * Like make:controller, the file itself is never edited.
+     */
+    protected function printBindings(): void
+    {
+        if ($this->bindings === []) {
+            return;
+        }
+
+        $this->components->info('Bind it in '.app(DefinitionsFile::class)->relativePath().':');
+
+        foreach ($this->bindings as $binding) {
+            $this->line('    '.$binding);
+        }
+
+        $this->newLine();
     }
 
     /**
@@ -158,9 +185,11 @@ class StoryMakeCommand extends GeneratorCommand
 
         $this->reportInference($name, $parsed, $verb);
 
+        $this->bindings[] = 'Story::for('.$this->objectType($object).")->verb('{$verb}', \\{$name}::class);";
+
         return str_replace(
-            ['{{ objectType }}', '{{ verb }}', '{{ headline }}', '{{ groups }}'],
-            [$this->objectType($object), $verb, $this->headline($name, $verb), $this->groups($verb)],
+            ['{{ headline }}', '{{ groups }}'],
+            [$this->headline($name, $verb), $this->groups($verb)],
             $stub,
         );
     }
@@ -169,9 +198,9 @@ class StoryMakeCommand extends GeneratorCommand
      * Say what was guessed, and how confidently.
      *
      * The point of generator-time inference is that a wrong guess is VISIBLE.
-     * Writing it into the file silently would give away most of that.
+     * Printing it silently would give away most of that.
      *
-     * @param  array{object: string|null, verb: string|null, confident: bool}  $parsed
+     * @param  array{object: string|null, verb: string|null}  $parsed
      */
     protected function reportInference(string $name, array $parsed, string $verb): void
     {
@@ -181,21 +210,23 @@ class StoryMakeCommand extends GeneratorCommand
 
         if ($parsed['object'] === null) {
             $this->components->warn(
-                class_basename($name).' does not follow the {Object}Was{Verbed} convention, so the object and '
-                .'verb could not be read from it. Fill in $objectType and $verb, or pass --object and --verb.'
+                class_basename($name).' does not follow the {Object}Was{Verbed} convention, so the verb could '
+                .'not be read from it. Name it in the binding line, or pass --verb.'
             );
 
             return;
         }
 
-        $this->components->info("Wrote \$verb = '{$verb}' — inferred from the class name.");
-
-        if (! $parsed['confident']) {
+        if ($parsed['verb'] === null) {
             $this->components->warn(
-                "'{$verb}' is a guess: it is not in the app's declared vocabulary. Check it — the verb is stored "
-                .'verbatim, and a Story registers its own verb, so nothing downstream will second-guess it.'
+                'No declared verb matches '.class_basename($name).", so the binding line says 'TODO'. Name the verb "
+                .'there, or pass --verb. It is stored verbatim, so it is not guessed from the spelling.'
             );
+
+            return;
         }
+
+        $this->components->info("Bound to '{$verb}' — the declared verb the class name matches.");
     }
 
     /**
@@ -208,6 +239,10 @@ class StoryMakeCommand extends GeneratorCommand
     {
         if ($object === '*') {
             return "'*'";
+        }
+
+        if ($object === 'TODO') {
+            return 'TODO::class';
         }
 
         foreach ([$object, $this->rootNamespace().'Models\\'.Str::studly($object), $this->rootNamespace().Str::studly($object)] as $candidate) {
@@ -292,7 +327,7 @@ class StoryMakeCommand extends GeneratorCommand
     protected function getOptions(): array
     {
         return [
-            ['verb', null, InputOption::VALUE_OPTIONAL, 'The stored verb (default: read from the class name)'],
+            ['verb', null, InputOption::VALUE_OPTIONAL, 'The stored verb (default: the declared verb the class name matches)'],
             ['object', null, InputOption::VALUE_OPTIONAL, "The object model or morph alias, or '*' for object-less"],
             ['resource', 'r', InputOption::VALUE_NONE, 'Write a resource Story class: one method per verb'],
             ['model', 'm', InputOption::VALUE_OPTIONAL, 'The model the story is about (the resource binding, or the object)'],

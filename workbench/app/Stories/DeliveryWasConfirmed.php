@@ -12,10 +12,11 @@ use Workbench\App\Models\Delivery;
 /**
  * The canonical Story: everything about one activity type in one file.
  *
- * Note both `$objectType` and `$verb` are declared. Nothing is inferred from
- * the class name at runtime — `make:story` parses `Delivery`+`WasConfirmed`
- * and writes these two lines, so a wrong guess appears in the diff instead of
- * self-registering a wrong verb past strict mode.
+ * Note both `$objectType` and `$verb` are declared, so it registers without a
+ * binding line in routes/feed.php. Nothing is inferred from the class name at
+ * runtime — `make:story` parses `Delivery`+`WasConfirmed` and prints the line
+ * that binds it, so a wrong guess is seen instead of self-registering a wrong
+ * verb past strict mode.
  */
 class DeliveryWasConfirmed extends Story
 {

@@ -11,9 +11,14 @@ use Illuminate\Support\Str;
  * This is where all the inference in the package lives, and it lives here on
  * purpose. A Story registers its own verb, so a wrongly-inferred verb at boot
  * would self-register and sail straight past `verbs.strict`, REMOVING the typo
- * safety net that exists today. Run once by `make:story`, the same guess gets
- * written into the generated file as a literal — visible in the diff, editable,
- * and never consulted again. That makes it safe to be aggressive here.
+ * safety net that exists today. Run once by `make:story`, the result is printed
+ * in the binding line — visible, editable, and never consulted again.
+ *
+ * The verb is named only when the app's own vocabulary settles it. A suffix
+ * rule cannot: `uploaded → upload` and `completed → complete` are the same
+ * shape, and ranking the bare stem first once printed `'complet'`. A
+ * truncated verb looks plausible and is stored verbatim, so an unsettled one
+ * is left for the developer to name.
  *
  * THE NAMING CONVENTION: `{Object}Was{Verbed}` — `DocumentWasUploaded`,
  * `ProjectWasArchived`, `PurchaseOrderWasCreated`.
@@ -61,8 +66,11 @@ class StoryName
     ];
 
     /**
-     * @param  array<int, string>  $knownVerbs  the app's vocabulary, used to disambiguate
-     * @return array{object: string|null, verb: string|null, confident: bool}
+     * The verb is the one declared verb among the participle's candidates, or
+     * null when none is, or more than one.
+     *
+     * @param  array<int, string>  $knownVerbs  the app's vocabulary, the only authority on the verb
+     * @return array{object: string|null, verb: string|null}
      */
     public static function parse(string $class, array $knownVerbs = []): array
     {
@@ -74,27 +82,21 @@ class StoryName
         $base = Str::endsWith($base, 'Story') ? Str::beforeLast($base, 'Story') : $base;
 
         if (! Str::contains($base, 'Was')) {
-            return ['object' => null, 'verb' => null, 'confident' => false];
+            return ['object' => null, 'verb' => null];
         }
 
         $object = Str::before($base, 'Was');
         $participle = Str::after($base, 'Was');
 
         if ($object === '' || $participle === '') {
-            return ['object' => null, 'verb' => null, 'confident' => false];
+            return ['object' => null, 'verb' => null];
         }
 
-        $candidates = self::candidates($participle);
-
-        // Prefer a candidate the app has already declared. This is the whole
-        // reason to bother with candidates rather than one rule: the app's own
-        // vocabulary is a better authority than any suffix heuristic.
-        $known = array_values(array_intersect($candidates, $knownVerbs));
+        $known = array_values(array_intersect(self::candidates($participle), $knownVerbs));
 
         return [
             'object' => $object,
-            'verb' => $known[0] ?? $candidates[0] ?? null,
-            'confident' => count($known) === 1,
+            'verb' => count($known) === 1 ? $known[0] : null,
         ];
     }
 
@@ -127,12 +129,8 @@ class StoryName
      * DELIBERATELY NOT CLEVER. `uploaded → upload` and `frobnicated →
      * frobnicate` are structurally identical (vowel, consonant, "ed"), so no
      * suffix rule can separate them — it needs a dictionary. Rather than pick a
-     * rule that is wrong half the time, this returns every plausible form and
-     * lets two better authorities decide: the app's declared vocabulary, and
-     * failing that, the developer reading the warning.
-     *
-     * That is only acceptable because this runs at GENERATOR time. At boot the
-     * same ambiguity would silently register a nonsense verb.
+     * rule that is wrong half the time, this returns every plausible form, in
+     * no meaningful order, and the app's declared vocabulary picks one.
      *
      * @return array<int, string>
      */

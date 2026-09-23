@@ -65,9 +65,10 @@ it('begins a one-verb class and a verb enum with the same word', function () {
         ->and($viaClass->object_type)->toBe($viaEnum->object_type);
 });
 
-it('drops the old words: Story::activity() and the enum\'s action()', function () {
+it('drops the old words: Story::activity() and the enum\'s action() and activity()', function () {
     expect(method_exists(DeliveryWasConfirmed::class, 'activity'))->toBeFalse()
-        ->and(method_exists(ActivityVerb::Confirm, 'action'))->toBeFalse();
+        ->and(method_exists(ActivityVerb::Confirm, 'action'))->toBeFalse()
+        ->and(method_exists(ActivityVerb::Confirm, 'activity'))->toBeFalse();
 });
 
 it('says which of() takes the object when given a Story class', function () {

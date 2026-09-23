@@ -19,8 +19,11 @@ use Storyfeed\Stories\Registrar;
  * Story classes extend. The two rarely meet in one file; where they do, alias
  * one: `use Storyfeed\Stories\Story as BaseStory;`.
  *
+ * `Story::verb('x')` returns the definition to configure; binding a one-verb
+ * class, `Story::verb('x', X::class)`, returns null — the class says it all.
+ *
  * @method static \Storyfeed\Stories\TypeScope for(string|array<int, string> $objectType)
- * @method static \Storyfeed\Stories\Verb verb(string|\Storyfeed\Contracts\FeedVerb|\BackedEnum $verb, ?string $story = null)
+ * @method static ($story is null ? \Storyfeed\Stories\Verb : null) verb(string|\Storyfeed\Contracts\FeedVerb|\BackedEnum $verb, ?string $story = null)
  * @method static \Storyfeed\Stories\Verb fallback()
  * @method static \Storyfeed\Stories\PendingResource resource(string|array<int, string> $objectType, ?string $class = null)
  *
