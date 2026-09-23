@@ -20,6 +20,9 @@ use Storyfeed\Support\MorphResolver;
  * the parent's events, when Feedables::listenThroughParents() picked the
  * class up (it is in the morph map, or registered with
  * `Storyfeed::feedable()`); otherwise only by the trickle, on its schedule.
+ * Updates are never heard through the parent: probing on every save to the
+ * parent's table would cost more than a stale snapshot, so a subclass
+ * updated as its parent keeps its snapshot until the trickle runs.
  *
  * A subclass over a table of its own shares no rows with its parent, so it
  * is not reported.
@@ -64,7 +67,8 @@ class InheritedDeletes extends Check
                 "`{$alias}` ({$class}) is deleted through {$through}, which is not Feedable, so its own model events never fire. "
                 .($listening
                     ? 'Storyfeed listens to the parent\'s delete, force-delete and restore events for it, so its tombstones arrive at deletion time; the trickle still sweeps as a safety net.'
-                    : 'Nothing listens to the parent for it, so its tombstones arrive on the trickle\'s schedule. Add it to the morph map to hear deletions as they happen.'),
+                    : 'Nothing listens to the parent for it, so its tombstones arrive on the trickle\'s schedule. Add it to the morph map to hear deletions as they happen.')
+                ." Updates are not heard through {$through} either way: a {$class} updated as its parent keeps its snapshot until the trickle runs.",
                 ['alias' => $alias, 'class' => $class, 'parents' => $through, 'listening' => $listening],
             );
         }

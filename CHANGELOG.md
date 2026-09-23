@@ -357,7 +357,9 @@
 - **`storyfeed:doctor` names a `Feedable` subclass deleted through a
   non-Feedable parent** (`inherited.parent_deletes`, Info): the class, its
   alias, the parents, and whether the parent listener is active or its
-  tombstones arrive on the trickle's schedule.
+  tombstones arrive on the trickle's schedule. It also says that updates are
+  not heard through the parent: a subclass updated as its parent keeps its
+  snapshot until the trickle runs.
 
 - **`php artisan about` has a Storyfeed section.** It says whether
   `routes/feed.php` is loaded, or cached and skipped at boot; whether

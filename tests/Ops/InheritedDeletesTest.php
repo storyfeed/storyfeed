@@ -35,6 +35,7 @@ it('names a Feedable subclass deleted through its parent, and says the listener 
         ])
         ->and($finding->message)->toContain('is deleted through '.Photo::class)
         ->and($finding->message)->toContain('arrive at deletion time')
+        ->and($finding->message)->toContain('Updates are not heard through '.Photo::class.' either way: a '.FeedablePhoto::class.' updated as its parent keeps its snapshot until the trickle runs.')
         ->and($report->isHealthy())->toBeTrue();
 });
 
@@ -48,7 +49,8 @@ it('says tombstones wait for the trickle when nothing listens', function () {
     $finding = Storyfeed::doctor(['inherited'])->withCode('inherited.parent_deletes')->sole();
 
     expect($finding->subject['listening'])->toBeFalse()
-        ->and($finding->message)->toContain("on the trickle's schedule");
+        ->and($finding->message)->toContain("on the trickle's schedule")
+        ->and($finding->message)->toContain('keeps its snapshot until the trickle runs');
 });
 
 it('says nothing for a Feedable model with no such parent', function () {
