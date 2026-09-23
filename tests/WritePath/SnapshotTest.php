@@ -22,7 +22,8 @@ it('snapshots every feedable entity synchronously on publish', function () {
         ->and($activity->cached_target_id)->not->toBeNull();
 
     expect($activity->cachedObject->label)->toBe('Delivery #TN-1042')
-        ->and($activity->cachedObject->component)->toBe('Resource')
+        // `component` is retired: the column stays until the v1 squash, unwritten.
+        ->and($activity->cachedObject->component)->toBeNull()
         ->and($activity->cachedObject->model_type)->toBe('delivery')
         ->and($activity->cachedActor->label)->toBe('Sally')
         ->and($activity->cachedTarget->label)->toBe('Acme Co.');

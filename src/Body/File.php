@@ -2,6 +2,7 @@
 
 namespace Storyfeed\Body;
 
+use Illuminate\Support\Traits\Conditionable;
 use Storyfeed\Concerns\HasPayload;
 use Storyfeed\Contracts\FeedBody;
 
@@ -10,10 +11,9 @@ use Storyfeed\Contracts\FeedBody;
  *
  *     public function toFeed(): FeedEntity
  *     {
- *         return FeedEntity::make($this->name, data: File::make(
- *             size: $this->bytes,
- *             mediaType: $this->mime,
- *         ));
+ *         return FeedEntity::make()
+ *             ->label($this->name)
+ *             ->body(File::make()->size($this->bytes)->mediaType($this->mime));
  *     }
  *
  * The canonical case for the whole feature. "Sally uploaded archive.zip to
@@ -52,25 +52,50 @@ use Storyfeed\Contracts\FeedBody;
  */
 class File implements FeedBody
 {
+    use Conditionable;
     use HasPayload;
 
-    final protected function __construct(
-        private readonly ?string $name,
-        private readonly ?int $size,
-        private readonly ?string $mediaType,
-    ) {}
+    private ?string $name = null;
+
+    private ?int $size = null;
+
+    private ?string $mediaType = null;
+
+    final protected function __construct() {}
 
     /**
-     * @param  string|null  $name  only when it differs from the entity's label — a preview complements a headline
+     * Start a file. Every argument is optional and has a method of the same name.
+     *
      * @param  int|null  $size  in bytes
+     * @param  string|null  $name  only when it differs from the entity's label — a preview complements a headline
      */
     public static function make(?int $size = null, ?string $mediaType = null, ?string $name = null): static
     {
-        return new static(
-            $name,
-            $size !== null && $size >= 0 ? $size : null,
-            $mediaType,
-        );
+        return (new static)->size($size)->mediaType($mediaType)->name($name);
+    }
+
+    /** The size in bytes. A negative size is unknown, and null. */
+    public function size(?int $size): static
+    {
+        $this->size = $size !== null && $size >= 0 ? $size : null;
+
+        return $this;
+    }
+
+    /** The file's MIME type, such as `application/pdf`. */
+    public function mediaType(?string $mediaType): static
+    {
+        $this->mediaType = $mediaType;
+
+        return $this;
+    }
+
+    /** The filename, only when it differs from the entity's label. */
+    public function name(?string $name): static
+    {
+        $this->name = $name;
+
+        return $this;
     }
 
     /**
@@ -86,7 +111,7 @@ class File implements FeedBody
      * package, which is the misreading that produced the earlier fork.
      * Renderers match it EXACTLY, so the casing is part of the name.
      */
-    public static function name(): string
+    public static function bodyType(): string
     {
         return 'Storyfeed/Body/File';
     }
@@ -111,7 +136,7 @@ class File implements FeedBody
     public function toPayload(): array
     {
         return [
-            self::KEY => self::name(),
+            self::KEY => self::bodyType(),
             self::VERSION => self::version(),
             'name' => $this->name,
             'size' => $this->size,

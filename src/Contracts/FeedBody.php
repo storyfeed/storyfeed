@@ -28,8 +28,8 @@ use Storyfeed\FeedThread;
  * can draw a body type defined by a package it has never heard of, and a body
  * outlives whichever library defined it. Nothing below assumes otherwise.
  *
- * Core also ships seven body types under `Storyfeed\Body` — Change, Excerpt,
- * KeyValue, File, Prose, ItemList, MediaObject. **They are a vocabulary, not a
+ * Core also ships eight body types under `Storyfeed\Body` — Change, Excerpt,
+ * KeyValue, File, Prose, ItemList, MediaObject, Component. **They are a vocabulary, not a
  * mechanism**: nothing in this package reads them, and an app may write its own
  * and owe them nothing. They were in `storyfeed/ui` until 2026-09-14 and moved
  * for one reason — their names always said `Storyfeed/`, because a body's
@@ -39,7 +39,7 @@ use Storyfeed\FeedThread;
  *
  * That leaves one property to protect deliberately. A body type in core must
  * not acquire core's release gravity: a body carries its own `$v` and the
- * renderer upgrades it, so these seven evolve on their own timeline and NOT on
+ * renderer upgrades it, so these eight evolve on their own timeline and NOT on
  * the payload contract's.
  *
  * So core learns NO NAME and NO SHAPE. Nothing here is a registry, nothing
@@ -117,10 +117,20 @@ use Storyfeed\FeedThread;
  * so no extension term has to be minted, and a term named for a shape we are
  * still learning is a permanent commitment to this week's spelling.
  *
- * The seven already agree with this. `content`, `mediaType`, `size`, `image`,
+ * The eight already agree with this. `content`, `mediaType`, `size`, `image`,
  * `attachments`, `rows`, `changes`, `text`, `from`, `truncated`, `footnote` —
  * each is the plainest word for what it holds, and `File`'s `name` is a
- * filename rather than a heading.
+ * filename rather than a heading, as `Component`'s is the name of the
+ * frontend component that draws it.
+ *
+ * ## Built fluently, as `FeedEntity` is
+ *
+ * Every body type core ships starts from an empty `make()` and has a method
+ * for each of its arguments, and those setters change the body and return
+ * it: `Excerpt::make()->text($note)->from('Jasper')`. Named arguments reach
+ * the same payload. A value a body cannot do without is checked when the body
+ * is USED, in `toPayload()`, with an exception naming the method to call.
+ * Lists append and maps merge, in `View::with()`'s manner.
  *
  * KNOWN DEVIATION: `Body\MediaObject` spells its title line `subject`.
  * Left alone rather than quietly aligned, because changing a stored key breaks
@@ -156,7 +166,7 @@ interface FeedBody extends Arrayable
      * prevents permanent leaks into the frozen payload contract.
      *
      * This belongs on the published interface so every future body DTO,
-     * including the seven core ships, must supply a payload deliberately. A
+     * including the eight core ships, must supply a payload deliberately. A
      * trait alone would leave that obligation optional; widening the interface
      * is affordable before the v0.3 freeze, not after it.
      *
@@ -203,6 +213,11 @@ interface FeedBody extends Arrayable
     /**
      * This body type's name, as it is written into storage.
      *
+     * `bodyType()` AND NOT `name()`, because `name` is the plainest word for
+     * a value a body carries — `File`'s filename, `Component`'s component —
+     * and a fluent setter for that value needs the method name. It was
+     * `name()` until 2026-09-23.
+     *
      * NAMESPACE IT TO THE VOCABULARY OWNER — `Storyfeed/Change`,
      * `Acme/Shipment`. The name outlives every class that writes it, so it
      * says whose vocabulary it is, and two libraries that both wanted the word
@@ -218,7 +233,7 @@ interface FeedBody extends Arrayable
      * does not know a name draws nothing (rule 3); core that does not know a
      * name says nothing.
      */
-    public static function name(): string;
+    public static function bodyType(): string;
 
     /** The version this class writes today. */
     public static function version(): int;

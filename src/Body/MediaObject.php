@@ -2,6 +2,7 @@
 
 namespace Storyfeed\Body;
 
+use Illuminate\Support\Traits\Conditionable;
 use LogicException;
 use Storyfeed\Concerns\HasPayload;
 use Storyfeed\Contracts\FeedBody;
@@ -16,11 +17,12 @@ use Storyfeed\MediaSlot;
  *
  *     public function toFeed(): FeedEntity
  *     {
- *         return FeedEntity::make($this->name, data: MediaObject::make(
- *             subject: $this->name,
- *             content: $this->summary,
- *             image:   $this->feedMediaIcon(),
- *         ));
+ *         return FeedEntity::make()
+ *             ->label($this->name)
+ *             ->body(MediaObject::make()
+ *                 ->subject($this->name)
+ *                 ->content($this->summary)
+ *                 ->image($this->feedMediaIcon()));
  *     }
  *
  * Stored:
@@ -268,20 +270,25 @@ use Storyfeed\MediaSlot;
  */
 class MediaObject implements FeedBody
 {
+    use Conditionable;
     use HasPayload;
 
-    /**
-     * @param  list<FeedResource>  $attachments
-     */
-    final protected function __construct(
-        private readonly string|FeedLink|null $subject,
-        private readonly ?string $content,
-        private readonly ?MediaSlot $image,
-        private readonly array $attachments,
-        private readonly string|FeedLink|null $footnote,
-    ) {}
+    private string|FeedLink|null $subject = null;
+
+    private ?string $content = null;
+
+    private ?MediaSlot $image = null;
+
+    /** @var list<FeedResource> */
+    private array $attachments = [];
+
+    private string|FeedLink|null $footnote = null;
+
+    final protected function __construct() {}
 
     /**
+     * Start a media object. Every argument is optional and has a method of the same name.
+     *
      * @param  string|FeedLink|null  $subject  a title line — only when the headline does not already say it; a {@see FeedLink} makes it the row's way in
      * @param  string|null  $content  prose, as plain text
      * @param  MediaSlot|null  $image  which of the entity's media slots is this block's picture
@@ -295,13 +302,66 @@ class MediaObject implements FeedBody
         array $attachments = [],
         string|FeedLink|null $footnote = null,
     ): static {
-        return new static(
-            $subject,
-            $content,
-            $image,
-            array_values(array_filter($attachments, fn (mixed $file): bool => $file instanceof FeedResource)),
-            $footnote,
-        );
+        return (new static)
+            ->subject($subject)
+            ->content($content)
+            ->image($image)
+            ->attachments(array_values(array_filter($attachments, fn (mixed $file): bool => $file instanceof FeedResource)))
+            ->footnote($footnote);
+    }
+
+    /**
+     * A title line — only when the headline does not already say it. A
+     * {@see FeedLink} makes it the row's way in.
+     */
+    public function subject(string|FeedLink|null $subject): static
+    {
+        $this->subject = $subject;
+
+        return $this;
+    }
+
+    /** Prose, as plain text. */
+    public function content(?string $content): static
+    {
+        $this->content = $content;
+
+        return $this;
+    }
+
+    /**
+     * Which of the entity's media slots is this block's picture. Sets it
+     * outright; {@see withIcon()} and its siblings refuse a second slot.
+     */
+    public function image(?MediaSlot $image): static
+    {
+        $this->image = $image;
+
+        return $this;
+    }
+
+    /**
+     * Add the files this block names. Each call APPENDS, in the order given.
+     *
+     * @param  FeedResource|iterable<FeedResource>  ...$attachments
+     */
+    public function attachments(FeedResource|iterable ...$attachments): static
+    {
+        foreach ($attachments as $attachment) {
+            foreach ($attachment instanceof FeedResource ? [$attachment] : $attachment as $file) {
+                $this->attachments[] = $file;
+            }
+        }
+
+        return $this;
+    }
+
+    /** Small print under the content — a credit, an approval; never a second paragraph. */
+    public function footnote(string|FeedLink|null $footnote): static
+    {
+        $this->footnote = $footnote;
+
+        return $this;
     }
 
     /** The picture is the entity's `icon` — which thing this is. */
@@ -333,7 +393,9 @@ class MediaObject implements FeedBody
      */
     public function withAttachments(FeedResource $file, FeedResource ...$more): static
     {
-        return new static($this->subject, $this->content, $this->image, [$file, ...$more], $this->footnote);
+        $this->attachments = [$file, ...$more];
+
+        return $this;
     }
 
     /**
@@ -349,7 +411,7 @@ class MediaObject implements FeedBody
      * package, which is the misreading that produced the earlier fork.
      * Renderers match it EXACTLY, so the casing is part of the name.
      */
-    public static function name(): string
+    public static function bodyType(): string
     {
         return 'Storyfeed/Body/MediaObject';
     }
@@ -403,7 +465,7 @@ class MediaObject implements FeedBody
     public function toPayload(): array
     {
         return [
-            self::KEY => self::name(),
+            self::KEY => self::bodyType(),
             self::VERSION => self::version(),
             'subject' => $this->subject instanceof FeedLink ? $this->subject->toPayload() : $this->subject,
             'content' => $this->content,
@@ -466,6 +528,8 @@ class MediaObject implements FeedBody
             ));
         }
 
-        return new static($this->subject, $this->content, $slot, $this->attachments, $this->footnote);
+        $this->image = $slot;
+
+        return $this;
     }
 }

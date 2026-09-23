@@ -3,6 +3,7 @@
 namespace Storyfeed;
 
 use Closure;
+use Illuminate\Support\Traits\Conditionable;
 use Storyfeed\Contracts\FeedBody;
 use Storyfeed\Support\BodySlot;
 
@@ -47,32 +48,62 @@ use Storyfeed\Support\BodySlot;
  * ## Two ways to build one, both wanted
  *
  *     FeedMedia::make(url: $full, preview: $thumb)
- *     FeedMedia::make($href)->preview($thumb)->icon($avatar)
+ *     FeedMedia::make()->url($full)->preview($thumb)->icon($avatar)
  *
  * Named arguments for the one-expression case; fluent setters for the
- * resolver that decides slot by slot. The setters mutate and return $this,
- * as StoryDefinition's do, and the properties are `private(set)` so the
- * value is still immutable from outside: a presenter can read every slot and
- * change none.
+ * resolver that decides slot by slot. Every `make()` argument has a method of
+ * the same name. The setters mutate and return $this, as StoryDefinition's
+ * do; lists append (`attachments()`, `body()`) and maps merge in
+ * `View::with()`'s manner (`attributes()`). The properties are
+ * `private(set)`, so a presenter can read every slot and change none.
  */
 final class FeedMedia
 {
+    use Conditionable;
+
+    /** Where the resource lives: an href, or an image with its dimensions. */
+    public private(set) FeedImage|string|null $url = null;
+
+    /** A label that overrides the snapshot's, read fresh on every request. */
+    public private(set) ?string $label = null;
+
+    /** @var array<string, mixed> attributes for the rendered link */
+    public private(set) array $attributes = [];
+
+    /** Whether the link should open as a modal. */
+    public private(set) bool $modal = false;
+
+    public private(set) ?FeedImage $icon = null;
+
+    public private(set) ?FeedImage $preview = null;
+
+    public private(set) ?FeedImage $image = null;
+
     /** @var list<FeedResource> */
-    public private(set) array $attachments;
+    public private(set) array $attachments = [];
 
     /**
-     * A body resolved at read time, or a closure that would build one.
+     * Bodies resolved at read time, or closures that would build them.
      *
-     * HELD AS GIVEN AND RESOLVED IN {@see body()}, never in the constructor.
-     * Every other parameter here normalizes on the way in, and doing the same
+     * HELD AS GIVEN AND RESOLVED IN {@see $body}, never in a setter.
+     * Every other slot here normalizes on the way in, and doing the same
      * to a closure would run it immediately — which is the whole thing a
      * closure is for not doing. A resolver runs for the url whether or not a
      * body is wanted, so the expensive half is handed over unbuilt and called
      * only on a read that draws one.
      *
-     * @var string|FeedBody|iterable<mixed>|Closure|null
+     * @var list<string|FeedBody|array<mixed>|Closure>
      */
-    private string|FeedBody|iterable|Closure|null $body;
+    private array $bodies = [];
+
+    /**
+     * The body resolved at read time, built now if it was handed over unbuilt.
+     *
+     * @var list<array<string, mixed>>
+     */
+    public array $body {
+        get => array_merge(...array_map(BodySlot::normalize(...), $this->bodies));
+    }
 
     /**
      * @param  array<string, mixed>  $attributes
@@ -80,21 +111,31 @@ final class FeedMedia
      * @param  string|FeedBody|iterable<mixed>|Closure|null  $body
      */
     public function __construct(
-        public private(set) FeedImage|string|null $url = null,
-        public private(set) ?string $label = null,
-        public private(set) array $attributes = [],
-        public private(set) bool $modal = false,
-        public private(set) ?FeedImage $icon = null,
-        public private(set) ?FeedImage $preview = null,
-        public private(set) ?FeedImage $image = null,
+        FeedImage|string|null $url = null,
+        ?string $label = null,
+        array $attributes = [],
+        bool $modal = false,
+        FeedImage|string|null $icon = null,
+        FeedImage|string|null $preview = null,
+        FeedImage|string|null $image = null,
         iterable $attachments = [],
         string|FeedBody|iterable|Closure|null $body = null,
     ) {
-        $this->attachments = self::resources($attachments);
-        $this->body = $body;
+        $this->url($url)
+            ->label($label)
+            ->attributes($attributes)
+            ->modal($modal)
+            ->icon($icon)
+            ->preview($preview)
+            ->image($image)
+            ->attachments($attachments)
+            ->body($body);
     }
 
     /**
+     * Start the media. Every argument is optional and has a method of the
+     * same name, so `make()` with nothing is where the chain begins.
+     *
      * @param  array<string, mixed>  $attributes
      * @param  iterable<FeedResource>  $attachments
      * @param  string|FeedBody|iterable<mixed>|Closure|null  $body
@@ -110,29 +151,13 @@ final class FeedMedia
         iterable $attachments = [],
         string|FeedBody|iterable|Closure|null $body = null,
     ): self {
-        return new self(
-            $url,
-            $label,
-            $attributes,
-            $modal,
-            $icon === null ? null : FeedImage::from($icon),
-            $preview === null ? null : FeedImage::from($preview),
-            $image === null ? null : FeedImage::from($image),
-            $attachments,
-            $body,
-        );
+        return new self($url, $label, $attributes, $modal, $icon, $preview, $image, $attachments, $body);
     }
 
     /**
-     * Media whose link should open as a modal.
-     *
-     * @param  array<string, mixed>  $attributes
+     * Where a tap goes: an href, or a FeedImage when the resource itself is
+     * an image.
      */
-    public static function modal(FeedImage|string|null $url = null, ?string $label = null, array $attributes = []): self
-    {
-        return new self($url, $label, $attributes, modal: true);
-    }
-
     public function url(FeedImage|string|null $url): self
     {
         $this->url = $url;
@@ -141,14 +166,59 @@ final class FeedMedia
     }
 
     /**
-     * Replace the attachment list. Order is kept as given: the payload and
-     * the AS2 document both emit it in this sequence.
-     *
-     * @param  iterable<FeedResource>  $attachments
+     * A label that replaces the snapshot's for this read.
      */
-    public function attachments(iterable $attachments): self
+    public function label(?string $label): self
     {
-        $this->attachments = self::resources($attachments);
+        $this->label = $label;
+
+        return $this;
+    }
+
+    /**
+     * Attributes for the rendered link. An array MERGES — a repeated key
+     * takes the later value — and a key with a value sets that one key, as
+     * `View::with()` does.
+     *
+     * @param  array<string, mixed>|string  $key
+     */
+    public function attributes(array|string $key, mixed $value = null): self
+    {
+        if (is_string($key)) {
+            $this->attributes[$key] = $value;
+
+            return $this;
+        }
+
+        $this->attributes = array_merge($this->attributes, $key);
+
+        return $this;
+    }
+
+    /**
+     * Hint the renderer to open the link as a modal.
+     */
+    public function modal(bool $modal = true): self
+    {
+        $this->modal = $modal;
+
+        return $this;
+    }
+
+    /**
+     * Add attachments. Each call APPENDS, and order is kept as given: the
+     * payload and the AS2 document both emit it in this sequence.
+     *
+     *     ->attachments($invoice, $receipt)
+     *     ->attachments($order->files->map(…))
+     *
+     * @param  FeedResource|iterable<FeedResource>  ...$attachments
+     */
+    public function attachments(FeedResource|iterable ...$attachments): self
+    {
+        foreach ($attachments as $attachment) {
+            array_push($this->attachments, ...self::resources($attachment instanceof FeedResource ? [$attachment] : $attachment));
+        }
 
         return $this;
     }
@@ -169,6 +239,7 @@ final class FeedMedia
         );
     }
 
+    /** The small representational image: an avatar, a logo. */
     public function icon(FeedImage|string|null $icon): self
     {
         $this->icon = $icon === null ? null : FeedImage::from($icon);
@@ -176,6 +247,7 @@ final class FeedMedia
         return $this;
     }
 
+    /** The derivative painted in a dense list: a thumbnail. */
     public function preview(FeedImage|string|null $preview): self
     {
         $this->preview = $preview === null ? null : FeedImage::from($preview);
@@ -183,9 +255,31 @@ final class FeedMedia
         return $this;
     }
 
+    /** A larger visual representation of a non-image object. */
     public function image(FeedImage|string|null $image): self
     {
         $this->image = $image === null ? null : FeedImage::from($image);
+
+        return $this;
+    }
+
+    /**
+     * Add a body resolved at read time. Each call APPENDS; a closure is held
+     * unbuilt and called only when the body is read.
+     *
+     * @param  string|FeedBody|iterable<mixed>|Closure|null  ...$body
+     */
+    public function body(string|FeedBody|iterable|Closure|null ...$body): self
+    {
+        foreach ($body as $item) {
+            if ($item === null || $item === '') {
+                continue;
+            }
+
+            $this->bodies[] = is_iterable($item) && ! is_array($item)
+                ? iterator_to_array($item, false)
+                : $item;
+        }
 
         return $this;
     }
@@ -213,17 +307,6 @@ final class FeedMedia
      *
      * @return array{icon: array<string, mixed>|null, image: array<string, mixed>|null, preview: array<string, mixed>|null, url: array<string, mixed>|null, attachments: list<array<string, mixed>>}|null
      */
-    /**
-     * The body resolved at read time, built now if it was handed over unbuilt.
-     *
-     * @return list<array<string, mixed>>
-     */
-    public function body(): array
-    {
-        return BodySlot::normalize($this->body);
-    }
-
-    /** @return array<string, mixed>|null */
     public function media(): ?array
     {
         $images = [

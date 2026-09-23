@@ -3,6 +3,7 @@
 namespace Storyfeed\Body;
 
 use Illuminate\Contracts\Support\Htmlable;
+use Illuminate\Support\Traits\Conditionable;
 use Storyfeed\Concerns\HasPayload;
 use Storyfeed\Contracts\FeedBody;
 use Stringable;
@@ -11,11 +12,16 @@ use Stringable;
  * Labelled rows under a headline — the commonest body type, and the one two
  * consumers hand-wrote independently before it existed.
  *
- *     ->data(KeyValue::make([
+ *     ->body(KeyValue::make()->items([
  *         'Address' => KeyValue::verbatim($fetch->ip),
  *         'Where the address resolved' => $fetch->geo?->describe(),
  *         'Looked automated' => $fetch->is_bot,
  *     ]))
+ *
+ * `items()` merges a map as `View::with()` does — a key already here takes
+ * the later value in its place — and `items('Address', $ip)` sets one row.
+ * A list of explicit `['key' => …, 'value' => …]` pairs appends instead,
+ * which is how a key repeats.
  *
  * ## Why `KeyValue` and not `Details`
  *
@@ -44,65 +50,114 @@ use Stringable;
  */
 class KeyValue implements FeedBody
 {
+    use Conditionable;
     use HasPayload;
 
     /**
-     * @param  array<int, array{key: string, value: string|int|float|bool|null, verbatim: bool, missing: string|null}>  $items
+     * Each row as given; a row's own `missing` only when it said one, so the
+     * body's default applies to the rest when the body is used.
+     *
+     * @var list<array{key: string, value: string|int|float|bool|null, verbatim: bool, missing?: string|null}>
      */
-    final protected function __construct(
-        private readonly array $items,
-        private readonly ?string $title = null,
-    ) {}
+    private array $rows = [];
+
+    private ?string $title = null;
+
+    private ?string $missing = null;
+
+    final protected function __construct() {}
 
     /**
+     * Start the rows. Every argument is optional and has a method of the same name.
+     *
      * @param  array<array-key, mixed>  $items  a `key => value` map, or a list of
      *                                          explicit `['key' => …, 'value' => …]` pairs
      * @param  string|null  $title  a line above the pairs, when the headline does not already say it
-     * @param  string|null  $missing  the sentence an absent value gets, if any — see below
+     * @param  string|null  $missing  the sentence an absent value gets, if any — see {@see missing()}
      */
-    public static function make(array $items, ?string $title = null, ?string $missing = null): static
+    public static function make(array $items = [], ?string $title = null, ?string $missing = null): static
     {
-        $normalized = [];
+        return (new static)->items($items)->title($title)->missing($missing);
+    }
 
-        foreach ($items as $key => $row) {
+    /**
+     * Add rows. A map MERGES, as `View::with()` does: a key already here takes
+     * the later value and keeps its place. A key with a value sets that one row.
+     * A list of explicit `['key' => …, 'value' => …]` pairs APPENDS, which is
+     * how a key repeats.
+     *
+     *     ->items(['Address' => KeyValue::verbatim($ip), 'Seat' => $seat])
+     *     ->items('Looked automated', $fetch->is_bot)
+     *
+     * @param  array<array-key, mixed>|string  $key
+     */
+    public function items(array|string $key, mixed $value = null): static
+    {
+        foreach (is_string($key) ? [$key => $value] : $key as $name => $row) {
             // Two shapes, because both are natural to write: a map, and a list
             // of explicit pairs for an app that needs to repeat a key or keep an
             // explicit order it built elsewhere.
             $isRow = is_array($row) && (array_key_exists('value', $row) || array_key_exists('key', $row));
 
             /** @var array<string, mixed> $spec */
-            $spec = $isRow ? $row : ['key' => $key, 'value' => $row];
+            $spec = $isRow ? $row : ['key' => $name, 'value' => $row];
 
-            $name = $spec['key'] ?? $key;
+            $label = $spec['key'] ?? $name;
 
-            $normalized[] = [
-                'key' => is_scalar($name) ? (string) $name : '',
+            $normalized = [
+                'key' => is_scalar($label) ? (string) $label : '',
                 'value' => self::scalar($spec['value'] ?? null),
                 // Addresses, user agents, ids: the values a reader compares
                 // character by character rather than reads. A renderer gives
                 // these one line and an ellipsis for that reason.
                 'verbatim' => (bool) ($spec['verbatim'] ?? false),
-                /*
-                 * AN ABSENT VALUE IS SILENT BY DEFAULT, and per row because one
-                 * payload can hold both kinds of absence: a field that is
-                 * genuinely unknown, and one whose emptiness is itself the
-                 * answer.
-                 *
-                 * The first draft printed "Not known" for every null and the
-                 * first consumer was right to refuse it — an unauthenticated
-                 * fetch has no session, which is also exactly what a private
-                 * window looks like, so a fixed placeholder turns silence into
-                 * a confident claim about every row that had nothing to say.
-                 * "Not known" and "could not be told either way" are different
-                 * sentences and only the domain knows which one it has.
-                 */
-                'missing' => array_key_exists('missing', $spec)
-                    ? (is_string($spec['missing']) ? $spec['missing'] : null)
-                    : $missing,
             ];
+
+            if (array_key_exists('missing', $spec)) {
+                $normalized['missing'] = is_string($spec['missing']) ? $spec['missing'] : null;
+            }
+
+            $existing = $isRow && is_int($name) ? false : array_search($normalized['key'], array_column($this->rows, 'key'), true);
+
+            if ($existing === false) {
+                $this->rows[] = $normalized;
+            } else {
+                $this->rows[$existing] = $normalized;
+            }
         }
 
-        return new static($normalized, $title);
+        return $this;
+    }
+
+    /** A line above the pairs, when the headline does not already say it. */
+    public function title(?string $title): static
+    {
+        $this->title = $title;
+
+        return $this;
+    }
+
+    /**
+     * The sentence every absent value gets, unless its row says its own.
+     *
+     * AN ABSENT VALUE IS SILENT BY DEFAULT, and per row because one
+     * payload can hold both kinds of absence: a field that is
+     * genuinely unknown, and one whose emptiness is itself the
+     * answer.
+     *
+     * The first draft printed "Not known" for every null and the
+     * first consumer was right to refuse it — an unauthenticated
+     * fetch has no session, which is also exactly what a private
+     * window looks like, so a fixed placeholder turns silence into
+     * a confident claim about every row that had nothing to say.
+     * "Not known" and "could not be told either way" are different
+     * sentences and only the domain knows which one it has.
+     */
+    public function missing(?string $missing): static
+    {
+        $this->missing = $missing;
+
+        return $this;
     }
 
     /**
@@ -125,12 +180,15 @@ class KeyValue implements FeedBody
     /**
      * Give one absence its own word, where the emptiness is the answer.
      *
+     * `missingAs()` rather than `missing()`, which sets the body's default
+     * word for every row.
+     *
      * Beside {@see verbatim()} so a literal map never has to drop into the
      * payload's own shape to say one thing about one pair.
      *
      * @return array{value: string|int|float|bool|null, missing: string}
      */
-    public static function missing(mixed $value, string $word): array
+    public static function missingAs(mixed $value, string $word): array
     {
         return ['value' => self::scalar($value), 'missing' => $word];
     }
@@ -148,7 +206,7 @@ class KeyValue implements FeedBody
      * package, which is the misreading that produced the earlier fork.
      * Renderers match it EXACTLY, so the casing is part of the name.
      */
-    public static function name(): string
+    public static function bodyType(): string
     {
         return 'Storyfeed/Body/KeyValue';
     }
@@ -180,10 +238,13 @@ class KeyValue implements FeedBody
     public function toPayload(): array
     {
         return [
-            self::KEY => self::name(),
+            self::KEY => self::bodyType(),
             self::VERSION => self::version(),
             'title' => $this->title,
-            'items' => $this->items,
+            'items' => array_map(
+                fn (array $row): array => [...$row, 'missing' => array_key_exists('missing', $row) ? $row['missing'] : $this->missing],
+                $this->rows,
+            ),
         ];
     }
 

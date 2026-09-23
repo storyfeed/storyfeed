@@ -73,14 +73,13 @@ it('persists an authored note and emits its body without a thread or an inferred
 
 it('keeps the positional API and Arrayable normalization while accepting optional body fields', function () {
     $data = new Collection(['x' => 1]);
-    foreach ([new FeedEntity('Label', $data, 'card', '', 'text/x-custom', 'urn:author:1'), FeedEntity::make('Label', $data, 'card', '', 'text/x-custom', 'urn:author:1')] as $entity) {
+    foreach ([new FeedEntity('Label', $data, '', 'text/x-custom', 'urn:author:1'), FeedEntity::make('Label', $data, '', 'text/x-custom', 'urn:author:1')] as $entity) {
         expect($entity->data)->toBe(['x' => 1])
-            ->and($entity->component)->toBe('card')
             ->and($entity->content)->toBe('')
             ->and($entity->mediaType)->toBe('text/x-custom')
             ->and($entity->attributedTo)->toBe('urn:author:1');
     }
-    expect(FeedEntity::make('Label', $data, 'card')->content)->toBeNull();
+    expect(FeedEntity::make('Label', $data)->content)->toBeNull();
 });
 
 it('preserves empty content and omits unspecified body metadata on both read paths', function () {

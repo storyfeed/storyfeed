@@ -2,9 +2,19 @@
 
 namespace Storyfeed;
 
+use Illuminate\Support\Traits\Conditionable;
+use Storyfeed\Exceptions\IncompleteFeedValue;
+
 /**
  * One image in one of FeedMedia's slots: where it is and what a renderer
  * needs to know before it has fetched it.
+ *
+ *     FeedImage::make()
+ *         ->src($media->getUrl('thumb'))
+ *         ->mediaType($context->data('mediaType'))
+ *         ->width($context->data('width'))
+ *         ->height($context->data('height'))
+ *         ->alt($context->label())
  *
  *     FeedImage::make(
  *         src: $media->getUrl('thumb'),
@@ -44,25 +54,49 @@ namespace Storyfeed;
  *
  * Part of the versioned payload contract (docs/payload.md, `entity.media`).
  */
-final readonly class FeedImage
+final class FeedImage
 {
-    public ?int $width;
+    use Conditionable;
 
-    public ?int $height;
-
-    public function __construct(
-        public string $src,
-        public ?string $mediaType = null,
-        ?int $width = null,
-        ?int $height = null,
-        public ?string $alt = null,
-    ) {
-        $this->width = $width !== null && $width > 0 ? $width : null;
-        $this->height = $height !== null && $height > 0 ? $height : null;
+    /**
+     * Where the image is, resolved at read time. Required: reading it before
+     * `src()` is called throws, naming the method.
+     */
+    public private(set) string $src {
+        get => $this->src ?? throw IncompleteFeedValue::missing(self::class, 'src');
     }
 
+    public private(set) ?string $mediaType = null;
+
+    public private(set) ?int $width = null;
+
+    public private(set) ?int $height = null;
+
+    public private(set) ?string $alt = null;
+
+    public function __construct(
+        ?string $src = null,
+        ?string $mediaType = null,
+        ?int $width = null,
+        ?int $height = null,
+        ?string $alt = null,
+    ) {
+        if ($src !== null) {
+            $this->src($src);
+        }
+
+        $this->mediaType($mediaType)
+            ->width($width)
+            ->height($height)
+            ->alt($alt);
+    }
+
+    /**
+     * Start an image. Every argument is optional and has a method of the same
+     * name; `src` must be set before the image is used.
+     */
     public static function make(
-        string $src,
+        ?string $src = null,
         ?string $mediaType = null,
         ?int $width = null,
         ?int $height = null,
@@ -78,6 +112,46 @@ final readonly class FeedImage
     public static function from(self|string $image): self
     {
         return $image instanceof self ? $image : new self($image);
+    }
+
+    /** Where the image is: the url a renderer hands to `<img src>`. */
+    public function src(string $src): self
+    {
+        $this->src = $src;
+
+        return $this;
+    }
+
+    /** The image's MIME type, such as `image/webp`. */
+    public function mediaType(?string $mediaType): self
+    {
+        $this->mediaType = $mediaType;
+
+        return $this;
+    }
+
+    /** The intrinsic width in pixels. Unknown, zero or negative is null. */
+    public function width(?int $width): self
+    {
+        $this->width = $width !== null && $width > 0 ? $width : null;
+
+        return $this;
+    }
+
+    /** The intrinsic height in pixels. Unknown, zero or negative is null. */
+    public function height(?int $height): self
+    {
+        $this->height = $height !== null && $height > 0 ? $height : null;
+
+        return $this;
+    }
+
+    /** Text for a reader who cannot see the image. */
+    public function alt(?string $alt): self
+    {
+        $this->alt = $alt;
+
+        return $this;
     }
 
     /**

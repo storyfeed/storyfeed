@@ -36,9 +36,12 @@ it('preserves the source factory coercions', function () {
         }
     };
 
-    foreach ([[42, '42'], [true, '1'], [false, ''], [null, ''], [[], ''], [new stdClass, ''], [$stringable, '**text**']] as [$input, $expected]) {
-        expect(Prose::make($input)->toPayload()['content'])->toBe($expected);
+    foreach ([[42, '42'], [true, '1'], [false, ''], [[], ''], [new stdClass, ''], [$stringable, '**text**']] as [$input, $expected]) {
+        expect(Prose::make($input)->toPayload()['content'])->toBe($expected)
+            ->and(Prose::make()->content($input)->toPayload()['content'])->toBe($expected);
     }
+
+    expect(Prose::make()->content(null)->toPayload()['content'])->toBe('');
 });
 
 it('normalizes malformed and unknown-version payloads without throwing', function () {

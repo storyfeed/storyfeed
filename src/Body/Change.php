@@ -2,6 +2,7 @@
 
 namespace Storyfeed\Body;
 
+use Illuminate\Support\Traits\Conditionable;
 use InvalidArgumentException;
 use Storyfeed\Concerns\HasPayload;
 use Storyfeed\Contracts\FeedBody;
@@ -14,28 +15,60 @@ use Storyfeed\Contracts\FeedBody;
  * would lose its meaning, and accepting arrays would allow bodies to nest.
  * An empty map is legal and has nothing to draw.
  *
+ *     Change::make()->field('Status', 'Draft', 'Ready')->field('Owner', 'Ana', 'Ben')
+ *     Change::make(['Status' => ['Draft', 'Ready'], 'Owner' => ['Ana', 'Ben']])
+ *
  * The version travels in both storage and payload: core does not own the app's
  * key, so the renderer must upgrade the body at read time, never write it back.
  */
 class Change implements FeedBody
 {
+    use Conditionable;
     use HasPayload;
 
-    /** @param array<string, array<int, scalar|null>> $changes */
-    final protected function __construct(
-        private readonly array $changes,
-    ) {}
+    /** @var array<string, array<int, scalar|null>> */
+    private array $changes = [];
 
-    /** @param array<array-key, mixed> $changes */
-    public static function make(array $changes): static
+    final protected function __construct() {}
+
+    /**
+     * Start a change. `$changes` is optional and is the same as calling
+     * {@see changes()} with it.
+     *
+     * @param  array<array-key, mixed>  $changes  `field => [before, after]`
+     */
+    public static function make(array $changes = []): static
+    {
+        return (new static)->changes($changes);
+    }
+
+    /**
+     * Add fields. A map MERGES: a field already here takes the later pair and
+     * keeps its place. Omit index 0 for an added field, index 1 for a removed one.
+     *
+     * @param  array<array-key, mixed>  $changes  `field => [before, after]`
+     */
+    public function changes(array $changes): static
     {
         foreach ($changes as $field => $pair) {
             if (! is_string($field) || ! self::validPair($pair)) {
                 throw new InvalidArgumentException('Changes require named fields with scalar or null values at index 0 (before) and/or 1 (after).');
             }
+
+            /** @var array<int, scalar|null> $pair */
+            $this->changes[$field] = $pair;
         }
 
-        return new static($changes);
+        return $this;
+    }
+
+    /**
+     * Add one field that went from `$before` to `$after`, after the fields
+     * already here. A field already here takes the new pair in its place.
+     */
+    public function field(string $name, string|int|float|bool|null $before, string|int|float|bool|null $after): static
+    {
+        return $this->changes([$name => [$before, $after]]);
     }
 
     /**
@@ -51,7 +84,7 @@ class Change implements FeedBody
      * package, which is the misreading that produced the earlier fork.
      * Renderers match it EXACTLY, so the casing is part of the name.
      */
-    public static function name(): string
+    public static function bodyType(): string
     {
         return 'Storyfeed/Body/Change';
     }
@@ -84,7 +117,7 @@ class Change implements FeedBody
     public function toPayload(): array
     {
         return [
-            self::KEY => self::name(),
+            self::KEY => self::bodyType(),
             self::VERSION => self::version(),
             'items' => $this->changes,
         ];

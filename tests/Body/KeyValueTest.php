@@ -79,7 +79,7 @@ it('carries a title above the pairs, and omits it when there is none', function 
 
 it('gives one absence its own word without dropping into the payload shape', function () {
     $items = KeyValue::make([
-        'Table' => KeyValue::missing(null, 'not seated'),
+        'Table' => KeyValue::missingAs(null, 'not seated'),
         'Pickup' => '7:00 pm',
     ])->toPayload()['items'];
 

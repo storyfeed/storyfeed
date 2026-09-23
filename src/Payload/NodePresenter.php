@@ -19,7 +19,7 @@ use Throwable;
 /**
  * Builds Payload v1 nodes (docs/payload.md) from hydrated activities.
  *
- * Entities are self-describing: label/component/data come from the snapshot,
+ * Entities are self-describing: label/data/body come from the snapshot,
  * while the URL and media are regenerated live via the model's static
  * feedMedia() resolver — wrapped so one broken link never breaks the feed.
  * Missing snapshots degrade to placeholder entities; activities are never
@@ -562,7 +562,6 @@ class NodePresenter
             'url' => $link?->href(),
             'attributes' => $link->attributes ?? [],
             'modal' => $link->modal ?? false,
-            'component' => $snapshot?->component,
             'data' => $data,
             // Additive (2026-09-05): the typed image slots, or null. `url`
             // above stays the string it was frozen as; when the resource
@@ -575,7 +574,7 @@ class NodePresenter
             // resolved second because it is the entity as it stands right now.
             // ORDER IS NOT CONTRACT beyond that — arrangement is a renderer's,
             // and a renderer that draws them another way is not wrong.
-            'body' => self::bodyOrNull([...($snapshot->body ?? []), ...($link?->body() ?? [])]),
+            'body' => self::bodyOrNull([...($snapshot->body ?? []), ...($link->body ?? [])]),
             ...array_filter([
                 'content' => $snapshot?->content,
                 'mediaType' => $snapshot?->media_type,

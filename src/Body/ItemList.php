@@ -2,6 +2,7 @@
 
 namespace Storyfeed\Body;
 
+use Illuminate\Support\Traits\Conditionable;
 use Storyfeed\Concerns\HasPayload;
 use Storyfeed\Contracts\FeedBody;
 use Storyfeed\FeedLink;
@@ -51,32 +52,42 @@ use Stringable;
  */
 class ItemList implements FeedBody
 {
+    use Conditionable;
     use HasPayload;
 
     /**
-     * @param  list<string|array{label: string, href: string|null}>  $items
+     * Items as given. Turned into strings and links when the list is USED,
+     * so a `FeedLink` configured after it was added still counts.
+     *
+     * @var list<mixed>
      */
-    final protected function __construct(
-        private readonly array $items,
-        private readonly bool $ordered = false,
-        private readonly ?string $title = null,
-        private readonly ?int $totalItems = null,
-        private readonly ?FeedLink $more = null,
-    ) {}
+    private array $items = [];
+
+    private bool $ordered = false;
+
+    private ?string $title = null;
+
+    private ?int $totalItems = null;
+
+    private ?FeedLink $more = null;
+
+    final protected function __construct() {}
 
     /**
+     * Start a list. Every argument is optional and has a method of the same name.
+     *
      * @param  iterable<mixed>  $items  strings, or `FeedLink`s where an item leads somewhere
      * @param  string|null  $title  a line above the items, when the headline does not already say it
      * @param  int|null  $totalItems  how many exist, when that is more than were sent
      * @param  FeedLink|null  $more  where the rest live — a label and an href, never a bare url
      */
     public static function make(
-        iterable $items,
+        iterable $items = [],
         ?string $title = null,
         ?int $totalItems = null,
         ?FeedLink $more = null,
     ): static {
-        return new static(self::normalize($items), false, $title, $totalItems, $more);
+        return (new static)->items($items)->title($title)->totalItems($totalItems)->more($more);
     }
 
     /**
@@ -85,12 +96,53 @@ class ItemList implements FeedBody
      * @param  iterable<mixed>  $items
      */
     public static function ordered(
-        iterable $items,
+        iterable $items = [],
         ?string $title = null,
         ?int $totalItems = null,
         ?FeedLink $more = null,
     ): static {
-        return new static(self::normalize($items), true, $title, $totalItems, $more);
+        $list = static::make($items, $title, $totalItems, $more);
+        $list->ordered = true;
+
+        return $list;
+    }
+
+    /**
+     * Add items. Each call APPENDS, in the order given.
+     *
+     * @param  iterable<mixed>  $items  strings, or `FeedLink`s where an item leads somewhere
+     */
+    public function items(iterable $items): static
+    {
+        foreach ($items as $item) {
+            $this->items[] = $item;
+        }
+
+        return $this;
+    }
+
+    /** A line above the items, when the headline does not already say it. */
+    public function title(?string $title): static
+    {
+        $this->title = $title;
+
+        return $this;
+    }
+
+    /** How many exist, when that is more than were sent. */
+    public function totalItems(?int $totalItems): static
+    {
+        $this->totalItems = $totalItems;
+
+        return $this;
+    }
+
+    /** Where the rest live — a label and an href, never a bare url. */
+    public function more(?FeedLink $more): static
+    {
+        $this->more = $more;
+
+        return $this;
     }
 
     /**
@@ -152,7 +204,7 @@ class ItemList implements FeedBody
      * transcription rather than a coinage. `List` was not available: it is a
      * PHP reserved word and will not compile as a class name.
      */
-    public static function name(): string
+    public static function bodyType(): string
     {
         return 'Storyfeed/Body/ItemList';
     }
@@ -191,11 +243,11 @@ class ItemList implements FeedBody
     public function toPayload(): array
     {
         return [
-            self::KEY => self::name(),
+            self::KEY => self::bodyType(),
             self::VERSION => self::version(),
             'title' => $this->title,
             'ordered' => $this->ordered,
-            'items' => $this->items,
+            'items' => self::normalize($this->items),
             'totalItems' => $this->totalItems,
             'more' => $this->more?->toPayload(),
         ];

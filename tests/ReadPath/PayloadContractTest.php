@@ -26,7 +26,7 @@ it('emits the same payload shape as before the recording API change', function (
         'glyph', 'glyph_intent', 'actor', 'object', 'target', 'context', 'origin', 'result', 'instrument', 'data', 'thread', 'change',
     ]);
     expect(array_keys($payload['items'][0]['object']))->toBe([
-        'type', 'id', 'label', 'url', 'attributes', 'modal', 'component', 'data', 'media', 'body',
+        'type', 'id', 'label', 'url', 'attributes', 'modal', 'data', 'media', 'body',
     ]);
 });
 

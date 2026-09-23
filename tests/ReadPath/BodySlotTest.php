@@ -74,7 +74,7 @@ it('does not call a minted body that was handed over unbuilt until it is wanted'
 
     expect($calls)->toBe(0);
 
-    $media->body();
+    $media->body;
 
     expect($calls)->toBe(1);
 });

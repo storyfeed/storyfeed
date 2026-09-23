@@ -30,7 +30,7 @@ it('never stores a file url, because the entity regenerates its own', function (
 it('stores bytes as bytes and drops a negative size', function () {
     expect(File::make(size: 900, name: 'archive.zip')->toPayload()['size'])->toBe(900)
         ->and(File::make(size: -1)->toPayload()['size'])->toBeNull()
-        ->and(File::make()->toPayload())->toBe(['$body' => File::name(), '$v' => 1, 'name' => null, 'size' => null, 'mediaType' => null]);
+        ->and(File::make()->toPayload())->toBe(['$body' => File::bodyType(), '$v' => 1, 'name' => null, 'size' => null, 'mediaType' => null]);
 });
 
 it('normalizes malformed and unknown-version payloads without throwing', function () {

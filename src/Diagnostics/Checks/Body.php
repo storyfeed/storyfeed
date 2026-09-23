@@ -202,7 +202,7 @@ class Body extends Check
                 "{$count} ".str('map')->plural($count).' inside `data` '.($count === 1 ? 'has' : 'have')
                 .' a `'.FeedBody::KEY."` that is not a string ({$types}) — e.g. "
                 .implode(', ', $malformed['examples']).'. Dispatch is by name and a name is a string, so those '
-                .'render as nothing. The body type\'s `name()` is what belongs there, written into storage verbatim.'
+                .'render as nothing. The body type\'s `bodyType()` is what belongs there, written into storage verbatim.'
                 .$sampled,
                 ['maps' => $count, 'types' => $types, 'examples' => implode(', ', $malformed['examples'])],
             );

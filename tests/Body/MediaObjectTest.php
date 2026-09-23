@@ -50,7 +50,7 @@ it('is all-optional, so a block with only attachments is a file list and no seco
     $pdf = FeedResource::make('https://example.test/n201-v4.pdf', 'application/pdf', 'n201-v4.pdf');
 
     expect(MediaObject::make()->toPayload())
-        ->toBe(['$body' => MediaObject::name(), '$v' => 1, 'subject' => null, 'content' => null, 'image' => null, 'attachments' => [], 'footnote' => null])
+        ->toBe(['$body' => MediaObject::bodyType(), '$v' => 1, 'subject' => null, 'content' => null, 'image' => null, 'attachments' => [], 'footnote' => null])
         ->and(MediaObject::make(attachments: [$pdf])->toPayload()['attachments'])
         ->toBe([['type' => 'Document', 'href' => 'https://example.test/n201-v4.pdf', 'mediaType' => 'application/pdf', 'name' => 'n201-v4.pdf']])
         ->and(MediaObject::make(subject: 'Minutes', content: 'Two items carried.')->toPayload()['image'])->toBeNull();

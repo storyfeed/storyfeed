@@ -10,7 +10,7 @@ final class ShipmentDetail implements FeedBody
 {
     use HasPayload;
 
-    public static function name(): string
+    public static function bodyType(): string
     {
         return 'acme/shipment';
     }
@@ -27,7 +27,7 @@ final class ShipmentDetail implements FeedBody
 
     public function toPayload(): array
     {
-        return [self::KEY => self::name(), self::VERSION => self::version(), 'status' => 'shipped'];
+        return [self::KEY => self::bodyType(), self::VERSION => self::version(), 'status' => 'shipped'];
     }
 }
 

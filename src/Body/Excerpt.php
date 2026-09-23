@@ -3,14 +3,16 @@
 namespace Storyfeed\Body;
 
 use Illuminate\Contracts\Support\Htmlable;
+use Illuminate\Support\Traits\Conditionable;
 use Storyfeed\Concerns\HasPayload;
 use Storyfeed\Contracts\FeedBody;
+use Storyfeed\Exceptions\IncompleteFeedValue;
 use Stringable;
 
 /**
  * A fragment of text, and where it came from.
  *
- *     FeedEntity::make($clause->reference, data: Excerpt::make($clause->text))
+ *     FeedEntity::make()->label($clause->reference)->body(Excerpt::make()->text($clause->text))
  *
  * The body type a pilot's feed was missing. Its headline read
  *
@@ -52,21 +54,56 @@ use Stringable;
  */
 class Excerpt implements FeedBody
 {
+    use Conditionable;
     use HasPayload;
 
-    final protected function __construct(
-        private readonly string $text,
-        private readonly ?string $from,
-        private readonly bool $truncated,
-    ) {}
+    private ?string $text = null;
+
+    private ?string $from = null;
+
+    private bool $truncated = true;
+
+    final protected function __construct() {}
 
     /**
+     * Start an excerpt. Every argument is optional and has a method of the
+     * same name; `text` must be set before the excerpt is used.
+     *
+     * @param  mixed  $text  the passage; markup is flattened to text
      * @param  string|null  $from  who or what it came from, when the sentence above does not already say
      * @param  bool  $truncated  whether this is a fragment of something longer
      */
-    public static function make(mixed $text, ?string $from = null, bool $truncated = true): static
+    public static function make(mixed $text = null, ?string $from = null, bool $truncated = true): static
     {
-        return new static(self::text($text), $from, $truncated);
+        $excerpt = (new static)->from($from)->truncated($truncated);
+
+        return $text === null ? $excerpt : $excerpt->text($text);
+    }
+
+    /**
+     * The passage. Markup is flattened to text: see {@see flatten()}.
+     */
+    public function text(mixed $text): static
+    {
+        $this->text = self::flatten($text);
+
+        return $this;
+    }
+
+    /** Who or what it came from, when the sentence above does not already say. */
+    public function from(?string $from): static
+    {
+        $this->from = $from;
+
+        return $this;
+    }
+
+    /** Whether this is a fragment of something longer. True unless told otherwise. */
+    public function truncated(bool $truncated = true): static
+    {
+        $this->truncated = $truncated;
+
+        return $this;
     }
 
     /**
@@ -82,7 +119,7 @@ class Excerpt implements FeedBody
      * package, which is the misreading that produced the earlier fork.
      * Renderers match it EXACTLY, so the casing is part of the name.
      */
-    public static function name(): string
+    public static function bodyType(): string
     {
         return 'Storyfeed/Body/Excerpt';
     }
@@ -109,9 +146,9 @@ class Excerpt implements FeedBody
     public function toPayload(): array
     {
         return [
-            self::KEY => self::name(),
+            self::KEY => self::bodyType(),
             self::VERSION => self::version(),
-            'text' => $this->text,
+            'text' => $this->text ?? throw IncompleteFeedValue::missing(static::class, 'text'),
             'from' => $this->from,
             'truncated' => $this->truncated,
         ];
@@ -127,7 +164,7 @@ class Excerpt implements FeedBody
      * pointed at a signed guest link. If the source is authored rich text, that
      * is {@see Prose}, which says so and is sanitised on the way out.
      */
-    private static function text(mixed $text): string
+    private static function flatten(mixed $text): string
     {
         return match (true) {
             is_string($text) => $text,

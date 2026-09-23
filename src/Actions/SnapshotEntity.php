@@ -32,7 +32,6 @@ class SnapshotEntity
         $routeKey = $model->getRouteKey();
         $values = [
             'label' => $entity->label,
-            'component' => $entity->component,
             'data' => $entity->data,
             'body' => $entity->body === [] ? null : $entity->body,
             'content' => $entity->content,

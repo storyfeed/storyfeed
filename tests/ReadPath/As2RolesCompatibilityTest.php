@@ -53,6 +53,12 @@ it('still reads event snapshots queued before the role extension', function () {
         expect($payload)->toHaveKey($role, null);
         unset($payload[$role]);
     }
+    // Queued before `component` retired: the key is still in the bytes, and
+    // is all that differs.
+    foreach (['actor', 'object', 'target', 'context'] as $role) {
+        expect($payload[$role])->toHaveKey('component');
+        unset($payload[$role]['component']);
+    }
     expect($snapshot)->toBeInstanceOf(ActivitySnapshot::class)
         ->and(json_encode($payload, JSON_THROW_ON_ERROR))
         ->toBe((require __DIR__.'/../Fixtures/As2RolesBaseline.php')['event']);

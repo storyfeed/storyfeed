@@ -4,6 +4,45 @@
 
 ### Changed
 
+- **`FeedEntity`, the body types, `FeedMedia`, `FeedImage`, `FeedLink` and
+  `FeedResource` are fluent.** Every `make()` can be called empty, and every
+  argument it takes has a method of the same name:
+  `FeedEntity::make()->label("Order #1042")->body(Excerpt::make()->text($note))`.
+  Named arguments keep working and produce the same payload. Setters change the
+  object and return it; `FeedEntity`, `FeedImage`, `FeedLink` and `FeedResource`
+  are no longer `readonly`. Lists append (`body()`, `attachments()`,
+  `ItemList::items()`, `Change::field()`) and maps merge as `View::with()` does
+  (`data()`, `props()`, `attributes()`, `KeyValue::items()`): an array merges
+  and a key with a value sets one. All of them use `Conditionable`.
+
+- **A missing required value is caught when the object is used, not built.**
+  `FeedLink` without a label, `FeedImage` without a src, `FeedResource` without
+  an href, `Excerpt` without text, `Prose` without content and `Component`
+  without a name throw `Exceptions\IncompleteFeedValue` when serialised or
+  read, naming the method to call. `Excerpt::make(null)` and `Prose::make(null)`
+  now count as no text given (they used to store `''`); `->text(null)` still
+  stores `''`.
+
+- **`FeedBody::name()` is now `bodyType()`**, so `File` and `Component` can
+  have a fluent `name()`. Breaking and not aliased: a custom body type must
+  rename the method, and a renderer registry calling `$body::name()` must call
+  `$body::bodyType()`.
+
+- **`FeedMedia::attachments()` and `MediaObject`'s fluent `attachments()`
+  append** instead of replacing. `MediaObject::withAttachments()` still
+  replaces, and `withIcon()`/`withPreview()`/`withImage()` stay; all of them now
+  change the object rather than returning a copy.
+
+- **`FeedMedia::modal()` is the fluent setter**, `->modal(bool $modal = true)`.
+  The static `FeedMedia::modal($url, $label)` constructor is gone; write
+  `FeedMedia::make($url)->modal()`.
+
+- **`FeedMedia::body()` appends a body; the resolved list is the `body`
+  property.** Read `$media->body` where you called `$media->body()`.
+
+- **`KeyValue::missing($value, $word)` is now `KeyValue::missingAs()`**, because
+  `->missing($word)` sets the body's default word for every row.
+
 - **A page never comes back empty mid-feed.** When every activity on a page
   was deleted between selecting it and hydrating it (a trickle prune racing a
   read), `get()` used to return `items: []` with a live `next_cursor`, and
@@ -107,6 +146,13 @@
 
 ### Removed
 
+- **`component` is retired from `FeedEntity`, the snapshot write and the
+  payload's entity node.** It was a renderer hint that predated bodies. Add a
+  `Storyfeed\Body\Component` body instead (below). The `feed_snapshots.component`
+  column stays, unused, until the v1 migration squash; `ActivitySnapshot` role
+  arrays no longer carry the key. Breaking and not aliased: `component:` is an
+  unknown named argument.
+
 - **Removal evidence is gone** — `feed_removals`, `Healing\Removals`,
   `Healing\Removal`, `Actions\RecordRemovals`, the `removals:pruned_before`
   watermark, and the `tables.removals` config key.
@@ -135,6 +181,11 @@
   participant rows and the `forceDelete` that follows it must still be atomic.
 
 ### Added
+
+- **`Storyfeed\Body\Component`, the eighth body type**, stored as
+  `Storyfeed/Body/Component`: an app's own frontend component by `name`
+  (verbatim) with its `props`.
+  `Component::make()->name('Common/ScoreCard')->props([...])`.
 
 - **`FeedContext::routeKey()`: the model's `getRouteKey()`, recorded when the
   snapshot is written**, the way the label is. A resolver can write

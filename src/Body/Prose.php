@@ -2,8 +2,10 @@
 
 namespace Storyfeed\Body;
 
+use Illuminate\Support\Traits\Conditionable;
 use Storyfeed\Concerns\HasPayload;
 use Storyfeed\Contracts\FeedBody;
+use Storyfeed\Exceptions\IncompleteFeedValue;
 use Stringable;
 
 /**
@@ -47,43 +49,82 @@ use Stringable;
  */
 class Prose implements FeedBody
 {
+    use Conditionable;
     use HasPayload;
 
-    final protected function __construct(
-        private readonly string $content,
-        private readonly string $mediaType,
-        private readonly bool $verbatim,
-        private readonly ?string $title,
-    ) {}
+    private ?string $content = null;
 
-    /** Plain text, printed as written. */
-    public static function make(mixed $content, ?string $title = null): static
+    private string $mediaType = 'text/plain';
+
+    private bool $verbatim = false;
+
+    private ?string $title = null;
+
+    final protected function __construct() {}
+
+    /**
+     * Plain text, printed as written. Both arguments are optional and have a
+     * method of the same name; `content` must be set before the body is used.
+     */
+    public static function make(mixed $content = null, ?string $title = null): static
     {
-        return new static(self::text($content), 'text/plain', false, $title);
+        return static::build($content, 'text/plain', false, $title);
     }
 
     /** Markdown source, for a renderer to parse. */
-    public static function markdown(mixed $content, ?string $title = null): static
+    public static function markdown(mixed $content = null, ?string $title = null): static
     {
-        return new static(self::text($content), 'text/markdown', false, $title);
+        return static::build($content, 'text/markdown', false, $title);
     }
 
     /** An HTML fragment. Named rather than defaulted: the renderer must sanitize it. */
-    public static function html(mixed $content, ?string $title = null): static
+    public static function html(mixed $content = null, ?string $title = null): static
     {
-        return new static(self::text($content), 'text/html', false, $title);
+        return static::build($content, 'text/html', false, $title);
     }
 
     /** Reproduced exactly: nothing parsed, the whitespace kept. */
-    public static function verbatim(mixed $content, string $mediaType = 'text/plain', ?string $title = null): static
+    public static function verbatim(mixed $content = null, string $mediaType = 'text/plain', ?string $title = null): static
     {
-        return new static(self::text($content), $mediaType, true, $title);
+        return static::build($content, $mediaType, true, $title);
     }
 
     /** Verbatim, and it knows the language — `text/x-php`, `application/json`. */
     public static function code(mixed $content, string $mediaType, ?string $title = null): static
     {
-        return new static(self::text($content), $mediaType, true, $title);
+        return static::build($content, $mediaType, true, $title);
+    }
+
+    /** The text itself. */
+    public function content(mixed $content): static
+    {
+        $this->content = self::text($content);
+
+        return $this;
+    }
+
+    /** A line above the text, when the headline does not already say it. */
+    public function title(?string $title): static
+    {
+        $this->title = $title;
+
+        return $this;
+    }
+
+    /** The encoding: `text/plain`, `text/markdown`, `text/html`, or a language. */
+    public function mediaType(string $mediaType): static
+    {
+        $this->mediaType = $mediaType;
+
+        return $this;
+    }
+
+    protected static function build(mixed $content, string $mediaType, bool $verbatim, ?string $title): static
+    {
+        $prose = (new static)->mediaType($mediaType)->title($title);
+        $prose->verbatim = $verbatim;
+
+        return $content === null ? $prose : $prose->content($content);
     }
 
     private static function text(mixed $content): string
@@ -104,7 +145,7 @@ class Prose implements FeedBody
      * reflection, no autoloading — so it need not resolve to anything.
      * Renderers match it EXACTLY, so the casing is part of the name.
      */
-    public static function name(): string
+    public static function bodyType(): string
     {
         return 'Storyfeed/Body/Prose';
     }
@@ -139,9 +180,9 @@ class Prose implements FeedBody
     public function toPayload(): array
     {
         return [
-            self::KEY => self::name(),
+            self::KEY => self::bodyType(),
             self::VERSION => self::version(),
-            'content' => $this->content,
+            'content' => $this->content ?? throw IncompleteFeedValue::missing(static::class, 'content'),
             'mediaType' => $this->mediaType,
             'verbatim' => $this->verbatim,
             'title' => $this->title,

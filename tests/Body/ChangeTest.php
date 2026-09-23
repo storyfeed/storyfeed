@@ -21,7 +21,7 @@ it('round-trips authored changes with their form and version intact', function (
 });
 
 it('reads a missing version as version one without changing the stored payload', function () {
-    $stored = ['$body' => Change::name(), 'items' => ['Status' => ['Draft', 'Ready']]];
+    $stored = ['$body' => Change::bodyType(), 'items' => ['Status' => ['Draft', 'Ready']]];
     $original = json_encode($stored, JSON_THROW_ON_ERROR);
     $props = array_diff_key($stored, array_flip([FeedBody::KEY, FeedBody::VERSION]));
 
@@ -45,7 +45,7 @@ it('distinguishes absent sides from explicit null and preserves field order thro
 });
 
 it('allows an empty change map', function () {
-    expect(Change::make([])->toPayload())->toBe(['$body' => Change::name(), '$v' => 1, 'items' => []])
+    expect(Change::make([])->toPayload())->toBe(['$body' => Change::bodyType(), '$v' => 1, 'items' => []])
         ->and(Change::upgrade(['items' => []], 1))->toBe(['items' => []]);
 });
 

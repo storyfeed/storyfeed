@@ -13,8 +13,8 @@ use Storyfeed\FeedEntity;
  * DTO inside FeedEntity::data, which source-hashing toFeed() cannot see:
  * the fingerprint is of the output, wherever the shape came from.
  *
- * Ingredients: the component name (a renderer-selecting value — part of
- * shape), the model's declared feedShapeVersion (default 1; the semantic
+ * Ingredients: a null where a retired `component` hint used to sit (kept
+ * so every fingerprint written before it retired still matches), the model's declared feedShapeVersion (default 1; the semantic
  * escape hatch), and the recursive sorted key-paths of `data` with scalar
  * type tags. Values are excluded — they differ per row legitimately, and a
  * label FORMAT change is exactly what the declared version exists for.
@@ -31,9 +31,9 @@ class ShapeSignature
             : 1;
 
         $shape = [
-            $entity->component,
+            null,
             $version,
-            self::keyPaths($entity->data ?? []),
+            self::keyPaths($entity->data),
         ];
 
         // Leave every pre-body fingerprint untouched. Opting into a body

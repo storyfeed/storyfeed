@@ -75,7 +75,6 @@ class Delivery extends Model implements Feedable, HasFeedShapeVersion
                 'status' => $this->status,
                 ...(static::$extendedFeedShape ? ['carrier' => ['name' => 'ACME', 'code' => 'AC']] : []),
             ],
-            component: 'Resource',
             body: static::$feedBody,
         );
     }

@@ -24,7 +24,8 @@ it('accepts typed resource attachments through every construction path', functio
 
     expect($resource->toArray())->toBe($resource->toPayload())
         ->and($resource->toPayload())->not->toHaveKeys(['$v', '$body'])
-        ->and(FeedMedia::make(attachments: [$resource])->attachments([])->media())->toBeNull()
+        // attachments() appends: an empty list adds nothing and replaces nothing.
+        ->and(FeedMedia::make(attachments: [$resource])->attachments([])->attachments)->toBe([$resource])
         ->and(FeedMedia::make()->attachments)->toBe([]);
 });
 

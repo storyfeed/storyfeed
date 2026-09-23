@@ -2,13 +2,15 @@
 
 namespace Storyfeed;
 
+use Illuminate\Support\Traits\Conditionable;
 use Storyfeed\Concerns\HasPayload;
+use Storyfeed\Exceptions\IncompleteFeedValue;
 
 /**
  * A piece of text that leads somewhere: a label, and where a tap on it goes.
  *
- *     FeedLink::make('N201 Saffron Butter Rice')              // → my entity
- *     FeedLink::make('The recall notice', 'https://…')        // → there
+ *     FeedLink::make()->label('N201 Saffron Butter Rice')                    // → my entity
+ *     FeedLink::make()->label('The recall notice')->href('https://…')      // → there
  *
  * It exists so that a stored block can say "my title is a way in" without a
  * consumer reaching into a renderer's markup to add one. A consumer who has
@@ -75,22 +77,56 @@ use Storyfeed\Concerns\HasPayload;
  * Core owns this payload slot, so no `$body` discriminator or storage version
  * travels with it.
  */
-final readonly class FeedLink
+final class FeedLink
 {
+    use Conditionable;
     use HasPayload;
 
-    public function __construct(
-        public string $label,
-        public ?string $href = null,
-    ) {}
+    /**
+     * The text a reader sees. Required: reading it before `label()` is called
+     * throws, naming the method.
+     */
+    public private(set) string $label {
+        get => $this->label ?? throw IncompleteFeedValue::missing(self::class, 'label');
+    }
+
+    public private(set) ?string $href = null;
+
+    public function __construct(?string $label = null, ?string $href = null)
+    {
+        if ($label !== null) {
+            $this->label($label);
+        }
+
+        $this->href($href);
+    }
 
     /**
-     * @param  string  $label  the text a reader sees — the thing's name, never an instruction
+     * Start a link. Both arguments are optional and have a method of the same
+     * name; `label` must be set before the link is used.
+     *
+     * @param  string|null  $label  the text a reader sees — the thing's name, never an instruction
      * @param  string|null  $href  where a tap goes; null resolves to the entity's own url at read time
      */
-    public static function make(string $label, ?string $href = null): self
+    public static function make(?string $label = null, ?string $href = null): self
     {
         return new self($label, $href);
+    }
+
+    /** The text a reader sees — the thing's name, never an instruction. */
+    public function label(string $label): self
+    {
+        $this->label = $label;
+
+        return $this;
+    }
+
+    /** Where a tap goes; null resolves to the entity's own url at read time. */
+    public function href(?string $href): self
+    {
+        $this->href = $href;
+
+        return $this;
     }
 
     /**

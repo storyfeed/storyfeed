@@ -73,7 +73,6 @@ it('orders custom source timestamps in UTC with subsecond precision and protects
             return FeedEntity::make(
                 label: $this->tracking_number,
                 data: ['status' => $this->status],
-                component: $this->status,
                 content: $this->status,
                 mediaType: $this->status,
                 attributedTo: $this->status,
@@ -87,8 +86,8 @@ it('orders custom source timestamps in UTC with subsecond precision and protects
 
     $result = (new SnapshotEntity)($older);
 
-    expect($result->fresh()->only(['label', 'component', 'data', 'content', 'media_type', 'attributed_to', 'shape', 'source_updated_at']))
-        ->toBe($newer->fresh()->only(['label', 'component', 'data', 'content', 'media_type', 'attributed_to', 'shape', 'source_updated_at']));
+    expect($result->fresh()->only(['label', 'data', 'content', 'media_type', 'attributed_to', 'shape', 'source_updated_at']))
+        ->toBe($newer->fresh()->only(['label', 'data', 'content', 'media_type', 'attributed_to', 'shape', 'source_updated_at']));
 });
 
 it('adds a nullable source timestamp to existing snapshots without a backfill', function () {

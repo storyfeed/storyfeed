@@ -51,7 +51,6 @@ final readonly class ActivitySnapshot
                 'type' => $type,
                 'id' => $id,
                 'label' => $cached?->label,
-                'component' => $cached?->component,
                 'data' => PlainData::freeze($cached->data ?? []),
                 'content' => $cached?->content,
                 'mediaType' => $cached?->media_type,

@@ -181,7 +181,7 @@ it('lets feedMedia() override the cached label and hint a modal', function () {
 
         public static function feedMedia(FeedContext $context): ?FeedMedia
         {
-            return FeedMedia::modal('/m/'.$context->key(), 'Fresh '.$context->label());
+            return FeedMedia::make('/m/'.$context->key(), 'Fresh '.$context->label())->modal();
         }
     };
 

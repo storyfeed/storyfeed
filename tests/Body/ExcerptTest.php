@@ -40,9 +40,14 @@ it('flattens markup out of a quotation, because a renderer may show it to a stra
     // is Markdown, which says so and is sanitised on the way out.
     expect(Excerpt::make(new HtmlString('<script>alert(1)</script>Guelph'))->toPayload()['text'])->toBe('alert(1)Guelph');
 
-    foreach ([[42, '42'], [null, ''], [[], ''], [new stdClass, '']] as [$input, $text]) {
-        expect(Excerpt::make($input)->toPayload()['text'])->toBe($text);
+    foreach ([[42, '42'], [[], ''], [new stdClass, '']] as [$input, $text]) {
+        expect(Excerpt::make($input)->toPayload()['text'])->toBe($text)
+            ->and(Excerpt::make()->text($input)->toPayload()['text'])->toBe($text);
     }
+
+    // Null handed to the setter is text that happens to be empty; null handed
+    // to make() is no text given, which is caught when the body is used.
+    expect(Excerpt::make()->text(null)->toPayload()['text'])->toBe('');
 });
 
 it('normalizes malformed and unknown-version payloads without throwing', function () {
