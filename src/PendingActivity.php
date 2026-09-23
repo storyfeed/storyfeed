@@ -29,6 +29,7 @@ use Storyfeed\Models\Activity;
 use Storyfeed\Models\Grouping;
 use Storyfeed\Models\Party;
 use Storyfeed\Support\BodySlot;
+use Storyfeed\Support\Feedables;
 use Storyfeed\Testing\StoryfeedFake;
 
 /**
@@ -596,7 +597,7 @@ class PendingActivity
                 $member->object()->associate($model);
                 // Non-Feedable members degrade like any role: no snapshot,
                 // null label at read — never withheld.
-                $member->cached_object_id = $model instanceof Feedable
+                $member->cached_object_id = app(Feedables::class)->isFeedable($model)
                     ? (new SnapshotEntity)($model)->getKey()
                     : null;
                 $member->uid ??= (string) Str::ulid();
@@ -814,7 +815,7 @@ class PendingActivity
     private function snapshotEntities(): void
     {
         foreach ($this->entities as $role => $model) {
-            if ($model instanceof Feedable) {
+            if (app(Feedables::class)->isFeedable($model)) {
                 $snapshot = (new SnapshotEntity)($model);
 
                 $this->activity->{'cached_'.$role.'_id'} = $snapshot->getKey();

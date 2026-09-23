@@ -1,0 +1,12 @@
+# The describeFeed() / feedMediaUsing() fixture at level 7, one level above the
+# package's own. The promise is that a model written the way the guide
+# teaches passes a strict consumer's analysis with no interface-type imports
+# and no annotations; this file is that promise, checked. See Dish's docblock.
+includes:
+    - extension.neon
+
+parameters:
+    level: 7
+    paths:
+        - tests/Fixtures/Models/Dish.php
+    tmpDir: build/phpstan-fixture

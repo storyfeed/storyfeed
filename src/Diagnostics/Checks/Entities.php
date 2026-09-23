@@ -7,6 +7,7 @@ use Storyfeed\Actions\SyncParticipants;
 use Storyfeed\Contracts\Feedable;
 use Storyfeed\Diagnostics\Finding;
 use Storyfeed\StoryfeedManager;
+use Storyfeed\Support\Feedables;
 use Storyfeed\Support\MorphResolver;
 use Throwable;
 
@@ -125,14 +126,14 @@ class Entities extends Check
                     continue;
                 }
 
-                if (! is_a($class, Feedable::class, true)) {
+                if (! app(Feedables::class)->isFeedable($class)) {
                     yield Finding::error(
                         'entities.unfeedable',
                         "[{$class}] (`{$alias}`) fills the {$role} role on {$count} ".str('activity')->plural($count)
                         ." (e.g. {$examples}) but does not implement Feedable, so it is never snapshotted: every one "
                         .'of those rows renders without a label or a link for as long as the contract is missing, '
                         .'and the trickle counts them as unresolved on every run. Implement Feedable '
-                        .'(`use InteractsWithFeed` and write toFeed()), then run storyfeed:trickle.',
+                        .'(`use InteractsWithFeed`), or register a class you don\'t own with `Storyfeed::feedable()`, then run storyfeed:trickle.',
                         $subject,
                     );
 
@@ -163,7 +164,7 @@ class Entities extends Check
             return;
         }
 
-        if (is_a($model, Feedable::class, true)) {
+        if (app(Feedables::class)->isFeedable($model)) {
             return;
         }
 
@@ -172,7 +173,7 @@ class Entities extends Check
             "[{$model}] is the authentication model, and Storyfeed fills the actor role from the authenticated "
             .'user automatically — but it does not implement Feedable. Every activity published during a request '
             .'will carry an actor that never resolves: no snapshot, no label, no link, and the trickle counting it '
-            .'as unresolved on every run. Implement Feedable on it (`use InteractsWithFeed` and write toFeed()) '
+            .'as unresolved on every run. Implement Feedable on it (`use InteractsWithFeed`) '
             .'before anything publishes.',
             ['model' => $model, 'guard' => is_string($guard) ? $guard : null],
         );

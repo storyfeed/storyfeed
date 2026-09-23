@@ -3,7 +3,6 @@
 namespace Storyfeed\Actions;
 
 use Illuminate\Database\Eloquent\Model;
-use Storyfeed\Contracts\Feedable;
 use Storyfeed\Models\Activity;
 use Storyfeed\Models\Builders\ActivityBuilder;
 use Storyfeed\Support\ActivityRoles;
@@ -201,9 +200,6 @@ class RebuildSnapshots
         return ['snapshotted' => $snapshotted, 'missing' => $missing];
     }
 
-    /**
-     * @return (Model&Feedable)|null
-     */
     protected function resolve(string $type, int|string $id): ?Model
     {
         return MorphResolver::feedable($type, $id);

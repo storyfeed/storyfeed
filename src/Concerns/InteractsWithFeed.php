@@ -2,31 +2,50 @@
 
 namespace Storyfeed\Concerns;
 
-use Storyfeed\Actions\ForgetActivities;
+use Closure;
+use Storyfeed\Actions\DeleteFromFeed;
+use Storyfeed\Actions\ForceDeleteFromFeed;
 use Storyfeed\Actions\SnapshotEntity;
 use Storyfeed\FeedBuilder;
 use Storyfeed\FeedContext;
+use Storyfeed\FeedEntity;
 use Storyfeed\FeedMedia;
 use Storyfeed\MediaSlot;
-use Storyfeed\Models\Activity;
-use Storyfeed\Models\Builders\ActivityBuilder;
 use Storyfeed\StoryfeedManager;
+use Storyfeed\Support\Feedables;
 
 /**
  * Keeps a Feedable model's presence in the feed in sync with its lifecycle —
  * refreshes its snapshot on save, removes its activities on delete — and gives
  * the model a feed of its own.
  *
- * It also satisfies half of the Feedable contract, so that
+ * It also answers the whole Feedable contract, so a model needs no feed code
+ * to be valid:
  *
- *     class Delivery extends Model implements Feedable
+ *     class Dish extends Model implements Feedable
  *     {
  *         use InteractsWithFeed;
+ *     }
  *
- * compiles on first save with only toFeed() left to write. Which half is
- * the point, and it is not the half you would guess from "make it compile":
- * the trait defaults feedMedia() and deliberately NOT toFeed(). See
- * feedMedia() below for why.
+ * is snapshotted as "Carrot Soup" (its `name`), or "Dish #42", and is never a
+ * link. The two halves are refined separately, and the file's shape shows
+ * which is which — what's stored is an instance method, what's resolved at
+ * read time is a closure registered in `booted()`, because at read time
+ * there's no model:
+ *
+ *     public function describeFeed(): void
+ *     {
+ *         $this->feedEntity()->label("Dish #{$this->number}")->body(...);
+ *     }
+ *
+ *     protected static function booted(): void
+ *     {
+ *         static::feedMediaUsing(fn ($context) => route('dishes.show', $context->routeKey()));
+ *     }
+ *
+ * Neither needs a FeedEntity, FeedContext or FeedMedia import. A
+ * hand-written `toFeed()` or `feedMedia()` on the model still wins, because
+ * a class's own method beats its trait's.
  */
 trait InteractsWithFeed
 {
@@ -98,30 +117,113 @@ trait InteractsWithFeed
     }
 
     /**
-     * Not independently linkable, until you say otherwise.
+     * The entity `describeFeed()` is building, the same instance on every
+     * call within one `toFeed()`, so `$this->feedEntity()->label(...)` and a
+     * later `$this->feedEntity()->body(...)` add to one entity.
+     */
+    protected ?FeedEntity $describedFeedEntity = null;
+
+    /**
+     * Describe this model for its snapshot: label, data, bodies.
      *
-     * A MISSING LINK IS A STATE; A MISSING LABEL IS A DEFECT. Returning null
-     * here is honest and common — one consumer returns it from all four of
-     * its models on purpose, because the same snapshot renders on three
-     * surfaces and the right URL depends on who is reading. The feed renders
-     * the entity at full weight, just not clickable. So the trait answers
-     * for this method and the model overrides it when it has somewhere to
-     * point.
+     *     public function describeFeed(): void
+     *     {
+     *         $this->feedEntity()
+     *             ->label("Order #{$this->reference}")
+     *             ->body(Excerpt::make()->text($this->notes));
+     *     }
      *
-     * toFeed() gets no such default. Whatever it guessed — the class name,
-     * the primary key — would write a DEGRADED snapshot, and the feed would
-     * quietly read as a placeholder instead of failing. A label the author
-     * never wrote is not a state the reader can tell from a bug, so the
-     * trait leaves toFeed() to redline until it is written. The trait
-     * satisfies only the method where "nothing" is a real answer.
+     * Optional. Whatever it leaves unset stays empty, except the label, which
+     * is guessed (see guessFeedLabel()).
+     */
+    public function describeFeed(): void {}
+
+    /** The entity describeFeed() writes to. */
+    public function feedEntity(): FeedEntity
+    {
+        return $this->describedFeedEntity ??= FeedEntity::make();
+    }
+
+    /**
+     * The stored half of the contract: what describeFeed() wrote, with a
+     * guessed label if it wrote none. Write `toFeed()` on the model instead
+     * to build and return the entity yourself.
+     */
+    public function toFeed(): FeedEntity
+    {
+        $this->describedFeedEntity = FeedEntity::make();
+
+        try {
+            $this->describeFeed();
+
+            $entity = $this->describedFeedEntity;
+        } finally {
+            $this->describedFeedEntity = null;
+        }
+
+        return $entity->label === null ? $entity->label($this->guessFeedLabel()) : $entity;
+    }
+
+    /**
+     * The label a model gets when its feed code sets none. There is no
+     * "fails on first save": a model with `use InteractsWithFeed` and nothing
+     * else is valid, and this is its label.
      *
-     * A doctor check reporting "this model appears in feeds and never
-     * resolves a link" as Info is the follow-on: making the null visible
-     * rather than forbidding it.
+     * The ladder: a `name` or `title` attribute, then the registered noun and
+     * the key ("Dish #42", from `Storyfeed::nouns()`), then the class name as
+     * words and the key ("Menu Item #42"). An app-wide guesser registered with
+     * `Storyfeed::guessFeedLabelsUsing()` is asked first; returning null falls
+     * through to the ladder. Override this method on a model, or a base
+     * model, to change it there.
+     */
+    public function guessFeedLabel(): string
+    {
+        return app(Feedables::class)->guessLabel($this);
+    }
+
+    /**
+     * The read-time half of the contract: what the `feedMediaUsing()`
+     * closure resolves, or null — not independently linkable — when the
+     * model registered none.
+     *
+     * A MISSING LINK IS A STATE. Returning null here is honest and common:
+     * one consumer returns it from all four of its models on purpose, because
+     * the same snapshot renders on three surfaces and the right URL depends
+     * on who is reading. The feed renders the entity at full weight, just
+     * not clickable.
+     *
+     * BOOTS THE MODEL FIRST. This is static, and the read path calls it for
+     * a class that may never have been instantiated in this process, so
+     * `booted()` — where the closure is registered — hasn't run yet.
+     * `static::query()` boots it (it instantiates the model) without
+     * touching the database.
      */
     public static function feedMedia(FeedContext $context): ?FeedMedia
     {
-        return null;
+        if (! isset(static::$booted[static::class])) {
+            static::query();
+        }
+
+        $resolver = app(Feedables::class)->mediaResolver(static::class);
+
+        return $resolver === null ? null : Feedables::resolveMedia($resolver, $context);
+    }
+
+    /**
+     * Register how this model's live media is resolved at read time, from
+     * `booted()`:
+     *
+     *     static::feedMediaUsing(fn ($context) => route('orders.show', $context->routeKey()));
+     *
+     * The closure gets the entity's FeedContext and a fresh FeedMedia. Return
+     * a URL string, the `$media` you filled, or null for "not linkable".
+     * Registering again replaces the closure, so a re-boot never stacks them.
+     *
+     * @param  Closure(FeedContext, FeedMedia): (FeedMedia|string|null)  $resolver
+     */
+    protected static function feedMediaUsing(Closure $resolver): void
+    {
+        app(Feedables::class)->useMediaResolver(static::class, $resolver);
     }
 
     /**
@@ -161,94 +263,21 @@ trait InteractsWithFeed
     }
 
     /**
-     * Soft-delete every activity involving this model.
-     *
-     * Chunked because the live scope excludes what the last pass soft-deleted,
-     * so the loop converges without a running exclusion list.
-     *
-     * It used to record removal evidence per chunk as well — the bulk
-     * `delete()` fires no model events, so nothing downstream heard the rows
-     * go. That evidence is gone: it answered a question the package never
-     * asked, for a healer whose contract says it "never infers missing
-     * stories", and an app that needs it can keep its own record.
+     * Soft-delete every activity involving this model. See
+     * {@see DeleteFromFeed}.
      */
     public function deleteFromFeed(): void
     {
-        while (true) {
-            $ids = $this->newFeedActivityQuery()
-                ->involving($this)
-                ->limit(500)
-                ->pluck('id')
-                ->all();
-
-            if ($ids === []) {
-                break;
-            }
-
-            $this->newFeedActivityQuery()->whereKey($ids)->delete();
-        }
+        (new DeleteFromFeed)($this);
     }
 
     /**
      * Permanently delete every activity involving this model, including
-     * activities that were already soft-deleted — and everything that points
-     * at them.
-     *
-     * A bulk `forceDelete()` fires no model events, so nothing downstream
-     * hears about the rows going. Until 2026-09-05 this method was that one
-     * query, and it left `feed_groupings` and `feed_participants` rows behind
-     * pointing at primary keys that no longer existed. It was the one
-     * hard-delete path with no opt-in in front of it: `replace()` defaults to
-     * soft, the trickle prunes only when asked, but this fires for every
-     * `Feedable` that is force-deleted. So the ids are collected first and
-     * `Actions\ForgetActivities` clears their rows before the delete, the
-     * same way `PruneActivities` does it.
-     *
-     * Still a bulk operation, deliberately. Per-model deletes would get the
-     * events back at the cost of a query per activity on exactly the path
-     * that exists to be fast, and curation has nothing to re-decide for a
-     * cluster whose members are all leaving at once.
-     *
-     * Chunked because `involving()` is an index over the participants table:
-     * each pass forgets the rows it deletes, so the next pass sees only what
-     * is left and the loop converges without a running exclusion list.
-     *
-     * EACH CHUNK IS ONE TRANSACTION, and that is the half of this that matters:
-     * `$forget` clears the grouping and participant rows and the `forceDelete`
-     * removes the activities, and a failure between them would leave one
-     * without the other. The transaction used to come from the removal
-     * recorder that wrapped both; the recorder is gone and the transaction
-     * is not.
+     * activities that were already soft-deleted, and everything that points
+     * at them. See {@see ForceDeleteFromFeed}.
      */
     public function forceDeleteFromFeed(): void
     {
-        $forget = new ForgetActivities;
-
-        while (true) {
-            $ids = $this->newFeedActivityQuery()
-                ->withTrashed()
-                ->involving($this)
-                ->limit(500)
-                ->pluck('id')
-                ->all();
-
-            if ($ids === []) {
-                break;
-            }
-
-            $this->newFeedActivityQuery()->getConnection()->transaction(function () use ($forget, $ids) {
-                $forget(...$ids);
-
-                $this->newFeedActivityQuery()->withTrashed()->whereKey($ids)->forceDelete();
-            });
-        }
-    }
-
-    /** @return ActivityBuilder<Activity> */
-    protected function newFeedActivityQuery(): ActivityBuilder
-    {
-        $model = config('storyfeed.models.activity', Activity::class);
-
-        return $model::query();
+        (new ForceDeleteFromFeed)($this);
     }
 }

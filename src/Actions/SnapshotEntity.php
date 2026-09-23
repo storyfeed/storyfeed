@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 use InvalidArgumentException;
 use Storyfeed\Contracts\Feedable;
 use Storyfeed\Models\Snapshot;
+use Storyfeed\Support\Feedables;
 use Storyfeed\Support\ShapeSignature;
 
 /**
@@ -18,9 +19,9 @@ use Storyfeed\Support\ShapeSignature;
  */
 class SnapshotEntity
 {
-    public function __invoke(Model&Feedable $model): Snapshot
+    public function __invoke(Model $model): Snapshot
     {
-        $entity = $model->toFeed();
+        $entity = app(Feedables::class)->toFeed($model);
 
         $snapshot = config('storyfeed.models.snapshot', Snapshot::class);
 

@@ -12,6 +12,7 @@ use Spatie\LaravelPackageTools\PackageServiceProvider;
 use Storyfeed\Actions\CurateCluster;
 use Storyfeed\Events\ActivityDeleted;
 use Storyfeed\Models\Party;
+use Storyfeed\Support\Feedables;
 use Storyfeed\Support\QueuedActor;
 use Storyfeed\Support\StoryManifest;
 
@@ -91,6 +92,7 @@ class StoryfeedServiceProvider extends PackageServiceProvider
         $this->app->singleton(StoryfeedManager::class);
         $this->app->alias(StoryfeedManager::class, 'storyfeed');
         $this->app->singleton(StoryManager::class);
+        $this->app->singleton(Feedables::class);
     }
 
     public function packageBooted(): void

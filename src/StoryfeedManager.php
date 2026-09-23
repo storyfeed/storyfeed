@@ -27,6 +27,7 @@ use Storyfeed\Exceptions\UnknownFeed;
 use Storyfeed\Grouping\Axis;
 use Storyfeed\Models\Activity;
 use Storyfeed\Models\Party;
+use Storyfeed\Support\Feedables;
 use Storyfeed\Support\MorphResolver;
 use Storyfeed\Support\QueuedActor;
 use Throwable;
@@ -1617,6 +1618,45 @@ class StoryfeedManager
         $this->ensureStoriesCompiled();
 
         return $this->verbs;
+    }
+
+    /**
+     * Treat a model you don't own as Feedable, from a service provider:
+     *
+     *     Storyfeed::feedable(Media::class)
+     *         ->toFeedUsing(fn (Media $media, FeedEntity $entity) => $entity->label($media->name))
+     *         ->feedMediaUsing(fn (FeedContext $context, FeedMedia $media) => $media->url(...));
+     *
+     * Its saves refresh its snapshot and its deletes reach the feed, as a
+     * model using InteractsWithFeed does. A class that already implements
+     * Feedable can't also be registered.
+     *
+     * @template TModel of Model
+     *
+     * @param  class-string<TModel>  $class
+     * @return FeedableRegistration<TModel>
+     */
+    public function feedable(string $class): FeedableRegistration
+    {
+        return app(Feedables::class)->register($class);
+    }
+
+    /**
+     * Guess the label of every model whose feed code sets none, app-wide:
+     *
+     *     Storyfeed::guessFeedLabelsUsing(fn (Model $model) => $model->reference);
+     *
+     * Return null to fall through to the default ladder (see
+     * InteractsWithFeed::guessFeedLabel()). A model that overrides
+     * guessFeedLabel() itself isn't asked.
+     *
+     * @param  (Closure(Model): ?string)|null  $guesser
+     */
+    public function guessFeedLabelsUsing(?Closure $guesser): static
+    {
+        app(Feedables::class)->guessLabelsUsing($guesser);
+
+        return $this;
     }
 
     /**

@@ -55,7 +55,7 @@ class SurfaceScanner
                     continue;
                 }
 
-                if (is_a($class, Feedable::class, true)) {
+                if (app(Feedables::class)->isFeedable($class)) {
                     $found['feedable'][] = $class;
                 }
 

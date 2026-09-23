@@ -164,14 +164,14 @@ it('compiles a bare Feedable with only toFeed() written, and links nothing', fun
         ->and($item['object']['media'])->toBeNull();
 });
 
-it('defaults feedMedia() in the trait and deliberately not toFeed()', function () {
-    // A missing link is a state; a missing label is a defect. The trait
-    // satisfies only the method where "nothing" is a real answer.
+it('answers both halves of the contract in the trait', function () {
+    // Since 2026-09-23 a missing label is guessed rather than a defect, so the
+    // trait answers toFeed() as well; feedMedia() stays static.
     $trait = new ReflectionClass(InteractsWithFeed::class);
 
     expect($trait->hasMethod('feedMedia'))->toBeTrue()
         ->and($trait->getMethod('feedMedia')->isStatic())->toBeTrue()
-        ->and($trait->hasMethod('toFeed'))->toBeFalse();
+        ->and($trait->hasMethod('toFeed'))->toBeTrue();
 });
 
 it('lets feedMedia() override the cached label and hint a modal', function () {

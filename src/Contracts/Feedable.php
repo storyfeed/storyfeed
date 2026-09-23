@@ -30,10 +30,16 @@ use Storyfeed\FeedMedia;
  * interface freezes only the part we are confident about; everything still
  * open arrives on the context or as a slot on FeedMedia.
  *
- * Concerns\InteractsWithFeed supplies a feedMedia() that returns null, so
- * `implements Feedable` + `use InteractsWithFeed` compiles on first save.
- * It deliberately does NOT supply toFeed(): a missing link is a state; a
- * missing label is a defect. See the trait for the full reasoning.
+ * Concerns\InteractsWithFeed answers both halves, so `implements Feedable`
+ * + `use InteractsWithFeed` is a working model with no feed code: toFeed()
+ * runs the model's optional describeFeed() and guesses a label it didn't
+ * set; feedMedia() runs the closure registered with
+ * `static::feedMediaUsing()` in `booted()`, or returns null. Writing either
+ * method by hand still wins.
+ *
+ * A model the app doesn't own can't implement this. It's registered with
+ * `Storyfeed::feedable(Media::class)->toFeedUsing(...)->feedMediaUsing(...)`
+ * instead, and core treats it as Feedable everywhere (Support\Feedables).
  */
 interface Feedable
 {

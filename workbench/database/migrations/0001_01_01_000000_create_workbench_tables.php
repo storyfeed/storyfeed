@@ -38,10 +38,30 @@ return new class extends Migration
             $table->timestamps();
             $table->softDeletes();
         });
+
+        // Dish (tests/Fixtures/Models): a Feedable described with describeFeed() and feedMediaUsing().
+        Schema::create('dishes', function (Blueprint $table) {
+            $table->id();
+            $table->string('name')->nullable();
+            $table->string('number')->nullable();
+            $table->string('course')->nullable();
+            $table->text('notes')->nullable();
+            $table->timestamps();
+        });
+
+        // Photo (tests/Fixtures/Models): a model the app doesn't own, registered with Storyfeed::feedable().
+        Schema::create('photos', function (Blueprint $table) {
+            $table->id();
+            $table->string('file_name');
+            $table->timestamps();
+            $table->softDeletes();
+        });
     }
 
     public function down(): void
     {
+        Schema::dropIfExists('photos');
+        Schema::dropIfExists('dishes');
         Schema::dropIfExists('deliveries');
         Schema::dropIfExists('couriers');
         Schema::dropIfExists('customers');

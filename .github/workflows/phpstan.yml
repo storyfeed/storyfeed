@@ -5,6 +5,7 @@ on:
     paths:
       - '**.php'
       - 'phpstan.neon.dist'
+      - 'phpstan-fixture.neon.dist'
       - '.github/workflows/phpstan.yml'
 
 jobs:
@@ -26,3 +27,6 @@ jobs:
 
       - name: Run PHPStan
         run: ./vendor/bin/phpstan --error-format=github
+
+      - name: Run PHPStan on the level-7 model fixture
+        run: ./vendor/bin/phpstan analyse -c phpstan-fixture.neon.dist --error-format=github

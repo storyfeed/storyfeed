@@ -37,18 +37,16 @@ class MorphResolver
 
     /**
      * Resolve a morph alias + key to a Feedable model instance.
-     *
-     * @return (Model&Feedable)|null
      */
     public static function feedable(string $alias, int|string $id): ?Model
     {
         $class = self::classFor($alias);
 
-        if ($class === null || ! is_a($class, Model::class, true) || ! is_a($class, Feedable::class, true)) {
+        if ($class === null || ! is_a($class, Model::class, true) || ! app(Feedables::class)->isFeedable($class)) {
             return null;
         }
 
-        /** @var (Model&Feedable)|null guarded by the is_a checks above */
+        /** @var Model|null guarded by the checks above */
         return $class::query()->find($id);
     }
 
@@ -66,17 +64,17 @@ class MorphResolver
      * hazard the individual resolver sidesteps by never building a map.
      *
      * @param  list<int|string>  $ids
-     * @return array<string, Model&Feedable>
+     * @return array<string, Model>
      */
     public static function feedables(string $alias, array $ids): array
     {
         $class = self::classFor($alias);
 
-        if ($ids === [] || $class === null || ! is_a($class, Model::class, true) || ! is_a($class, Feedable::class, true)) {
+        if ($ids === [] || $class === null || ! is_a($class, Model::class, true) || ! app(Feedables::class)->isFeedable($class)) {
             return [];
         }
 
-        /** @var Collection<int, Model&Feedable> $models */
+        /** @var Collection<int, Model> $models */
         $models = $class::query()->findMany($ids);
 
         $resolved = [];

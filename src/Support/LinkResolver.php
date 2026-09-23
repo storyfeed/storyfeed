@@ -55,12 +55,12 @@ class LinkResolver
     {
         $class = MorphResolver::classFor($context->type());
 
-        if ($class === null || ! is_a($class, Feedable::class, true)) {
+        if ($class === null || ! app(Feedables::class)->isFeedable($class)) {
             return null;
         }
 
         try {
-            return $class::feedMedia($context);
+            return app(Feedables::class)->feedMedia($class, $context);
         } catch (Throwable $e) {
             if (! isset($this->reported[$class])) {
                 $this->reported[$class] = true;

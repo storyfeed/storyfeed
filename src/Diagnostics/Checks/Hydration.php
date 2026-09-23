@@ -9,6 +9,7 @@ use Storyfeed\FeedContext;
 use Storyfeed\Models\Snapshot;
 use Storyfeed\StoryfeedManager;
 use Storyfeed\Support\ActivityRoles;
+use Storyfeed\Support\Feedables;
 use Storyfeed\Support\ModelHydrator;
 use Storyfeed\Support\MorphResolver;
 use Storyfeed\Support\SurfaceScanner;
@@ -131,7 +132,7 @@ class Hydration extends Check
                 );
 
                 try {
-                    $class::feedMedia($context);
+                    app(Feedables::class)->feedMedia($class, $context);
                     $answered++;
                 } catch (Throwable $e) {
                     $threw = $e::class;
@@ -243,7 +244,7 @@ class Hydration extends Check
      * plus whatever fills a role in the recorded activities — a model outside
      * the scanned paths still pays if it is on the page.
      *
-     * @return list<class-string<Model&Feedable>>
+     * @return list<class-string<Model>>
      */
     protected function candidates(StoryfeedManager $storyfeed): array
     {
@@ -257,6 +258,12 @@ class Hydration extends Check
             }
         }
 
+        // A class registered with Storyfeed::feedable() lives outside the
+        // scanned paths by definition.
+        foreach (app(Feedables::class)->registered() as $class) {
+            $classes[] = $class;
+        }
+
         $recorded = match (true) {
             $storyfeed instanceof StoryfeedFake => $storyfeed->recordedAliases(),
             $this->hasTable('activities') => $this->recordedAliases(),
@@ -266,12 +273,12 @@ class Hydration extends Check
         foreach ($recorded as $alias) {
             $class = MorphResolver::classFor($alias);
 
-            if ($class !== null && is_a($class, Model::class, true) && is_a($class, Feedable::class, true)) {
+            if ($class !== null && is_a($class, Model::class, true) && app(Feedables::class)->isFeedable($class)) {
                 $classes[] = $class;
             }
         }
 
-        /** @var list<class-string<Model&Feedable>> */
+        /** @var list<class-string<Model>> */
         return array_values(array_unique($classes));
     }
 

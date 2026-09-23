@@ -6,6 +6,8 @@ use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\Facades\Schema;
 use Orchestra\Testbench\TestCase as Orchestra;
 use Storyfeed\StoryfeedServiceProvider;
+use Storyfeed\Tests\Fixtures\Models\Dish;
+use Storyfeed\Tests\Fixtures\Models\Photo;
 use Workbench\App\Models\Courier;
 use Workbench\App\Models\Customer;
 use Workbench\App\Models\Delivery;
@@ -33,6 +35,8 @@ class TestCase extends Orchestra
             'courier' => Courier::class,
             'customer' => Customer::class,
             'delivery' => Delivery::class,
+            'dish' => Dish::class,
+            'photo' => Photo::class,
         ]);
     }
 

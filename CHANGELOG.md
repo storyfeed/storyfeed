@@ -4,6 +4,15 @@
 
 ### Changed
 
+- **`InteractsWithFeed` answers the whole `Feedable` contract.** A model with
+  `use InteractsWithFeed` and no feed code is valid: its label is guessed
+  (`guessFeedLabel()`: a `name` or `title` attribute, then the registered noun
+  and the key, "Dish #42", then the class name and the key, "Menu Item #42"),
+  and it isn't a link. The trait's `newFeedActivityQuery()` is gone; the delete
+  paths live in `Actions\DeleteFromFeed` and `Actions\ForceDeleteFromFeed`,
+  which `deleteFromFeed()` and `forceDeleteFromFeed()` call. `SnapshotEntity`
+  takes any `Model` (a `Feedable` or a registered class).
+
 - **`FeedEntity`, the body types, `FeedMedia`, `FeedImage`, `FeedLink` and
   `FeedResource` are fluent.** Every `make()` can be called empty, and every
   argument it takes has a method of the same name:
@@ -208,6 +217,23 @@
   participant rows and the `forceDelete` that follows it must still be atomic.
 
 ### Added
+
+- **`describeFeed()` and `feedMediaUsing()`.** A model describes its snapshot
+  with `$this->feedEntity()->label(...)->body(...)` in `describeFeed(): void`,
+  and registers its read-time media with
+  `static::feedMediaUsing(fn ($context, $media) => ...)` in `booted()` (a URL
+  string, the `$media`, or null). Neither needs a `FeedEntity`, `FeedContext`
+  or `FeedMedia` import. A hand-written `toFeed()` or `feedMedia()` still wins.
+
+- **`Storyfeed::guessFeedLabelsUsing(fn (Model $model) => ...)`** sets the
+  label guess app-wide; returning null falls through to the ladder. A model
+  overriding `guessFeedLabel()` isn't asked.
+
+- **`Storyfeed::feedable(Media::class)->toFeedUsing(...)->feedMediaUsing(...)`**
+  makes a model you don't own Feedable from a service provider. Core treats it
+  as `Feedable` everywhere, its saves refresh its snapshot, and its `deleted`
+  and `forceDeleted` events reach the feed. Registration is by exact class; a
+  class that already implements `Feedable` can't be registered.
 
 - **`Storyfeed\Body\Component`, the eighth body type**, stored as
   `Storyfeed/Body/Component`: an app's own frontend component by `name`

@@ -7,6 +7,7 @@ use Storyfeed\Contracts\Feedable;
 use Storyfeed\Models\Activity;
 use Storyfeed\Models\Builders\ActivityBuilder;
 use Storyfeed\Models\Snapshot;
+use Storyfeed\Support\Feedables;
 use Storyfeed\Support\MaintenanceHistory;
 use Storyfeed\Support\MorphResolver;
 use Storyfeed\Support\ShapeSignature;
@@ -236,7 +237,7 @@ class TrickleSnapshots
                 continue;
             }
 
-            $current = ShapeSignature::for($sample->toFeed(), $sample::class);
+            $current = ShapeSignature::for(app(Feedables::class)->toFeed($sample), $sample::class);
 
             $candidates = $snapshot::query()
                 ->where('model_type', $type)
@@ -261,7 +262,7 @@ class TrickleSnapshots
                 // it is a second legitimate shape of the same class, and
                 // rewriting it would change nothing and undo nothing.
                 if ($row->shape !== null && $row->meta !== null
-                    && $row->shape === ShapeSignature::for($model->toFeed(), $model::class)) {
+                    && $row->shape === ShapeSignature::for(app(Feedables::class)->toFeed($model), $model::class)) {
                     continue;
                 }
 
@@ -273,9 +274,6 @@ class TrickleSnapshots
         return $reshaped;
     }
 
-    /**
-     * @return (Model&Feedable)|null
-     */
     protected function resolve(string $type, int|string $id): ?Model
     {
         return MorphResolver::feedable($type, $id);
