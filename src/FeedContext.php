@@ -33,6 +33,8 @@ final readonly class FeedContext
      * @param  ModelHydrator  $hydrator  the page's identity map; a context built
      *                                   without one gets a private map and
      *                                   model() becomes a single lookup
+     * @param  string|null  $routeKey  the route key recorded on the snapshot, or
+     *                                 null for a row written before it was recorded
      */
     public function __construct(
         private string $type,
@@ -41,6 +43,7 @@ final readonly class FeedContext
         private array $data = [],
         private ?string $feed = null,
         private ModelHydrator $hydrator = new ModelHydrator,
+        private ?string $routeKey = null,
     ) {}
 
     /**
@@ -57,6 +60,27 @@ final readonly class FeedContext
     public function key(): int|string|null
     {
         return $this->key;
+    }
+
+    /**
+     * The entity's route key — what Eloquent calls getRouteKey() — for a
+     * `route()` call on a model routed by slug or UUID, with no query:
+     *
+     *     route('menu.show', $context->routeKey())
+     *
+     * Recorded when the snapshot is written, the way the label is, so it is
+     * as fresh as the snapshot and no fresher. It is kept in the snapshot's
+     * `meta`, not in `data`: toFeed() does not have to carry it. When the
+     * route key is the primary key, this equals key().
+     *
+     * A snapshot written before the route key was recorded has none, and
+     * this falls back to key(). That is right for a model routed by its
+     * primary key and wrong for one routed by anything else until the row is
+     * written again: the next save does it, and so does `storyfeed:trickle`.
+     */
+    public function routeKey(): int|string|null
+    {
+        return $this->routeKey ?? $this->key;
     }
 
     /**

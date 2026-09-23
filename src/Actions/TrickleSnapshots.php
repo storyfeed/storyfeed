@@ -240,7 +240,9 @@ class TrickleSnapshots
 
             $candidates = $snapshot::query()
                 ->where('model_type', $type)
-                ->where(fn ($q) => $q->whereNull('shape')->orWhere('shape', '!=', $current))
+                // A row with no `meta` predates the recorded route key, and
+                // is refreshed on the same budget as a stale shape.
+                ->where(fn ($q) => $q->whereNull('shape')->orWhere('shape', '!=', $current)->orWhereNull('meta'))
                 ->latest('updated_at')
                 ->limit($budget)
                 ->get();
@@ -258,7 +260,8 @@ class TrickleSnapshots
                 // still matches what this row produces today is not stale —
                 // it is a second legitimate shape of the same class, and
                 // rewriting it would change nothing and undo nothing.
-                if ($row->shape !== null && $row->shape === ShapeSignature::for($model->toFeed(), $model::class)) {
+                if ($row->shape !== null && $row->meta !== null
+                    && $row->shape === ShapeSignature::for($model->toFeed(), $model::class)) {
                     continue;
                 }
 

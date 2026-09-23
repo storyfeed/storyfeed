@@ -352,6 +352,7 @@ class ActivitySerializer
             label: $snapshot->label,
             data: $data,
             feed: null,
+            routeKey: $snapshot->meta['route_key'] ?? null,
         ));
         $href = $media?->href();
         $absolute = $href === null ? null : url($href);

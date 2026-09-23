@@ -552,6 +552,7 @@ class NodePresenter
             data: $data,
             feed: $this->feed,
             hydrator: $this->hydrator ?? new ModelHydrator,
+            routeKey: $snapshot->meta['route_key'] ?? null,
         ));
 
         return [

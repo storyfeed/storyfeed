@@ -1,0 +1,32 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        $table = config('storyfeed.tables.snapshots', 'feed_snapshots');
+
+        if (! Schema::hasColumn($table, 'meta')) {
+            Schema::table($table, function (Blueprint $blueprint) {
+                // The package's snapshot extras, never queried or indexed
+                // (the route key lives here). The app's values stay in `data`.
+                $blueprint->json('meta')->nullable();
+            });
+        }
+    }
+
+    public function down(): void
+    {
+        $table = config('storyfeed.tables.snapshots', 'feed_snapshots');
+
+        if (Schema::hasColumn($table, 'meta')) {
+            Schema::table($table, function (Blueprint $blueprint) {
+                $blueprint->dropColumn('meta');
+            });
+        }
+    }
+};

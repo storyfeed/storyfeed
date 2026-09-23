@@ -29,6 +29,7 @@ class SnapshotEntity
             'model_type' => $model->getMorphClass(),
             'model_id' => $model->getKey(),
         ];
+        $routeKey = $model->getRouteKey();
         $values = [
             'label' => $entity->label,
             'component' => $entity->component,
@@ -39,6 +40,12 @@ class SnapshotEntity
             'attributed_to' => $entity->attributedTo,
             'shape' => ShapeSignature::for($entity, $model::class),
             'source_updated_at' => $sourceUpdatedAt?->format('Y-m-d H:i:s.u'),
+            // The route key only when it is not the primary key, which the
+            // snapshot already carries. Always an array, so a written row is
+            // told apart from one that predates `meta`; the trickle refreshes those.
+            'meta' => $routeKey === null || (string) $routeKey === (string) $model->getKey()
+                ? []
+                : ['route_key' => (string) $routeKey],
         ];
 
         // Compare and save under the same row lock. firstOrCreate also handles

@@ -29,7 +29,7 @@ class SchemaState
      * @var array<string, list<string>>
      */
     public const array EXPECTED = [
-        'snapshots' => ['shape', 'body'],
+        'snapshots' => ['shape', 'body', 'meta'],
         'groupings' => ['winner'],
     ];
 

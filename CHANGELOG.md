@@ -126,6 +126,26 @@
 
 ### Added
 
+- **`FeedContext::routeKey()`: the model's `getRouteKey()`, recorded when the
+  snapshot is written**, the way the label is. A resolver can write
+  `route('menu.show', $context->routeKey())` for a slug- or UUID-routed model
+  with no query and nothing added to `data`. When the route key is the primary
+  key, it equals `key()`.
+
+  **UPGRADING TAKES ONE STEP AND THE APP WILL NOT RUN WITHOUT IT:**
+
+      php artisan vendor:publish --tag=storyfeed-migrations
+      php artisan migrate
+
+  `feed_snapshots` gains a nullable `meta` JSON column
+  (`add_meta_to_feed_snapshots_table`). Every snapshot write sets it, so
+  without it every publish fails on an undefined column;
+  `storyfeed:doctor --only=columns` names it. `meta` holds the package's
+  snapshot extras that are never queried or indexed; the app's values stay in
+  `data`, and `data()` never returns `meta`. Rows written before it fall back
+  to `key()` until they are written again, by the next save or by
+  `storyfeed:trickle`.
+
 - **`FeedContext::data()` reads dot paths**, as `$request->input()` and
   `config()` do: `$context->data('photo.width')`. A key that itself contains a
   dot is found first. `data()` with no argument still returns the whole array.

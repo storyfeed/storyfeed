@@ -127,6 +127,7 @@ class Hydration extends Check
                     data: $snapshot === null ? [] : ($snapshot->data ?? []),
                     feed: $feed,
                     hydrator: $hydrator,
+                    routeKey: $snapshot?->meta['route_key'] ?? null,
                 );
 
                 try {
