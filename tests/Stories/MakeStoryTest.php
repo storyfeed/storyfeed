@@ -216,12 +216,58 @@ describe('with a terminal, it asks', function () {
             ->assertSuccessful();
     });
 
+    it('asks how a verb is spelled in the past tense when appending is not certain', function () {
+        $this->artisan('make:story', ['name' => 'DishWentLive', '--verb' => 'ship', '--model' => 'Dish'])
+            ->expectsChoice("How is 'ship' written in the past tense?", 'shipped', [
+                'shiped', 'shipped', 'None of these — leave the headline commented',
+            ])
+            ->assertSuccessful();
+
+        expect(file_get_contents(storyPath('DishWentLive')))
+            ->toContain("return ':actor shipped :object';")
+            ->not->toContain('shiped');
+    });
+
+    it('does not ask for a past tense that appending spells for certain', function () {
+        // No expectsChoice: an unexpected prompt fails the test.
+        $this->artisan('make:story', ['name' => 'DishWentLive', '--verb' => 'place', '--model' => 'Dish'])
+            ->assertSuccessful();
+
+        expect(file_get_contents(storyPath('DishWentLive')))->toContain("return ':actor placed :object';");
+    });
+
+    it('leaves the headline commented when no offered spelling is right', function () {
+        $this->artisan('make:story', ['name' => 'DishWentLive', '--verb' => 'ship', '--model' => 'Dish'])
+            ->expectsChoice("How is 'ship' written in the past tense?", 'None of these — leave the headline commented', [
+                'shiped', 'shipped', 'None of these — leave the headline commented',
+            ])
+            ->assertSuccessful();
+
+        expect(file_get_contents(storyPath('DishWentLive')))->toContain("// return ':actor shipped :object';");
+    });
+
     it('asks for the name when none is given', function () {
         $this->artisan('make:story')
             ->expectsQuestion('What should the story be named?', 'DeliveryWasConfirmed')
             ->expectsOutputToContain("Story::for('delivery')->verb('confirm', ")
             ->assertSuccessful();
     });
+});
+
+it('writes an uncertain past tense commented out beneath the reason, without a terminal', function () {
+    $output = makeStory(['name' => 'DishWentLive', '--verb' => 'ship', '--model' => 'Dish']);
+    $class = file_get_contents(storyPath('DishWentLive'));
+
+    expect($output)->toContain("Wrote the headline commented out: 'ship' has no certain past tense.")
+        ->and($class)->toContain(implode(PHP_EOL, [
+            "        // make:story cannot spell 'ship' in the past tense for certain. Uncomment the right line.",
+            "        // return ':actor shiped :object';",
+            "        // return ':actor shipped :object';",
+        ]))
+        ->and($class)->toContain("            // Group::repeat()->headline(':actor shipped :objects'),")
+        // Nothing uncertain is live: every headline, single or grouped, is commented.
+        ->and($class)->not->toMatch('/^\s*(return \'|Group::)/m')
+        ->and($class)->not->toContain('TODO');
 });
 
 it('never writes a placeholder into the class or the line', function () {

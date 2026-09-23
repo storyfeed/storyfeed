@@ -65,6 +65,12 @@ class StoryMakeCommand extends GeneratorCommand
     /** @var list<string> the binding line of each class written this run */
     protected array $bindings = [];
 
+    /** The past tense chosen at the prompt, for a name that does not spell it */
+    protected ?string $chosenPastTense = null;
+
+    /** The select() answer that writes the headline commented, as without a terminal */
+    protected const LEAVE_COMMENTED = 'None of these — leave the headline commented';
+
     /**
      * Ask for what the name does not settle. Runs only with a terminal, so
      * scripted use goes straight to handle(), which fails instead.
@@ -87,6 +93,10 @@ class StoryMakeCommand extends GeneratorCommand
 
         if (! $this->option('resource') && ! $this->option('verb') && count($matches = $this->declaredVerbsInName()) !== 1) {
             $input->setOption('verb', $this->askForVerb($matches));
+        }
+
+        if (! $this->option('resource') && $this->option('verb')) {
+            $this->chosenPastTense = $this->askForPastTense((string) $this->option('verb'));
         }
 
         if ($this->objectFromName() === null) {
@@ -121,6 +131,28 @@ class StoryMakeCommand extends GeneratorCommand
                 ? 'The app\'s declared verbs. Pass --verb for one it does not declare.'
                 : 'The name spells '.$this->quoted($matches).'.',
         );
+    }
+
+    /**
+     * Ask how the verb is written in the past tense, when the name does not
+     * spell it and appending is not certain (`ship`: `shipped` or `shiped`).
+     * Null when there is nothing to ask, or the developer chose neither.
+     */
+    protected function askForPastTense(string $verb): ?string
+    {
+        if (StoryName::parse($this->getNameInput())['predicate'] !== null || $this->certainPastTense($verb) !== null) {
+            return null;
+        }
+
+        $words = Str::snake($verb, ' ');
+
+        $answer = (string) select(
+            label: "How is '{$words}' written in the past tense?",
+            options: [...StoryName::pastTenseCandidates($words), self::LEAVE_COMMENTED],
+            hint: 'The headline says it, so it must be spelled right.',
+        );
+
+        return $answer === self::LEAVE_COMMENTED ? null : $answer;
     }
 
     public function handle(): ?bool
@@ -251,11 +283,40 @@ class StoryMakeCommand extends GeneratorCommand
 
         $this->bindings[] = 'Story::for('.$this->objectType($object).")->verb('{$verb}', \\{$name}::class);";
 
+        $past = $this->pastTense($name, $verb);
+
+        if ($past === null) {
+            return $this->commentedHeadlines($stub, $verb);
+        }
+
         return str_replace(
             ['{{ headline }}', '{{ groups }}'],
-            [$this->headline($name, $verb), $this->groups($this->pastTense($name, $verb))],
+            [':actor '.$past.' :object', $this->groups([$past])],
             $stub,
         );
+    }
+
+    /**
+     * The class with its headline commented out beneath the reason, one line
+     * per spelling offered, and its group headlines likewise — for a past
+     * tense nobody chose. Nothing uncertain lands as live code: the class
+     * fails loudly until a line is uncommented, rather than misspell a feed.
+     */
+    protected function commentedHeadlines(string $stub, string $verb): string
+    {
+        $words = Str::snake($verb, ' ');
+        $candidates = StoryName::pastTenseCandidates($words);
+        $reason = "make:story cannot spell '{$words}' in the past tense for certain. Uncomment the right line.";
+
+        $this->components->warn("Wrote the headline commented out: '{$words}' has no certain past tense. Choose one in the class.");
+
+        // By line, so a published stub keeps its own indentation.
+        $stub = preg_replace_callback('/^([ \t]*)([^\r\n]*\{\{ headline \}\}[^\r\n]*)/m', fn (array $line) => implode(PHP_EOL, [
+            "{$line[1]}// {$reason}",
+            ...array_map(fn (string $past) => $line[1].'// '.str_replace('{{ headline }}', ":actor {$past} :object", $line[2]), $candidates),
+        ]), $stub) ?? $stub;
+
+        return str_replace('{{ groups }}', $this->groups($candidates, commented: true), $stub);
     }
 
     /**
@@ -369,21 +430,23 @@ class StoryMakeCommand extends GeneratorCommand
 
     /**
      * The past tense the DEVELOPER wrote in the class name — correct English by
-     * construction — else the verb conjugated regularly, for a name that does
-     * not follow the convention.
+     * construction — else the one they chose at the prompt, else the verb
+     * conjugated where appending is certain. Null otherwise: `ship` could be
+     * `shipped` or `shiped`, and a headline must not guess.
      */
-    protected function pastTense(string $name, string $verb): string
+    protected function pastTense(string $name, string $verb): ?string
     {
         $predicate = StoryName::parse($name)['predicate'];
 
         return $predicate !== null
             ? Str::snake($predicate, ' ')
-            : StoryName::participle(Str::snake($verb, ' '));
+            : $this->chosenPastTense ?? $this->certainPastTense($verb);
     }
 
-    protected function headline(string $name, string $verb): string
+    /** `StoryName::certainParticiple()` over the verb as a sentence spells it */
+    protected function certainPastTense(string $verb): ?string
     {
-        return ':actor '.$this->pastTense($name, $verb).' :object';
+        return StoryName::certainParticiple(Str::snake($verb, ' '));
     }
 
     /**
@@ -394,8 +457,13 @@ class StoryMakeCommand extends GeneratorCommand
      * axis fails to pin — which is the documented lie class, generated. Each
      * headline says `:actor` and `:object` where the axis pins them and the
      * plural forms where it doesn't, with every pinned token listed above it.
+     *
+     * One headline per spelling given: a single certain one live, or every
+     * candidate commented out while the past tense is undecided.
+     *
+     * @param  list<string>  $spellings
      */
-    protected function groups(string $pastTense): string
+    protected function groups(array $spellings, bool $commented = false): string
     {
         $storyfeed = $this->storyfeed();
 
@@ -425,14 +493,17 @@ class StoryMakeCommand extends GeneratorCommand
                 default => "on('{$axis}')",
             };
 
-            // EVERY allowed token, not an arbitrary few: a short slice would
-            // look like a considered choice while hiding the rest.
-            $headline = (in_array(':actor', $tokens, true) ? ':actor' : ':actors')
-                ." {$pastTense} "
-                .(in_array(':object', $tokens, true) ? ':object' : ':objects');
-
             $lines[] = '            // Pinned: '.implode(' ', $tokens);
-            $lines[] = "            Group::{$constructor}->headline('{$headline}'),";
+
+            foreach ($spellings as $pastTense) {
+                // EVERY allowed token, not an arbitrary few: a short slice would
+                // look like a considered choice while hiding the rest.
+                $headline = (in_array(':actor', $tokens, true) ? ':actor' : ':actors')
+                    ." {$pastTense} "
+                    .(in_array(':object', $tokens, true) ? ':object' : ':objects');
+
+                $lines[] = '            '.($commented ? '// ' : '')."Group::{$constructor}->headline('{$headline}'),";
+            }
         }
 
         return $lines === []

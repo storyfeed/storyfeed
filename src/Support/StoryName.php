@@ -160,6 +160,28 @@ class StoryName
     }
 
     /**
+     * Every regular past tense of a verb, one word conjugated at a time and
+     * spaced as a sentence reads (`ship` → `shiped`, `shipped`; `check_in` →
+     * `checked in`, …) — the choices to OFFER where `certainParticiple()` is
+     * null. Some are wrong by design; the developer picks.
+     *
+     * @return list<string>
+     */
+    public static function pastTenseCandidates(string $verb): array
+    {
+        $words = explode(' ', Str::lower(Str::snake(Str::studly($verb), ' ')));
+        $candidates = [];
+
+        foreach ($words as $i => $word) {
+            foreach (self::pastTenses($word) as $past) {
+                $candidates[] = implode(' ', array_replace($words, [$i => $past]));
+            }
+        }
+
+        return array_values(array_unique($candidates));
+    }
+
+    /**
      * The past participle of an imperative — for building a class name FROM a
      * recorded verb (`--from-doctor`).
      *
