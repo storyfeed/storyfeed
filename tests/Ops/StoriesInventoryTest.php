@@ -116,9 +116,11 @@ it('names a declared model that never appears, once there is data to judge again
 it('reports every story as ok when there is nothing to flag', function () {
     Storyfeed::stories([DeliveryWasConfirmed::class]);
 
-    // The fixture authors three of the four axes `confirm` can reach, so the
-    // fourth has to be filled in for a clean run — which is itself the
-    // derivation working: nobody hand-listed which axes apply.
+    // The fixture and the workbench's routes/feed.php author three of the four
+    // axes `confirm` can reach, so the fourth has to be filled in for a clean
+    // run — which is itself the derivation working: nobody hand-listed which
+    // axes apply.
+    require __DIR__.'/../../workbench/routes/feed.php';
     Storyfeed::aggregateGrammar(['object.confirm' => ':actor confirmed :object :count times']);
 
     $user = User::create(['name' => 'Sally', 'email' => 's@example.com']);

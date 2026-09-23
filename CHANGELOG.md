@@ -703,6 +703,19 @@
   naming the method and pointing at `routes/feed.php`:
   `Story::verb('place')->grouped(…)`, worded so it names no type.
 
+- **So does one in a one-verb Story class.** `OrderWasPlaced` and
+  `ReservationWasPlaced` filed their group headlines under `place` alone, so
+  one overwrote the other and a row of reservations could read "Dana placed 3
+  orders". A group headline in any Story class is now filed under the class's
+  type, and a class that gives `Group::byActors()`, `Group::byTargets()` or
+  any other grouping that can hold several kinds of thing a headline fails
+  when stories compile, with the same message, naming `Class::groups()`.
+  Move such a headline to `routes/feed.php`, worded so it names no type. An
+  object-less class (`$objectType = '*'`) is unchanged. `make:story` writes
+  those groupings as a commented `routes/feed.php` line, and `storyfeed:stories`
+  counts a type's own group headlines and no longer lists a line that only
+  gives a verb its group headlines as a story of its own.
+
 ## v0.10.0 — The slot that was read as an instruction (2026-09-10)
 
 Two doctor checks, both from the same discovery: a check can be entirely right

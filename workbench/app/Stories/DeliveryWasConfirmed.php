@@ -17,6 +17,12 @@ use Workbench\App\Models\Delivery;
  * runtime — `make:story` parses `Delivery`+`WasConfirmed` and prints the line
  * that binds it, so a wrong guess is seen instead of self-registering a wrong
  * verb past strict mode.
+ *
+ * Its group headlines are about deliveries, as everything in the class is:
+ * a row of one person's repeated confirms holds only deliveries. A grouping
+ * that can put other things in the same row (everything confirmed by these
+ * people, or for these customers) belongs to the verb, so its headlines live
+ * in routes/feed.php, worded so they name no type.
  */
 class DeliveryWasConfirmed extends Story
 {
@@ -37,8 +43,6 @@ class DeliveryWasConfirmed extends Story
     public function groups(): array
     {
         return [
-            Group::byActors()->headline(':actors confirmed :count deliveries for :target'),
-            Group::byTargets()->headline(':actor confirmed deliveries for :targets'),
             Group::repeat()->headline(':actor confirmed :count deliveries'),
         ];
     }

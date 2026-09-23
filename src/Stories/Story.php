@@ -42,11 +42,17 @@ use Storyfeed\StoryfeedManager;
  *       public function groups(): array
  *       {
  *           return [
- *               Group::byActors()->headline(':actors uploaded :count files to :target'),
  *               Group::repeat()->headline(':actor uploaded :count files to :target'),
  *           ];
  *       }
  *   }
+ *
+ * A group headline here is about documents, so it is filed under documents
+ * and cannot collide with another class's headline for the same verb. A
+ * grouping whose rows can hold other kinds of thing (Group::byActors(),
+ * Group::byTargets()) has no one type, so its headline belongs to the verb
+ * in routes/feed.php, worded so it names no type; declared here, it fails at
+ * compile.
  *
  * WHAT THIS REPLACES. Authoring one activity type against the raw registries
  * touched seven places in a real consumer: the verb enum case, its

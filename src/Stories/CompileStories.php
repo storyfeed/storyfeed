@@ -290,25 +290,26 @@ class CompileStories
      * a collapsed row is filed under, so the feed finds it again.
      *
      * Written on a verb, it is filed under the verb (`repeat.place`). Written
-     * inside `Story::for(Order::class)`, or in a resource Story class method
-     * such as `OrderStory::place()`, it is about orders, so it is filed under
-     * orders too (`repeat.order.place`), which the read path tries first.
-     * Filed under the verb alone, `ReservationStory::place()` would share the
-     * drawer, and three reservations would read "Dana placed 3 orders".
+     * inside `Story::for(Order::class)`, or in a Story class about orders
+     * (a resource class method such as `OrderStory::place()`, or a one-verb
+     * class such as `OrderWasPlaced`), it is about orders, so it is filed
+     * under orders too (`repeat.order.place`), which the read path tries
+     * first. Filed under the verb alone, `ReservationWasPlaced` would share
+     * the drawer, and three reservations would read "Dana placed 3 orders".
      *
      * A grouping that can gather several types (everything one person did,
      * say) has no one type to file under, so a type's headline for it throws
      * rather than being filed somewhere untrue. Row-backed axes (composite,
      * batch) keep `axis.verb`; their headline belongs to the verb already.
      *
-     * One-verb Story classes and Verb::make()/for() keep `axis.verb`.
+     * Verb::make()/for() keep `axis.verb`.
      *
      * @return list<string>
      */
     protected function groupKeys(Group $group, Verb $definition, StoryfeedManager $storyfeed): array
     {
         $verb = $definition->verb;
-        $method = $this->resourceMethod($definition);
+        $method = $this->classMethod($definition);
 
         if ((! $definition->isTypeScoped() && $method === null) || $storyfeed->axis($group->axis)?->isRowBacked() === true) {
             return ["{$group->axis}.{$verb}"];
@@ -328,18 +329,20 @@ class CompileStories
     }
 
     /**
-     * `App\Stories\OrderStory@place`, for a definition a resource Story class
-     * method made about a type; null for anything else.
+     * The Story class method that wrote a definition's group headlines, for
+     * one about a type: `App\Stories\OrderStory@place` from a resource
+     * class, `App\Stories\OrderWasPlaced@groups` from a one-verb class;
+     * null for anything else.
      */
-    protected function resourceMethod(Verb $definition): ?string
+    protected function classMethod(Verb $definition): ?string
     {
         $action = $definition->action();
 
-        if ($action === null || ! str_contains($action, '@') || in_array('*', $definition->objectTypes, true)) {
+        if ($action === null || in_array('*', $definition->objectTypes, true)) {
             return null;
         }
 
-        return $action;
+        return str_contains($action, '@') ? $action : "{$action}@groups";
     }
 
     /**

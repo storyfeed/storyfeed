@@ -270,6 +270,17 @@ it('writes an uncertain past tense commented out beneath the reason, without a t
         ->and($class)->not->toContain('TODO');
 });
 
+it('offers each uncertain spelling of a grouping that can hold other kinds of thing as a routes/feed.php line', function () {
+    makeStory(['name' => 'DishWentLive', '--verb' => 'ship', '--model' => 'Dish']);
+    $class = file_get_contents(storyPath('DishWentLive'));
+
+    expect($class)->toContain(implode(PHP_EOL, [
+        '            // Group::byActors() can hold other kinds of thing, so its headline goes in routes/feed.php:',
+        "            // Story::verb('ship')->grouped(Group::byActors()->headline(':actors shiped :objects'));",
+        "            // Story::verb('ship')->grouped(Group::byActors()->headline(':actors shipped :objects'));",
+    ]));
+});
+
 it('never writes a placeholder into the class or the line', function () {
     $output = makeStory(['name' => 'DeliveryWasConfirmed']);
 
@@ -296,10 +307,23 @@ it('pre-fills only the axes that apply, with only pinned tokens', function () {
     // The generated skeleton must not be able to suggest an unpinned token —
     // that is the documented lie class, generated. `repeat` pins :actor and
     // :target; a byActors line may not offer :actor.
-    $actorsLine = collect(explode(PHP_EOL, $source))->first(fn ($l) => str_contains($l, 'byActors()'));
+    $actorsLine = collect(explode(PHP_EOL, $source))->first(fn ($l) => str_contains($l, 'byActors()->headline'));
 
     expect($actorsLine)->not->toContain(':actor ')
         ->and($actorsLine)->toContain(':actors');
+});
+
+it('offers a grouping that can hold other kinds of thing as a routes/feed.php line, not a class headline', function () {
+    $this->artisan('make:story', ['name' => 'DeliveryWasConfirmed'])->assertSuccessful();
+
+    $lines = explode(PHP_EOL, file_get_contents(storyPath('DeliveryWasConfirmed')));
+    $actorsLine = collect($lines)->first(fn ($l) => str_contains($l, 'byActors()->headline'));
+    $repeatLine = collect($lines)->first(fn ($l) => str_contains($l, 'repeat()->headline'));
+
+    // Uncommented in the class it would fail at compile: a headline there is
+    // about deliveries, and this grouping's rows are not all deliveries.
+    expect(trim($actorsLine))->toStartWith("// Story::verb('confirm')->grouped(Group::byActors()->headline(")
+        ->and(trim($repeatLine))->toStartWith('Group::repeat()->headline(');
 });
 
 it('honours an explicit axis list', function () {
@@ -322,7 +346,7 @@ it('generates a story that compiles once the printed line binds it', function ()
     eval('use Storyfeed\Facades\Story; '.$binding);
 
     expect(Storyfeed::template('delivery', 'confirm'))->toContain(':actor')
-        ->and(Storyfeed::aggregateTemplate('repeat', 'confirm'))->not->toBeNull();
+        ->and(Storyfeed::aggregateTemplate('repeat', 'confirm', 'delivery'))->not->toBeNull();
 });
 
 it('scaffolds one story per unauthored pair doctor actually found', function () {

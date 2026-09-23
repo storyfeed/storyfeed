@@ -110,7 +110,7 @@ class StoryMisconfigured extends LogicException
     }
 
     /**
-     * A resource Story class method gave a headline to a grouping that can
+     * A Story class gave a headline to a grouping that can
      * hold more than one type. Said in terms of the sentence and the rows,
      * never of keys: that is what the reader was writing.
      */
@@ -126,7 +126,7 @@ class StoryMisconfigured extends LogicException
         return new self(
             "{$method} gives its {$group} grouping a headline. A headline written in a Story class is about that "
             ."class's type, [{$type}], but this grouping can put other kinds of thing in the same row, so the headline "
-            .'would describe things that are not all [{$type}]. Remove it here and declare it in routes/feed.php '
+            ."would describe things that are not all [{$type}]. Remove it here and declare it in routes/feed.php "
             ."instead, worded so it names no type: Story::verb('{$verb}')->grouped({$group}->headline('…'))."
         );
     }

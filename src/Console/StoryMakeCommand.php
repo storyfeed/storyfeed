@@ -291,7 +291,7 @@ class StoryMakeCommand extends GeneratorCommand
 
         return str_replace(
             ['{{ headline }}', '{{ groups }}'],
-            [':actor '.$past.' :object', $this->groups([$past])],
+            [':actor '.$past.' :object', $this->groups([$past], $verb)],
             $stub,
         );
     }
@@ -316,7 +316,7 @@ class StoryMakeCommand extends GeneratorCommand
             ...array_map(fn (string $past) => $line[1].'// '.str_replace('{{ headline }}', ":actor {$past} :object", $line[2]), $candidates),
         ]), $stub) ?? $stub;
 
-        return str_replace('{{ groups }}', $this->groups($candidates, commented: true), $stub);
+        return str_replace('{{ groups }}', $this->groups($candidates, $verb, commented: true), $stub);
     }
 
     /**
@@ -461,9 +461,14 @@ class StoryMakeCommand extends GeneratorCommand
      * One headline per spelling given: a single certain one live, or every
      * candidate commented out while the past tense is undecided.
      *
+     * A headline in the class is about the class's type, so a grouping that
+     * can put other kinds of thing in one row is written as a commented
+     * routes/feed.php line instead: uncommented in the class, it would fail
+     * at compile.
+     *
      * @param  list<string>  $spellings
      */
-    protected function groups(array $spellings, bool $commented = false): string
+    protected function groups(array $spellings, string $verb, bool $commented = false): string
     {
         $storyfeed = $this->storyfeed();
 
@@ -493,7 +498,11 @@ class StoryMakeCommand extends GeneratorCommand
                 default => "on('{$axis}')",
             };
 
-            $lines[] = '            // Pinned: '.implode(' ', $tokens);
+            $spansTypes = ! $storyfeed->pinsType($axis, 'object') && $storyfeed->axis($axis)?->isRowBacked() !== true;
+
+            $lines[] = $spansTypes
+                ? "            // Group::{$constructor} can hold other kinds of thing, so its headline goes in routes/feed.php:"
+                : '            // Pinned: '.implode(' ', $tokens);
 
             foreach ($spellings as $pastTense) {
                 // EVERY allowed token, not an arbitrary few: a short slice would
@@ -502,7 +511,9 @@ class StoryMakeCommand extends GeneratorCommand
                     ." {$pastTense} "
                     .(in_array(':object', $tokens, true) ? ':object' : ':objects');
 
-                $lines[] = '            '.($commented ? '// ' : '')."Group::{$constructor}->headline('{$headline}'),";
+                $lines[] = $spansTypes
+                    ? "            // Story::verb('{$verb}')->grouped(Group::{$constructor}->headline('{$headline}'));"
+                    : '            '.($commented ? '// ' : '')."Group::{$constructor}->headline('{$headline}'),";
             }
         }
 

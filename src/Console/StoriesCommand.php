@@ -85,8 +85,15 @@ class StoriesCommand extends Command
         $lastRecorded = $this->lastRecordedByPair();
         $roleMap = $this->roleMap();
 
-        // 1. Registered stories, named by their class or ad-hoc key.
+        // 1. Registered stories, named by their class or ad-hoc key. A line
+        // that only gives a verb its group headlines (`Story::verb('confirm')
+        // ->grouped(…)`, for groupings that can hold several types) is not a
+        // story of its own: its headlines count in each row for the verb.
         foreach ($storyfeed->storyDefinitions() as $definition) {
+            if ($definition->template() === null && $definition->groupList() !== []) {
+                continue;
+            }
+
             foreach ($definition->pairs() as [$type, $verb]) {
                 $rows[] = $this->row($storyfeed, $definition->source, $type, $verb, $lastRecorded, $roleMap);
             }
@@ -161,7 +168,7 @@ class StoriesCommand extends Command
         $applicable = $storyfeed->axesApplicableTo($roleMap[$verb] ?? []);
         $authored = array_filter(
             $applicable,
-            fn (string $axis) => $storyfeed->aggregateTemplateKey($axis, $verb) !== null,
+            fn (string $axis) => $storyfeed->aggregateTemplateKey($axis, $verb, $type) !== null,
         );
 
         $aggregates = $applicable === [] ? '—' : count($authored).'/'.count($applicable);

@@ -35,11 +35,7 @@ it('compiles to exactly what the hand-written registries would hold', function (
 
     Storyfeed::grammar(['delivery.confirm' => ':actor confirmed :object for :target'])
         ->icons(['delivery.confirm' => 'bi-truck'])
-        ->aggregateGrammar([
-            'actors.confirm' => ':actors confirmed :count deliveries for :target',
-            'targets.confirm' => ':actor confirmed deliveries for :targets',
-            'repeat.confirm' => ':actor confirmed :count deliveries',
-        ]);
+        ->aggregateGrammar(['repeat.delivery.confirm' => ':actor confirmed :count deliveries']);
 
     expect(Storyfeed::registeredGrammar())->toBe($fromStory['grammar'])
         ->and(Storyfeed::registeredAggregateGrammar())->toBe($fromStory['aggregateGrammar'])
@@ -121,15 +117,18 @@ it('emits closure-free output, so a manifest can var_export it', function () {
 
 it('groups by verb, not by axis — the ergonomic point', function () {
     Storyfeed::stories([DeliveryWasConfirmed::class]);
+    require __DIR__.'/../../workbench/routes/feed.php';
 
-    // All three of `confirm`'s aggregate headlines came from ONE file. In the
-    // raw registry they are three entries in an axis-ordered array, which is
-    // how one verb's headlines end up 40+ lines apart.
+    // `confirm`'s aggregate headlines sit together: the one about deliveries
+    // in the class, the ones whose rows can hold anything on the verb's line
+    // in routes/feed.php. In the raw registry they are three entries in an
+    // axis-ordered array, which is how one verb's headlines end up 40+ lines
+    // apart.
     $keys = array_keys(Storyfeed::registeredAggregateGrammar());
 
     expect($keys)->toContain('actors.confirm')
         ->toContain('targets.confirm')
-        ->toContain('repeat.confirm');
+        ->toContain('repeat.delivery.confirm');
 });
 
 it('accepts an ad-hoc group on a custom axis', function () {
