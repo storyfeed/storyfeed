@@ -90,6 +90,7 @@ class StoryfeedServiceProvider extends PackageServiceProvider
     {
         $this->app->singleton(StoryfeedManager::class);
         $this->app->alias(StoryfeedManager::class, 'storyfeed');
+        $this->app->singleton(StoryManager::class);
     }
 
     public function packageBooted(): void

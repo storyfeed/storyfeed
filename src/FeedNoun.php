@@ -103,6 +103,19 @@ final class FeedNoun
         return new self($key, true);
     }
 
+    /**
+     * var_export() support, so a compiled manifest can hold a noun that a
+     * Story definition registered.
+     *
+     * @param  array{value: string, translated: bool}  $state
+     *
+     * @internal
+     */
+    public static function __set_state(array $state): self
+    {
+        return new self($state['value'], $state['translated']);
+    }
+
     /** The form for a count: 1 => "clause", 7 => "clauses". */
     public function forCount(int $count): string
     {

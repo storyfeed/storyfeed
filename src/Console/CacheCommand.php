@@ -54,10 +54,21 @@ class CacheCommand extends Command
             return self::FAILURE;
         }
 
+        // A closure headline can't be written into a PHP manifest. Say which,
+        // and write nothing, as for a broken compile.
+        if (($closures = $manifest->closures($compiled)) !== []) {
+            $this->error('Closure headlines cannot be cached yet — nothing was cached.');
+            $this->newLine();
+            $this->line('Closures: '.implode(', ', $closures).'. Use a template string or FeedHeadline::trans() for these, or leave the manifest uncached.');
+
+            return self::FAILURE;
+        }
+
         $path = $manifest->write($compiled);
 
         $count = count($storyfeed->registeredStories());
-        $keys = count($compiled['grammar']) + count($compiled['aggregateGrammar']) + count($compiled['icons']) + count($compiled['glyphIntents']);
+        $keys = count($compiled['grammar']) + count($compiled['aggregateGrammar']) + count($compiled['actorlessGrammar'])
+            + count($compiled['icons']) + count($compiled['glyphIntents']) + count($compiled['nouns']) + count($compiled['objectTypes']);
 
         $this->info("Cached {$count} stories ({$keys} registry entries) to {$path}.");
 

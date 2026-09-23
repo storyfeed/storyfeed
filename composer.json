@@ -67,10 +67,7 @@
         "laravel": {
             "providers": [
                 "Storyfeed\\StoryfeedServiceProvider"
-            ],
-            "aliases": {
-                "Storyfeed": "Storyfeed\\Facades\\Storyfeed"
-            }
+            ]
         },
         "phpstan": {
             "includes": [

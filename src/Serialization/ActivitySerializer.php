@@ -8,6 +8,7 @@ use Storyfeed\ActivityStreams\Context;
 use Storyfeed\ActivityStreams\CoreType;
 use Storyfeed\ActivityStreams\Property;
 use Storyfeed\FeedContext;
+use Storyfeed\FeedHeadline;
 use Storyfeed\FeedImage;
 use Storyfeed\FeedResource;
 use Storyfeed\FeedThread;
@@ -192,7 +193,12 @@ class ActivitySerializer
      */
     protected function summary(Activity $activity): ?string
     {
-        $entry = $this->storyfeed->template($activity->object_type, $activity->verb);
+        // The same entry the payload presenter picks: the actorless ladder
+        // first for a row with no actor, then the grammar ladder.
+        $entry = $activity->actor_type === null && $activity->actor_id === null
+            ? $this->storyfeed->actorlessTemplate($activity->object_type, $activity->verb)
+            : null;
+        $entry ??= $this->storyfeed->template($activity->object_type, $activity->verb);
 
         if ($entry === null) {
             return null;
@@ -200,7 +206,8 @@ class ActivitySerializer
 
         if ($entry instanceof Closure) {
             try {
-                $sentence = (string) $entry($activity);
+                $result = $entry($activity);
+                $entry = $result instanceof FeedHeadline ? $result->toTemplate() : (string) $result;
             } catch (Throwable $e) {
                 // Same posture as the payload presenter: an authoring bug is
                 // reported, never a broken document.
@@ -209,8 +216,14 @@ class ActivitySerializer
                 return null;
             }
 
-            return $sentence === '' ? null : e($sentence);
+            // Finished text; a result naming a role token is a template and
+            // is interpolated below, like the payload's headline_template.
+            if (! FeedHeadline::hasRoleTokens($entry)) {
+                return $entry === '' ? null : e($entry);
+            }
         }
+
+        $entry = FeedHeadline::resolveSegments($entry, fn (string $role): bool => $activity->{"{$role}_type"} !== null);
 
         $labels = [];
         foreach (ActivityRoles::PAYLOAD as $role) {

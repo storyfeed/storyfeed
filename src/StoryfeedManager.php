@@ -31,6 +31,9 @@ use Storyfeed\Support\MorphResolver;
 use Storyfeed\Support\QueuedActor;
 use Throwable;
 
+/**
+ * @phpstan-import-type Compiled from CompileStories
+ */
 class StoryfeedManager
 {
     protected ?Closure $actorResolver = null;
@@ -45,13 +48,13 @@ class StoryfeedManager
      */
     protected ?bool $recording = null;
 
-    /** @var array<string, string|Closure> */
+    /** @var array<string, string|Closure|FeedHeadline> */
     protected array $grammar = [];
 
-    /** @var array<string, string|Closure> */
+    /** @var array<string, string|Closure|FeedHeadline> */
     protected array $aggregateGrammar = [];
 
-    /** @var array<string, string|Closure> */
+    /** @var array<string, string|Closure|FeedHeadline> keyed on the type → verb ladder, like grammar */
     protected array $actorlessGrammar = [];
 
     /** @var array<string, string> */
@@ -178,7 +181,7 @@ class StoryfeedManager
     /**
      * The compiled output, cached in memory (or seeded from a manifest).
      *
-     * @var array{grammar: array<string, string>, aggregateGrammar: array<string, string>, icons: array<string, string>, glyphIntents: array<string, string>, verbs: array<string, mixed>}|null
+     * @var Compiled|null
      */
     protected ?array $compiled = null;
 
@@ -186,7 +189,7 @@ class StoryfeedManager
      * What the last compile merged into the registries, so a recompile can
      * withdraw it first (see retractApplied()).
      *
-     * @var array{grammar: array<string, string>, aggregateGrammar: array<string, string>, icons: array<string, string>, glyphIntents: array<string, string>, verbs: array<string, mixed>}|null
+     * @var Compiled|null
      */
     protected ?array $applied = null;
 
@@ -562,12 +565,14 @@ class StoryfeedManager
     /**
      * Register headline grammar. Keys are "type.verb" (wildcards allowed:
      * "delivery.*", "*.confirm", "*.*"); values are template strings with
-     * :actor/:object/:target/:context placeholders, or closures receiving
-     * the Activity and returning a pre-rendered headline.
+     * :actor/:object/:target/:context placeholders (and optional segments,
+     * `[ with :target]`), FeedHeadline::trans() keys translated when the feed
+     * is read, or closures receiving the Activity. A closure's result that
+     * names a role token is a template; one without is finished text.
      *
      * Typed loosely on the KEY on purpose — see assertKeyed().
      *
-     * @param  array<array-key, string|Closure>  $grammar
+     * @param  array<array-key, string|Closure|FeedHeadline>  $grammar
      */
     public function grammar(array $grammar, bool $merge = true): static
     {
@@ -579,36 +584,72 @@ class StoryfeedManager
     }
 
     /**
-     * Register singular actorless headlines keyed by exact verb (including
-     * dotted verbs). A separate registry keeps voice out of grammar's
-     * type.verb namespace. No aggregate forms or wildcard matching.
+     * Register singular actorless headlines — the sentence for an activity
+     * with no actor. Keyed like grammar(), on the same type → verb ladder
+     * (`order.confirm`, `order.*`, `*.confirm`, `*.*`), and tried before it
+     * for actorless rows. A key with no dot is a verb, and means `*.verb`.
+     * No aggregate forms.
      *
      * Strings are tokenizable templates and cannot name :actor or :actors.
-     * Closures receive the Activity and return finished text, as in grammar();
-     * they are not executed at registration and do not produce templates.
+     * Closures receive the Activity, as in grammar().
      *
-     * @param  array<array-key, string|Closure>  $grammar
+     * @param  array<array-key, string|Closure|FeedHeadline>  $grammar
      */
     public function actorlessGrammar(array $grammar, bool $merge = true): static
     {
-        $this->assertKeyed($grammar, 'actorlessGrammar', 'confirm', ':object was confirmed', patterns: false);
+        $this->assertKeyed($grammar, 'actorlessGrammar', 'order.confirm', ':object was confirmed');
 
-        foreach ($grammar as $verb => $entry) {
+        $keyed = [];
+
+        foreach ($grammar as $key => $entry) {
             if (is_string($entry) && str_contains($entry, ':actor')) {
                 throw new InvalidArgumentException(
-                    "Storyfeed::actorlessGrammar() template for `{$verb}` must not contain :actor or :actors — actorless templates omit the actor.",
+                    "Storyfeed::actorlessGrammar() template for `{$key}` must not contain :actor or :actors — actorless templates omit the actor.",
                 );
             }
+
+            $keyed[str_contains((string) $key, '.') ? (string) $key : "*.{$key}"] = $entry;
         }
 
-        $this->actorlessGrammar = $merge ? [...$this->actorlessGrammar, ...$grammar] : $grammar;
+        $this->actorlessGrammar = $merge ? [...$this->actorlessGrammar, ...$keyed] : $keyed;
 
         return $this;
     }
 
-    public function actorlessTemplate(string $verb): string|Closure|null
+    /**
+     * Resolve the actorless entry for an object type + verb.
+     * Resolution order: type.verb → type.* → *.verb → *.*
+     */
+    public function actorlessTemplate(?string $type, string $verb): string|Closure|null
     {
-        return $this->actorlessGrammar[$verb] ?? null;
+        $this->ensureStoriesCompiled();
+
+        return self::headlineEntry($this->resolve($this->actorlessGrammar, $type, $verb));
+    }
+
+    public function actorlessTemplateKey(?string $type, string $verb): ?string
+    {
+        $this->ensureStoriesCompiled();
+
+        return $this->resolveKey($this->actorlessGrammar, $type, $verb);
+    }
+
+    /** @return array<string, string|Closure|FeedHeadline> */
+    public function registeredActorlessGrammar(): array
+    {
+        $this->ensureStoriesCompiled();
+
+        return $this->actorlessGrammar;
+    }
+
+    /**
+     * A registry value as the read path uses it: a FeedHeadline becomes its
+     * template in the CURRENT locale, which is the reader's once the locale
+     * middleware has run.
+     */
+    private static function headlineEntry(string|Closure|FeedHeadline|null $entry): string|Closure|null
+    {
+        return $entry instanceof FeedHeadline ? $entry->toTemplate() : $entry;
     }
 
     /**
@@ -628,7 +669,7 @@ class StoryfeedManager
      *
      * @param  array<array-key, mixed>  $entries
      */
-    private function assertKeyed(array $entries, string $method, string $key, string $value, bool $patterns = true): void
+    private function assertKeyed(array $entries, string $method, string $key, string $value): void
     {
         foreach ($entries as $entryKey => $entryValue) {
             if (is_string($entryKey)) {
@@ -641,7 +682,7 @@ class StoryfeedManager
                 "Storyfeed::{$method}() takes a MAP of key => value, not a list. Received [{$shown}] under "
                 .'a numeric key, which resolves for nothing and fails silently. Write '
                 ."Storyfeed::{$method}(['{$key}' => '{$value}'])"
-                .($patterns ? ' — keys are patterns, and wildcards (`type.*`, `*.verb`, `*.*`) are allowed.' : ' — keys are exact verbs.'),
+                .' — keys are patterns, and wildcards (`type.*`, `*.verb`, `*.*`) are allowed.',
             );
         }
     }
@@ -861,12 +902,22 @@ class StoryfeedManager
 
         $compiled = $this->compiled ?? (new CompileStories)($this->storyDefinitions(), $this);
 
+        // A manifest stores AS2 terms as strings; the registry holds enums.
+        $compiled['objectTypes'] = array_map(
+            fn (mixed $type) => $this->normalizeTerm($type, ObjectType::class),
+            $compiled['objectTypes'],
+        );
+
         $this->compiled = $compiled;
 
         $this->grammar = [...$compiled['grammar'], ...$this->grammar];
         $this->aggregateGrammar = [...$compiled['aggregateGrammar'], ...$this->aggregateGrammar];
+        $this->actorlessGrammar = [...$compiled['actorlessGrammar'], ...$this->actorlessGrammar];
         $this->icons = [...$compiled['icons'], ...$this->icons];
         $this->glyphIntents = [...$compiled['glyphIntents'], ...$this->glyphIntents];
+        $this->nouns = [...$compiled['nouns'], ...$this->nouns];
+        $this->objectTypes = [...$compiled['objectTypes'], ...$this->objectTypes];
+        $this->resolvedObjectTypes = [];
         $this->verbs = [...$compiled['verbs'], ...$this->verbs];
 
         foreach (array_keys($compiled['verbs']) as $verb) {
@@ -893,7 +944,7 @@ class StoryfeedManager
             return;
         }
 
-        foreach (['grammar', 'aggregateGrammar', 'icons', 'glyphIntents', 'verbs'] as $registry) {
+        foreach (CompileStories::REGISTRIES as $registry) {
             foreach ($this->applied[$registry] as $key => $value) {
                 if (($this->{$registry}[$key] ?? null) === $value) {
                     unset($this->{$registry}[$key]);
@@ -926,10 +977,10 @@ class StoryfeedManager
     }
 
     /**
-     * The compiled arrays — closure-free by construction, so a manifest can
-     * var_export them.
+     * The compiled arrays. Closure-free unless a definition authored a
+     * closure headline; storyfeed:cache refuses those by key.
      *
-     * @return array{grammar: array<string, string>, aggregateGrammar: array<string, string>, icons: array<string, string>, glyphIntents: array<string, string>, verbs: array<string, mixed>}
+     * @return Compiled
      */
     public function compiledStories(): array
     {
@@ -943,13 +994,18 @@ class StoryfeedManager
      * `glyphIntents` array. It is still a complete description of what those
      * stories compiled to — none of them carried an intent — so it is read as
      * an empty registry rather than rejected. ManifestStale still reports the
-     * drift once a story gains one.
+     * drift once a story gains one. The same holds for the registries added
+     * with the Story facade (2026-09-23): actorless grammar, nouns and object
+     * types.
      *
-     * @param  array{grammar: array<string, string>, aggregateGrammar: array<string, string>, icons: array<string, string>, glyphIntents?: array<string, string>, verbs: array<string, mixed>}  $compiled
+     * @param  array{grammar: array<string, string|Closure|FeedHeadline>, aggregateGrammar: array<string, string>, actorlessGrammar?: array<string, string|Closure|FeedHeadline>, icons: array<string, string>, glyphIntents?: array<string, string>, nouns?: array<string, string|FeedNoun>, objectTypes?: array<string, ObjectType|string>, verbs: array<string, mixed>}  $compiled
      */
     public function useCompiledStories(array $compiled): static
     {
         $compiled['glyphIntents'] ??= [];
+        $compiled['actorlessGrammar'] ??= [];
+        $compiled['nouns'] ??= [];
+        $compiled['objectTypes'] ??= [];
 
         $this->compiled = $compiled;
         $this->storiesCompiled = false;
@@ -1149,6 +1205,8 @@ class StoryfeedManager
      */
     public function noun(?string $type, string $verb): string|FeedNoun|null
     {
+        $this->ensureStoriesCompiled();
+
         if ($type !== null && array_key_exists("{$type}.{$verb}", $this->nouns)) {
             return $this->nouns["{$type}.{$verb}"];
         }
@@ -1163,6 +1221,8 @@ class StoryfeedManager
     /** @return array<string, string|FeedNoun> */
     public function registeredNouns(): array
     {
+        $this->ensureStoriesCompiled();
+
         return $this->nouns;
     }
 
@@ -1217,7 +1277,7 @@ class StoryfeedManager
      *
      * Typed loosely on the KEY on purpose — see assertKeyed().
      *
-     * @param  array<array-key, string|Closure>  $grammar
+     * @param  array<array-key, string|Closure|FeedHeadline>  $grammar
      */
     public function aggregateGrammar(array $grammar, bool $merge = true): static
     {
@@ -1410,7 +1470,7 @@ class StoryfeedManager
     {
         $this->ensureStoriesCompiled();
 
-        return $this->resolve($this->grammar, $type, $verb);
+        return self::headlineEntry($this->resolve($this->grammar, $type, $verb));
     }
 
     /**
@@ -1421,8 +1481,8 @@ class StoryfeedManager
     {
         $this->ensureStoriesCompiled();
 
-        return $this->aggregateGrammar[self::qualifiedKey($axis, $verb, $objectType)]
-            ?? $this->resolve($this->aggregateGrammar, $axis, $verb);
+        return self::headlineEntry($this->aggregateGrammar[self::qualifiedKey($axis, $verb, $objectType)]
+            ?? $this->resolve($this->aggregateGrammar, $axis, $verb));
     }
 
     /**
@@ -1500,6 +1560,8 @@ class StoryfeedManager
      */
     public function objectType(string $alias): ObjectType|string|null
     {
+        $this->ensureStoriesCompiled();
+
         if (isset($this->objectTypes[$alias])) {
             return $this->objectTypes[$alias];
         }
@@ -1517,7 +1579,7 @@ class StoryfeedManager
         return $type instanceof ObjectType ? $type->value : ($type ?? ObjectType::Object->value);
     }
 
-    /** @return array<string, string|Closure> */
+    /** @return array<string, string|Closure|FeedHeadline> */
     public function registeredGrammar(): array
     {
         $this->ensureStoriesCompiled();
@@ -1525,7 +1587,7 @@ class StoryfeedManager
         return $this->grammar;
     }
 
-    /** @return array<string, string|Closure> */
+    /** @return array<string, string|Closure|FeedHeadline> */
     public function registeredAggregateGrammar(): array
     {
         $this->ensureStoriesCompiled();

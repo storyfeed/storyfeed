@@ -43,6 +43,28 @@
 - **`KeyValue::missing($value, $word)` is now `KeyValue::missingAs()`**, because
   `->missing($word)` sets the body's default word for every row.
 
+- **Actorless headlines are keyed on the type → verb ladder.**
+  `Storyfeed::actorlessGrammar()` keys are now `type.verb` patterns with the
+  usual wildcards, resolved `order.confirm → order.* → *.confirm → *.*`. A key
+  with no dot means `*.verb`, so existing entries keep working, except a dotted
+  verb, which now reads as `type.verb` (write `*.document.shared`).
+  `actorlessTemplate()` takes `(?string $type, string $verb)`. The doctor's
+  `actorless.missing` finding names the `type.verb` pair. The AS2 `summary`
+  now uses the actorless headline for an actorless row, as the payload does.
+
+- **A closure headline may return a template.** A closure in `grammar()`,
+  `actorlessGrammar()` or a definition's `headline()` whose result names a role
+  token (`:actor`, `:object`, …) now fills `headline_template`, so its names
+  stay links; a result without one is finished text in `headline`, as before.
+  Aggregate closures are unchanged.
+
+- **Every compiled registry entry is claimed.** Two definitions that set the
+  same icon, intent, noun, actorless headline or AS2 object type now fail to
+  compile, as two headlines already did. The error names both sources:
+  `[order.place] is defined twice: routes/feed.php:14 and routes/feed.php:31`.
+  Ad-hoc definitions (`StoryDefinition::make()`/`for()`) default their source
+  to the calling `file:line` (was `ad-hoc [key]`).
+
 - **A page never comes back empty mid-feed.** When every activity on a page
   was deleted between selecting it and hydrating it (a trickle prune racing a
   read), `get()` used to return `items: []` with a live `next_cursor`, and
@@ -153,6 +175,11 @@
   arrays no longer carry the key. Breaking and not aliased: `component:` is an
   unknown named argument.
 
+- **The global `Storyfeed` alias is gone** from `composer.json`
+  (`extra.laravel.aliases`). Laravel 11+ ships no aliases, and IDEs flag an
+  unimported facade. Import it: `use Storyfeed\Facades\Storyfeed;`. Breaking
+  for any file that called `Storyfeed::` without the import.
+
 - **Removal evidence is gone** — `feed_removals`, `Healing\Removals`,
   `Healing\Removal`, `Actions\RecordRemovals`, the `removals:pruned_before`
   watermark, and the `tables.removals` config key.
@@ -186,6 +213,36 @@
   `Storyfeed/Body/Component`: an app's own frontend component by `name`
   (verbatim) with its `props`.
   `Component::make()->name('Common/ScoreCard')->props([...])`.
+
+- **The `Story` facade: define headlines the way routes are defined.**
+  `Storyfeed\Facades\Story` (→ `StoryManager`) registers `StoryDefinition`s
+  on call, which compile beside Story classes into the same registries:
+  `Story::for(Order::class)->group(fn () => Story::verb('place')->headline(…))`,
+  `Story::for(Order::class)->verb('place')->…`, a chained
+  `->verb('place', fn (StoryDefinition $verb) => …)`, `Story::verb('place')`
+  for `*.place`, and `Story::fallback()` / `Story::for(X)->fallback()` for
+  `*.*` / `x.*`. `for()` takes a model class (resolved through the morph map),
+  an alias, or a list. `Storyfeed::` stays the facade for recording and
+  reading.
+
+- **`StoryDefinition` covers every headline registry.** New:
+  `anonymousHeadline()`, `noun()`, `activityStreamsType()` (the object type's
+  AS2 type; `type()` stays the verb's activity type), `grouped()` taking
+  `Group` objects or a closure over the new `GroupBuilder`
+  (`fn ($group) => $group->repeat(…)->actors(…)->axis('scene', …)`), and
+  `Conditionable`. `headline()` takes a template, a closure or a
+  `FeedHeadline`. The array form accepts `anonymousHeadline`, `noun` and
+  `activityStreamsType` keys.
+
+- **Optional segments in headline templates:**
+  `':actor placed :object[ with :target]'`. A bracketed segment is dropped when
+  a role it names is empty, and core resolves it, so `headline_template` never
+  contains a bracket and renderers need no change.
+
+- **`FeedHeadline::trans('feed.order_placed')`**, a headline translated when
+  the feed is read, in the reader's locale. Usable in `headline()` and every
+  grammar registry, and cacheable by `storyfeed:cache`. A closure headline is
+  not cacheable yet: `storyfeed:cache` names it and writes nothing.
 
 - **`FeedContext::routeKey()`: the model's `getRouteKey()`, recorded when the
   snapshot is written**, the way the label is. A resolver can write
@@ -245,6 +302,20 @@
   three hundred round trips inside a deploy step.
 
 ### Fixed
+
+- **Translated headlines are no longer fixed in the boot locale.**
+  `__('feed.order_placed')` in a provider ran before the locale middleware, so
+  every reader got the default language. Use `FeedHeadline::trans()`.
+
+- **`StoryDefinition::make('order.*')` no longer declares `*` as a verb**,
+  which reached `storyfeed:verbs` and satisfied `verbs.strict`.
+
+- **Two ad-hoc definitions of one key are a conflict**, not a silent
+  last-one-wins: they used to share the source string `ad-hoc [key]`, so the
+  guard saw one author.
+
+- **A definition without an AS2 type no longer erases** the type another
+  definition of the same verb declared.
 
 - **`storyfeed:trickle` now converges.** It compared every snapshot against a
   fingerprint taken from ONE live sample of the class, and re-snapshotted every

@@ -59,9 +59,34 @@ class StoryMisconfigured extends LogicException
     public static function conflictingStories(string $key, string $first, string $second): self
     {
         return new self(
-            "Stories [{$first}] and [{$second}] both author [{$key}]. The array registries are "
-            .'last-writer-wins, so this would silently pick one — declaring it an error is the main '
-            .'guarantee the Story layer adds. Give them distinct (objectType, verb) pairs.'
+            "[{$key}] is defined twice: {$first} and {$second}. "
+            .'The array registries are last-writer-wins, so this would silently pick one — declaring it an error is the main '
+            .'guarantee the Story layer adds. Keep one definition, or give them distinct (objectType, verb) pairs.'
+        );
+    }
+
+    public static function wildcardObjectType(string $source): self
+    {
+        return new self(
+            "[{$source}] sets activityStreamsType() without an object type. It describes what a TYPE is, "
+            .'so set it in a type scope: Story::for(Delivery::class)->activityStreamsType(ObjectType::Document).'
+        );
+    }
+
+    public static function unscopedNoun(string $source, string $verb): self
+    {
+        return new self(
+            "[{$source}] sets a noun on the unscoped verb [{$verb}]. A noun describes a kind of thing, so it "
+            ."belongs to a type: Story::for(Document::class)->verb('{$verb}')->noun('file|files'), or "
+            ."Story::fallback()->noun('item|items') for every type."
+        );
+    }
+
+    public static function nestedScope(): self
+    {
+        return new self(
+            'Story::for() was called inside a Story::for()->group() closure. A verb has one object-type '
+            .'scope, so scopes do not nest: close the group first, or pass a list — Story::for([Order::class, Refund::class]).'
         );
     }
 

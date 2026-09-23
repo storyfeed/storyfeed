@@ -6,6 +6,7 @@ use Closure;
 use Illuminate\Support\Collection;
 use Storyfeed\FeedChange;
 use Storyfeed\FeedContext;
+use Storyfeed\FeedHeadline;
 use Storyfeed\FeedNoun;
 use Storyfeed\FeedThread;
 use Storyfeed\Models\Activity;
@@ -187,8 +188,14 @@ class NodePresenter
 
     /**
      * Resolve [headline_template, headline] for an activity. String grammar
-     * entries are frontend-tokenizable templates; closure entries pre-render
-     * a headline server-side (template stays null, by design).
+     * entries are frontend-tokenizable templates. A closure entry runs here,
+     * and its result is read by what it contains: a string naming a role
+     * token is a template (names stay tokens, so they stay links), and one
+     * without is finished text in `headline`, with the template null.
+     *
+     * Optional segments (`[ with :target]`) are resolved against this
+     * activity's roles, so the template that reaches the payload never
+     * contains a bracket.
      *
      * @return array{0: string|null, 1: string|null}
      */
@@ -197,21 +204,33 @@ class NodePresenter
         // Inspect recorded identity, not the relation: an unresolved/deleted
         // participant is not a genuinely absent actor. Party identities stay normal.
         $entry = $activity->actor_type === null && $activity->actor_id === null
-            ? $this->storyfeed->actorlessTemplate($activity->verb)
+            ? $this->storyfeed->actorlessTemplate($activity->object_type, $activity->verb)
             : null;
         $entry ??= $this->storyfeed->template($activity->object_type, $activity->verb);
 
         if ($entry instanceof Closure) {
             try {
-                return [null, (string) $entry($activity)];
+                $result = $entry($activity);
+                $entry = $result instanceof FeedHeadline ? $result->toTemplate() : (string) $result;
             } catch (Throwable $e) {
                 report($e);
 
                 return [null, null];
             }
+
+            if (! FeedHeadline::hasRoleTokens($entry)) {
+                return [null, $entry];
+            }
         }
 
-        return [$entry, null];
+        if ($entry === null) {
+            return [null, null];
+        }
+
+        return [
+            FeedHeadline::resolveSegments($entry, fn (string $role): bool => $activity->{"{$role}_type"} !== null),
+            null,
+        ];
     }
 
     /**
@@ -474,6 +493,12 @@ class NodePresenter
         }
 
         [$template, $headline] = $this->aggregateHeadline($slice, $distinct);
+
+        // Optional segments: a role no member holds is empty for the group.
+        $template = $template === null ? null : FeedHeadline::resolveSegments(
+            $template,
+            fn (string $role): bool => ($distinct[self::GROUP_ROLES[$role][0]] ?? 0) > 0,
+        );
 
         /*
          * PINNED ROLES ALSO ANSWER THE SINGULAR TOKEN (2026-08-26).

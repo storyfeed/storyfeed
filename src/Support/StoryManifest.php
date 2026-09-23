@@ -2,7 +2,9 @@
 
 namespace Storyfeed\Support;
 
+use Closure;
 use Illuminate\Contracts\Foundation\Application;
+use Storyfeed\Actions\CompileStories;
 use Storyfeed\StoryfeedManager;
 
 /**
@@ -31,6 +33,12 @@ use Storyfeed\StoryfeedManager;
  *      collaborator the story reads does not.
  *   3. A compile that throws writes nothing, so a broken Story cannot leave a
  *      half-manifest that boots.
+ *
+ * A closure headline from the Story facade can't be var_export'ed, so a
+ * compile holding one is refused by key (closures()) rather than written.
+ * FeedHeadline and FeedNoun values export themselves (`__set_state`).
+ *
+ * @phpstan-import-type Compiled from CompileStories
  */
 class StoryManifest
 {
@@ -49,7 +57,7 @@ class StoryManifest
     }
 
     /**
-     * @return array{grammar: array<string, string>, aggregateGrammar: array<string, string>, icons: array<string, string>, glyphIntents: array<string, string>, verbs: array<string, mixed>}|null
+     * @return Compiled|null
      */
     public function read(): ?array
     {
@@ -63,15 +71,41 @@ class StoryManifest
             return null;
         }
 
-        // Written before glyph intents existed (2026-09-09): a complete
-        // description of stories that carried none, not a truncated one.
-        $manifest['glyphIntents'] ??= [];
+        // Written before glyph intents existed (2026-09-09), or before the
+        // Story facade's registries (2026-09-23): a complete description of
+        // stories that carried none, not a truncated one.
+        foreach (CompileStories::REGISTRIES as $registry) {
+            $manifest[$registry] ??= [];
+        }
 
+        /** @var Compiled $manifest */
         return $manifest;
     }
 
     /**
-     * @param  array{grammar: array<string, string>, aggregateGrammar: array<string, string>, icons: array<string, string>, glyphIntents: array<string, string>, verbs: array<string, mixed>}  $compiled
+     * The `registry[key]` entries a compile holds as closures, which a
+     * manifest can't store. storyfeed:cache refuses to write while any exist.
+     *
+     * @param  Compiled  $compiled
+     * @return list<string>
+     */
+    public function closures(array $compiled): array
+    {
+        $found = [];
+
+        foreach (CompileStories::REGISTRIES as $registry) {
+            foreach ($compiled[$registry] as $key => $value) {
+                if ($value instanceof Closure) {
+                    $found[] = "{$registry}[{$key}]";
+                }
+            }
+        }
+
+        return $found;
+    }
+
+    /**
+     * @param  Compiled  $compiled
      */
     public function write(array $compiled): string
     {
@@ -116,15 +150,17 @@ class StoryManifest
      * string values. The registry accepts raw strings by design — extension
      * types like 'sf:Frobnicate' must round-trip — so nothing is lost.
      *
-     * @param  array{grammar: array<string, string>, aggregateGrammar: array<string, string>, icons: array<string, string>, glyphIntents: array<string, string>, verbs: array<string, mixed>}  $compiled
-     * @return array<string, array<string, string>>
+     * @param  Compiled  $compiled
+     * @return array<string, array<string, mixed>>
      */
     protected function serializable(array $compiled): array
     {
-        $compiled['verbs'] = array_map(
-            fn (mixed $type) => $type instanceof \BackedEnum ? (string) $type->value : (string) $type,
-            $compiled['verbs'],
-        );
+        foreach (['verbs', 'objectTypes'] as $registry) {
+            $compiled[$registry] = array_map(
+                fn (mixed $type) => $type instanceof \BackedEnum ? (string) $type->value : (string) $type,
+                $compiled[$registry],
+            );
+        }
 
         return $compiled;
     }

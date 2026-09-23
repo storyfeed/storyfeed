@@ -2,8 +2,12 @@
 
 namespace Storyfeed\Actions;
 
+use Closure;
 use Storyfeed\ActivityStreams\CoreType;
+use Storyfeed\ActivityStreams\ObjectType;
 use Storyfeed\Exceptions\StoryMisconfigured;
+use Storyfeed\FeedHeadline;
+use Storyfeed\FeedNoun;
 use Storyfeed\Grouping\Group;
 use Storyfeed\StoryDefinition;
 use Storyfeed\StoryfeedManager;
@@ -22,27 +26,46 @@ use Storyfeed\StoryfeedManager;
  *   3. An unregistered axis, whose grammar would never resolve. Today that is
  *      only a doctor note, after the fact.
  *   4. Two stories authoring the same key. The arrays are last-writer-wins, so
- *      this currently picks one at random and says nothing.
+ *      this currently picks one at random and says nothing. Every registry
+ *      entry is claimed, and the error names both sources (`file:line` for
+ *      the registrar and ad-hoc definitions, the class for Story classes).
  *
- * Output is deliberately closure-free (headlines are typed `string`), which is
- * what makes the compiled arrays var_export-able and therefore cacheable into a
- * manifest. Closures remain legal via the hand-written registry path.
+ * Output is closure-free unless a definition authored a closure headline
+ * (the registrar allows it). Closure-free output is var_export-able into the
+ * manifest; FeedHeadline and FeedNoun export themselves.
+ *
+ * @phpstan-type Compiled array{
+ *     grammar: array<string, string|Closure|FeedHeadline>,
+ *     aggregateGrammar: array<string, string>,
+ *     actorlessGrammar: array<string, string|Closure|FeedHeadline>,
+ *     icons: array<string, string>,
+ *     glyphIntents: array<string, string>,
+ *     nouns: array<string, string|FeedNoun>,
+ *     objectTypes: array<string, ObjectType|string>,
+ *     verbs: array<string, mixed>,
+ * }
  */
 class CompileStories
 {
+    /** The registries a compile produces, in the order they are applied. */
+    public const REGISTRIES = ['grammar', 'aggregateGrammar', 'actorlessGrammar', 'icons', 'glyphIntents', 'nouns', 'objectTypes', 'verbs'];
+
     /**
      * @param  array<int, StoryDefinition>  $definitions
-     * @return array{grammar: array<string, string>, aggregateGrammar: array<string, string>, icons: array<string, string>, glyphIntents: array<string, string>, verbs: array<string, mixed>}
+     * @return Compiled
      */
     public function __invoke(array $definitions, StoryfeedManager $storyfeed): array
     {
         $grammar = [];
         $aggregateGrammar = [];
+        $actorlessGrammar = [];
         $icons = [];
         $glyphIntents = [];
+        $nouns = [];
+        $objectTypes = [];
         $verbs = [];
 
-        /** @var array<string, string> $owners key => the story that authored it */
+        /** @var array<string, string> $owners registry:key => the story that authored it */
         $owners = [];
 
         foreach ($definitions as $definition) {
@@ -52,27 +75,56 @@ class CompileStories
             foreach ($definition->objectTypes as $alias) {
                 $key = "{$alias}.{$verb}";
 
-                if ($definition->template() !== null) {
-                    $this->claim($owners, $key, $source);
-                    $grammar[$key] = $definition->template();
+                if (($template = $definition->template()) !== null) {
+                    $this->claim($owners, 'grammar', $key, $source);
+                    $grammar[$key] = $template;
                 }
 
-                if ($definition->iconToken() !== null) {
-                    $icons[$key] = $definition->iconToken();
+                if (($anonymous = $definition->anonymousTemplate()) !== null) {
+                    $this->claim($owners, 'actorlessGrammar', $key, $source);
+                    $actorlessGrammar[$key] = $anonymous;
                 }
 
-                if ($definition->glyphIntent() !== null) {
-                    $glyphIntents[$key] = $definition->glyphIntent();
+                if (($icon = $definition->iconToken()) !== null) {
+                    $this->claim($owners, 'icons', $key, $source);
+                    $icons[$key] = $icon;
+                }
+
+                if (($intent = $definition->glyphIntent()) !== null) {
+                    $this->claim($owners, 'glyphIntents', $key, $source);
+                    $glyphIntents[$key] = $intent;
+                }
+
+                if (($noun = $definition->nounForms()) !== null) {
+                    $nounKey = $this->nounKey($alias, $verb, $source);
+                    $this->claim($owners, 'nouns', $nounKey, $source);
+                    $nouns[$nounKey] = $noun;
+                }
+
+                if (($objectType = $definition->objectActivityStreamsType()) !== null) {
+                    if ($alias === '*') {
+                        throw StoryMisconfigured::wildcardObjectType($source);
+                    }
+
+                    $this->claim($owners, 'objectTypes', $alias, $source);
+                    $objectTypes[$alias] = $objectType;
                 }
             }
 
-            // Registered even when $type is null, reusing the verb registry's
-            // own fallback. Without this, strict mode throws UnknownVerb for
-            // every story-authored verb whose vocabulary is not also in an
-            // enum — a guaranteed day-one bug report.
-            $verbs[$verb] = $definition->activityType()
-                ?? StoryfeedManager::DEFAULT_VERBS[$verb]
-                ?? CoreType::Activity->value;
+            // `order.*` is a wildcard KEY, not a verb: declaring `*` would put
+            // it in storyfeed:verbs and let it satisfy verbs.strict.
+            if ($verb !== '*') {
+                // Registered even when $type is null, reusing the verb
+                // registry's own fallback. Without this, strict mode throws
+                // UnknownVerb for every story-authored verb whose vocabulary
+                // is not also in an enum — a guaranteed day-one bug report.
+                // A definition without a type never erases one another
+                // definition of the verb declared.
+                $verbs[$verb] = $definition->activityType()
+                    ?? $verbs[$verb]
+                    ?? StoryfeedManager::DEFAULT_VERBS[$verb]
+                    ?? CoreType::Activity->value;
+            }
 
             foreach ($definition->groupList() as $group) {
                 $this->compileGroup($group, $definition, $storyfeed, $aggregateGrammar, $grammar, $owners);
@@ -84,15 +136,33 @@ class CompileStories
         return [
             'grammar' => $grammar,
             'aggregateGrammar' => $aggregateGrammar,
+            'actorlessGrammar' => $actorlessGrammar,
             'icons' => $icons,
             'glyphIntents' => $glyphIntents,
+            'nouns' => $nouns,
+            'objectTypes' => $objectTypes,
             'verbs' => $verbs,
         ];
     }
 
     /**
+     * The noun registry speaks three keys: `type.verb`, `type`, and `*`.
+     * A fallback definition (`order.*`) is the type's noun; `*.*` is the
+     * global one. There is no `*.verb` noun — a noun describes a KIND of
+     * thing, and a verb only refines it — so an unscoped verb can't have one.
+     */
+    protected function nounKey(string $alias, string $verb, string $source): string
+    {
+        return match (true) {
+            $verb === '*' => $alias,
+            $alias === '*' => throw StoryMisconfigured::unscopedNoun($source, $verb),
+            default => "{$alias}.{$verb}",
+        };
+    }
+
+    /**
      * @param  array<string, string>  $aggregateGrammar
-     * @param  array<string, string>  $grammar
+     * @param  array<string, string|Closure|FeedHeadline>  $grammar
      * @param  array<string, string>  $owners
      */
     protected function compileGroup(
@@ -123,7 +193,7 @@ class CompileStories
             }
 
             $key = "{$group->axis}.{$verb}";
-            $this->claim($owners, $key, $source);
+            $this->claim($owners, 'aggregateGrammar', $key, $source);
             $aggregateGrammar[$key] = $template;
         }
 
@@ -139,7 +209,7 @@ class CompileStories
      * objectType '*', or a hand-written grammar() call — because all three are
      * legitimate and the point is only that it exists.
      *
-     * @param  array<string, string>  $grammar
+     * @param  array<string, string|Closure|FeedHeadline>  $grammar
      */
     protected function assertCompositeHasParentGrammar(StoryDefinition $definition, array $grammar): void
     {
@@ -160,12 +230,14 @@ class CompileStories
     /**
      * @param  array<string, string>  $owners
      */
-    protected function claim(array &$owners, string $key, string $source): void
+    protected function claim(array &$owners, string $registry, string $key, string $source): void
     {
-        if (isset($owners[$key]) && $owners[$key] !== $source) {
-            throw StoryMisconfigured::conflictingStories($key, $owners[$key], $source);
+        $claim = "{$registry}:{$key}";
+
+        if (isset($owners[$claim]) && $owners[$claim] !== $source) {
+            throw StoryMisconfigured::conflictingStories($key, $owners[$claim], $source);
         }
 
-        $owners[$key] = $source;
+        $owners[$claim] = $source;
     }
 }

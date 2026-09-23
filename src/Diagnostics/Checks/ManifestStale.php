@@ -2,8 +2,11 @@
 
 namespace Storyfeed\Diagnostics\Checks;
 
+use Storyfeed\Actions\CompileStories;
 use Storyfeed\Diagnostics\Finding;
 use Storyfeed\Exceptions\StoryMisconfigured;
+use Storyfeed\FeedHeadline;
+use Storyfeed\FeedNoun;
 use Storyfeed\StoryfeedManager;
 use Storyfeed\Support\StoryManifest;
 
@@ -59,7 +62,7 @@ class ManifestStale extends Check
 
         $drifted = [];
 
-        foreach (['grammar', 'aggregateGrammar', 'icons', 'glyphIntents', 'verbs'] as $registry) {
+        foreach (CompileStories::REGISTRIES as $registry) {
             // No `?? []` — read() validates the shape, so a missing key would
             // be a bug to surface, not a case to paper over.
             $before = $this->normalize($cached[$registry]);
@@ -99,7 +102,12 @@ class ManifestStale extends Check
     protected function normalize(array $registry): array
     {
         return array_map(
-            fn (mixed $value) => $value instanceof \BackedEnum ? (string) $value->value : (string) $value,
+            fn (mixed $value) => match (true) {
+                $value instanceof \BackedEnum => (string) $value->value,
+                $value instanceof FeedHeadline => "trans:{$value->key}",
+                $value instanceof FeedNoun => ($value->translated ? 'trans:' : '').$value->value,
+                default => (string) $value,
+            },
             array_filter($registry, fn (mixed $value) => ! $value instanceof \Closure),
         );
     }
