@@ -115,7 +115,6 @@ final class Fix
             'grammar' => "headline('{$template}')",
             'actorlessGrammar' => "anonymousHeadline('{$template}')",
             'icons' => "icon('…')",
-            'glyphIntents' => "intent('…')",
             default => null,
         };
 
@@ -128,7 +127,7 @@ final class Fix
 
     /**
      * The value this edit registers, or null where doctor cannot know it: an
-     * icon or intent is the app's own vocabulary, a verb-agnostic key needs a
+     * icon is the app's own vocabulary, a verb-agnostic key needs a
      * sentence true of every verb, and a verb whose past tense is not certain
      * (`ship`, `check_in`) would be printed misspelled.
      *
@@ -169,7 +168,6 @@ final class Fix
 
         $reason = match (true) {
             $this->registry === 'icons' => "{$this->key}: an icon from your app's own set; doctor cannot choose one.",
-            $this->registry === 'glyphIntents' => "{$this->key}: an intent from your app's own set; doctor cannot choose one.",
             $verb === '*' => "{$this->key}: one sentence true of every verb this key covers.",
             $this->registry === 'aggregateGrammar' && ! in_array(':verb', $this->tokens, true) => "{$this->key}: the axis does not pin the verb, so a sentence naming it can be false of a group.",
             default => "{$this->key}: doctor cannot spell '{$verb}' in the past tense for certain.",
