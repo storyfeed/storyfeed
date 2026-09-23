@@ -238,3 +238,112 @@ it('leaves a stale curation winner when overlapping workers cross a threshold', 
         rmdir($directory);
     }
 });
+
+// Todo 843's remaining BatchClosed exposure, which W98 listed as unestablished:
+// two publishes by the SAME actor with no open batch. AssignToBatch locks an
+// existing open row, but when there is none there is nothing to lock, so each
+// transaction may open its own — one burst, two batches, two BatchClosed.
+// Workers wait for each other after publishing and before committing, up to a
+// deadline: if something upstream serializes them, the second blocks inside
+// publish and never arrives, and the probe records that instead of hanging.
+//
+// A CHARACTERIZATION, like the curation test above. Measured on PostgreSQL 18:
+// a Feedable actor (a Party) is serialized by a row lock taken earlier in
+// publish, so one batch — incidental protection, not a guarantee anyone wrote.
+// A plain-model actor is not, and gets two. When that is fixed, the plain-model
+// case should fail here and be rewritten to assert one batch.
+it('characterizes two first publishes by one actor', function (string $actor) {
+    if (! function_exists('pcntl_fork') || ! getenv('W102_PG_DATABASE')) {
+        $this->markTestSkipped('Opt-in two-process probe: set W102_PG_DATABASE to a disposable local PostgreSQL database; requires pcntl.');
+    }
+    $directory = sys_get_temp_dir().'/storyfeed-first-batch-'.bin2hex(random_bytes(6));
+    mkdir($directory);
+    $schema = 'first_batch_'.bin2hex(random_bytes(6));
+    $previous = config('database.connections.testing');
+    config()->set('database.connections.testing', [
+        'driver' => 'pgsql', 'host' => '/tmp', 'port' => 5432,
+        'database' => getenv('W102_PG_DATABASE'), 'username' => 'postgres',
+        'password' => '', 'charset' => 'utf8', 'prefix' => '', 'search_path' => $schema,
+    ]);
+    DB::purge('testing');
+    DB::statement('CREATE SCHEMA '.$schema);
+
+    try {
+        $this->defineDatabaseMigrations();
+        Relation::morphMap(['queue-target' => PlainTarget::class]);
+        // A Party is Feedable, so both publishes write its snapshot row; a
+        // plain model is not, so nothing shared is written before the batch.
+        $who = $actor === 'party'
+            ? ['actor' => Storyfeed::party('Importer')->name]
+            : ['plain_actor' => PlainTarget::create(['name' => 'Plain actor'])->id];
+        $inputs = [];
+        foreach ([1, 2] as $worker) {
+            $inputs[$worker] = ['delivery' => Delivery::create(['tracking_number' => 'FIRST-'.$worker])->id, ...$who];
+        }
+
+        DB::disconnect('testing');
+        $children = [];
+        foreach ([1, 2] as $worker) {
+            $pid = pcntl_fork();
+            if ($pid === -1) {
+                throw new RuntimeException('fork failed');
+            }
+            if ($pid === 0) {
+                $result = ['worker' => $worker];
+                try {
+                    DB::purge('testing');
+                    DB::statement("SET lock_timeout = '5s'");
+                    DB::beginTransaction();
+                    (new PublishListener)->handle($inputs[$worker]);
+                    touch($directory.'/ready-'.$worker);
+                    $deadline = microtime(true) + 2;
+                    while (! file_exists($directory.'/ready-'.(3 - $worker)) && microtime(true) < $deadline) {
+                        usleep(1000);
+                    }
+                    $result['overlapped'] = file_exists($directory.'/ready-'.(3 - $worker));
+                    DB::commit();
+                    $result['published'] = true;
+                } catch (Throwable $exception) {
+                    $result['fatal'] = $exception->getMessage();
+                }
+                file_put_contents($directory.'/result-'.$worker.'.json', json_encode($result));
+                DB::disconnect('testing');
+                exit(isset($result['published']) ? 0 : 1);
+            }
+            $children[] = $pid;
+        }
+
+        $statuses = [];
+        foreach ($children as $pid) {
+            pcntl_waitpid($pid, $status);
+            $statuses[] = pcntl_wexitstatus($status);
+        }
+        $results = array_map(fn ($worker) => json_decode(file_get_contents($directory.'/result-'.$worker.'.json'), true), [1, 2]);
+        $this->assertSame([0, 0], $statuses, json_encode($results));
+
+        DB::purge('testing');
+
+        $batches = Batch::query()->count();
+
+        file_put_contents(sys_get_temp_dir().'/storyfeed-843-first-batch.jsonl', json_encode([
+            'engine' => DB::selectOne('select version()')->version,
+            'actor' => $actor,
+            'workers' => $results,
+            'activities' => Activity::count(),
+            'batches' => $batches,
+            'open_batches' => Batch::query()->whereNull('closed_at')->count(),
+        ]).PHP_EOL, FILE_APPEND);
+
+        expect(Activity::count())->toBe(2)
+            ->and($batches)->toBe($actor === 'party' ? 1 : 2);
+    } finally {
+        DB::purge('testing');
+        DB::statement('DROP SCHEMA '.$schema.' CASCADE');
+        config()->set('database.connections.testing', $previous);
+        DB::purge('testing');
+        foreach (glob($directory.'/*') as $file) {
+            unlink($file);
+        }
+        rmdir($directory);
+    }
+})->with(['party', 'plain model']);

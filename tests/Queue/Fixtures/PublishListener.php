@@ -23,6 +23,9 @@ class PublishListener implements ShouldQueue
         if (isset($input['actor'])) {
             $pending->actor($input['actor']);
         }
+        if (isset($input['plain_actor'])) {
+            $pending->actor(PlainTarget::findOrFail($input['plain_actor']));
+        }
         if ($input['anonymous'] ?? false) {
             $pending->anonymously();
         }

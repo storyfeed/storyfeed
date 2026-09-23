@@ -465,6 +465,18 @@
   query. The singular form is a `find()` per entity, which is right for one and
   three hundred round trips inside a deploy step.
 
+### Also
+
+- **Two concurrent first publishes by an actor that is not `Feedable` can open
+  two batches.** Measured on PostgreSQL 18 with two worker processes: when the
+  actor has no open batch, there is no row for either publish to lock, so each
+  opens one, and each later fires its own `BatchClosed` for what was one burst.
+  A `Feedable` actor (a Party, or a model using `InteractsWithFeed`) was
+  serialized by a row lock taken earlier in the publish and got one batch.
+  Nothing is fixed yet; the opt-in probe in `tests/Queue/ConcurrencyTest.php`
+  characterizes both cases. Separately, two overlapping `storyfeed:close-batches`
+  runs still close each batch once. MySQL and MariaDB are untested.
+
 ### Fixed
 
 - **A job dispatched inside `Storyfeed::as()` runs as that actor.** The worker
