@@ -38,12 +38,14 @@ use Storyfeed\Stories\PendingResource;
 use Storyfeed\Stories\ResourceClass;
 use Storyfeed\Stories\Story;
 use Storyfeed\Stories\Verb;
+use Storyfeed\Support\CarryFailures;
 use Storyfeed\Support\Feedables;
 use Storyfeed\Support\IgnoredParties;
 use Storyfeed\Support\MorphResolver;
 use Storyfeed\Support\QueuedActor;
 use Storyfeed\Support\TombstoneRules;
 use Throwable;
+use WeakMap;
 
 /**
  * @phpstan-import-type Compiled from CompileStories
@@ -156,6 +158,17 @@ class StoryfeedManager
 
     /** @var array<string, true> actions already reported for varying by request */
     protected array $varyingActions = [];
+
+    /**
+     * What each action that takes the request chose, per request, for the
+     * jobs it dispatches. Weak, so a request under Octane takes it along.
+     *
+     * @var WeakMap<Request, array<string, array<string, mixed>>>|null
+     */
+    protected ?WeakMap $carriedActions = null;
+
+    /** @var array<string, true> actions already recorded for throwing at dispatch */
+    protected array $failedCarries = [];
 
     /**
      * Named feeds — an audience's scope and verb allowlist, declared once at
@@ -2111,9 +2124,14 @@ class StoryfeedManager
         // A verb's own actor ranks below Storyfeed::as(), in this process or
         // carried into a job, and above everything else.
         if ($identity === null && $this->scopedActor === null && ($actor = $this->verbActor($activity)) !== null) {
-            $activity->actor()->associate($actor);
+            if ($actor instanceof Model) {
+                $activity->actor()->associate($actor);
 
-            return $actor;
+                return $actor;
+            }
+
+            // A model an action chose at dispatch, deleted since or not.
+            $identity = $actor;
         }
 
         // A scoped identity only counts inside its job's scope (above).
@@ -2140,9 +2158,13 @@ class StoryfeedManager
 
     /**
      * The actor a verb chooses: an action that takes the request, run for
-     * this publish, or else a fixed `->actor()` name. Null says nothing.
+     * this publish or carried from dispatch into a job, or else a fixed
+     * `->actor()` name. A model carried from dispatch comes back as its
+     * morph alias and key. Null says nothing.
+     *
+     * @return Model|array{type: string, id: int|string}|null
      */
-    protected function verbActor(Activity $activity): ?Model
+    protected function verbActor(Activity $activity): Model|array|null
     {
         $this->ensureStoriesCompiled();
 
@@ -2156,8 +2178,23 @@ class StoryfeedManager
         $action = $this->storyActions[$key] ?? null;
 
         if ($action !== null && $action['request']) {
-            $actor = $this->runAction($key, $action);
+            $carried = app(Repository::class)->getHidden(QueuedActor::ACTIONS);
             $where = $action['uses'];
+
+            // In a job dispatched during a request, what the action chose
+            // there, and nothing if it chose nothing: this request is blank.
+            if (is_array($carried)) {
+                $carried = $carried[$key] ?? null;
+
+                return match (true) {
+                    is_string($carried['party'] ?? null) && is_string($carried['key'] ?? null) => $this->restoreQueuedActor($carried),
+                    is_string($carried['party'] ?? null) => $this->admitsParty($carried['party'], $where) ? $this->party($carried['party']) : null,
+                    is_string($carried['type'] ?? null) && (is_int($carried['id'] ?? null) || is_string($carried['id'] ?? null)) => ['type' => $carried['type'], 'id' => $carried['id']],
+                    default => null,
+                };
+            }
+
+            $actor = $this->runAction($key, $action);
         } else {
             $actor = $this->resolve($this->storyActors, $type, $verb);
             $where = "The actor of [{$key}]";
@@ -2168,6 +2205,90 @@ class StoryfeedManager
         }
 
         return $actor instanceof Model ? $actor : null;
+    }
+
+    /**
+     * What each action that takes the request chooses as its actor for this
+     * request, for QueuedActor to carry into a job dispatched now: on the
+     * worker the request is blank. Each runs once per request, however many
+     * jobs it dispatches, and every one runs, since which verbs a job will
+     * publish can't be known. Null when there are none to run.
+     *
+     * Results only: a party name (a Party model by name and key), or a model
+     * by morph alias and key. An action that chooses nothing is left out,
+     * never carried as a null actor, and so is one that throws, which never
+     * fails the dispatch and is kept for `storyfeed:doctor`. The worker
+     * applies the declared-parties guard to a carried name, as a publish
+     * here would.
+     *
+     * @internal
+     *
+     * @return array<string, array<string, mixed>>|null
+     */
+    public function carriedActions(): ?array
+    {
+        // Misconfigured stories throw at publish, never at dispatch.
+        try {
+            $this->ensureStoriesCompiled();
+        } catch (StoryMisconfigured) {
+            return null;
+        }
+
+        $actions = array_filter($this->storyActions, fn (array $action) => $action['request']);
+        $request = app()->bound('request') ? app('request') : null;
+
+        if ($actions === [] || ! $request instanceof Request) {
+            return null;
+        }
+
+        $this->carriedActions ??= new WeakMap;
+
+        return $this->carriedActions[$request] ??= $this->runCarriedActions($actions);
+    }
+
+    /**
+     * @param  array<string, array{uses: string, request: bool, parts: array<string, string>|null}>  $actions
+     * @return array<string, array<string, mixed>>
+     */
+    protected function runCarriedActions(array $actions): array
+    {
+        $carried = [];
+
+        foreach ($actions as $key => $action) {
+            try {
+                $actor = $this->runAction($key, $action);
+            } catch (Throwable $e) {
+                $this->recordFailedCarry($action['uses'], $e);
+
+                continue;
+            }
+
+            if (is_string($actor) && trim($actor) !== '') {
+                $carried[$key] = ['party' => $actor];
+            } elseif ($actor instanceof Party) {
+                $carried[$key] = ['party' => $actor->name, 'key' => $actor->key];
+            } elseif ($actor instanceof Model && $actor->getKey() !== null) {
+                $carried[$key] = ['type' => $actor->getMorphClass(), 'id' => $actor->getKey()];
+            }
+        }
+
+        return $carried;
+    }
+
+    /** Keep an action that threw at dispatch for the doctor, once a process. */
+    protected function recordFailedCarry(string $uses, Throwable $e): void
+    {
+        if (isset($this->failedCarries[$uses])) {
+            return;
+        }
+
+        $this->failedCarries[$uses] = true;
+
+        report($e);
+
+        if ($this->isRecording()) {
+            CarryFailures::record($uses, $e);
+        }
     }
 
     /**

@@ -54,6 +54,7 @@ class Doctor
         Checks\DanglingClaims::class,
         Checks\InheritedDeletes::class,
         Checks\Retention::class,
+        Checks\RequestActions::class,
     ];
 
     /** @param list<DiagnosticCheck> $checks */

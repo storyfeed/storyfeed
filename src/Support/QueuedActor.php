@@ -20,10 +20,16 @@ use Storyfeed\StoryfeedManager;
  * marked `scoped`: the worker re-enters that scope for the job's duration,
  * as if the job had run inside the callback. "No actor" travels as no key at
  * all, never as a null actor, so an anonymous publish stays anonymous.
+ *
+ * A third travels under its own key: what each action that takes the request
+ * chose as its actor, evaluated at dispatch (StoryfeedManager::carriedActions)
+ * because the worker's request is blank. Results only, never the request.
  */
 class QueuedActor
 {
     public const string KEY = 'storyfeed.internal.actor';
+
+    public const string ACTIONS = 'storyfeed.internal.actions';
 
     public static function capture(Repository $context): void
     {
@@ -42,6 +48,14 @@ class QueuedActor
             }
 
             return;
+        }
+
+        // Outside a scope a verb's action chooses at publish; inside one the
+        // scope outranks it, so there is nothing to evaluate. A chained job
+        // keeps what its parent carried: the worker's request is blank.
+        if (! $context->hasHidden(self::ACTIONS)
+            && ($carried = app(StoryfeedManager::class)->carriedActions()) !== null) {
+            $context->addHidden(self::ACTIONS, $carried);
         }
 
         // Preserve inherited identity for chained jobs.
@@ -122,9 +136,12 @@ class QueuedActor
         // A sync job hydrates its payload over the request's context and
         // Laravel leaves it there. The request never held a scoped identity
         // (dispatch writes to a copy), so forgetting it puts the request back.
+        // Nor carried actions: the request runs its own.
         $context = app(Repository::class);
         if (self::isScoped($context->getHidden(self::KEY))) {
             $context->forgetHidden(self::KEY);
         }
+
+        $context->forgetHidden(self::ACTIONS);
     }
 }

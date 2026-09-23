@@ -18,7 +18,15 @@
   `->actor()` is used there. In strict mode (`grammar.strict`), an action
   whose headline or other compiled part varies with the request throws at the
   publish that shows it. Elsewhere the compiled definition wins, and the
-  drift is reported once. The manifest stores `type.verb → Class@method`, and
+  drift is reported once. A job dispatched during a request carries what
+  each such action chose as its actor (a party name, or a model's alias and
+  key; never the request), so a queued publish gets the actor the request
+  would have. Every one of them runs at the first dispatch in a request,
+  since which verbs a job will publish can't be known, and once per request
+  however many jobs follow. One that throws there never fails the dispatch:
+  the doctor names it (`actions.carry_failed`). It also warns about an action
+  that reads `request()` without taking `Request` (`actions.request_helper`),
+  which runs only when stories compile. The manifest stores `type.verb → Class@method`, and
   `storyfeed:list` gains an Action column. `make:story OrderStory --resource
   --model=Order` writes the class and prints the binding line; it never edits
   `routes/feed.php`. Re-run `storyfeed:cache` after adding a method.

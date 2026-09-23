@@ -43,7 +43,9 @@ use Storyfeed\Exceptions\StoryMisconfigured;
  * WHEN AN ACTION RUNS. Once, when stories compile, with a fresh blank
  * request, and what it returns is what the feed reads, lists, checks and
  * caches. An action that takes `Illuminate\Http\Request` also runs at each
- * publish of its verb, and only its `->actor()` is used there. Never the
+ * publish of its verb, and only its `->actor()` is used there; at the first
+ * job dispatched during a request too, whose worker gets what it chose
+ * (StoryfeedManager::carriedActions). Never the
  * container's request at compile: stories compile in `booted()`, after the
  * HTTP kernel has bound the live one, so it would bake the first request
  * into the registries, per request under FPM and for a worker's lifetime
