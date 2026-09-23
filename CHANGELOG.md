@@ -295,6 +295,25 @@
 
 ### Added
 
+- **A `Feedable` subclass deleted through its parent is tombstoned at
+  deletion time.** `FeedablePhoto extends Media implements Feedable` is
+  deleted as a `Media`, so Eloquent fires the parent's events and never the
+  subclass's own; its tombstone used to wait for the next trickle. Core now
+  also listens to the parent's `deleted`, `forceDeleted` and `restored`
+  events for every such class in the morph map or registered with
+  `Storyfeed::feedable()`, walking up to the first Feedable ancestor and
+  skipping abstract and framework classes. A parent row counts only when an
+  activity names the subclass's alias with its key: one indexed
+  `feed_participants` probe per deletion, nothing written otherwise, and no
+  listener at all in an app without such a subclass. A subclass with a table
+  of its own is ignored. The trickle still sweeps as the safety net. New
+  `Feedables::listenThroughParents()`, `nonFeedableParents()` and
+  `listensThroughParents()`.
+- **`storyfeed:doctor` names a `Feedable` subclass deleted through a
+  non-Feedable parent** (`inherited.parent_deletes`, Info): the class, its
+  alias, the parents, and whether the parent listener is active or its
+  tombstones arrive on the trickle's schedule.
+
 - **`php artisan about` has a Storyfeed section.** It says whether
   `routes/feed.php` is loaded, or cached and skipped at boot; whether
   `storyfeed:cache` has run, and when; how many verbs (declared, and shipped

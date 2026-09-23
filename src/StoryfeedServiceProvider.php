@@ -128,6 +128,13 @@ class StoryfeedServiceProvider extends PackageServiceProvider
             }
         });
 
+        // After every provider, so the app's morph map is set: a Feedable
+        // subclass deleted through its parent (FeedablePhoto as a Media) is
+        // heard at deletion time rather than by the next trickle.
+        $this->app->booted(function () {
+            $this->app->make(Feedables::class)->listenThroughParents(Relation::morphMap());
+        });
+
         // Stories compile AFTER every provider has booted, so provider
         // ordering is irrelevant: compilation validates group axes against the
         // axis registry and reads the verb registry, and an app that calls
