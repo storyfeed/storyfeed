@@ -40,6 +40,9 @@ class TombstoneEntity
 {
     private static bool $installed = false;
 
+    /** How many activities the last reference() moved onto its tombstone. */
+    private int $moved = 0;
+
     /**
      * The event path. A soft delete leaves a restorable tombstone; a hard
      * delete (a model without SoftDeletes, or a force delete) leaves a
@@ -85,9 +88,21 @@ class TombstoneEntity
      * `->forgetWhenMissing()` had already taken the last row naming it and
      * the tombstone with it. An explicit `Storyfeed::tombstone()` keeps what
      * it was asked to make.
+     *
+     * Not swept when reference() has just moved activities onto it: they
+     * name it, trashed ones included, so the sweep could delete nothing. The
+     * only way they stop naming it within the call is forgetRedundant(),
+     * whose PurgeActivities already sweeps it. A soft delete of a model in
+     * the feed pays no sweep, and a force delete pays one (its `deleted`
+     * moved everything, so its `forceDeleted` moves nothing): on Postgres a
+     * sweep statement costs ~0.7ms, nearly all of it planning.
      */
     protected function unlessUnnamed(FeedTombstone $tombstone): FeedTombstone
     {
+        if ($this->moved > 0) {
+            return $tombstone;
+        }
+
         (new PurgeActivities)->sweep([$tombstone->getMorphClass() => [(string) $tombstone->getKey() => true]]);
 
         return $tombstone;
@@ -191,7 +206,7 @@ class TombstoneEntity
 
         $snapshot = (new SnapshotEntity)($tombstone);
 
-        $moved = (new RepointReferences)($alias, $id, $tombstone->getMorphClass(), $tombstone->getKey(), $snapshot->getKey());
+        $moved = $this->moved = (new RepointReferences)($alias, $id, $tombstone->getMorphClass(), $tombstone->getKey(), $snapshot->getKey());
 
         // Privacy: the model's real label must not outlive the model, unless
         // the model asked for it to (keepLabel(), now on the tombstone).
