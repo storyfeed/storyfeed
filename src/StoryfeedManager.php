@@ -1814,6 +1814,14 @@ class StoryfeedManager
         return $this->verbs;
     }
 
+    /** @return array<string, ObjectType|string> */
+    public function registeredObjectTypes(): array
+    {
+        $this->ensureStoriesCompiled();
+
+        return $this->objectTypes;
+    }
+
     /**
      * Treat a model you don't own as Feedable, from a service provider:
      *

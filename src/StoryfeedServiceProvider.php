@@ -4,6 +4,7 @@ namespace Storyfeed;
 
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Database\Eloquent\Relations\Relation;
+use Illuminate\Foundation\Console\AboutCommand;
 use Illuminate\Queue\Events\JobAttempted;
 use Illuminate\Queue\Events\JobExceptionOccurred;
 use Illuminate\Queue\Events\JobProcessed;
@@ -159,6 +160,12 @@ class StoryfeedServiceProvider extends PackageServiceProvider
 
             $storyfeed->compileStories();
         });
+
+        // `php artisan about`: what is loaded, cached and scheduled. A closure,
+        // so it runs only when `about` does (Support\About).
+        if ($this->app->runningInConsole()) {
+            AboutCommand::add('Storyfeed', fn () => $this->app->make(Support\About::class)());
+        }
 
         // ONE listener, registered against the interface. Laravel's dispatcher
         // walks class_implements() for object events, so this fires for every

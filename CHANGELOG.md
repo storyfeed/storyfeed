@@ -280,6 +280,17 @@
 
 ### Added
 
+- **`php artisan about` has a Storyfeed section.** It says whether
+  `routes/feed.php` is loaded, or cached and skipped at boot; whether
+  `storyfeed:cache` has run, and when; how many verbs (declared, and shipped
+  defaults), object types, stories and named feeds are registered; whether
+  recording is on; whether `storyfeed:curate`, `storyfeed:trickle` and
+  `storyfeed:close-batches` are scheduled; and what three cheap doctor checks
+  (`tables`, `recording`, `manifest`) report, with a pointer to the full
+  `storyfeed:doctor`. It scans no rows and renders with no definitions file,
+  no tables and no database. `--json` works as for every other section. New
+  `Storyfeed::registeredObjectTypes()`.
+
 - **`->missing(...$roles)` declares which roles an activity is about.** Once
   one of them is a tombstone, the activity is redundant as news (still true as
   history). `Story::verb('turn_into')->missing('object', 'result')`; on a type
