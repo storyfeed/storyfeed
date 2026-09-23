@@ -66,7 +66,7 @@ it('carries document links through the payload and AS2 without image properties'
 
         public static function feedMedia(FeedContext $context): ?FeedMedia
         {
-            return FeedMedia::make(attachments: [FeedResource::make('/files/'.$context->id(), self::$mime, $context->label(), self::$objectType)])
+            return FeedMedia::make(attachments: [FeedResource::make('/files/'.$context->key(), self::$mime, $context->label(), self::$objectType)])
                 ->preview('/preview.png');
         }
     };

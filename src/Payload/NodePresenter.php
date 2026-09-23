@@ -547,7 +547,7 @@ class NodePresenter
         // with empty data makes every naive implementation warn.
         $link = $snapshot === null ? null : ($this->links ?? new LinkResolver)->resolve(new FeedContext(
             type: $type,
-            id: $id,
+            key: $id,
             label: $snapshot->label,
             data: $data,
             feed: $this->feed,

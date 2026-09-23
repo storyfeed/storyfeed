@@ -32,13 +32,13 @@ function photoModel(): Customer
         {
             return FeedMedia::make(
                 url: FeedImage::make(
-                    src: "/photos/{$context->id()}/full.jpg",
+                    src: "/photos/{$context->key()}/full.jpg",
                     mediaType: 'image/jpeg',
                     width: 4032,
                     height: 3024,
                     alt: $context->label(),
                 ),
-                preview: FeedImage::make("/photos/{$context->id()}/thumb.jpg", 'image/jpeg', 400, 300),
+                preview: FeedImage::make("/photos/{$context->key()}/thumb.jpg", 'image/jpeg', 400, 300),
             );
         }
     };
@@ -239,8 +239,8 @@ it('serializes an actor icon as a Link and keeps the actor id as its href', func
 
         public static function feedMedia(FeedContext $context): ?FeedMedia
         {
-            return FeedMedia::make("/users/{$context->id()}")
-                ->icon(FeedImage::make("/avatars/{$context->id()}.png", 'image/png', 32, 32));
+            return FeedMedia::make("/users/{$context->key()}")
+                ->icon(FeedImage::make("/avatars/{$context->key()}.png", 'image/png', 32, 32));
         }
     };
 

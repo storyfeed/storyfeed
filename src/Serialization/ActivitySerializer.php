@@ -348,7 +348,7 @@ class ActivitySerializer
         // branch on feed() === null, which is always true here.
         $media = $snapshot === null ? null : $links->resolve(new FeedContext(
             type: $alias,
-            id: $snapshot->model_id,
+            key: $snapshot->model_id,
             label: $snapshot->label,
             data: $data,
             feed: null,

@@ -314,7 +314,7 @@ it('is a single lookup, not a batch, on the AS2 path — and still correct', fun
 it('works on a context built by hand, as a single lookup', function () {
     $customer = Customer::create(['name' => 'Acme']);
 
-    $context = new FeedContext(type: 'customer', id: $customer->id, data: ['id' => $customer->id]);
+    $context = new FeedContext(type: 'customer', key: $customer->id, data: ['id' => $customer->id]);
 
     expect($context->model())->toBeInstanceOf(Customer::class)
         ->and($context->model()->is($customer))->toBeTrue()

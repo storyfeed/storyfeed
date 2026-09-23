@@ -128,12 +128,12 @@ it('gives a fresh resolver a fresh memo, and reports again within none', functio
 
     $links = new LinkResolver;
 
-    expect($links->resolve(new FeedContext(type: 'boom', id: 1)))->toBeNull()
-        ->and($links->resolve(new FeedContext(type: 'boom', id: 2)))->toBeNull();
+    expect($links->resolve(new FeedContext(type: 'boom', key: 1)))->toBeNull()
+        ->and($links->resolve(new FeedContext(type: 'boom', key: 2)))->toBeNull();
 
     Exceptions::assertReportedCount(1);
 
-    (new LinkResolver)->resolve(new FeedContext(type: 'boom', id: 3));
+    (new LinkResolver)->resolve(new FeedContext(type: 'boom', key: 3));
 
     Exceptions::assertReportedCount(2);
 });

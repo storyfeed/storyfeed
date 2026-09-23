@@ -85,7 +85,7 @@ it('hands feedMedia() the snapshot as a context, not a bare array', function () 
 
     expect($context)->toBeInstanceOf(FeedContext::class)
         ->and($context->type())->toBe('customer')
-        ->and($context->id())->toBe($customer->id)
+        ->and($context->key())->toBe($customer->id)
         ->and($context->label())->toBe('Acme')
         ->and($context->data())->toBe(['id' => $customer->id, 'name' => 'Acme'])
         ->and($context->data('name'))->toBe('Acme');
@@ -96,8 +96,25 @@ it('degrades a missing context value to the default instead of warning', functio
 
     expect($context->data('nope'))->toBeNull()
         ->and($context->data('nope', 'fallback'))->toBe('fallback')
-        ->and($context->id())->toBeNull()
+        ->and($context->key())->toBeNull()
         ->and($context->label())->toBeNull();
+});
+
+it('reads a context value by dot path, a literal dotted key first', function () {
+    $context = new FeedContext(type: 'photo', key: 'abc', data: [
+        'photo' => ['width' => 1200, 'size' => ['h' => 800]],
+        'photo.width' => 'literal',
+        'caption' => 'Plated',
+    ]);
+
+    expect($context->key())->toBe('abc')
+        ->and($context->data('caption'))->toBe('Plated')
+        ->and($context->data('photo.size.h'))->toBe(800)
+        ->and($context->data('photo.width'))->toBe('literal')
+        ->and($context->data('photo.depth'))->toBeNull()
+        ->and($context->data('photo.depth', 0))->toBe(0)
+        ->and($context->data('caption.nope', 'fallback'))->toBe('fallback')
+        ->and($context->data())->toHaveKeys(['photo', 'photo.width', 'caption']);
 });
 
 it('carries url, attributes and the modal hint from a migrated resolver without losing a slot', function () {
@@ -133,8 +150,8 @@ it('compiles a bare Feedable with only toFeed() written, and links nothing', fun
 
     Relation::morphMap(['bare' => $model::class]);
 
-    expect($model::feedMedia(new FeedContext(type: 'bare', id: 1)))->toBeNull()
-        ->and((new LinkResolver)->resolve(new FeedContext(type: 'bare', id: 1, data: ['id' => 1])))->toBeNull();
+    expect($model::feedMedia(new FeedContext(type: 'bare', key: 1)))->toBeNull()
+        ->and((new LinkResolver)->resolve(new FeedContext(type: 'bare', key: 1, data: ['id' => 1])))->toBeNull();
 
     $bare = $model::create(['name' => 'Bare']);
 
@@ -164,13 +181,13 @@ it('lets feedMedia() override the cached label and hint a modal', function () {
 
         public static function feedMedia(FeedContext $context): ?FeedMedia
         {
-            return FeedMedia::modal('/m/'.$context->id(), 'Fresh '.$context->label());
+            return FeedMedia::modal('/m/'.$context->key(), 'Fresh '.$context->label());
         }
     };
 
     Relation::morphMap(['fresh' => $model::class]);
 
-    $media = (new LinkResolver)->resolve(new FeedContext(type: 'fresh', id: 7, label: 'Acme'));
+    $media = (new LinkResolver)->resolve(new FeedContext(type: 'fresh', key: 7, label: 'Acme'));
 
     expect($media?->url)->toBe('/m/7')
         ->and($media?->label)->toBe('Fresh Acme')
@@ -192,7 +209,7 @@ it('reports a throwing feedMedia() and degrades to null', function () {
 
     Relation::morphMap(['boom' => $model::class]);
 
-    $media = (new LinkResolver)->resolve(new FeedContext(type: 'boom', id: 1, data: ['id' => 1]));
+    $media = (new LinkResolver)->resolve(new FeedContext(type: 'boom', key: 1, data: ['id' => 1]));
 
     expect($media)->toBeNull();
     Exceptions::assertReported(RuntimeException::class);
@@ -245,10 +262,10 @@ it('hands the same entity id to the resolver from both surfaces', function () {
     serialize_one($activity);
     $serialized = Customer::$lastContext;
 
-    expect($presented?->id())->toBe($customer->id)
-        ->and($serialized?->id())->toBe($presented?->id())
+    expect($presented?->key())->toBe($customer->id)
+        ->and($serialized?->key())->toBe($presented?->key())
         ->and($serialized?->type())->toBe($presented?->type())
-        ->and($activity->fresh()->cachedObject?->model_id)->toBe($presented?->id());
+        ->and($activity->fresh()->cachedObject?->model_id)->toBe($presented?->key());
 });
 
 it('puts every model on the same contract, package-owned ones included', function () {
@@ -259,7 +276,7 @@ it('puts every model on the same contract, package-owned ones included', functio
 
     // Party has no canonical URL and does not use the trait (it keeps its
     // own saved hook and no delete cascade), so it answers null itself.
-    expect(Party::feedMedia(new FeedContext(type: 'storyfeed.party', id: 1)))->toBeNull();
+    expect(Party::feedMedia(new FeedContext(type: 'storyfeed.party', key: 1)))->toBeNull();
 });
 
 /*

@@ -122,7 +122,7 @@ class Hydration extends Check
 
                 $context = new FeedContext(
                     type: $alias,
-                    id: $snapshot?->model_id,
+                    key: $snapshot?->model_id,
                     label: $snapshot?->label,
                     data: $snapshot === null ? [] : ($snapshot->data ?? []),
                     feed: $feed,

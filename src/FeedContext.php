@@ -3,6 +3,7 @@
 namespace Storyfeed;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Arr;
 use Storyfeed\Support\ModelHydrator;
 
 /**
@@ -27,6 +28,7 @@ final readonly class FeedContext
 {
     /**
      * @param  string  $type  the entity's morph alias, exactly as stored on the activity
+     * @param  int|string|null  $key  the entity's primary key, as stored on the snapshot
      * @param  array<array-key, mixed>  $data  the cached snapshot data from toFeed()
      * @param  ModelHydrator  $hydrator  the page's identity map; a context built
      *                                   without one gets a private map and
@@ -34,7 +36,7 @@ final readonly class FeedContext
      */
     public function __construct(
         private string $type,
-        private int|string|null $id = null,
+        private int|string|null $key = null,
         private ?string $label = null,
         private array $data = [],
         private ?string $feed = null,
@@ -49,9 +51,12 @@ final readonly class FeedContext
         return $this->type;
     }
 
-    public function id(): int|string|null
+    /**
+     * The entity's primary key — what Eloquent calls getKey().
+     */
+    public function key(): int|string|null
     {
-        return $this->id;
+        return $this->key;
     }
 
     /**
@@ -64,10 +69,13 @@ final readonly class FeedContext
     }
 
     /**
-     * The snapshot data, or one value from it. A missing key degrades to
-     * the default rather than warning: the read path never breaks a feed
-     * over one entity, and a naive `$data['id']` was the exact shape of
-     * the bug that rule came from (journal 014).
+     * The snapshot data, or one value from it. The key is a dot path, as in
+     * `$request->input()` and `config()`: `data('photo.width')` reads a
+     * nested value. A key that itself contains a dot is found first, before
+     * the path is walked. A missing key degrades to the default rather than
+     * warning: the read path never breaks a feed over one entity, and a
+     * naive `$data['id']` was the exact shape of the bug that rule came from
+     * (journal 014).
      *
      * @return ($key is null ? array<array-key, mixed> : mixed)
      */
@@ -77,7 +85,7 @@ final readonly class FeedContext
             return $this->data;
         }
 
-        return $this->data[$key] ?? $default;
+        return Arr::get($this->data, $key, $default);
     }
 
     /**
@@ -190,6 +198,6 @@ final readonly class FeedContext
      */
     public function model(array $with = [], bool $withTrashed = false, array $withCount = []): ?Model
     {
-        return $this->hydrator->model($this->type, $this->id, $with, $withTrashed, $withCount);
+        return $this->hydrator->model($this->type, $this->key, $with, $withTrashed, $withCount);
     }
 }

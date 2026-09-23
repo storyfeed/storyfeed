@@ -4,6 +4,11 @@
 
 ### Changed
 
+- **`FeedContext::id()` is now `key()`**, matching Eloquent's `getKey()` the
+  way `type()` and `label()` match theirs. The constructor's `id:` argument is
+  now `key:`. Breaking and not aliased: a resolver calling `$context->id()`
+  fails with an undefined method.
+
 - **A group node's `exemplars` is now `sample`.** The key holds the same
   per-role lists (`actors`, `objects`, …) as before. The config key follows:
   `grouping.exemplar_limits` is now `grouping.sample_limits`. Both renames are
@@ -120,6 +125,12 @@
   participant rows and the `forceDelete` that follows it must still be atomic.
 
 ### Added
+
+- **`FeedContext::data()` reads dot paths**, as `$request->input()` and
+  `config()` do: `$context->data('photo.width')`. A key that itself contains a
+  dot is found first. `data()` with no argument still returns the whole array.
+  One edge moves with it: a key stored with a null value now returns null, not
+  the default, as it does in `config()`.
 
 - **`php artisan optimize` now compiles recent snapshots.** `toFeed()` output is
   cached, so changing that method changes what NEW snapshots store and leaves
