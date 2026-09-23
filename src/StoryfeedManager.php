@@ -7,6 +7,7 @@ use Closure;
 use DateTimeInterface;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Bus\PendingDispatch;
+use Illuminate\Http\Request;
 use Illuminate\Log\Context\Repository;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
@@ -24,6 +25,7 @@ use Storyfeed\Contracts\PublishesToFeed;
 use Storyfeed\Diagnostics\Doctor;
 use Storyfeed\Diagnostics\Report;
 use Storyfeed\Exceptions\StoryMisconfigured;
+use Storyfeed\Exceptions\UndeclaredParty;
 use Storyfeed\Exceptions\UnknownFeed;
 use Storyfeed\Grouping\Axis;
 use Storyfeed\Models\Activity;
@@ -32,9 +34,11 @@ use Storyfeed\Models\Party;
 use Storyfeed\Stories\CompileStories;
 use Storyfeed\Stories\DefinitionsFile;
 use Storyfeed\Stories\PendingResource;
+use Storyfeed\Stories\ResourceClass;
 use Storyfeed\Stories\Story;
 use Storyfeed\Stories\Verb;
 use Storyfeed\Support\Feedables;
+use Storyfeed\Support\IgnoredParties;
 use Storyfeed\Support\MorphResolver;
 use Storyfeed\Support\QueuedActor;
 use Storyfeed\Support\TombstoneRules;
@@ -104,6 +108,44 @@ class StoryfeedManager
 
     /** @var array<string, ActivityType|string> */
     protected array $verbs = self::DEFAULT_VERBS;
+
+    /**
+     * What a redundant activity reads as (`->missingHeadline()`), on the
+     * type → verb ladder. Story-compiled only.
+     *
+     * @var array<string, string|Closure|FeedHeadline>
+     */
+    protected array $missingGrammar = [];
+
+    /**
+     * A verb's fixed actor (`->actor('Stripe')`), a party name on the
+     * type → verb ladder. Story-compiled only.
+     *
+     * @var array<string, string>
+     */
+    protected array $storyActors = [];
+
+    /**
+     * `type.verb` → the action it came from; `parts` is what an action that
+     * takes the request returned when stories compiled.
+     *
+     * @var array<string, array{uses: string, request: bool, parts: array<string, string>|null}>
+     */
+    protected array $storyActions = [];
+
+    /**
+     * The party names an actor may take, slug => name. Null, the default,
+     * is unguarded: apps that declare nothing behave as they always did.
+     *
+     * @var array<string, string>|null
+     */
+    protected ?array $declaredParties = null;
+
+    /** @var array<string, true> undeclared names already recorded this process */
+    protected array $ignoredParties = [];
+
+    /** @var array<string, true> actions already reported for varying by request */
+    protected array $varyingActions = [];
 
     /**
      * Named feeds — an audience's scope and verb allowlist, declared once at
@@ -407,6 +449,12 @@ class StoryfeedManager
      */
     public function as(Model|string $actor, ?callable $callback = null): mixed
     {
+        // An undeclared name in production: everything runs as it would
+        // have without the scope.
+        if (is_string($actor) && ! $this->admitsParty($actor, 'Storyfeed::as()')) {
+            return $callback === null ? $this->activity() : $this->withoutScope($callback);
+        }
+
         $resolved = is_string($actor) ? $this->party($actor) : $actor;
 
         if ($callback === null) {
@@ -434,6 +482,89 @@ class StoryfeedManager
         } finally {
             [$this->actorResolver, $this->scopedActor, $this->queuedActor] = $previous;
         }
+    }
+
+    protected function withoutScope(callable $callback): mixed
+    {
+        $result = $callback();
+
+        if ($result instanceof PendingDispatch) {
+            unset($result);
+
+            return null;
+        }
+
+        return $result;
+    }
+
+    /**
+     * Declare the party names an actor may take: a verb's `->actor()` and
+     * `Storyfeed::as()`. Once any are declared, an undeclared name throws in
+     * local and testing (`storyfeed.parties.strict`), and in production is
+     * ignored, so the activity keeps the actor it would otherwise have had
+     * and a name taken from a request never creates a party.
+     * `storyfeed:doctor` names what was ignored.
+     *
+     *     Storyfeed::parties(['Stripe', 'Paddle']);
+     *
+     * Never declared, nothing is guarded, as before. Names match as party
+     * keys do, slugged: 'Stripe' and 'stripe' are one party.
+     *
+     * @param  list<string>  $names
+     */
+    public function parties(array $names, bool $merge = true): static
+    {
+        $declared = [];
+
+        foreach ($names as $name) {
+            $declared[Str::slug($name)] = $name;
+        }
+
+        $this->declaredParties = $merge ? [...($this->declaredParties ?? []), ...$declared] : $declared;
+
+        return $this;
+    }
+
+    /**
+     * The declared party names, or null when none were declared.
+     *
+     * @return list<string>|null
+     */
+    public function declaredParties(): ?array
+    {
+        return $this->declaredParties === null ? null : array_values($this->declaredParties);
+    }
+
+    /**
+     * Whether an actor may take this party name, throwing when strict.
+     *
+     * @internal
+     */
+    public function admitsParty(string $name, string $where): bool
+    {
+        if ($this->declaredParties === null || isset($this->declaredParties[Str::slug($name)])) {
+            return true;
+        }
+
+        $strict = config('storyfeed.parties.strict');
+
+        if ($strict ?? app()->environment('local', 'testing')) {
+            throw UndeclaredParty::make($name, $where, array_values($this->declaredParties));
+        }
+
+        if ($this->isRecording() && ! isset($this->ignoredParties[$name])) {
+            $this->ignoredParties[$name] = true;
+
+            $this->recordIgnoredParty($name);
+        }
+
+        return false;
+    }
+
+    /** Keep an ignored name for the doctor. The fake writes nothing. */
+    protected function recordIgnoredParty(string $name): void
+    {
+        IgnoredParties::record($name);
     }
 
     /**
@@ -1051,6 +1182,15 @@ class StoryfeedManager
             $rules->set($key, $roles);
         }
 
+        foreach ($compiled['forget'] as $key => $forget) {
+            $rules->forget($key, $forget);
+        }
+
+        // No hand-written form either: these three are the Story layer's own.
+        $this->missingGrammar = $compiled['missingGrammar'];
+        $this->storyActors = $compiled['actors'];
+        $this->storyActions = $compiled['actions'];
+
         $this->applied = $compiled;
     }
 
@@ -1072,8 +1212,8 @@ class StoryfeedManager
         }
 
         foreach (CompileStories::REGISTRIES as $registry) {
-            // Held by TombstoneRules, not here; a recompile sets it again.
-            if ($registry === 'missing') {
+            // Held by TombstoneRules, or replaced whole by the next compile.
+            if (in_array($registry, ['missing', 'forget', 'missingGrammar', 'actors', 'actions'], true)) {
                 continue;
             }
 
@@ -1136,7 +1276,7 @@ class StoryfeedManager
      * with the Story facade (2026-09-23): actorless grammar, nouns and object
      * types.
      *
-     * @param  array{grammar: array<string, string|Closure|FeedHeadline>, aggregateGrammar: array<string, string>, actorlessGrammar?: array<string, string|Closure|FeedHeadline>, icons: array<string, string>, glyphIntents?: array<string, string>, nouns?: array<string, string|FeedNoun>, objectTypes?: array<string, ObjectType|string>, verbs: array<string, mixed>, missing?: array<string, list<string>>}  $compiled
+     * @param  array{grammar: array<string, string|Closure|FeedHeadline>, aggregateGrammar: array<string, string>, actorlessGrammar?: array<string, string|Closure|FeedHeadline>, icons: array<string, string>, glyphIntents?: array<string, string>, nouns?: array<string, string|FeedNoun>, objectTypes?: array<string, ObjectType|string>, verbs: array<string, mixed>, missing?: array<string, list<string>>, missingGrammar?: array<string, string|Closure|FeedHeadline>, forget?: array<string, bool>, actors?: array<string, string>, actions?: array<string, array{uses: string, request: bool, parts: array<string, string>|null}>}  $compiled
      * @param  list<string>  $stories  the Story classes the manifest was compiled from
      */
     public function useCompiledStories(array $compiled, array $stories = []): static
@@ -1148,6 +1288,10 @@ class StoryfeedManager
         $compiled['nouns'] ??= [];
         $compiled['objectTypes'] ??= [];
         $compiled['missing'] ??= [];
+        $compiled['missingGrammar'] ??= [];
+        $compiled['forget'] ??= [];
+        $compiled['actors'] ??= [];
+        $compiled['actions'] ??= [];
 
         $this->compiled = $compiled;
         $this->storiesCompiled = false;
@@ -1222,8 +1366,10 @@ class StoryfeedManager
      * tests and the fake all reach the registries outside a normal request
      * lifecycle; this mirrors the existing `$this->axes ??= defaultAxes()`
      * laziness and costs one boolean per resolution.
+     *
+     * @internal
      */
-    protected function ensureStoriesCompiled(): void
+    public function ensureStoriesCompiled(): void
     {
         if (! $this->storiesCompiled) {
             $this->compileStories();
@@ -1930,6 +2076,14 @@ class StoryfeedManager
     {
         $identity = $this->queuedActor;
 
+        // A verb's own actor ranks below Storyfeed::as(), in this process or
+        // carried into a job, and above everything else.
+        if ($identity === null && $this->scopedActor === null && ($actor = $this->verbActor($activity)) !== null) {
+            $activity->actor()->associate($actor);
+
+            return $actor;
+        }
+
         // A scoped identity only counts inside its job's scope (above).
         if ($identity === null && ! $this->actorResolver && ! config('storyfeed.actor_resolver')) {
             $identity = app(Repository::class)->getHidden(QueuedActor::KEY);
@@ -1950,6 +2104,115 @@ class StoryfeedManager
         }
 
         return $actor;
+    }
+
+    /**
+     * The actor a verb chooses: an action that takes the request, run for
+     * this publish, or else a fixed `->actor()` name. Null says nothing.
+     */
+    protected function verbActor(Activity $activity): ?Model
+    {
+        $this->ensureStoriesCompiled();
+
+        if ($this->storyActions === [] && $this->storyActors === []) {
+            return null;
+        }
+
+        $type = $activity->object_type;
+        $verb = (string) $activity->verb;
+        $key = $type === null ? "*.{$verb}" : "{$type}.{$verb}";
+        $action = $this->storyActions[$key] ?? null;
+
+        if ($action !== null && $action['request']) {
+            $actor = $this->runAction($key, $action);
+            $where = $action['uses'];
+        } else {
+            $actor = $this->resolve($this->storyActors, $type, $verb);
+            $where = "The actor of [{$key}]";
+        }
+
+        if (is_string($actor)) {
+            return $this->admitsParty($actor, $where) ? $this->party($actor) : null;
+        }
+
+        return $actor instanceof Model ? $actor : null;
+    }
+
+    /**
+     * Run an action that takes the request, for the publish happening now,
+     * and return the actor it chose. What else it returns must match what it
+     * returned when stories compiled: strict mode throws where it doesn't,
+     * and elsewhere the compiled definition wins and it is reported once.
+     *
+     * @param  array{uses: string, request: bool, parts: array<string, string>|null}  $action
+     */
+    protected function runAction(string $key, array $action): Model|string|null
+    {
+        [$class, $method] = explode('@', $action['uses'], 2);
+        $request = app()->bound('request') ? app('request') : null;
+
+        /** @var class-string $class */
+        $definition = ResourceClass::run($class, $method, Verb::make($key, $action['uses']), $request instanceof Request ? $request : null);
+
+        $parts = $definition->compiledParts();
+
+        foreach ($action['parts'] ?? [] as $part => $compiled) {
+            if (($parts[$part] ?? null) === $compiled) {
+                continue;
+            }
+
+            $varies = StoryMisconfigured::requestVaries($action['uses'], $part);
+
+            // grammar.strict: what drifted is what the feed reads.
+            if (config('storyfeed.grammar.strict') ?? app()->environment('local', 'testing')) {
+                throw $varies;
+            }
+
+            if (! isset($this->varyingActions[$action['uses']])) {
+                $this->varyingActions[$action['uses']] = true;
+
+                report($varies);
+            }
+
+            break;
+        }
+
+        return $definition->actorGiven();
+    }
+
+    /**
+     * What a redundant activity reads as, if its verb says: the
+     * `->missingHeadline()` on the type → verb ladder.
+     */
+    public function missingTemplate(?string $type, string $verb): string|Closure|null
+    {
+        $this->ensureStoriesCompiled();
+
+        return self::headlineEntry($this->resolve($this->missingGrammar, $type, $verb));
+    }
+
+    /**
+     * The action each `type.verb` came from, as `Class@method`.
+     *
+     * @return array<string, string>
+     */
+    public function storyActions(): array
+    {
+        $this->ensureStoriesCompiled();
+
+        return array_map(fn (array $action) => $action['uses'], $this->storyActions);
+    }
+
+    /**
+     * Each verb's fixed actor, a party name, keyed `type.verb`.
+     *
+     * @return array<string, string>
+     */
+    public function storyActors(): array
+    {
+        $this->ensureStoriesCompiled();
+
+        return $this->storyActors;
     }
 
     /**

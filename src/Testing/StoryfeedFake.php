@@ -67,6 +67,9 @@ class StoryfeedFake extends StoryfeedManager
         return $this;
     }
 
+    /** An ignored party name is kept in the database; a fake has none. */
+    protected function recordIgnoredParty(string $name): void {}
+
     /**
      * Stub a party in memory rather than writing a row, so faked tests need
      * no database at all. Stubs are reused by key, mirroring Party::make().

@@ -25,6 +25,7 @@ use Storyfeed\StoryfeedManager;
  *     Story::fallback()->icon('activity');                   // *.*
  *
  *     Story::resource(Document::class)->except('restore');   // created, updated, deleted
+ *     Story::resource(Order::class, OrderStory::class);      // the four, plus each OrderStory action
  *
  * WHAT IT IS. A front door onto {@see Verb}. Every call makes a
  * definition, registers it with the manager at once (the way `Route::get()`
@@ -84,11 +85,15 @@ class Registrar
      * delete, restore), as `Route::resource()` defines a controller's
      * actions. Narrow them with `->only()` / `->except()`.
      *
+     * With a resource Story class, every public method of it is a verb too:
+     * `Story::resource(Order::class, OrderStory::class)`.
+     *
      * @param  string|array<int, string>  $objectType  a model class, a morph alias, or a list
+     * @param  class-string|null  $class  a resource Story class
      */
-    public function resource(string|array $objectType): PendingResource
+    public function resource(string|array $objectType, ?string $class = null): PendingResource
     {
-        $resource = new PendingResource($objectType, Verb::caller());
+        $resource = new PendingResource($objectType, Verb::caller(), $class);
 
         app(StoryfeedManager::class)->stories([$resource]);
 

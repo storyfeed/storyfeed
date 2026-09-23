@@ -17,6 +17,7 @@ use Storyfeed\Grouping\Group;
 use Storyfeed\Grouping\GroupBuilder;
 use Storyfeed\Models\Activity;
 use Storyfeed\Support\ActivityRoles;
+use Storyfeed\Support\ManifestClosure;
 
 /**
  * A story as data — the normalized form every authoring path funnels into.
@@ -47,6 +48,13 @@ use Storyfeed\Support\ActivityRoles;
  *
  * Every definition knows where it was written (`routes/feed.php:14`), so two
  * definitions of one key fail naming both lines.
+ *
+ * IT IS ALSO WHAT AN ACTION RECEIVES, in a resource Story class
+ * (`public function place(Verb $verb): Verb`; see ResourceClass). Every
+ * method here belongs to one phase, by method and never by value: `actor()`
+ * is read at each publish; everything else is read when stories compile,
+ * which is all the feed, `storyfeed:list`, the doctor and `storyfeed:cache`
+ * ever see.
  */
 final class Verb
 {
@@ -71,6 +79,20 @@ final class Verb
 
     /** @var list<string>|null null: the default set (the object) */
     protected ?array $missing = null;
+
+    protected string|Closure|FeedHeadline|null $missingHeadline = null;
+
+    /** Null: not said, so a wildcard's answer stands. */
+    protected ?bool $forgetWhenMissing = null;
+
+    /** Per publish: who acted, when the call site and `Storyfeed::as()` didn't say. */
+    protected Model|string|null $actor = null;
+
+    /** `App\Stories\OrderStory@place`: the action this definition came from. */
+    protected ?string $action = null;
+
+    /** Whether that action takes the request, and so runs again at each publish. */
+    protected bool $takesRequest = false;
 
     /** Made by `Story::for(…)`: its group headlines are keyed per type. */
     protected bool $typeScoped = false;
@@ -162,20 +184,34 @@ final class Verb
         return $definition;
     }
 
+    /** The keys the array form accepts. */
+    public const ARRAY_KEYS = ['headline', 'anonymousHeadline', 'icon', 'intent', 'type', 'noun', 'activityStreamsType', 'missing', 'missingHeadline', 'forgetWhenMissing', 'actor', 'groups'];
+
     /**
      * @param  array<string, mixed>  $spec
      */
     public static function fromArray(string $key, array $spec): self
     {
-        $allowed = ['headline', 'anonymousHeadline', 'icon', 'intent', 'type', 'noun', 'activityStreamsType', 'missing', 'groups'];
+        return self::make($key, "array [{$key}]")->fill($spec, $key);
+    }
 
+    /**
+     * Configure from the array form: what `'type.verb' => [...]` and an
+     * action returning an array both say.
+     *
+     * @param  array<string, mixed>  $spec
+     *
+     * @internal
+     */
+    public function fill(array $spec, string $name): self
+    {
         foreach (array_keys($spec) as $given) {
-            if (! in_array($given, $allowed, true)) {
-                throw StoryMisconfigured::unknownDefinitionKey($key, (string) $given, $allowed);
+            if (! in_array($given, self::ARRAY_KEYS, true)) {
+                throw StoryMisconfigured::unknownDefinitionKey($name, (string) $given, self::ARRAY_KEYS);
             }
         }
 
-        $definition = self::make($key, "array [{$key}]");
+        $definition = $this;
 
         if (isset($spec['headline'])) {
             /** @var string|Closure|FeedHeadline $headline */
@@ -218,6 +254,22 @@ final class Verb
             /** @var string|list<string> $missing */
             $missing = $spec['missing'];
             $definition = $definition->missing(...(array) $missing);
+        }
+
+        if (isset($spec['missingHeadline'])) {
+            /** @var string|Closure|FeedHeadline $missingHeadline */
+            $missingHeadline = $spec['missingHeadline'];
+            $definition = $definition->missingHeadline($missingHeadline);
+        }
+
+        if (isset($spec['forgetWhenMissing'])) {
+            $definition = $definition->forgetWhenMissing((bool) $spec['forgetWhenMissing']);
+        }
+
+        if (isset($spec['actor'])) {
+            /** @var Model|string $actor */
+            $actor = $spec['actor'];
+            $definition = $definition->actor($actor);
         }
 
         /** @var array<int, Group> $groups */
@@ -350,6 +402,60 @@ final class Verb
         return $this;
     }
 
+    /**
+     * What this activity reads as once it is redundant: a role it is about
+     * (see `->missing()`) was deleted. App-authored grammar, like any
+     * headline, sent beside the normal one as `missing_headline_template`;
+     * `headline_template` never changes, and a renderer may show either.
+     *
+     *     Story::verb('place')->missingHeadline(':actor placed an order that is no longer available');
+     *
+     * @param  string|FeedHeadline|Closure(Activity): (string|FeedHeadline)  $headline
+     */
+    public function missingHeadline(string|Closure|FeedHeadline $headline): self
+    {
+        $this->missingHeadline = $headline;
+
+        return $this;
+    }
+
+    /**
+     * Delete this verb's activities once they are redundant, instead of
+     * telling them about a tombstone: when a role the verb is about (see
+     * `->missing()`) is PERMANENTLY deleted. Decided when the tombstone is
+     * made — by the model's delete event, `Storyfeed::tombstone()` after a
+     * bulk delete, or the trickle — never when the feed is read.
+     *
+     * Never on a soft delete, so a restore can always undo one. A soft-
+     * deleted model that is later force-deleted forgets them then.
+     */
+    public function forgetWhenMissing(bool $forget = true): self
+    {
+        $this->forgetWhenMissing = $forget;
+
+        return $this;
+    }
+
+    /**
+     * Who acted, when the call site didn't say and no `Storyfeed::as()` scope
+     * is open: a party name (`'Stripe'`), or, from an action that takes the
+     * request, a model. Ranks below both and above the default actor (the
+     * signed-in user, then `parties.fallback`). Null or `''` says nothing.
+     *
+     *     public function refund(Verb $verb, Request $request): Verb
+     *     {
+     *         return $verb->headline(':actor refunded :object')->actor($request->string('provider')->value());
+     *     }
+     *
+     * A name must be declared with `Storyfeed::parties()` once any are.
+     */
+    public function actor(Model|string|null $actor): self
+    {
+        $this->actor = is_string($actor) && trim($actor) === '' ? null : $actor;
+
+        return $this;
+    }
+
     public function groups(Group ...$groups): self
     {
         $this->groups = [...$this->groups, ...$groups];
@@ -438,6 +544,90 @@ final class Verb
     public function missingRoles(): ?array
     {
         return $this->missing;
+    }
+
+    /** @internal */
+    public function missingTemplate(): string|Closure|FeedHeadline|null
+    {
+        return $this->missingHeadline;
+    }
+
+    /** @internal */
+    public function forgetsWhenMissing(): ?bool
+    {
+        return $this->forgetWhenMissing;
+    }
+
+    /** @internal */
+    public function actorGiven(): Model|string|null
+    {
+        return $this->actor;
+    }
+
+    /**
+     * Mark a definition an action returned: `Class@method`, and whether the
+     * action takes the request.
+     *
+     * @internal
+     */
+    public function fromAction(string $uses, bool $takesRequest): self
+    {
+        $this->action = $uses;
+        $this->takesRequest = $takesRequest;
+
+        return $this;
+    }
+
+    /** `App\Stories\OrderStory@place`, or null for a definition no action returned. */
+    public function action(): ?string
+    {
+        return $this->action;
+    }
+
+    /** @internal */
+    public function takesRequest(): bool
+    {
+        return $this->takesRequest;
+    }
+
+    /**
+     * The parts read when no publish is happening, each reduced to a string
+     * that is equal whenever the part is: what an action that takes the
+     * request must return the same of, whatever the request.
+     *
+     * @return array<string, string>
+     *
+     * @internal
+     */
+    public function compiledParts(): array
+    {
+        $describe = function (mixed $value) use (&$describe): string {
+            return match (true) {
+                $value === null => '',
+                $value instanceof Closure => ManifestClosure::fingerprint($value),
+                $value instanceof FeedHeadline => "trans:{$value->key}",
+                $value instanceof FeedNoun => 'noun:'.($value->translated ? 't:' : '').$value->value,
+                $value instanceof BackedEnum => (string) $value->value,
+                $value instanceof Group => json_encode([$value->axis, $value->template(), $value->parentTemplate()]) ?: '',
+                is_array($value) => implode('|', array_map($describe, $value)),
+                is_bool($value) => $value ? '1' : '0',
+                default => (string) $value,
+            };
+        };
+
+        return array_map(fn (mixed $value) => md5($describe($value)), [
+            'headline' => $this->headline,
+            'anonymousHeadline' => $this->anonymousHeadline,
+            'missingHeadline' => $this->missingHeadline,
+            'icon' => $this->icon,
+            'intent' => $this->intent,
+            'type' => $this->type,
+            'noun' => $this->noun,
+            'activityStreamsType' => $this->activityStreamsType,
+            'missing' => $this->missing === null ? null : ['[', ...$this->missing],
+            'forgetWhenMissing' => $this->forgetWhenMissing,
+            'groups' => $this->groups,
+        ]);
     }
 
     public function iconToken(): ?string

@@ -24,7 +24,7 @@ it('emits the same payload shape as before the recording API change', function (
     expect(array_keys($payload['items'][0]))->toBe([
         'kind', 'id', 'verb', 'published_at', 'headline_template', 'headline',
         'glyph', 'glyph_intent', 'actor', 'object', 'target', 'context', 'origin', 'result', 'instrument', 'data', 'thread', 'change',
-        'tombstoned', 'redundant',
+        'tombstoned', 'redundant', 'missing_headline_template', 'missing_headline',
     ]);
     expect(array_keys($payload['items'][0]['object']))->toBe([
         'type', 'id', 'label', 'url', 'attributes', 'modal', 'data', 'media', 'body', 'tombstone',
@@ -71,7 +71,7 @@ it('emits the frozen group-node shape', function () {
     expect(array_keys($item['children'][0]))->toBe([
         'kind', 'id', 'verb', 'published_at', 'headline_template', 'headline',
         'glyph', 'glyph_intent', 'actor', 'object', 'target', 'context', 'origin', 'result', 'instrument', 'data', 'thread', 'change',
-        'tombstoned', 'redundant',
+        'tombstoned', 'redundant', 'missing_headline_template', 'missing_headline',
     ]);
 });
 

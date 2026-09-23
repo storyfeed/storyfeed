@@ -1,5 +1,6 @@
 <?php
 
+use Storyfeed\Facades\Story;
 use Storyfeed\Facades\Storyfeed;
 use Storyfeed\Support\StoryName;
 use Workbench\App\Models\Delivery;
@@ -182,4 +183,34 @@ describe('participle candidates', function () {
         expect(StoryName::parse('CreatePurchaseOrder'))
             ->toBe(['object' => null, 'verb' => null, 'confident' => false]);
     });
+});
+
+it('writes a resource Story class, and prints the binding instead of editing the file', function () {
+    $this->artisan('make:story', ['name' => 'ParcelStory', '--resource' => true, '--model' => Delivery::class])
+        ->expectsOutputToContain('Bind it in routes/feed.php')
+        ->expectsOutputToContain('Story::resource(\\'.Delivery::class.'::class, \App\Stories\ParcelStory::class);')
+        ->assertSuccessful();
+
+    $source = file_get_contents(storyPath('ParcelStory'));
+
+    expect($source)
+        ->toMatch('/^class ParcelStory\R/m')
+        ->not->toContain('extends')
+        ->toContain('public function create(Verb $verb): Verb')
+        ->toContain('public function restore(Verb $verb): Verb')
+        ->and(file_exists(base_path('routes/feed.php')) ? file_get_contents(base_path('routes/feed.php')) : '')->not->toContain('ParcelStory');
+
+    // What it writes compiles to the conventional defaults.
+    require_once storyPath('ParcelStory');
+    Story::resource(Delivery::class, 'App\Stories\ParcelStory');
+
+    expect(Storyfeed::template('delivery', 'delete'))->toBe(':actor deleted :object')
+        ->and(Storyfeed::actorlessTemplate('delivery', 'create'))->toBe(':object was created')
+        ->and(Storyfeed::storyActions())->toHaveKey('delivery.restore', 'App\Stories\ParcelStory@restore');
+});
+
+it('guesses the model from a resource class name, in the printed line', function () {
+    $this->artisan('make:story', ['name' => 'InvoiceStory', '--resource' => true])
+        ->expectsOutputToContain('Story::resource(\App\Models\Invoice::class, \App\Stories\InvoiceStory::class);')
+        ->assertSuccessful();
 });

@@ -129,6 +129,9 @@ class NodePresenter
         [$template, $headline] = $this->headline($activity);
         [$tombstoned, $redundant] = $this->tombstoneFact($activity);
         $type = $this->objectType($activity);
+        [$missingTemplate, $missingHeadline] = $redundant
+            ? $this->render($this->storyfeed->missingTemplate($type, $activity->verb), $activity)
+            : [null, null];
 
         [$data, $thread] = $this->thread($activity);
         $change = FeedChange::fromArray($data[FeedChange::KEY] ?? null);
@@ -179,6 +182,16 @@ class NodePresenter
             // removed". See docs/payload.md, tombstones.
             'tombstoned' => $tombstoned,
             'redundant' => $redundant,
+            // Additive (2026-09-23): what the verb says the activity reads as
+            // once it is redundant (`->missingHeadline()`), the same pair as
+            // `headline_template` / `headline`. Null unless `redundant` is
+            // true and the verb declares one. `headline_template` never
+            // swaps, so a renderer may show either reading, and one that
+            // knows nothing of these keys is untouched. App-authored grammar,
+            // like any headline: core still writes no wording for a
+            // tombstone. See docs/payload.md, tombstones.
+            'missing_headline_template' => $missingTemplate,
+            'missing_headline' => $missingHeadline,
         ];
     }
 
@@ -236,6 +249,17 @@ class NodePresenter
             : null;
         $entry ??= $this->storyfeed->template($type, $activity->verb);
 
+        return $this->render($entry, $activity);
+    }
+
+    /**
+     * [template, finished text] for one grammar entry and one activity: a
+     * closure runs, and optional segments resolve against its roles.
+     *
+     * @return array{0: string|null, 1: string|null}
+     */
+    protected function render(string|Closure|null $entry, Activity $activity): array
+    {
         if ($entry instanceof Closure) {
             try {
                 $result = $entry($activity);

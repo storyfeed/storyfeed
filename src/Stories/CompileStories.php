@@ -43,12 +43,16 @@ use Storyfeed\StoryfeedManager;
  *     objectTypes: array<string, ObjectType|string>,
  *     verbs: array<string, mixed>,
  *     missing: array<string, list<string>>,
+ *     missingGrammar: array<string, string|Closure|FeedHeadline>,
+ *     forget: array<string, bool>,
+ *     actors: array<string, string>,
+ *     actions: array<string, array{uses: string, request: bool, parts: array<string, string>|null}>,
  * }
  */
 class CompileStories
 {
     /** The registries a compile produces, in the order they are applied. */
-    public const REGISTRIES = ['grammar', 'aggregateGrammar', 'actorlessGrammar', 'icons', 'glyphIntents', 'nouns', 'objectTypes', 'verbs', 'missing'];
+    public const REGISTRIES = ['grammar', 'aggregateGrammar', 'actorlessGrammar', 'icons', 'glyphIntents', 'nouns', 'objectTypes', 'verbs', 'missing', 'missingGrammar', 'forget', 'actors', 'actions'];
 
     /**
      * @param  array<int, Verb>  $definitions
@@ -65,6 +69,10 @@ class CompileStories
         $objectTypes = [];
         $verbs = [];
         $missing = [];
+        $missingGrammar = [];
+        $forget = [];
+        $actors = [];
+        $actions = [];
 
         /** @var array<string, string> $owners registry:key => the story that authored it */
         $owners = [];
@@ -110,6 +118,40 @@ class CompileStories
                     $missing[$key] = $roles;
                 }
 
+                if (($missingTemplate = $definition->missingTemplate()) !== null) {
+                    $this->claim($owners, 'missingGrammar', $key, $source);
+                    $missingGrammar[$key] = $missingTemplate;
+                }
+
+                // Only what a definition said: one that says nothing leaves
+                // the key to a wildcard, and `false` overrides one.
+                if (($forgets = $definition->forgetsWhenMissing()) !== null) {
+                    $this->claim($owners, 'forget', $key, $source);
+                    $forget[$key] = $forgets;
+                }
+
+                // A fixed actor. An action that takes the request chooses its
+                // actor at each publish, so what the blank one gave is moot.
+                if (! $definition->takesRequest() && ($actor = $definition->actorGiven()) !== null) {
+                    if (! is_string($actor)) {
+                        throw StoryMisconfigured::compiledModelActor($source);
+                    }
+
+                    $this->claim($owners, 'actors', $key, $source);
+                    $actors[$key] = $actor;
+                }
+
+                // `verb → Class@method`, as route:cache stores `action.uses`,
+                // so nothing downstream reflects over a Story class again.
+                if (($uses = $definition->action()) !== null) {
+                    $this->claim($owners, 'actions', $key, $source);
+                    $actions[$key] = [
+                        'uses' => $uses,
+                        'request' => $definition->takesRequest(),
+                        'parts' => $definition->takesRequest() ? $definition->compiledParts() : null,
+                    ];
+                }
+
                 if (($objectType = $definition->objectActivityStreamsType()) !== null) {
                     if ($alias === '*') {
                         throw StoryMisconfigured::wildcardObjectType($source);
@@ -152,6 +194,10 @@ class CompileStories
             'objectTypes' => $objectTypes,
             'verbs' => $verbs,
             'missing' => $missing,
+            'missingGrammar' => $missingGrammar,
+            'forget' => $forget,
+            'actors' => $actors,
+            'actions' => $actions,
         ];
     }
 

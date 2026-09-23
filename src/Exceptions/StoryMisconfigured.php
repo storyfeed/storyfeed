@@ -143,4 +143,70 @@ class StoryMisconfigured extends LogicException
             .'Stories\Verb objects, or `\'type.verb\' => [...]` arrays.'
         );
     }
+
+    public static function actionReturn(string $uses, ?string $given): self
+    {
+        $given = $given === null ? 'declares no return type' : "returns [{$given}]";
+
+        return new self(
+            "[{$uses}] is a public method of a resource Story class, so it is an action, and it {$given}. "
+            .'An action returns Storyfeed\Stories\Verb, string (the headline) or array (the array form). '
+            .'If it is a helper, make it protected or private.'
+        );
+    }
+
+    public static function actionReturnedAnotherVerb(string $uses): self
+    {
+        return new self(
+            "[{$uses}] returned a Verb it was not given. Configure the Verb the action receives and return it: "
+            .'public function place(Verb $verb): Verb { return $verb->headline(...); }'
+        );
+    }
+
+    public static function actionCollision(string $class, string $first, string $second, string $verb): self
+    {
+        return new self(
+            "[{$class}] has two actions for the verb [{$verb}]: {$first}() and {$second}(). A verb is the method "
+            .'name snake-cased, so rename one of them.'
+        );
+    }
+
+    public static function actionRequestType(string $uses, string $type): self
+    {
+        return new self(
+            "[{$uses}] takes [{$type}]. An action takes Illuminate\Http\Request, and only to choose the actor: "
+            .'it also runs when stories compile, where a form request would validate a request that is not there.'
+        );
+    }
+
+    /** @param list<string> $verbs */
+    public static function unknownResourceVerb(string $source, string $verb, array $verbs): self
+    {
+        return new self(
+            "Story::resource() at {$source} has no [{$verb}] verb. It defines ".implode(', ', $verbs)
+            .'. Name verbs as they are stored: confirmPayment() is confirm_payment.'
+        );
+    }
+
+    public static function notAResourceClass(string $source, string $class): self
+    {
+        return new self("Story::resource() at {$source} binds [{$class}], which is not a class.");
+    }
+
+    public static function compiledModelActor(string $source): self
+    {
+        return new self(
+            "[{$source}] gives ->actor() a model when stories compile. A fixed actor is a party name "
+            ."(->actor('Stripe')); a model comes from the request, in an action that takes Request."
+        );
+    }
+
+    public static function requestVaries(string $uses, string $part): self
+    {
+        return new self(
+            "[{$uses}] returned a different {$part} for this request than when stories compiled. An action "
+            .'that takes the request may only use it to choose the actor: everything else is read when no '
+            .'request exists (the feed, storyfeed:list, the doctor, storyfeed:cache), so it must not depend on one.'
+        );
+    }
 }

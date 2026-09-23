@@ -239,7 +239,7 @@ final class FeedEntity
     /**
      * What the tombstone keeps once the model is deleted. Read when it is:
      *
-     *     ->tombstone(fn (PendingTombstone $tombstone) => $tombstone->keepLabel()->forgetActivities())
+     *     ->tombstone(fn (PendingTombstone $tombstone) => $tombstone->keepLabel())
      *
      * Without it, the tombstone keeps nothing but the model's type and when
      * it went, and every story that named the model stays.

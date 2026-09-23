@@ -5,6 +5,7 @@ namespace Storyfeed\Console;
 use Illuminate\Console\GeneratorCommand;
 use Illuminate\Support\Str;
 use Storyfeed\Diagnostics\Finding;
+use Storyfeed\Stories\DefinitionsFile;
 use Storyfeed\StoryfeedManager;
 use Storyfeed\Support\ActivityRoles;
 use Storyfeed\Support\StoryName;
@@ -16,7 +17,13 @@ use Symfony\Component\Console\Input\InputOption;
  *
  *   php artisan make:story DocumentWasUploaded
  *   php artisan make:story DocumentWasUploaded --object=App\Models\Document
+ *   php artisan make:story OrderStory --resource --model=Order
  *   php artisan make:story --from-doctor
+ *
+ * `--resource` writes a resource Story class, one method per verb, with the
+ * four conventional ones filled in, and PRINTS the line that binds it. Like
+ * make:controller, it never edits routes/feed.php: the binding is yours to
+ * place.
  *
  * THIS IS WHERE INFERENCE LIVES, and nowhere else. The `Was` infix is parsed
  * into an object and a verb, and both are WRITTEN INTO THE FILE as literals. A
@@ -56,7 +63,37 @@ class StoryMakeCommand extends GeneratorCommand
             $this->fail('Provide a name, or pass --from-doctor to scaffold from doctor\'s findings.');
         }
 
-        return parent::handle();
+        $result = parent::handle();
+
+        if ($this->option('resource') && $result !== false) {
+            $this->components->info('Bind it in '.app(DefinitionsFile::class)->relativePath().':');
+            $this->line('    Story::resource('.$this->modelReference().', \\'.$this->qualifyClass($this->getNameInput()).'::class);');
+            $this->newLine();
+        }
+
+        return $result;
+    }
+
+    /**
+     * The model the resource is about: `--model`, else the class name without
+     * its `Story` suffix. Written into the printed line, where a wrong guess
+     * is plain to see.
+     */
+    protected function modelReference(): string
+    {
+        $model = (string) ($this->option('model') ?: Str::beforeLast(class_basename($this->getNameInput()), 'Story'));
+
+        if ($model === '') {
+            return 'TODO::class';
+        }
+
+        foreach ([$model, $this->rootNamespace().'Models\\'.Str::studly($model), $this->rootNamespace().Str::studly($model)] as $candidate) {
+            if (class_exists($candidate)) {
+                return '\\'.ltrim($candidate, '\\').'::class';
+            }
+        }
+
+        return '\\'.$this->rootNamespace().'Models\\'.Str::studly(class_basename($model)).'::class';
     }
 
     /**
@@ -93,10 +130,12 @@ class StoryMakeCommand extends GeneratorCommand
 
     protected function getStub(): string
     {
-        // Laravel's convention: an app can drop its own stub in base_path.
-        $published = $this->laravel->basePath('stubs/storyfeed.story.stub');
+        $stub = $this->option('resource') ? 'story.resource.stub' : 'story.stub';
 
-        return file_exists($published) ? $published : __DIR__.'/../../stubs/story.stub';
+        // Laravel's convention: an app can drop its own stub in base_path.
+        $published = $this->laravel->basePath("stubs/storyfeed.{$stub}");
+
+        return file_exists($published) ? $published : __DIR__.'/../../stubs/'.$stub;
     }
 
     protected function getDefaultNamespace($rootNamespace): string
@@ -108,10 +147,14 @@ class StoryMakeCommand extends GeneratorCommand
     {
         $stub = parent::buildClass($name);
 
+        if ($this->option('resource')) {
+            return str_replace('{{ model }}', Str::studly(class_basename((string) ($this->option('model') ?: Str::beforeLast(class_basename($name), 'Story')))), $stub);
+        }
+
         $parsed = StoryName::parse($name, array_keys($this->storyfeed()->registeredVerbs()));
 
         $verb = (string) ($this->option('verb') ?: $parsed['verb'] ?: 'TODO');
-        $object = (string) ($this->option('object') ?: $parsed['object'] ?: 'TODO');
+        $object = (string) ($this->option('object') ?: $this->option('model') ?: $parsed['object'] ?: 'TODO');
 
         $this->reportInference($name, $parsed, $verb);
 
@@ -251,6 +294,8 @@ class StoryMakeCommand extends GeneratorCommand
         return [
             ['verb', null, InputOption::VALUE_OPTIONAL, 'The stored verb (default: read from the class name)'],
             ['object', null, InputOption::VALUE_OPTIONAL, "The object model or morph alias, or '*' for object-less"],
+            ['resource', 'r', InputOption::VALUE_NONE, 'Write a resource Story class: one method per verb'],
+            ['model', 'm', InputOption::VALUE_OPTIONAL, 'The model the story is about (the resource binding, or the object)'],
             ['axes', null, InputOption::VALUE_OPTIONAL, 'Comma-separated axes to pre-fill (default: all that apply)'],
             ['from-doctor', null, InputOption::VALUE_NONE, 'Scaffold one story per unauthored pair doctor found'],
             ['force', 'f', InputOption::VALUE_NONE, 'Overwrite an existing story'],

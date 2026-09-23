@@ -113,8 +113,8 @@ class ManifestStale extends Check
                 $value instanceof FeedNoun => ($value->translated ? 'trans:' : '').$value->value,
                 // A deserialised closure keeps its code, not its file.
                 $value instanceof \Closure => ManifestClosure::fingerprint($value),
-                // `missing` roles: a list, compared in order.
-                is_array($value) => '['.implode(',', $value).']',
+                // `missing` roles, compared in order, and `actions` entries.
+                is_array($value) => (string) json_encode($value),
                 default => (string) $value,
             },
             $registry,

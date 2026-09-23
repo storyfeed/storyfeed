@@ -28,6 +28,10 @@ use Storyfeed\StoryfeedManager;
  *     same name, so `archive` recorded as a plain string still counts.
  *  3. Otherwise `['object']`, the shipped default.
  *
+ * The same ladder says whether a redundant activity is FORGOTTEN, deleted
+ * once the tombstone is permanent (`->forgetWhenMissing()`). That is decided
+ * when the tombstone is made, never when the feed is read.
+ *
  * Only a fact: core never writes "removed". A renderer reads `redundant` to
  * choose the whole-activity reading over the role-level one.
  *
@@ -42,6 +46,9 @@ final class TombstoneRules
 
     /** @var array<string, list<string>> `type.verb` (wildcards allowed) => roles */
     private array $rules = [];
+
+    /** @var array<string, bool> `type.verb` (wildcards allowed) => whether to forget */
+    private array $forget = [];
 
     public function __construct(
         private readonly StoryfeedManager $storyfeed,
@@ -79,6 +86,46 @@ final class TombstoneRules
     public function set(string $key, array $roles): void
     {
         $this->rules[$key] = array_values(array_unique($roles));
+    }
+
+    /**
+     * Whether a redundant activity of this type and verb is deleted when the
+     * tombstone that made it redundant becomes permanent: the verb's
+     * `->forgetWhenMissing()`, on the same ladder.
+     *
+     * @param  string|null  $type  the object's morph alias (for a tombstoned object, its former alias)
+     */
+    public function forgets(?string $type, string $verb): bool
+    {
+        $this->storyfeed->ensureStoriesCompiled();
+
+        if ($this->forget === []) {
+            return false;
+        }
+
+        $type ??= '*';
+
+        foreach (["{$type}.{$verb}", "{$type}.*", "*.{$verb}", '*.*'] as $key) {
+            if (array_key_exists($key, $this->forget)) {
+                return $this->forget[$key];
+            }
+        }
+
+        return false;
+    }
+
+    /** Whether any verb forgets, so a tombstone can skip asking. */
+    public function forgetsAny(): bool
+    {
+        $this->storyfeed->ensureStoriesCompiled();
+
+        return in_array(true, $this->forget, true);
+    }
+
+    /** Declare whether a `type.verb` key forgets its redundant activities. */
+    public function forget(string $key, bool $forget = true): void
+    {
+        $this->forget[$key] = $forget;
     }
 
     /**

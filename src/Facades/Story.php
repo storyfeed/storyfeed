@@ -22,7 +22,7 @@ use Storyfeed\Stories\Registrar;
  * @method static \Storyfeed\Stories\TypeScope for(string|array<int, string> $objectType)
  * @method static \Storyfeed\Stories\Verb verb(string|\Storyfeed\Contracts\FeedVerb|\BackedEnum $verb)
  * @method static \Storyfeed\Stories\Verb fallback()
- * @method static \Storyfeed\Stories\PendingResource resource(string|array<int, string> $objectType)
+ * @method static \Storyfeed\Stories\PendingResource resource(string|array<int, string> $objectType, ?string $class = null)
  *
  * @see Registrar
  */

@@ -15,7 +15,9 @@ use Workbench\App\Models\User;
 
 /*
  * What a Feedable asks of its tombstone, through FeedEntity::tombstone():
- * keepLabel() and forgetActivities().
+ * keepLabel(). And what a verb asks of its activities once one is redundant:
+ * ->forgetWhenMissing(), which moved off the tombstone because a bulk delete
+ * and the trickle have no entity to ask.
  */
 
 beforeEach(function () {
@@ -85,7 +87,7 @@ it('keeps no label by default', function () {
 });
 
 it('forgets the activities it made redundant on a hard delete, and only those', function () {
-    Delivery::$tombstone = fn (PendingTombstone $tombstone) => $tombstone->forgetActivities();
+    Story::fallback()->forgetWhenMissing();
     $stories = deliveryStories($this);
     $token = SyncToken::current();
 
@@ -98,7 +100,7 @@ it('forgets the activities it made redundant on a hard delete, and only those', 
 });
 
 it('forgets nothing on a soft delete, so a restore brings everything back', function () {
-    Delivery::$tombstone = fn (PendingTombstone $tombstone) => $tombstone->forgetActivities();
+    Story::fallback()->forgetWhenMissing();
     $stories = deliveryStories($this);
 
     $this->delivery->delete();
@@ -112,7 +114,8 @@ it('forgets nothing on a soft delete, so a restore brings everything back', func
 });
 
 it('forgets them when a soft-deleted model is later force-deleted', function () {
-    Delivery::$tombstone = fn (PendingTombstone $tombstone) => $tombstone->keepLabel()->forgetActivities();
+    Delivery::$tombstone = fn (PendingTombstone $tombstone) => $tombstone->keepLabel();
+    Story::fallback()->forgetWhenMissing();
     $stories = deliveryStories($this);
 
     $this->delivery->delete();
@@ -122,7 +125,7 @@ it('forgets them when a soft-deleted model is later force-deleted', function () 
         ->and(FeedTombstone::sole()->label)->toBe('Delivery #TN-1');
 });
 
-it('forgets nothing on a hard delete unless the model asks', function () {
+it('forgets nothing on a hard delete unless a verb asks', function () {
     $stories = deliveryStories($this);
 
     $this->delivery->forceDelete();
@@ -131,7 +134,7 @@ it('forgets nothing on a hard delete unless the model asks', function () {
 });
 
 it('follows a verb\'s declared roles when forgetting', function () {
-    Delivery::$tombstone = fn (PendingTombstone $tombstone) => $tombstone->forgetActivities();
+    Story::fallback()->forgetWhenMissing();
     Story::verb('confirm')->missing();
     Story::verb('note')->missing('target');
     $stories = deliveryStories($this);
@@ -139,6 +142,57 @@ it('follows a verb\'s declared roles when forgetting', function () {
     $this->delivery->forceDelete();
 
     expect(surviving($stories))->toBe(['object', 'removal', 'actor']);
+});
+
+it('forgets only the verbs that ask', function () {
+    Story::verb('confirm')->forgetWhenMissing();
+    $stories = deliveryStories($this);
+
+    $this->delivery->forceDelete();
+
+    expect(surviving($stories))->toBe(['trashed', 'target', 'removal', 'featured', 'actor']);
+});
+
+it('lets a verb keep what a wildcard forgets', function () {
+    Story::fallback()->forgetWhenMissing();
+    Story::verb('confirm')->forgetWhenMissing(false);
+    $stories = deliveryStories($this);
+
+    $this->delivery->forceDelete();
+
+    expect(surviving($stories))->toBe(['object', 'target', 'removal', 'actor']);
+});
+
+it('forgets on the type ladder, by the type the object was', function () {
+    Story::for(Delivery::class)->verb('confirm')->headline(':actor confirmed :object')->forgetWhenMissing();
+    Story::for(Customer::class)->verb('confirm')->headline(':actor confirmed :object');
+    $delivery = Storyfeed::activity()->actor($this->ines)->verb('confirm', $this->delivery)->publish();
+    $customer = Storyfeed::activity()->actor($this->ines)->verb('confirm', $this->acme)->publish();
+
+    $this->delivery->forceDelete();
+    $this->acme->delete();
+
+    expect(surviving(['delivery' => $delivery, 'customer' => $customer]))->toBe(['customer']);
+});
+
+it('forgets after a bulk delete, through Storyfeed::tombstone()', function () {
+    Story::fallback()->forgetWhenMissing();
+    $stories = deliveryStories($this);
+
+    Delivery::withTrashed()->whereKey($this->delivery->id)->forceDelete();
+    Storyfeed::tombstone('delivery', $this->delivery->id);
+
+    expect(surviving($stories))->toBe(['target', 'removal', 'actor']);
+});
+
+it('forgets what the trickle finds deleted', function () {
+    Story::fallback()->forgetWhenMissing();
+    $stories = deliveryStories($this);
+
+    DB::table('deliveries')->where('id', $this->delivery->id)->delete();
+    $this->artisan('storyfeed:trickle')->assertSuccessful();
+
+    expect(surviving($stories))->toBe(['target', 'removal', 'actor']);
 });
 
 it('supports when() on the configurator', function () {

@@ -4,6 +4,48 @@
 
 ### Changed
 
+- **Story classes: one class per type, one method per verb.**
+  `Story::resource(Order::class, OrderStory::class)` binds a plain class that
+  extends nothing. Every public method is a verb, named as stored once
+  snake-cased (`confirmPayment()` records `confirm_payment`), and declares a
+  return type of `Stories\Verb`, `string` (the headline) or `array` (the array
+  form). Anything else fails when stories compile, naming the method, so keep
+  helpers protected or private. The conventional four (create, update,
+  delete, restore) keep their defaults unless the class has a method for
+  one, which replaces it whole. `only()` / `except()` name verbs as stored.
+  An action runs once, when stories compile, with a blank request. An action
+  that takes `Illuminate\Http\Request` also runs at each publish, and only its
+  `->actor()` is used there. In strict mode (`grammar.strict`), an action
+  whose headline or other compiled part varies with the request throws at the
+  publish that shows it. Elsewhere the compiled definition wins, and the
+  drift is reported once. The manifest stores `type.verb → Class@method`, and
+  `storyfeed:list` gains an Action column. `make:story OrderStory --resource
+  --model=Order` writes the class and prints the binding line; it never edits
+  `routes/feed.php`. Re-run `storyfeed:cache` after adding a method.
+- **A verb can name its actor**: `->actor('Stripe')`, or a model from the
+  request in an action. It ranks below the call site and `Storyfeed::as()`,
+  and above the signed-in user and `parties.fallback`.
+- **`Storyfeed::parties(['Stripe', 'Paddle'])` declares the names an actor may
+  take**, for a verb's `->actor()` and `Storyfeed::as()`. Once any are
+  declared, an undeclared name throws in local and testing
+  (`storyfeed.parties.strict`). In production it is ignored: the activity
+  keeps the actor it would otherwise have had, and `storyfeed:doctor` names
+  it (`parties.ignored`). Never declared, nothing is guarded, so existing apps
+  are unaffected; the doctor adds an Info line when parties are in use and
+  none are declared.
+- **A verb says what its activity reads as once redundant**:
+  `->missingHeadline(':actor placed an order that is no longer available')`.
+  Activity nodes gain two **additive** keys, `missing_headline_template` and
+  `missing_headline`, filled only when `redundant` is true and the verb
+  declares one, null otherwise. `headline_template` never swaps.
+- **Breaking: `PendingTombstone::forgetActivities()` is now
+  `->forgetWhenMissing()` on the verb.** It was never about one entity, so it
+  now applies on every path that makes a tombstone permanent: the model's
+  force delete, `Storyfeed::tombstone()` after a bulk delete, and the trickle.
+  Before, only the model event honoured it. Move
+  `->tombstone(fn ($t) => $t->forgetActivities())` to
+  `Story::for(Order::class)->fallback()->forgetWhenMissing()`, or put it on the
+  verbs that should forget. `keepLabel()` stays on the entity.
 - **The verb enum is `Act`, and the story subsystem moves into
   `Storyfeed\Stories\`.** Names only; nothing behaves differently.
   `Storyfeed\Verb` → `Storyfeed\Act` (`Act::Create` still stores `create`, so

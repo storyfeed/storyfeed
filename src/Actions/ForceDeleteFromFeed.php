@@ -46,8 +46,8 @@ class ForceDeleteFromFeed
 
     /**
      * Permanently delete the activities a query selects, the same way. The
-     * closure returns a fresh query each pass. A tombstone's
-     * `forgetActivities()` comes through here with a narrower one.
+     * closure returns a fresh query each pass. A verb's
+     * `->forgetWhenMissing()` comes through here with a narrower one.
      *
      * @param  Closure(): ActivityBuilder<Activity>  $query
      * @return int how many activities were deleted

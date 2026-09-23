@@ -1,0 +1,48 @@
+<?php
+
+namespace {{ namespace }};
+
+use Storyfeed\Stories\Verb;
+
+/**
+ * What each {{ model }} activity says. Every public method is a verb, named
+ * as stored once snake-cased (confirmPayment() records `confirm_payment`),
+ * and returns a Verb, a headline string, or the array form. Adding a method
+ * adds the verb; keep helpers protected or private.
+ */
+class {{ class }}
+{
+    public function create(Verb $verb): Verb
+    {
+        return $verb
+            ->headline(':actor created :object')
+            ->anonymousHeadline(':object was created')
+            ->icon('plus');
+    }
+
+    public function update(Verb $verb): Verb
+    {
+        return $verb
+            ->headline(':actor updated :object')
+            ->anonymousHeadline(':object was updated')
+            ->icon('pencil');
+    }
+
+    public function delete(Verb $verb): Verb
+    {
+        return $verb
+            ->headline(':actor deleted :object')
+            ->anonymousHeadline(':object was deleted')
+            ->icon('trash')
+            ->missing();
+    }
+
+    public function restore(Verb $verb): Verb
+    {
+        return $verb
+            ->headline(':actor restored :object')
+            ->anonymousHeadline(':object was restored')
+            ->icon('rotate-ccw')
+            ->missing();
+    }
+}

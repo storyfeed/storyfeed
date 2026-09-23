@@ -123,10 +123,17 @@ return [
     | typically for activities published from queued jobs or console
     | commands. Null keeps those activities anonymous.
     |
+    | Once Storyfeed::parties([...]) declares the names an actor may take, an
+    | undeclared name (a verb's ->actor(), Storyfeed::as()) throws when
+    | `strict`, and is otherwise ignored: the activity keeps the actor it
+    | would have had, and storyfeed:doctor names it. Null means strict in
+    | local/testing only, as verbs.strict does.
+    |
     */
 
     'parties' => [
         'fallback' => null,
+        'strict' => null,
     ],
 
     /*

@@ -3,6 +3,7 @@
 namespace Storyfeed\Stories;
 
 use InvalidArgumentException;
+use Storyfeed\Exceptions\StoryMisconfigured;
 use Storyfeed\FeedNoun;
 
 /**
@@ -12,6 +13,13 @@ use Storyfeed\FeedNoun;
  *     Story::resource(Order::class);                            // create, update, delete, restore
  *     Story::resource(Order::class)->only(['create', 'update']);
  *     Story::resource(Document::class)->except('restore')->noun('document|documents');
+ *     Story::resource(Order::class, OrderStory::class);         // the four, plus every action
+ *
+ * WITH A CLASS, every public method of it is an action, and its verb is the
+ * method name snake-cased (see ResourceClass). A conventional verb the class
+ * has no method for keeps its default here; one it has a method for is
+ * replaced whole. Adding a method is the whole change: nothing else names
+ * the verb. `only()` and `except()` name verbs as stored (`confirm_payment`).
  *
  * Each verb gets a headline (`:actor created :object`), an anonymous headline
  * (`:object was created`) and an icon. A group of them reads through the noun
@@ -37,19 +45,23 @@ final class PendingResource
     /** The verbs whose tombstoned object is expected ("deleted an order"). */
     public const REMOVALS = ['delete', 'restore'];
 
-    /** @var list<string> */
-    private array $verbs;
+    /** @var list<array{0: 'only'|'except', 1: list<string>}> applied in order, once the verbs are known */
+    private array $filters = [];
 
     private ?FeedNoun $noun = null;
 
     /**
      * @param  string|array<int, string>  $objectType  a model class, a morph alias, or a list
+     * @param  class-string|null  $class  the resource Story class
      */
     public function __construct(
         public readonly string|array $objectType,
         public readonly string $source,
+        public readonly ?string $class = null,
     ) {
-        $this->verbs = array_keys(self::VERBS);
+        if ($class !== null && ! class_exists($class)) {
+            throw StoryMisconfigured::notAResourceClass($source, $class);
+        }
     }
 
     /**
@@ -59,9 +71,7 @@ final class PendingResource
      */
     public function only(string|array ...$verbs): self
     {
-        $only = $this->validate($verbs);
-
-        $this->verbs = array_values(array_filter($this->verbs, fn (string $verb) => in_array($verb, $only, true)));
+        $this->filters[] = ['only', $this->validate($verbs)];
 
         return $this;
     }
@@ -73,9 +83,7 @@ final class PendingResource
      */
     public function except(string|array ...$verbs): self
     {
-        $except = $this->validate($verbs);
-
-        $this->verbs = array_values(array_filter($this->verbs, fn (string $verb) => ! in_array($verb, $except, true)));
+        $this->filters[] = ['except', $this->validate($verbs)];
 
         return $this;
     }
@@ -92,7 +100,8 @@ final class PendingResource
     }
 
     /**
-     * The definitions this resource stands for.
+     * The definitions this resource stands for. With a class, this is where
+     * its actions run: once, each with a blank request.
      *
      * @return list<Verb>
      *
@@ -100,15 +109,26 @@ final class PendingResource
      */
     public function definitions(): array
     {
+        $actions = $this->class === null ? [] : ResourceClass::actions($this->class);
         $definitions = [];
 
-        foreach ($this->verbs as $verb) {
+        foreach ($this->verbs($actions) as $verb) {
+            $definition = Verb::for($this->objectType, $verb, $this->source);
+
+            if (isset($actions[$verb])) {
+                /** @var class-string $class */
+                $class = $this->class;
+                $uses = ResourceClass::uses($class, $actions[$verb]['method']);
+
+                $definitions[] = ResourceClass::run($class, $actions[$verb]['method'], Verb::for($this->objectType, $verb, $uses))
+                    ->fromAction($uses, $actions[$verb]['request']);
+
+                continue;
+            }
+
             [$headline, $anonymous, $icon] = self::VERBS[$verb];
 
-            $definition = Verb::for($this->objectType, $verb, $this->source)
-                ->headline($headline)
-                ->anonymousHeadline($anonymous)
-                ->icon($icon);
+            $definition->headline($headline)->anonymousHeadline($anonymous)->icon($icon);
 
             // Delete and restore are removal verbs: the object they name is
             // expected to be a tombstone, so it never makes them redundant.
@@ -129,6 +149,33 @@ final class PendingResource
     }
 
     /**
+     * The verbs left once `only()` and `except()` apply: the conventional
+     * four, then the class's own, in the order it declares them.
+     *
+     * @param  array<string, mixed>  $actions
+     * @return list<string>
+     */
+    private function verbs(array $actions): array
+    {
+        $all = $verbs = array_values(array_unique([...array_keys(self::VERBS), ...array_keys($actions)]));
+
+        foreach ($this->filters as [$filter, $named]) {
+            foreach ($named as $verb) {
+                if (! in_array($verb, $all, true)) {
+                    throw StoryMisconfigured::unknownResourceVerb($this->source, $verb, $all);
+                }
+            }
+
+            $verbs = array_values(array_filter($verbs, fn (string $verb) => in_array($verb, $named, true) === ($filter === 'only')));
+        }
+
+        return $verbs;
+    }
+
+    /**
+     * Without a class the verbs are known now, so a typo fails at the call.
+     * With one, it fails when stories compile, once the actions are read.
+     *
      * @param  array<int, string|array<int, string>>  $verbs
      * @return list<string>
      */
@@ -137,7 +184,7 @@ final class PendingResource
         $verbs = array_merge(...array_map(fn (string|array $verb) => array_values((array) $verb), $verbs));
 
         foreach ($verbs as $verb) {
-            if (! array_key_exists($verb, self::VERBS)) {
+            if ($this->class === null && ! array_key_exists($verb, self::VERBS)) {
                 throw new InvalidArgumentException(
                     "Story::resource() has no [{$verb}] verb. It defines ".implode(', ', array_keys(self::VERBS)).'.',
                 );

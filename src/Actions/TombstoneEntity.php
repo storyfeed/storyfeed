@@ -53,15 +53,13 @@ class TombstoneEntity
 
         $forcing = method_exists($model, 'isForceDeleting') && $model->isForceDeleting();
         $trashedAt = $forcing ? null : self::trashedAt($model);
-        [$label, $forget] = $this->configured($model);
 
         return $this->reference(
             $model->getMorphClass(),
             $model->getKey(),
             restorable: $trashedAt !== null,
             deletedAt: $trashedAt,
-            label: $label,
-            forget: $forget,
+            label: $this->keptLabel($model),
         );
     }
 
@@ -75,9 +73,7 @@ class TombstoneEntity
             return null;
         }
 
-        [$label, $forget] = $this->configured($model);
-
-        return $this->reference($model->getMorphClass(), $model->getKey(), restorable: false, label: $label, forget: $forget);
+        return $this->reference($model->getMorphClass(), $model->getKey(), restorable: false, label: $this->keptLabel($model));
     }
 
     /**
@@ -142,8 +138,10 @@ class TombstoneEntity
      * permanent tombstone never becomes restorable again.
      *
      * `$label` is the model's label, kept on the tombstone when its entity
-     * asked (`keepLabel()`); `$forget` deletes the activities it made
-     * redundant (`forgetActivities()`), only once the tombstone is permanent.
+     * asked (`keepLabel()`). Once the tombstone is permanent, the activities
+     * it made redundant are deleted where their verb asked
+     * (`->forgetWhenMissing()`), whichever path made it: a model event, a
+     * bulk delete's `Storyfeed::tombstone()`, or the trickle.
      */
     public function reference(
         string $alias,
@@ -152,7 +150,6 @@ class TombstoneEntity
         bool $approximate = false,
         ?DateTimeInterface $deletedAt = null,
         ?string $label = null,
-        bool $forget = false,
     ): FeedTombstone {
         $model = config('storyfeed.models.tombstone', FeedTombstone::class);
 
@@ -186,7 +183,9 @@ class TombstoneEntity
 
         // Only a permanent tombstone forgets: a soft delete must stay
         // undoable by a restore.
-        $forgotten = $forget && ! $tombstone->restorable ? $this->forgetRedundant($tombstone) : 0;
+        $forgotten = ! $tombstone->restorable && app(TombstoneRules::class)->forgetsAny()
+            ? $this->forgetRedundant($tombstone)
+            : 0;
 
         if ($moved > 0 || $forgotten > 0) {
             SyncToken::bump();
@@ -196,21 +195,19 @@ class TombstoneEntity
     }
 
     /**
-     * What the model's entity asked of its tombstone (`FeedEntity::
-     * tombstone()`): the label to keep, and whether to forget activities.
+     * The label the model's entity asked its tombstone to keep
+     * (`FeedEntity::tombstone()` → `keepLabel()`), or null.
      *
      * A model whose toFeed() fails while it is being deleted (a relation
      * already gone) must not fail the delete, so the failure is reported
-     * and the tombstone gets the defaults.
-     *
-     * @return array{0: ?string, 1: bool}
+     * and the tombstone keeps nothing.
      */
-    protected function configured(Model $model): array
+    protected function keptLabel(Model $model): ?string
     {
         $feedables = app(Feedables::class);
 
         if (! $feedables->isFeedable($model)) {
-            return [null, false];
+            return null;
         }
 
         try {
@@ -218,21 +215,22 @@ class TombstoneEntity
         } catch (Throwable $e) {
             report($e);
 
-            return [null, false];
+            return null;
         }
 
         if ($entity->tombstone === null) {
-            return [null, false];
+            return null;
         }
 
         ($entity->tombstone)($pending = new PendingTombstone);
 
-        return [$pending->keepsLabel() ? $entity->label : null, $pending->forgetsActivities()];
+        return $pending->keepsLabel() ? $entity->label : null;
     }
 
     /**
      * Delete, through ForceDeleteFromFeed, the activities where the tombstone
-     * fills a role their verb is about (TombstoneRules), and nothing else.
+     * fills a role their verb is about and whose verb forgets
+     * (TombstoneRules), and nothing else.
      *
      * The rules are asked with the activity's object type, which for an
      * activity whose object is a tombstone means the type it was: after the
@@ -260,7 +258,7 @@ class TombstoneEntity
             $pairs[] = [
                 fn ($query) => $type === null ? $query->whereNull('object_type') : $query->where('object_type', $type),
                 (string) $row->verb,
-                $rules->constitutiveRoles($type, (string) $row->verb),
+                $rules->forgets($type, (string) $row->verb) ? $rules->constitutiveRoles($type, (string) $row->verb) : [],
             ];
         }
 
@@ -272,10 +270,11 @@ class TombstoneEntity
 
             foreach ($gone as $row) {
                 $objectId = $row->object_id;
+                $formerType = $formerTypes[$objectId] ?? null;
                 $pairs[] = [
                     fn ($query) => $query->where('object_type', $alias)->where('object_id', $objectId),
                     (string) $row->verb,
-                    $rules->constitutiveRoles($formerTypes[$objectId] ?? null, (string) $row->verb),
+                    $rules->forgets($formerType, (string) $row->verb) ? $rules->constitutiveRoles($formerType, (string) $row->verb) : [],
                 ];
             }
         }
