@@ -557,6 +557,15 @@
 
 ### Fixed
 
+- **`forceDeleteFromFeed()` releases a composite parent's members, as prune
+  and an Eloquent force delete already did.** It forgot the parent's own
+  claim row and left the members', so the composite went on rendering from
+  them as though the parent were still there. Erasures made before this are
+  brought into line by `php artisan storyfeed:curate --release`, which hands
+  members claimed by a parent that no longer exists back to inference and
+  moves `sync_token` when it changes anything; a second run is a no-op. The
+  doctor's new `claims` check counts what is left.
+
 - **Two publishes at once by one actor share a batch, and on MySQL and
   MariaDB concurrent publishes no longer deadlock.** An actor with no open
   batch had nothing to lock, so two overlapping first publishes each opened a

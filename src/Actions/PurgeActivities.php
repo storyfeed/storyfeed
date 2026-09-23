@@ -24,10 +24,9 @@ use Storyfeed\Support\SyncToken;
  * participant rows, in one transaction with the delete):
  *
  *  - A composite whose parent goes releases its members back to inference,
- *    as ReleaseComposite does for one force-deleted parent. A bulk delete
- *    fires no model events, and a member still claimed by a parent that no
- *    longer exists is never solo and never in a group: the read path would
- *    hide it.
+ *    through ReleaseComposite, as one force-deleted parent does. A bulk delete
+ *    fires no model events, and without the release the members' claim rows
+ *    would go on rendering the story the parent's deletion ended.
  *  - Every curated cluster a deleted row belonged to is repaired once, at
  *    the end (CurateCluster::repairMany), so a group reads as what remains:
  *    "Sally viewed 12 orders" with 9 pruned reads "Sally viewed 3 orders".
@@ -73,7 +72,7 @@ class PurgeActivities
             }
 
             $this->activities()->getConnection()->transaction(function () use ($ids, $forget, &$clusters, &$entities) {
-                $this->releaseComposites($ids);
+                (new ReleaseComposite)->parentsAmong($ids);
                 $this->collectClusters($ids, $clusters);
                 $this->collectEntities($this->activities()->withTrashed()->whereKey($ids), $entities);
 
@@ -138,36 +137,6 @@ class PurgeActivities
         }
 
         return ['verbs' => $verbs, 'snapshots' => $snapshots, 'tombstones' => $tombstones];
-    }
-
-    /**
-     * Release the members of every composite whose parent is in this chunk,
-     * before its claim rows go with it.
-     *
-     * @param  list<int|string>  $ids
-     */
-    protected function releaseComposites(array $ids): void
-    {
-        $claims = $this->groupings()->where('bucket', 'composite')->whereIn('activity_id', $ids)->pluck('hash', 'activity_id');
-
-        if ($claims->isEmpty()) {
-            return;
-        }
-
-        $release = new ReleaseComposite;
-        $model = config('storyfeed.models.activity', Activity::class);
-
-        foreach ($this->activities()->withTrashed()->whereKey($claims->keys()->all())->toBase()->get(['id', 'uid']) as $row) {
-            // A parent's own claim is keyed by its uid; a member's is not.
-            if ($claims[$row->id] !== $row->uid) {
-                continue;
-            }
-
-            // Not saved and not existing: what ReleaseComposite reads as forced.
-            $parent = (new $model)->forceFill(['id' => $row->id, 'uid' => $row->uid]);
-
-            $release($parent);
-        }
     }
 
     /**

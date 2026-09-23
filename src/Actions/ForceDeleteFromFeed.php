@@ -36,6 +36,15 @@ use Storyfeed\Models\Builders\ActivityBuilder;
  * the forget clears the grouping and participant rows and the `forceDelete`
  * removes the activities, and a failure between them would leave one
  * without the other.
+ *
+ * A COMPOSITE PARENT RELEASES ITS MEMBERS FIRST, through ReleaseComposite,
+ * as PurgeActivities does for prune and `forgetWhenMissing()`. Until
+ * 2026-09-23 it did not: the forget took the parent's own claim row, the
+ * members kept theirs, and the composite went on rendering from them as if
+ * the parent had never gone. The claim rows are the only index from parent
+ * to members, so the release reads them before the forget deletes them.
+ * Feeds erased before then are brought into line by
+ * `storyfeed:curate --release`.
  */
 class ForceDeleteFromFeed
 {
@@ -55,6 +64,7 @@ class ForceDeleteFromFeed
     public function activities(Closure $query): int
     {
         $forget = new ForgetActivities;
+        $release = new ReleaseComposite;
         $deleted = 0;
 
         while (true) {
@@ -64,7 +74,8 @@ class ForceDeleteFromFeed
                 break;
             }
 
-            DeleteFromFeed::query()->getConnection()->transaction(function () use ($forget, $ids) {
+            DeleteFromFeed::query()->getConnection()->transaction(function () use ($forget, $release, $ids) {
+                $release->parentsAmong($ids);
                 $forget(...$ids);
 
                 DeleteFromFeed::query()->withTrashed()->whereKey($ids)->forceDelete();

@@ -4,6 +4,7 @@ namespace Storyfeed\Console;
 
 use Illuminate\Console\Command;
 use Storyfeed\Actions\CurateCluster;
+use Storyfeed\Actions\ReleaseComposite;
 use Storyfeed\Actions\WriteGroupings;
 use Storyfeed\Models\Activity;
 use Storyfeed\Models\Grouping;
@@ -18,12 +19,26 @@ use Storyfeed\Support\SyncToken;
  * for re-running after a policy change.
  *
  * Idempotent by construction: re-running produces identical stamps.
+ *
+ * `--release` is the one-off repair for composite members whose parent was
+ * erased before ForceDeleteFromFeed and prune released them (todo 1348):
+ * still claimed, so the story went on rendering from them after the parent
+ * that told it was gone. It lives here and not
+ * on `storyfeed:heal`, whose contract is that no missing activity ever
+ * causes a write, nor on `storyfeed:prune`, which deletes, and an operator
+ * who never prunes should not have to run it to get rows back. Releasing a
+ * claim and re-deciding the member's clusters is grouping repair, which is
+ * what this command is. It is a flag rather than part of every run because
+ * it reshapes settled history and moves `sync_token`, which an hourly
+ * schedule should not do unasked, and so a regression stays visible: the
+ * doctor's `claims` check keeps counting until someone runs it on purpose.
  */
 class CurateCommand extends Command
 {
     protected $signature = 'storyfeed:curate
         {--window= : Only activities published within this many days}
-        {--rehash : Re-run the grouping strategy first, so rows adopt newly added axes}';
+        {--rehash : Re-run the grouping strategy first, so rows adopt newly added axes}
+        {--release : First release composite members whose parent no longer exists (one-off repair)}';
 
     protected $description = 'Select the winning grouping axis for activities (backfill/repair)';
 
@@ -31,6 +46,12 @@ class CurateCommand extends Command
     {
         $window = $this->option('window');
         $rehash = (bool) $this->option('rehash');
+
+        if ($this->option('release')) {
+            $released = (new ReleaseComposite)->dangling();
+
+            $this->info("Released {$released} composite ".str('member')->plural($released).' whose parent no longer exists.');
+        }
 
         $model = config('storyfeed.models.activity', Activity::class);
 
