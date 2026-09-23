@@ -132,6 +132,19 @@ abstract class Story
         return [];
     }
 
+    /**
+     * The roles this activity is about, which make it redundant once one of
+     * them is a tombstone — see StoryDefinition::missing(). Null, the
+     * default, keeps the default set (the object; none for a removal verb);
+     * an empty list means no role.
+     *
+     * @return list<string>|null
+     */
+    public function missing(): ?array
+    {
+        return null;
+    }
+
     /** The compiled verb string. */
     public static function verb(): string
     {

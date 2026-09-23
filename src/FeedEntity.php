@@ -77,9 +77,9 @@ final class FeedEntity
     public private(set) ?string $attributedTo = null;
 
     /**
-     * What happens to this entity's activities once it is deleted.
+     * What the entity's tombstone keeps once it is deleted; see tombstone().
      *
-     * @internal a hook for entity tombstones; stored, and read by nothing yet.
+     * @var (Closure(PendingTombstone): mixed)|null
      */
     public private(set) ?Closure $tombstone = null;
 
@@ -237,11 +237,14 @@ final class FeedEntity
     }
 
     /**
-     * What this entity's activities keep once it is deleted.
+     * What the tombstone keeps once the model is deleted. Read when it is:
      *
-     * @internal stored for entity tombstones, which do not read it yet.
+     *     ->tombstone(fn (PendingTombstone $tombstone) => $tombstone->keepLabel()->forgetActivities())
      *
-     * @param  Closure(mixed): mixed  $configure
+     * Without it, the tombstone keeps nothing but the model's type and when
+     * it went, and every story that named the model stays.
+     *
+     * @param  Closure(PendingTombstone): mixed  $configure
      */
     public function tombstone(Closure $configure): self
     {

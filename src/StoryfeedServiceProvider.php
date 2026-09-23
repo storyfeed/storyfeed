@@ -16,6 +16,7 @@ use Storyfeed\Support\DefinitionsFile;
 use Storyfeed\Support\Feedables;
 use Storyfeed\Support\QueuedActor;
 use Storyfeed\Support\StoryManifest;
+use Storyfeed\Support\TombstoneRules;
 
 class StoryfeedServiceProvider extends PackageServiceProvider
 {
@@ -98,6 +99,7 @@ class StoryfeedServiceProvider extends PackageServiceProvider
         $this->app->singleton(StoryManager::class);
         $this->app->singleton(Feedables::class);
         $this->app->singleton(DefinitionsFile::class);
+        $this->app->singleton(TombstoneRules::class);
     }
 
     public function packageBooted(): void

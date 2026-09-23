@@ -44,6 +44,8 @@ class Doctor
         Checks\ManifestStale::class,
         Checks\UnwiredSurface::class,
         Checks\Entities::class,
+        Checks\GuessedLabels::class,
+        Checks\RemovalVerbs::class,
         Checks\Hydration::class,
         Checks\Body::class,
         Checks\Parties::class,

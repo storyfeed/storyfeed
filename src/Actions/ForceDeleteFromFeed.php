@@ -2,7 +2,10 @@
 
 namespace Storyfeed\Actions;
 
+use Closure;
 use Illuminate\Database\Eloquent\Model;
+use Storyfeed\Models\Activity;
+use Storyfeed\Models\Builders\ActivityBuilder;
 
 /**
  * Permanently delete every activity involving a model, including activities
@@ -38,15 +41,24 @@ class ForceDeleteFromFeed
 {
     public function __invoke(Model $model): void
     {
+        $this->activities(fn () => DeleteFromFeed::query()->withTrashed()->involving($model));
+    }
+
+    /**
+     * Permanently delete the activities a query selects, the same way. The
+     * closure returns a fresh query each pass. A tombstone's
+     * `forgetActivities()` comes through here with a narrower one.
+     *
+     * @param  Closure(): ActivityBuilder<Activity>  $query
+     * @return int how many activities were deleted
+     */
+    public function activities(Closure $query): int
+    {
         $forget = new ForgetActivities;
+        $deleted = 0;
 
         while (true) {
-            $ids = DeleteFromFeed::query()
-                ->withTrashed()
-                ->involving($model)
-                ->limit(500)
-                ->pluck('id')
-                ->all();
+            $ids = $query()->limit(500)->pluck('id')->all();
 
             if ($ids === []) {
                 break;
@@ -57,6 +69,10 @@ class ForceDeleteFromFeed
 
                 DeleteFromFeed::query()->withTrashed()->whereKey($ids)->forceDelete();
             });
+
+            $deleted += count($ids);
         }
+
+        return $deleted;
     }
 }

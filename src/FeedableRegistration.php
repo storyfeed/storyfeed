@@ -65,6 +65,16 @@ final class FeedableRegistration
     }
 
     /**
+     * Whether `toFeedUsing()` describes it; without it, its label is guessed.
+     *
+     * @internal
+     */
+    public function describesFeed(): bool
+    {
+        return $this->toFeed !== null;
+    }
+
+    /**
      * @param  TModel  $model
      *
      * @internal

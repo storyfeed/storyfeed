@@ -33,6 +33,7 @@ use Storyfeed\Support\DefinitionsFile;
 use Storyfeed\Support\Feedables;
 use Storyfeed\Support\MorphResolver;
 use Storyfeed\Support\QueuedActor;
+use Storyfeed\Support\TombstoneRules;
 use Throwable;
 
 /**
@@ -939,6 +940,14 @@ class StoryfeedManager
             $this->declaredVerbs[$verb] ??= true;
         }
 
+        // `->missing()` has no hand-written array form: its registry is the
+        // tombstone rules, which answer on the same ladder.
+        $rules = app(TombstoneRules::class);
+
+        foreach ($compiled['missing'] as $key => $roles) {
+            $rules->set($key, $roles);
+        }
+
         $this->applied = $compiled;
     }
 
@@ -960,6 +969,11 @@ class StoryfeedManager
         }
 
         foreach (CompileStories::REGISTRIES as $registry) {
+            // Held by TombstoneRules, not here; a recompile sets it again.
+            if ($registry === 'missing') {
+                continue;
+            }
+
             foreach ($this->applied[$registry] as $key => $value) {
                 if (($this->{$registry}[$key] ?? null) === $value) {
                     unset($this->{$registry}[$key]);
@@ -1019,7 +1033,7 @@ class StoryfeedManager
      * with the Story facade (2026-09-23): actorless grammar, nouns and object
      * types.
      *
-     * @param  array{grammar: array<string, string|Closure|FeedHeadline>, aggregateGrammar: array<string, string>, actorlessGrammar?: array<string, string|Closure|FeedHeadline>, icons: array<string, string>, glyphIntents?: array<string, string>, nouns?: array<string, string|FeedNoun>, objectTypes?: array<string, ObjectType|string>, verbs: array<string, mixed>}  $compiled
+     * @param  array{grammar: array<string, string|Closure|FeedHeadline>, aggregateGrammar: array<string, string>, actorlessGrammar?: array<string, string|Closure|FeedHeadline>, icons: array<string, string>, glyphIntents?: array<string, string>, nouns?: array<string, string|FeedNoun>, objectTypes?: array<string, ObjectType|string>, verbs: array<string, mixed>, missing?: array<string, list<string>>}  $compiled
      * @param  list<string>  $stories  the Story classes the manifest was compiled from
      */
     public function useCompiledStories(array $compiled, array $stories = []): static
@@ -1030,6 +1044,7 @@ class StoryfeedManager
         $compiled['actorlessGrammar'] ??= [];
         $compiled['nouns'] ??= [];
         $compiled['objectTypes'] ??= [];
+        $compiled['missing'] ??= [];
 
         $this->compiled = $compiled;
         $this->storiesCompiled = false;

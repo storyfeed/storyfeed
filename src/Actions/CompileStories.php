@@ -43,12 +43,13 @@ use Storyfeed\StoryfeedManager;
  *     nouns: array<string, string|FeedNoun>,
  *     objectTypes: array<string, ObjectType|string>,
  *     verbs: array<string, mixed>,
+ *     missing: array<string, list<string>>,
  * }
  */
 class CompileStories
 {
     /** The registries a compile produces, in the order they are applied. */
-    public const REGISTRIES = ['grammar', 'aggregateGrammar', 'actorlessGrammar', 'icons', 'glyphIntents', 'nouns', 'objectTypes', 'verbs'];
+    public const REGISTRIES = ['grammar', 'aggregateGrammar', 'actorlessGrammar', 'icons', 'glyphIntents', 'nouns', 'objectTypes', 'verbs', 'missing'];
 
     /**
      * @param  array<int, StoryDefinition>  $definitions
@@ -64,6 +65,7 @@ class CompileStories
         $nouns = [];
         $objectTypes = [];
         $verbs = [];
+        $missing = [];
 
         /** @var array<string, string> $owners registry:key => the story that authored it */
         $owners = [];
@@ -99,6 +101,14 @@ class CompileStories
                     $nounKey = $this->nounKey($alias, $verb, $source);
                     $this->claim($owners, 'nouns', $nounKey, $source);
                     $nouns[$nounKey] = $noun;
+                }
+
+                // The roles a tombstone makes the activity redundant through,
+                // on the same `type.verb` ladder: `->missing()` declares the
+                // whole set, so it is one entry, never merged.
+                if (($roles = $definition->missingRoles()) !== null) {
+                    $this->claim($owners, 'missing', $key, $source);
+                    $missing[$key] = $roles;
                 }
 
                 if (($objectType = $definition->objectActivityStreamsType()) !== null) {
@@ -142,6 +152,7 @@ class CompileStories
             'nouns' => $nouns,
             'objectTypes' => $objectTypes,
             'verbs' => $verbs,
+            'missing' => $missing,
         ];
     }
 

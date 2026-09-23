@@ -33,6 +33,9 @@ final class PendingResource
         'restore' => [':actor restored :object', ':object was restored', 'rotate-ccw'],
     ];
 
+    /** The verbs whose tombstoned object is expected ("deleted an order"). */
+    public const REMOVALS = ['delete', 'restore'];
+
     /** @var list<string> */
     private array $verbs;
 
@@ -101,13 +104,20 @@ final class PendingResource
         foreach ($this->verbs as $verb) {
             [$headline, $anonymous, $icon] = self::VERBS[$verb];
 
-            // T3 (tombstones): delete and restore are removal verbs, so the
-            // object they name is expected to be a tombstone. The per-verb
-            // `->missing()` default for them lands here.
-            $definitions[] = StoryDefinition::for($this->objectType, $verb, $this->source)
+            $definition = StoryDefinition::for($this->objectType, $verb, $this->source)
                 ->headline($headline)
                 ->anonymousHeadline($anonymous)
                 ->icon($icon);
+
+            // Delete and restore are removal verbs: the object they name is
+            // expected to be a tombstone, so it never makes them redundant.
+            // Said explicitly rather than left to their AS2 types, which an
+            // app's own verbs() may map differently.
+            if (in_array($verb, self::REMOVALS, true)) {
+                $definition->missing();
+            }
+
+            $definitions[] = $definition;
         }
 
         if ($this->noun !== null) {

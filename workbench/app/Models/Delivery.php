@@ -12,6 +12,7 @@ use Storyfeed\Contracts\HasFeedShapeVersion;
 use Storyfeed\FeedContext;
 use Storyfeed\FeedEntity;
 use Storyfeed\FeedMedia;
+use Storyfeed\PendingTombstone;
 
 /**
  * @property int $id
@@ -65,9 +66,16 @@ class Delivery extends Model implements Feedable, HasFeedShapeVersion
     /** Test hook: a body the resolver mints, as a closure so deferral is visible. */
     public static ?\Closure $mintsBody = null;
 
+    /**
+     * Test hook: what the tombstone keeps (FeedEntity::tombstone()).
+     *
+     * @var (\Closure(PendingTombstone): mixed)|null
+     */
+    public static ?\Closure $tombstone = null;
+
     public function toFeed(): FeedEntity
     {
-        return FeedEntity::make(
+        $entity = FeedEntity::make(
             label: "Delivery #{$this->tracking_number}",
             data: [
                 'id' => $this->id,
@@ -77,6 +85,8 @@ class Delivery extends Model implements Feedable, HasFeedShapeVersion
             ],
             body: static::$feedBody,
         );
+
+        return static::$tombstone === null ? $entity : $entity->tombstone(static::$tombstone);
     }
 
     public static function feedShapeVersion(): int

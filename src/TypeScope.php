@@ -106,6 +106,18 @@ final class TypeScope
     }
 
     /**
+     * The roles every verb on these types is about, `type.*`: once one is a
+     * tombstone, the activity is redundant. Replaces the default set (the
+     * object); with no roles, none. A verb's own `->missing()` wins.
+     */
+    public function missing(string ...$roles): self
+    {
+        $this->manager->define($this->objectTypes, '*')->missing(...$roles);
+
+        return $this;
+    }
+
+    /**
      * The AS2.0 object type these types serialize as — the registry form of
      * HasActivityStreamsType.
      */

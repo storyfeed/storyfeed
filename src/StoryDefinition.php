@@ -14,6 +14,7 @@ use Storyfeed\Exceptions\StoryMisconfigured;
 use Storyfeed\Grouping\Group;
 use Storyfeed\Grouping\GroupBuilder;
 use Storyfeed\Models\Activity;
+use Storyfeed\Support\ActivityRoles;
 
 /**
  * A story as data — the normalized form every authoring path funnels into.
@@ -65,6 +66,9 @@ final class StoryDefinition
     protected ?string $intent = null;
 
     protected ActivityType|string|null $type = null;
+
+    /** @var list<string>|null null: the default set (the object) */
+    protected ?array $missing = null;
 
     /** Made by `Story::for(…)`: its group headlines are keyed per type. */
     protected bool $typeScoped = false;
@@ -149,6 +153,10 @@ final class StoryDefinition
             $definition = $definition->type($instance->type);
         }
 
+        if (($missing = $instance->missing()) !== null) {
+            $definition = $definition->missing(...$missing);
+        }
+
         return $definition;
     }
 
@@ -157,7 +165,7 @@ final class StoryDefinition
      */
     public static function fromArray(string $key, array $spec): self
     {
-        $allowed = ['headline', 'anonymousHeadline', 'icon', 'intent', 'type', 'noun', 'activityStreamsType', 'groups'];
+        $allowed = ['headline', 'anonymousHeadline', 'icon', 'intent', 'type', 'noun', 'activityStreamsType', 'missing', 'groups'];
 
         foreach (array_keys($spec) as $given) {
             if (! in_array($given, $allowed, true)) {
@@ -201,6 +209,13 @@ final class StoryDefinition
 
         if (isset($spec['type'])) {
             $definition = $definition->type($spec['type']);
+        }
+
+        // array_key_exists, not isset: `'missing' => []` means "no role".
+        if (array_key_exists('missing', $spec)) {
+            /** @var string|list<string> $missing */
+            $missing = $spec['missing'];
+            $definition = $definition->missing(...(array) $missing);
         }
 
         /** @var array<int, Group> $groups */
@@ -303,6 +318,36 @@ final class StoryDefinition
         return $this;
     }
 
+    /**
+     * The roles this activity is about: once one of them is a tombstone (its
+     * model was deleted), the activity is redundant as news, though still
+     * true as history, and a renderer can tell it as a whole ("an order Dana
+     * placed was later removed").
+     *
+     *     Story::verb('turn_into')->missing('object', 'result');
+     *     Story::verb('ask_about')->missing();          // no role: the question stands
+     *
+     * Without this call the object is the one such role, and a removal verb
+     * (its AS2 type is Delete, Remove, Undo or Reject) has none, because the
+     * object it names being gone is expected. This call REPLACES that set
+     * rather than adding to it, and `->missing()` with no roles means none.
+     */
+    public function missing(string ...$roles): self
+    {
+        foreach ($roles as $role) {
+            if (! in_array($role, ActivityRoles::STORED, true)) {
+                throw new InvalidArgumentException(
+                    "->missing() on [{$this->key()}] names [{$role}], which is not a role. The roles are "
+                    .implode(', ', ActivityRoles::STORED).'.',
+                );
+            }
+        }
+
+        $this->missing = array_values(array_unique($roles));
+
+        return $this;
+    }
+
     public function groups(Group ...$groups): self
     {
         $this->groups = [...$this->groups, ...$groups];
@@ -381,6 +426,16 @@ final class StoryDefinition
     public function objectActivityStreamsType(): ObjectType|string|null
     {
         return $this->activityStreamsType;
+    }
+
+    /**
+     * @return list<string>|null null when missing() was never called
+     *
+     * @internal
+     */
+    public function missingRoles(): ?array
+    {
+        return $this->missing;
     }
 
     public function iconToken(): ?string

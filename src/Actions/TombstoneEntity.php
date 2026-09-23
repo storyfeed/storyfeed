@@ -6,10 +6,16 @@ use DateTimeInterface;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Schema;
+use Storyfeed\Models\Activity;
 use Storyfeed\Models\FeedTombstone;
 use Storyfeed\Models\Snapshot;
+use Storyfeed\PendingTombstone;
+use Storyfeed\Support\ActivityRoles;
+use Storyfeed\Support\Feedables;
 use Storyfeed\Support\MorphResolver;
 use Storyfeed\Support\SyncToken;
+use Storyfeed\Support\TombstoneRules;
+use Throwable;
 
 /**
  * Point the feed at a tombstone for a deleted entity. What a Feedable's
@@ -47,12 +53,15 @@ class TombstoneEntity
 
         $forcing = method_exists($model, 'isForceDeleting') && $model->isForceDeleting();
         $trashedAt = $forcing ? null : self::trashedAt($model);
+        [$label, $forget] = $this->configured($model);
 
         return $this->reference(
             $model->getMorphClass(),
             $model->getKey(),
             restorable: $trashedAt !== null,
             deletedAt: $trashedAt,
+            label: $label,
+            forget: $forget,
         );
     }
 
@@ -66,7 +75,9 @@ class TombstoneEntity
             return null;
         }
 
-        return $this->reference($model->getMorphClass(), $model->getKey(), restorable: false);
+        [$label, $forget] = $this->configured($model);
+
+        return $this->reference($model->getMorphClass(), $model->getKey(), restorable: false, label: $label, forget: $forget);
     }
 
     /**
@@ -129,6 +140,10 @@ class TombstoneEntity
      * Create or reuse the tombstone for an alias and key, and move the feed
      * onto it. Idempotent: a second call finds nothing left to move. A
      * permanent tombstone never becomes restorable again.
+     *
+     * `$label` is the model's label, kept on the tombstone when its entity
+     * asked (`keepLabel()`); `$forget` deletes the activities it made
+     * redundant (`forgetActivities()`), only once the tombstone is permanent.
      */
     public function reference(
         string $alias,
@@ -136,6 +151,8 @@ class TombstoneEntity
         bool $restorable,
         bool $approximate = false,
         ?DateTimeInterface $deletedAt = null,
+        ?string $label = null,
+        bool $forget = false,
     ): FeedTombstone {
         $model = config('storyfeed.models.tombstone', FeedTombstone::class);
 
@@ -153,19 +170,135 @@ class TombstoneEntity
             $tombstone->forceFill(['restorable' => false])->save();
         }
 
+        // Before the snapshot, which is where the label is read from.
+        if ($label !== null && $tombstone->label === null) {
+            $tombstone->forceFill(['label' => $label])->save();
+        }
+
         $snapshot = (new SnapshotEntity)($tombstone);
 
         $moved = (new RepointReferences)($alias, $id, $tombstone->getMorphClass(), $tombstone->getKey(), $snapshot->getKey());
 
-        // Privacy: the model's real label must not outlive the model.
+        // Privacy: the model's real label must not outlive the model, unless
+        // the model asked for it to (keepLabel(), now on the tombstone).
         $snapshots = config('storyfeed.models.snapshot', Snapshot::class);
         $snapshots::query()->where('model_type', $alias)->where('model_id', $id)->delete();
 
-        if ($moved > 0) {
+        // Only a permanent tombstone forgets: a soft delete must stay
+        // undoable by a restore.
+        $forgotten = $forget && ! $tombstone->restorable ? $this->forgetRedundant($tombstone) : 0;
+
+        if ($moved > 0 || $forgotten > 0) {
             SyncToken::bump();
         }
 
         return $tombstone;
+    }
+
+    /**
+     * What the model's entity asked of its tombstone (`FeedEntity::
+     * tombstone()`): the label to keep, and whether to forget activities.
+     *
+     * A model whose toFeed() fails while it is being deleted (a relation
+     * already gone) must not fail the delete, so the failure is reported
+     * and the tombstone gets the defaults.
+     *
+     * @return array{0: ?string, 1: bool}
+     */
+    protected function configured(Model $model): array
+    {
+        $feedables = app(Feedables::class);
+
+        if (! $feedables->isFeedable($model)) {
+            return [null, false];
+        }
+
+        try {
+            $entity = $feedables->toFeed($model);
+        } catch (Throwable $e) {
+            report($e);
+
+            return [null, false];
+        }
+
+        if ($entity->tombstone === null) {
+            return [null, false];
+        }
+
+        ($entity->tombstone)($pending = new PendingTombstone);
+
+        return [$pending->keepsLabel() ? $entity->label : null, $pending->forgetsActivities()];
+    }
+
+    /**
+     * Delete, through ForceDeleteFromFeed, the activities where the tombstone
+     * fills a role their verb is about (TombstoneRules), and nothing else.
+     *
+     * The rules are asked with the activity's object type, which for an
+     * activity whose object is a tombstone means the type it was: after the
+     * repoint, `order.place` rows read `storyfeed.tombstone`.
+     */
+    protected function forgetRedundant(FeedTombstone $tombstone): int
+    {
+        $alias = $tombstone->getMorphClass();
+        $id = $tombstone->getKey();
+        $rules = app(TombstoneRules::class);
+
+        $involving = fn () => DeleteFromFeed::query()->withTrashed()->where(function ($query) use ($alias, $id) {
+            foreach (ActivityRoles::STORED as $role) {
+                $query->orWhere(fn ($query) => $query->where("{$role}_type", $alias)->where("{$role}_id", $id));
+            }
+        });
+
+        $pairs = [];
+
+        $live = $involving()->where(fn ($query) => $query->whereNull('object_type')->orWhere('object_type', '!=', $alias))
+            ->toBase()->select('object_type', 'verb')->distinct()->get();
+
+        foreach ($live as $row) {
+            $type = $row->object_type;
+            $pairs[] = [
+                fn ($query) => $type === null ? $query->whereNull('object_type') : $query->where('object_type', $type),
+                (string) $row->verb,
+                $rules->constitutiveRoles($type, (string) $row->verb),
+            ];
+        }
+
+        $gone = $involving()->where('object_type', $alias)->toBase()->select('object_id', 'verb')->distinct()->get();
+
+        if ($gone->isNotEmpty()) {
+            $model = config('storyfeed.models.tombstone', FeedTombstone::class);
+            $formerTypes = $model::query()->whereKey($gone->pluck('object_id')->unique()->all())->pluck('model_type', 'id')->all();
+
+            foreach ($gone as $row) {
+                $objectId = $row->object_id;
+                $pairs[] = [
+                    fn ($query) => $query->where('object_type', $alias)->where('object_id', $objectId),
+                    (string) $row->verb,
+                    $rules->constitutiveRoles($formerTypes[$objectId] ?? null, (string) $row->verb),
+                ];
+            }
+        }
+
+        $pairs = array_filter($pairs, fn (array $pair) => $pair[2] !== []);
+
+        if ($pairs === []) {
+            return 0;
+        }
+
+        return (new ForceDeleteFromFeed)->activities(fn () => $involving()->where(function ($query) use ($pairs, $alias, $id) {
+            foreach ($pairs as [$object, $verb, $roles]) {
+                $query->orWhere(function ($query) use ($object, $verb, $roles, $alias, $id) {
+                    $object($query);
+
+                    $query->where('verb', $verb)->where(function ($query) use ($roles, $alias, $id) {
+                        foreach ($roles as $role) {
+                            $query->orWhere(fn ($query) => $query->where("{$role}_type", $alias)->where("{$role}_id", $id));
+                        }
+                    });
+                });
+            }
+        }));
     }
 
     /**

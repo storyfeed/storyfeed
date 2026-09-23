@@ -258,6 +258,34 @@
 
 ### Added
 
+- **`->missing(...$roles)` declares which roles an activity is about.** Once
+  one of them is a tombstone, the activity is redundant as news (still true as
+  history). `Story::verb('turn_into')->missing('object', 'result')`; on a type
+  scope, `Story::for(Question::class)->missing()` (the `type.*` rule); in the
+  array form, `'missing' => [...]`; on a Story class, a `missing()` method
+  returning the list. It REPLACES the default set, and `->missing()` with no
+  roles means none. The default, with no call: the object, except for a
+  removal verb (AS2 `Delete`, `Remove`, `Undo` or `Reject`, including
+  `Storyfeed\Verb` cases), which has none. Compiled through `CompileStories`
+  into a new `missing` registry (cached in the manifest, checked by
+  `ManifestStale`) and answered by `Support\TombstoneRules` on the
+  `type.verb` ladder. `Story::resource()` declares `delete` and `restore` as
+  removals.
+- **`FeedEntity::tombstone(fn (PendingTombstone $tombstone) => …)`** configures
+  what a model's tombstone keeps: `keepLabel()` stores the model's label on it
+  (the stories keep naming "Order #1042"), and `forgetActivities()` deletes,
+  through `ForceDeleteFromFeed`, the activities where the model fills a role
+  their verb is about, **on a hard delete only** (a soft-deleted model
+  forgets them when it's force-deleted). Both apply on the model-event path;
+  the trickle and `Storyfeed::tombstone()` have no model to ask.
+  `ForceDeleteFromFeed::activities($query)` deletes the activities a query
+  selects the same chunked way.
+- **Two Info doctor checks.** `removals.unclassified` names recorded verbs that
+  read like removals (`cancel`, `void_payment`, `trash`, …) but are treated
+  as being about their object; `labels.guessed` lists Feedable models labelled
+  by guesswork (no `describeFeed()`, `toFeed()`, `guessFeedLabel()` or
+  `toFeedUsing()`).
+
 - **`Storyfeed::tombstone(Order::class, $ids)`**, for rows deleted without
   model events, straight after the bulk delete. It skips keys whose row still
   exists, and takes a morph alias for a non-model `Feedable`.
