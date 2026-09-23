@@ -456,6 +456,17 @@
 
 ### Fixed
 
+- **A job dispatched inside `Storyfeed::as()` runs as that actor.** The worker
+  used to see only the user logged in at dispatch, or nobody. The scoped actor
+  now travels with the job (a Party by name and key, a model by morph alias and
+  key) and is restored for the job's duration, then put back, even when the
+  job throws. It wins over the logged-in user and over a worker's
+  `resolveActorUsing()` or `actor_resolver`, as it does at dispatch. An
+  explicit actor, `->anonymously()`, an `as()` inside the job and a hidden-null
+  opt-out still win. `fn () => Job::dispatch()` now dispatches inside the scope
+  too: `as()` returns null for a `PendingDispatch` instead of handing it out to
+  be dispatched after the scope closes.
+
 - **Translated headlines are no longer fixed in the boot locale.**
   `__('feed.order_placed')` in a provider ran before the locale middleware, so
   every reader got the default language. Use `FeedHeadline::trans()`.

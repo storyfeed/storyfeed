@@ -6,6 +6,7 @@ use BackedEnum;
 use Closure;
 use DateTimeInterface;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Foundation\Bus\PendingDispatch;
 use Illuminate\Log\Context\Repository;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
@@ -42,6 +43,26 @@ use Throwable;
 class StoryfeedManager
 {
     protected ?Closure $actorResolver = null;
+
+    /**
+     * The innermost Storyfeed::as() actor as a transportable identity, so a
+     * job dispatched inside the scope carries it (see QueuedActor). Null
+     * outside any scope; empty inside one with nothing to carry.
+     *
+     * @var array<string, mixed>|null
+     */
+    protected ?array $scopedActor = null;
+
+    /**
+     * A queued job's scoped actor while that job runs. Kept as an identity
+     * so a model deleted since dispatch still attributes, as auth does.
+     *
+     * @var array<string, mixed>|null
+     */
+    protected ?array $queuedActor = null;
+
+    /** @var array<int, array{?Closure, array<string, mixed>|null, array<string, mixed>|null}> */
+    protected array $queuedScopes = [];
 
     /**
      * The recording switch's RUNTIME half. Null defers to config; true or
@@ -376,6 +397,8 @@ class StoryfeedManager
      *
      * An explicit ->actor() still wins inside the scope, and the previous
      * resolver is always restored — including when the callback throws.
+     * A job dispatched inside the scope runs as this actor too; a returned
+     * PendingDispatch is dispatched inside the scope, and null comes back.
      *
      * @return ($callback is null ? PendingActivity : mixed)
      */
@@ -387,15 +410,92 @@ class StoryfeedManager
             return $this->activity()->actor($resolved);
         }
 
-        $previous = $this->actorResolver;
+        $previous = [$this->actorResolver, $this->scopedActor, $this->queuedActor];
 
         $this->actorResolver = fn () => $resolved;
+        $this->scopedActor = QueuedActor::identify($resolved);
+        $this->queuedActor = null;
 
         try {
-            return $callback();
+            $result = $callback();
+
+            // `fn () => Job::dispatch()` hands back a PendingDispatch, which
+            // dispatches when destroyed: after this scope, unless dropped here.
+            if ($result instanceof PendingDispatch) {
+                unset($result);
+
+                return null;
+            }
+
+            return $result;
         } finally {
-            $this->actorResolver = $previous;
+            [$this->actorResolver, $this->scopedActor, $this->queuedActor] = $previous;
         }
+    }
+
+    /**
+     * The innermost scoped actor's identity, for QueuedActor to transport.
+     *
+     * @internal
+     *
+     * @return array<string, mixed>|null
+     */
+    public function scopedActor(): ?array
+    {
+        return $this->scopedActor;
+    }
+
+    /**
+     * Run the rest of a queued job as the Storyfeed::as() actor it was
+     * dispatched under, until leaveQueuedScope() puts back what was there.
+     *
+     * @internal
+     *
+     * @param  array<string, mixed>  $identity
+     */
+    public function enterQueuedScope(int $job, array $identity): void
+    {
+        $this->queuedScopes[$job] = [$this->actorResolver, $this->scopedActor, $this->queuedActor];
+
+        $this->actorResolver = fn () => $this->restoreQueuedActor($identity);
+        $this->scopedActor = $identity;
+        $this->queuedActor = $identity;
+    }
+
+    /** @internal */
+    public function leaveQueuedScope(int $job): void
+    {
+        if (! isset($this->queuedScopes[$job])) {
+            return;
+        }
+
+        [$this->actorResolver, $this->scopedActor, $this->queuedActor] = $this->queuedScopes[$job];
+
+        unset($this->queuedScopes[$job]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $identity
+     */
+    protected function restoreQueuedActor(array $identity): ?Model
+    {
+        if (is_string($identity['party'] ?? null) && is_string($identity['key'] ?? null)) {
+            $model = config('storyfeed.models.party', Party::class);
+
+            if ($party = $model::find($identity['key'])) {
+                return $party;
+            }
+
+            if ($this->isRecording()) {
+                return $model::make($identity['party'], key: $identity['key']);
+            }
+
+            return $this->unsavedParty($identity['party'])->forceFill(['key' => $identity['key']]);
+        }
+
+        return is_string($identity['type'] ?? null) && (is_int($identity['id'] ?? null) || is_string($identity['id'] ?? null))
+            ? MorphResolver::feedable($identity['type'], $identity['id'])
+            : null;
     }
 
     /**
@@ -1811,21 +1911,26 @@ class StoryfeedManager
     /**
      * Apply a transported identity without requiring its model to still exist.
      * Explicit actors and anonymity are guarded by the callers. Application
-     * resolvers retain authority; context precedes worker auth and Party fallback.
+     * resolvers retain authority over a transported auth user, but not over a
+     * Storyfeed::as() actor, which outranks them at dispatch too; context
+     * precedes worker auth and Party fallback.
      */
     public function applyDefaultActor(Activity $activity): ?Model
     {
-        if (! $this->actorResolver && ! config('storyfeed.actor_resolver')) {
-            $identity = app(Repository::class)
-                ->getHidden(QueuedActor::KEY);
+        $identity = $this->queuedActor;
 
-            if (is_array($identity) && is_string($identity['type'] ?? null)
-                && (is_int($identity['id'] ?? null) || is_string($identity['id'] ?? null))) {
-                $activity->actor_type = $identity['type'];
-                $activity->actor_id = $identity['id'];
+        // A scoped identity only counts inside its job's scope (above).
+        if ($identity === null && ! $this->actorResolver && ! config('storyfeed.actor_resolver')) {
+            $identity = app(Repository::class)->getHidden(QueuedActor::KEY);
+            $identity = QueuedActor::isScoped($identity) ? null : $identity;
+        }
 
-                return MorphResolver::feedable($identity['type'], $identity['id']);
-            }
+        if (is_array($identity) && is_string($identity['type'] ?? null)
+            && (is_int($identity['id'] ?? null) || is_string($identity['id'] ?? null))) {
+            $activity->actor_type = $identity['type'];
+            $activity->actor_id = $identity['id'];
+
+            return MorphResolver::feedable($identity['type'], $identity['id']);
         }
 
         $actor = $this->resolveActor();

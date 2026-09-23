@@ -4,6 +4,10 @@ namespace Storyfeed;
 
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Database\Eloquent\Relations\Relation;
+use Illuminate\Queue\Events\JobAttempted;
+use Illuminate\Queue\Events\JobExceptionOccurred;
+use Illuminate\Queue\Events\JobProcessed;
+use Illuminate\Queue\Events\JobProcessing;
 use Illuminate\Support\Facades\Context;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Route;
@@ -105,6 +109,8 @@ class StoryfeedServiceProvider extends PackageServiceProvider
     public function packageBooted(): void
     {
         Context::dehydrating(QueuedActor::capture(...));
+        Event::listen(JobProcessing::class, QueuedActor::enter(...));
+        Event::listen([JobProcessed::class, JobExceptionOccurred::class, JobAttempted::class], QueuedActor::leave(...));
 
         // storyfeed:install creates it too, and never overwrites.
         $this->publishes([
