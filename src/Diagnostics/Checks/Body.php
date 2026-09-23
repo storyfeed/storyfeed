@@ -10,7 +10,7 @@ use Storyfeed\Models\Snapshot;
 use Storyfeed\StoryfeedManager;
 
 /**
- * The detail forms that are actually in the `data` column, and the two ways
+ * The body types that are actually in the `data` column, and the two ways
  * one can be malformed without anything ever going wrong out loud.
  *
  * {@see FeedBody} is a spec core publishes and never implements: a detail is
@@ -35,8 +35,8 @@ use Storyfeed\StoryfeedManager;
  *   not match its version         version 2 of `Acme/Shipment` has a `carrier`
  *                                 key means knowing `Acme/Shipment`.
  *
- * What is left is everything a reader can see WITHOUT a vocabulary: which
- * forms are in the column, and whether the two reserved keys are usable. That
+ * What is left is everything a reader can see WITHOUT a vocabulary: which body
+ * types are in the column, and whether the two reserved keys are usable. That
  * turns out to be most of the value, because both failures are silent.
  *
  * ## Silence means clean, and there is nothing to skip
@@ -53,11 +53,13 @@ use Storyfeed\StoryfeedManager;
  * label or a link. This check does neither, and the line it draws is whether
  * a reader is being shown something wrong:
  *
- * - which forms exist, and rows with no version at all, are FACTS. A missing
- *   `$v` is version 1 by definition ({@see FeedBody::VERSION}), so those
- *   rows read correctly today and will keep reading correctly forever. Info.
- * - a form that declares version 2 on some rows and nothing on others, and a
- *   map that meant to be a detail and cannot be dispatched, are Warnings: the
+ * - which body types exist, and rows with no version at all, are FACTS. A
+ *   missing `$v` is version 1 by definition ({@see FeedBody::VERSION}), so
+ *   those rows read correctly today and will keep reading correctly forever.
+ *   Info.
+ * - a body type that declares version 2 on some rows and nothing on others,
+ *   and a map that meant to be a detail and cannot be dispatched, are
+ *   Warnings: the
  *   first upgrades down the wrong path and renders plausible, wrong output;
  *   the second renders nothing at all, on every page, with no error anywhere.
  *
@@ -66,7 +68,7 @@ use Storyfeed\StoryfeedManager;
  * absence, not a sentence that reads wrong, and a diagnostic that failed the
  * build on it would contradict the rule it is checking. `version_ambiguous`
  * is the closest call: the output CAN be wrong, but only if the unversioned
- * rows were written by the newer form, and the check cannot know that.
+ * rows were written by the newer version, and the check cannot know that.
  */
 class Body extends Check
 {
@@ -110,7 +112,7 @@ class Body extends Check
     public function run(StoryfeedManager $storyfeed): iterable
     {
         /** @var array<string, array{activity: int, snapshot: int, versions: list<int>, unversioned: int, examples: list<string>}> */
-        $forms = [];
+        $types = [];
 
         /** @var array{count: int, examples: list<string>} */
         $untokenized = ['count' => 0, 'examples' => []];
@@ -131,24 +133,24 @@ class Body extends Check
                     $version = $found[FeedBody::VERSION] ?? null;
 
                     if (is_string($token) && $token !== '') {
-                        $form = $forms[$token] ?? ['activity' => 0, 'snapshot' => 0, 'versions' => [], 'unversioned' => 0, 'examples' => []];
+                        $type = $types[$token] ?? ['activity' => 0, 'snapshot' => 0, 'versions' => [], 'unversioned' => 0, 'examples' => []];
 
                         if ($noun === 'activity') {
-                            $form['activity']++;
+                            $type['activity']++;
                         } else {
-                            $form['snapshot']++;
+                            $type['snapshot']++;
                         }
 
-                        $this->remember($form['examples'], $where);
+                        $this->remember($type['examples'], $where);
 
                         if (is_int($version) && $version > 0) {
-                            $form['versions'] = array_values(array_unique([...$form['versions'], $version]));
-                            sort($form['versions']);
+                            $type['versions'] = array_values(array_unique([...$type['versions'], $version]));
+                            sort($type['versions']);
                         } else {
-                            $form['unversioned']++;
+                            $type['unversioned']++;
                         }
 
-                        $forms[$token] = $form;
+                        $types[$token] = $type;
 
                         continue;
                     }
@@ -171,8 +173,8 @@ class Body extends Check
             ? ' Read from the '.self::SAMPLE.' most recent rows of each table, so this is what is arriving, not a total.'
             : '';
 
-        foreach ($forms as $token => $form) {
-            yield from $this->form($token, $form, $sampled);
+        foreach ($types as $token => $type) {
+            yield from $this->bodyType($token, $type, $sampled);
         }
 
         if ($untokenized['count'] > 0) {
@@ -184,8 +186,8 @@ class Body extends Check
                 .' a `'.FeedBody::VERSION.'` but no `'.FeedBody::KEY.'` (e.g. '
                 .implode(', ', $untokenized['examples']).'). A renderer finds a detail by its NAME, so a versioned '
                 .'map with no name is drawn by nobody: it renders as nothing, on every page it appears on, with no '
-                .'error anywhere to say so. Name the form '
-                ."(`'".FeedBody::KEY."' => 'vendor/form'`), or drop the `".FeedBody::VERSION
+                .'error anywhere to say so. Name the body type '
+                ."(`'".FeedBody::KEY."' => 'Acme/Shipment'`), or drop the `".FeedBody::VERSION
                 .'` if the map was never meant to be a detail.'.$sampled,
                 ['maps' => $count, 'examples' => implode(', ', $untokenized['examples'])],
             );
@@ -200,7 +202,7 @@ class Body extends Check
                 "{$count} ".str('map')->plural($count).' inside `data` '.($count === 1 ? 'has' : 'have')
                 .' a `'.FeedBody::KEY."` that is not a string ({$types}) — e.g. "
                 .implode(', ', $malformed['examples']).'. Dispatch is by name and a name is a string, so those '
-                .'render as nothing. The form\'s `name()` is what belongs there, written into storage verbatim.'
+                .'render as nothing. The body type\'s `name()` is what belongs there, written into storage verbatim.'
                 .$sampled,
                 ['maps' => $count, 'types' => $types, 'examples' => implode(', ', $malformed['examples'])],
             );
@@ -208,47 +210,47 @@ class Body extends Check
     }
 
     /**
-     * One form: what it is, where it is, and whether its versions add up.
+     * One body type: what it is, where it is, and whether its versions add up.
      *
-     * @param  array{activity: int, snapshot: int, versions: list<int>, unversioned: int, examples: list<string>}  $form
+     * @param  array{activity: int, snapshot: int, versions: list<int>, unversioned: int, examples: list<string>}  $type
      * @return iterable<Finding>
      */
-    protected function form(string $token, array $form, string $sampled): iterable
+    protected function bodyType(string $token, array $type, string $sampled): iterable
     {
-        $rows = $form['activity'] + $form['snapshot'];
+        $rows = $type['activity'] + $type['snapshot'];
         $where = implode(' and ', array_filter([
-            $form['activity'] > 0 ? $form['activity'].' '.str('activity')->plural($form['activity']) : null,
-            $form['snapshot'] > 0 ? $form['snapshot'].' '.str('snapshot')->plural($form['snapshot']) : null,
+            $type['activity'] > 0 ? $type['activity'].' '.str('activity')->plural($type['activity']) : null,
+            $type['snapshot'] > 0 ? $type['snapshot'].' '.str('snapshot')->plural($type['snapshot']) : null,
         ]));
 
-        $versions = $form['versions'] === []
+        $versions = $type['versions'] === []
             ? 'no declared version'
-            : 'version '.implode(', ', $form['versions']);
+            : 'version '.implode(', ', $type['versions']);
 
         $subject = [
-            'form' => $token,
+            'body_type' => $token,
             'rows' => $rows,
-            'activities' => $form['activity'],
-            'snapshots' => $form['snapshot'],
-            'versions' => implode(', ', $form['versions']),
-            'unversioned' => $form['unversioned'],
-            'examples' => implode(', ', $form['examples']),
+            'activities' => $type['activity'],
+            'snapshots' => $type['snapshot'],
+            'versions' => implode(', ', $type['versions']),
+            'unversioned' => $type['unversioned'],
+            'examples' => implode(', ', $type['examples']),
         ];
 
         yield Finding::info(
-            'body.form',
-            "`{$token}` is recorded on {$where} ({$versions}) — e.g. ".implode(', ', $form['examples'])
+            'body.type',
+            "`{$token}` is recorded on {$where} ({$versions}) — e.g. ".implode(', ', $type['examples'])
             .'. Core neither reads nor upgrades it: it is stored as the app wrote it, returned in `data` '
-            .'untouched, and upgraded at read time by whichever renderer knows the form.'.$sampled,
+            .'untouched, and upgraded at read time by whichever renderer knows the body type.'.$sampled,
             $subject,
         );
 
-        if ($form['unversioned'] === 0) {
+        if ($type['unversioned'] === 0) {
             return;
         }
 
-        $newest = $form['versions'] === [] ? 1 : max($form['versions']);
-        $missing = $form['unversioned'];
+        $newest = $type['versions'] === [] ? 1 : max($type['versions']);
+        $missing = $type['unversioned'];
 
         if ($newest < 2) {
             yield Finding::info(
@@ -268,9 +270,9 @@ class Body extends Check
         yield Finding::warning(
             'body.version_ambiguous',
             "`{$token}` declares version {$newest} on some rows and no `".FeedBody::VERSION.'` at all on '
-            .$missing.' '.($missing === 1 ? 'other' : 'others').' (e.g. '.implode(', ', $form['examples'])
+            .$missing.' '.($missing === 1 ? 'other' : 'others').' (e.g. '.implode(', ', $type['examples'])
             .'). The unversioned rows read as version 1, so they take the 1→'.$newest.' upgrade — which is the '
-            .'WRONG path if they were in fact written by the version-'.$newest.' form before it started declaring '
+            .'WRONG path if they were in fact written by version '.$newest.' of the body type before it started declaring '
             .'itself. Nothing throws when that happens: the detail upgrades down a path meant for an older shape '
             .'and renders output that looks entirely plausible. Establish what those rows are and set their '
             .'`'.FeedBody::VERSION.'`, or confirm they really are version 1.'.$sampled,

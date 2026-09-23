@@ -55,7 +55,7 @@ class BundleCommand extends Command
             SyncToken::bump();
         }
 
-        $this->info("Swept {$batches} closed batch(es); minted {$minted} composite(s).");
+        $this->info("Swept {$batches} closed batch(es); built {$minted} composite(s).");
 
         return self::SUCCESS;
     }

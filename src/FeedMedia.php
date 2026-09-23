@@ -40,7 +40,7 @@ use Storyfeed\Support\BodySlot;
  * Non-image resources are `attachments`, a list: each FeedResource carries
  * AS2's href, mediaType and name with a Document (or extension) object type,
  * and the list keeps the order it was given. AS2's `attachment` is
- * one-or-many, so a block listing four files gets four live hrefs, minted
+ * one-or-many, so a block listing four files gets four live hrefs, resolved
  * the way FeedImage::src is. Empty by default; the image slots retain
  * their meaning and `url` stays image-only.
  *
@@ -61,7 +61,7 @@ final class FeedMedia
     public private(set) array $attachments;
 
     /**
-     * A body minted at read time, or a closure that would build one.
+     * A body resolved at read time, or a closure that would build one.
      *
      * HELD AS GIVEN AND RESOLVED IN {@see body()}, never in the constructor.
      * Every other parameter here normalizes on the way in, and doing the same
@@ -214,7 +214,7 @@ final class FeedMedia
      * @return array{icon: array<string, mixed>|null, image: array<string, mixed>|null, preview: array<string, mixed>|null, url: array<string, mixed>|null, attachments: list<array<string, mixed>>}|null
      */
     /**
-     * The body this resolver minted, built now if it was handed over unbuilt.
+     * The body resolved at read time, built now if it was handed over unbuilt.
      *
      * @return list<array<string, mixed>>
      */

@@ -43,13 +43,13 @@ use Storyfeed\MediaSlot;
  * ## It stores no media, it names a slot
  *
  * `FeedImage` is what `feedMedia()` RETURNS and not what `toFeed()` stores:
- * a src ages, so the resolver mints the location at read time. A detail is
+ * a src ages, so the location is resolved at read time. A detail is
  * stored, so a `MediaObject` holding a `FeedImage` would store exactly the
  * URL that rule forbids. It holds a slot name instead — `image: "icon"` —
  * and no src, no mediaType, no width, no height, no alt. The `FeedImage`
- * that `feedMedia()` mints carries all of those; a copy here would be a
+ * that `feedMedia()` resolves carries all of those; a copy here would be a
  * second copy that ages exactly as the URL would. At read time the renderer
- * takes `entity.media.icon`, already minted, already beside this block in
+ * takes `entity.media.icon`, already resolved, already beside this block in
  * the payload, and draws it with a live aspect box and live alt.
  *
  * The consequence worth having: changing a thumbnail conversion does not
@@ -77,8 +77,8 @@ use Storyfeed\MediaSlot;
  * alone — `image` still names a slot and still stores nothing at all.
  *
  * A `FeedResource` is a VALUE, so a list of them is fine in every position:
- * the rule details answer to is that a form may hold a list of values, and
- * may not hold a list of forms.
+ * the rule details answer to is that a body may hold a list of values, and
+ * may not hold a list of bodies.
  *
  * ## `footnote` — small print, and the name is the constraint
  *
@@ -147,7 +147,7 @@ use Storyfeed\MediaSlot;
  *
  * **`preview` — a stand-in that previews the thing without depicting it.**
  * A link card. An app stores a URL, scrapes its og:title, og:description
- * and og:image on its own schedule, and its `toFeed()` is this form with
+ * and og:image on its own schedule, and its `toFeed()` is this body type with
  * no field left over and none missing: `subject` is the title, `content`
  * the description, and the og:image is the `preview` — it does not depict
  * the page's content, it stands in for it, which is AS2's "an entity that
@@ -159,7 +159,7 @@ use Storyfeed\MediaSlot;
  *     MediaObject::make(subject: $link->og_title, content: $link->og_description, image: $link->feedMediaPreview())
  *
  * THE PACKAGE FETCHES NOTHING. The app scraped and cached those values
- * before it recorded the row; the resolver mints the cached og:image's URL
+ * before it recorded the row; the resolver turns the cached og:image into a URL
  * into `preview` at read time; the renderer draws what it is handed. Same
  * line {@see File} draws — it is not the remote-resource hazard `Link` and
  * `Media` are, because nothing here issues a request — and this example
@@ -186,7 +186,7 @@ use Storyfeed\MediaSlot;
  *     subject: FeedLink::make($n->title, $n->external_url)  // → there
  *
  * A LINK WITH NO HREF IS THE ONE TO REACH FOR. It stores no location; the
- * renderer resolves it against the entity's own url, minted at read time,
+ * renderer resolves it against the entity's own url, resolved at read time,
  * the same way `image: "icon"` resolves against `entity.media.icon`. An
  * explicit href is stored and ages, and is for a target the entity's
  * resolver cannot know.
@@ -213,7 +213,7 @@ use Storyfeed\MediaSlot;
  * not features; a second slot is the same kind of thing.
  *
  * Fluent and named forms produce byte-identical rows — the fluent form is
- * sugar, never a second form:
+ * sugar, never a second body type:
  *
  *     MediaObject::make(subject: $name)->withIcon()->withAttachments($pdf)
  *     MediaObject::make(subject: $name, image: MediaSlot::Icon, attachments: [$pdf])
@@ -237,7 +237,7 @@ use Storyfeed\MediaSlot;
  * ## Not `Excerpt`, not `Change`, not `Prose`, not a thread
  *
  * Most app data fits this shape, which is its use and its hazard. It can
- * express the other forms badly, and nothing stops a consumer doing so.
+ * express the other body types badly, and nothing stops a consumer doing so.
  *
  * `content` is PROSE, plain text, escaped on the way out: a description, a
  * caption, a one-line reason. A quotation with a source is {@see Excerpt}
@@ -251,7 +251,7 @@ use Storyfeed\MediaSlot;
  * a `MediaObject` carrying a single attachment and nothing else is usually
  * a `File` written the long way.
  *
- * A `subject` that repeats the headline is the smell the other forms name
+ * A `subject` that repeats the headline is the smell the other body types name
  * too: a preview complements the sentence above it.
  *
  * IT IS ADVICE, AND A RENDERER MUST NOT ENFORCE IT. One drew the subject only
@@ -340,10 +340,10 @@ class MediaObject implements FeedBody
      * `Storyfeed/Body/MediaObject` — the VOCABULARY'S name, not a package's.
      *
      * A detail outlives whichever library defined it ({@see FeedBody}), so the
-     * name must not contain the library: this form has already moved packages
-     * once, and a `storyfeed-ui/` or `storyfeed-filament/` prefix would have
-     * moved with it. The name is a pure lookup key — no reflection, no
-     * autoloading — so it need not resolve to anything. PascalCase matches
+     * name must not contain the library: this body type has already moved
+     * packages once, and a `storyfeed-ui/` or `storyfeed-filament/` prefix
+     * would have moved with it. The name is a pure lookup key — no reflection,
+     * no autoloading — so it need not resolve to anything. PascalCase matches
      * AS2's own type casing, which the payload already carries (`FeedResource`
      * → `type: "Document"`), and a lowercase `vendor/name` reads as a Composer
      * package, which is the misreading that produced the earlier fork.
@@ -418,7 +418,7 @@ class MediaObject implements FeedBody
      *
      * An href is the one thing a resource cannot do without, so a value
      * missing it is dropped rather than rendered as a link to nowhere — the
-     * same rule as a malformed subject. What survives is minted back through
+     * same rule as a malformed subject. What survives is rebuilt through
      * {@see FeedResource} so an upgraded row carries exactly the shape and
      * key order {@see toPayload()} writes, rather than whatever the stored
      * value happened to have.

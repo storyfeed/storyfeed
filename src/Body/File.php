@@ -35,9 +35,9 @@ use Storyfeed\Contracts\FeedBody;
  * ## Field names are AS2's where AS2 has one
  *
  * `mediaType`, not `mime`. `name`, not `filename`. Activity Streams 2.0 maps
- * this form onto `attachment` → a `Document` with `url` and `mediaType`, and
- * matching its vocabulary now costs nothing and saves a translation layer at
- * the AS2 milestone.
+ * this body type onto `attachment` → a `Document` with `url` and `mediaType`,
+ * and matching its vocabulary now costs nothing and saves a translation layer
+ * at the AS2 milestone.
  *
  * SIZE IS THE EXCEPTION: AS2 has no size property anywhere — `Link` carries
  * `mediaType`, `width`, `height`, `hreflang` and `rel`, and nothing for bytes —
@@ -77,10 +77,10 @@ class File implements FeedBody
      * `Storyfeed/Body/File` — the VOCABULARY'S name, not a package's.
      *
      * A detail outlives whichever library defined it ({@see FeedBody}), so the
-     * name must not contain the library: this form has already moved packages
-     * once, and a `storyfeed-ui/` or `storyfeed-filament/` prefix would have
-     * moved with it. The name is a pure lookup key — no reflection, no
-     * autoloading — so it need not resolve to anything. PascalCase matches
+     * name must not contain the library: this body type has already moved
+     * packages once, and a `storyfeed-ui/` or `storyfeed-filament/` prefix
+     * would have moved with it. The name is a pure lookup key — no reflection,
+     * no autoloading — so it need not resolve to anything. PascalCase matches
      * AS2's own type casing, which the payload already carries (`FeedResource`
      * → `type: "Document"`), and a lowercase `vendor/name` reads as a Composer
      * package, which is the misreading that produced the earlier fork.

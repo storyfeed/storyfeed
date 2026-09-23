@@ -19,11 +19,11 @@ namespace Storyfeed;
  *
  * {@see FeedImage} is what `feedMedia()` RETURNS and not what `toFeed()`
  * stores: a src ages, so the snapshot keeps the intrinsic facts and the
- * resolver mints the location at read time. Anything that IS stored — a
+ * location is resolved at read time. Anything that IS stored — a
  * detail in `data`, most of all — therefore cannot hold a `FeedImage`
  * without storing exactly the URL that rule forbids. What it can hold is a
  * reference: "my picture is my `icon`". At read time the renderer takes
- * `entity.media.icon` — already minted, already beside the detail in the
+ * `entity.media.icon` — already resolved, already beside the detail in the
  * payload — and draws it with a live src, a live aspect box and live alt.
  * Change a thumbnail conversion and every historical row draws the new one,
  * because none of them stored a size.

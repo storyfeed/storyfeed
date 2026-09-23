@@ -14,15 +14,15 @@ use Stringable;
  *     Prose::verbatim($deploy->output)                // reproduced exactly
  *     Prose::code($migration->source, 'text/x-php')   // reproduced exactly, and it knows what it is
  *
- * ## Why one form and not four
+ * ## Why one body type and not four
  *
  * This was `Markdown` until 2026-09-14, and `Markdown` hardcoded
  * `mediaType: 'text/markdown'` — a constant restating the class name, which
  * is the tell that the name was one value of its own field. The encoding was
  * always the data; the class was named after the most common one.
  *
- * A SEPARATE `Snippet` FORM WAS REJECTED, and degradation is why. An
- * unrecognised FORM draws nothing, so a renderer that had never heard of
+ * A SEPARATE `Snippet` BODY TYPE WAS REJECTED, and degradation is why. An
+ * unrecognised BODY TYPE draws nothing, so a renderer that had never heard of
  * `Snippet` would lose the text entirely. An unrecognised MEDIA TYPE loses
  * nothing: the characters are still shown, just without colour. One of those
  * failure modes is a blank space and the other is a plainer block.
@@ -99,8 +99,8 @@ class Prose implements FeedBody
     /**
      * `Storyfeed/Body/Prose` — the VOCABULARY'S name, not a package's.
      *
-     * A form outlives whichever library defined it ({@see FeedBody}), so the
-     * name must not contain the library. It is a pure lookup key — no
+     * A body type outlives whichever library defined it ({@see FeedBody}), so
+     * the name must not contain the library. It is a pure lookup key — no
      * reflection, no autoloading — so it need not resolve to anything.
      * Renderers match it EXACTLY, so the casing is part of the name.
      */
@@ -125,8 +125,8 @@ class Prose implements FeedBody
 
         return [
             'content' => is_string($payload['content'] ?? null) ? $payload['content'] : '',
-            // A row written before this form carried an encoding is markdown,
-            // because that is what the form it replaced could only ever hold.
+            // A row written before this body type carried an encoding is
+            // markdown: that is all the one it replaced could ever hold.
             'mediaType' => is_string($mediaType) && $mediaType !== '' ? $mediaType : 'text/markdown',
             'verbatim' => (bool) ($payload['verbatim'] ?? false),
             'title' => is_string($title) ? $title : null,

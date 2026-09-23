@@ -10,8 +10,14 @@
   breaking and neither is aliased; a renderer reading `exemplars` gets nothing,
   and a published config still carrying `exemplar_limits` falls back to three.
 
+- **The doctor's `body` check says "body type", not "form".** The census
+  finding's code is now `body.type` (was `body.form`), and its subject key is
+  `body_type` (was `form`), in `--json` output and on the `Finding` object.
+  Breaking and not aliased: anything matching `body.form` or reading
+  `subject.form` finds nothing.
+
 - **An activity's body is a slot, and the vocabulary is `Storyfeed\Body\*`.**
-  A form used to hide inside `data` at a key the app chose; it now goes in
+  A body used to hide inside `data` at a key the app chose; it now goes in
   `body`, which core owns and still never reads.
 
   **UPGRADING TAKES ONE STEP AND THE APP WILL NOT RUN WITHOUT IT:**

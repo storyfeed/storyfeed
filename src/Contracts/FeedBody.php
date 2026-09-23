@@ -7,15 +7,15 @@ use Storyfeed\Concerns\HasPayload;
 use Storyfeed\FeedThread;
 
 /**
- * A recognised form a value inside `data` can take, so that a renderer can
+ * A recognised body type a value inside `data` can take, so that a renderer can
  * draw it without knowing the app that recorded it.
  *
  * `data` is the app's map and this package hands it over without reading it,
  * which is right and is not changing. But it leaves every consumer in the same
  * place — a payload of loose keys and a view to write before anything appears
- * on screen. A DETAIL is app data with a conventional form: the app writes its
+ * on screen. A DETAIL is app data with a conventional shape: the app writes its
  * sentence once at record time, where the domain knowledge already is, and any
- * renderer that recognises the form draws it with no view at all.
+ * renderer that recognises the body type draws it with no view at all.
  *
  *     $ticket->recordActivity('revise')->data([
  *         'reason' => $reason,
@@ -25,21 +25,21 @@ use Storyfeed\FeedThread;
  * ## Core owns the SPEC, and ships a starter vocabulary beside it
  *
  * The interface is the thing renderers agree on: a renderer depending on core
- * can draw a form defined by a package it has never heard of, and a detail
+ * can draw a body type defined by a package it has never heard of, and a detail
  * outlives whichever library defined it. Nothing below assumes otherwise.
  *
- * Core also ships six forms under {@see Detail} — Change, Excerpt,
- * KeyValue, File, Prose, MediaObject, ItemList. **They are a vocabulary, not a
- * mechanism**: nothing in this package reads them, and an app may write its
- * own and owe them nothing. They were in `storyfeed/ui` until 2026-09-14 and
- * moved for one reason — their names always said `Storyfeed/`, because a
- * detail's name must not contain the library that defined it, so the
- * vocabulary was core's while the classes were not. `storyfeed/ui` is the
- * renderers now: Vue, Blade, Livewire, React.
+ * Core also ships seven body types under `Storyfeed\Body` — Change, Excerpt,
+ * KeyValue, File, Prose, ItemList, MediaObject. **They are a vocabulary, not a
+ * mechanism**: nothing in this package reads them, and an app may write its own
+ * and owe them nothing. They were in `storyfeed/ui` until 2026-09-14 and moved
+ * for one reason — their names always said `Storyfeed/`, because a detail's
+ * name must not contain the library that defined it, so the vocabulary was
+ * core's while the classes were not. `storyfeed/ui` is the renderers now: Vue,
+ * Blade, Livewire, React.
  *
- * That leaves one property to protect deliberately. A form in core must not
- * acquire core's release gravity: a detail carries its own `$v` and the
- * renderer upgrades it, so these six evolve on their own timeline and NOT on
+ * That leaves one property to protect deliberately. A body type in core must
+ * not acquire core's release gravity: a detail carries its own `$v` and the
+ * renderer upgrades it, so these seven evolve on their own timeline and NOT on
  * the payload contract's.
  *
  * So core learns NO NAME and NO SHAPE. Nothing here is a registry, nothing
@@ -85,7 +85,7 @@ use Storyfeed\FeedThread;
  *    already exist. `FeedThread` shipped without a version on 2026-09-06 and
  *    spent a commit the following day defining what its absence meant.
  * 2. **Upgraded at READ time** ({@see upgrade()}), never written back. Every
- *    renderer sees the current form, so there is one render path per detail
+ *    renderer sees the current shape, so there is one render path per detail
  *    forever. The alternative — each renderer branching on `$v` — multiplies
  *    that branching across Blade, Vue, Filament and everything after them.
  * 3. **An unknown detail renders as NOTHING, and never as an error.** The same
@@ -104,8 +104,8 @@ use Storyfeed\FeedThread;
  * A DETAIL'S KEYS NEVER REACH THE WIRE. A detail has no Activity Streams
  * mapping (docs/payload.md): it rides inside `data` and comes back
  * byte-identical, and this package neither reads nor serializes it. So
- * transcribing AS2 inside a form buys no interoperability — only the look of
- * consistency — and the plainest word a reader already has wins instead.
+ * transcribing AS2 inside a body type buys no interoperability — only the look
+ * of consistency — and the plainest word a reader already has wins instead.
  *
  * A TITLE LINE IS THEREFORE `title`, not AS2's `name`. `title` is what RSS,
  * Atom and JSON Feed all call it, and in a Laravel application `name` reads as
@@ -117,21 +117,21 @@ use Storyfeed\FeedThread;
  * so no extension term has to be minted, and a term named for a shape we are
  * still learning is a permanent commitment to this week's spelling.
  *
- * The six already agree with this. `content`, `mediaType`, `size`, `image`,
+ * The seven already agree with this. `content`, `mediaType`, `size`, `image`,
  * `attachments`, `rows`, `changes`, `text`, `from`, `truncated`, `footnote` —
  * each is the plainest word for what it holds, and `File`'s `name` is a
  * filename rather than a heading.
  *
- * KNOWN DEVIATION: `Detail\MediaObject` spells its title line `subject`.
+ * KNOWN DEVIATION: `Body\MediaObject` spells its title line `subject`.
  * Left alone rather than quietly aligned, because changing a stored key breaks
  * rows rather than renaming a parameter — but it is not a precedent, and a new
- * form spells it `title`.
+ * body type spells it `title`.
  *
- * ## A detail names a FORM, not a component
+ * ## A body type names what the data IS, not a component
  *
  * `Prose` carries an encoding in `mediaType`, which is genuinely part of the
  * data — where `Markdown` NAMED one, and a class that is one value of its own
- * field is a form waiting to be generalised.
+ * field is a body type waiting to be generalised.
  * `Blockquote` would name markup, which is not: `<blockquote>` is how a
  * passage happens to be drawn in one renderer, and every later renderer would
  * inherit a decision made for that one.
@@ -140,7 +140,7 @@ use Storyfeed\FeedThread;
  *
  * It does not read a detail, strip one, upgrade one, count one, or mention one
  * in a payload key or an Activity Streams document. `storyfeed:doctor`'s
- * `details` check reads the column and reports what it finds, which is the one
+ * `body` check reads the column and reports what it finds, which is the one
  * place core looks at a detail at all — and it reports only what is knowable
  * without a vocabulary, because core having a vocabulary is the thing this
  * interface exists to avoid.
@@ -156,9 +156,9 @@ interface FeedBody extends Arrayable
      * prevents permanent leaks into the frozen payload contract.
      *
      * This belongs on the published interface so every future detail DTO,
-     * including the six core ships, must supply a payload deliberately. A trait
-     * alone would leave that obligation optional; widening the interface is
-     * affordable before the v0.3 freeze, not after it.
+     * including the seven core ships, must supply a payload deliberately. A
+     * trait alone would leave that obligation optional; widening the interface
+     * is affordable before the v0.3 freeze, not after it.
      *
      * Include KEY and VERSION: a detail's version is NOT storage-only.
      * Core passes details through unchanged and the renderer upgrades them,
@@ -170,7 +170,7 @@ interface FeedBody extends Arrayable
     public function toPayload(): array;
 
     /**
-     * The reserved key naming the form.
+     * The reserved key naming the body type.
      *
      * `$kind`, `$type`, `$component` and `$template` are all taken by the
      * payload contract in the same JSON document, and `form`, `schema`,
@@ -201,14 +201,14 @@ interface FeedBody extends Arrayable
     public const string VERSION = '$v';
 
     /**
-     * This form's name, as it is written into storage.
+     * This body type's name, as it is written into storage.
      *
      * NAMESPACE IT TO THE VOCABULARY OWNER — `Storyfeed/Change`,
      * `Acme/Shipment`. The name outlives every class that writes it, so it
      * says whose vocabulary it is, and two libraries that both wanted the word
      * "change" do not collide in a column.
      *
-     * Use PascalCase for the owner and form, never the shipping package: a
+     * Use PascalCase for the owner and body type, never the shipping package: a
      * detail outlives whichever library defined it. The name is a pure lookup
      * key; nothing reflects on it or autoloads from it. Registries match it
      * exactly with isset(), so casing is part of the name.
@@ -224,7 +224,7 @@ interface FeedBody extends Arrayable
     public static function version(): int;
 
     /**
-     * Normalize a stored payload of version `$from` into the current form.
+     * Normalize a stored payload of version `$from` into the current shape.
      *
      * Called at READ time by the RENDERER and never persisted back — see rule
      * 2 and the versioning rule. Implementations must be TOTAL: an
@@ -233,8 +233,8 @@ interface FeedBody extends Arrayable
      * throwing, because the row is in the database either way.
      *
      * The `$payload` handed here excludes {@see KEY} and {@see VERSION}: the
-     * reader has already used both to get this far, and a form should not have
-     * to filter its own bookkeeping back out.
+     * reader has already used both to get this far, and a body type should not
+     * have to filter its own bookkeeping back out.
      *
      * @param  array<string, mixed>  $payload
      * @return array<string, mixed>

@@ -101,7 +101,7 @@ class ItemList implements FeedBody
      * clickable the day its field widened.
      *
      * Anything that is neither is dropped rather than coerced — the same rule
-     * an unrecognised form gets, for the same reason.
+     * an unrecognised body type gets, for the same reason.
      *
      * @param  iterable<mixed>  $items
      * @return list<string|array{label: string, href: string|null}>

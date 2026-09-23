@@ -18,7 +18,7 @@ use Storyfeed\Concerns\HasPayload;
  *
  * ## A null href means "my entity", and that is the case worth defaulting
  *
- * An entity's url is minted at read time by {@see Support\LinkResolver} for
+ * An entity's url is resolved at read time by {@see Support\LinkResolver} for
  * the same reason {@see FeedImage}'s src is: a URL copied into a snapshot
  * ages. Disks move, signed links expire, routes get renamed, slugs change.
  * A stored href is a second copy of something the app already resolves live,

@@ -12,7 +12,7 @@ use Stringable;
  *
  *     FeedEntity::make($clause->reference, data: Excerpt::make($clause->text))
  *
- * The form a pilot's feed was missing. Its headline read
+ * The body type a pilot's feed was missing. Its headline read
  *
  *     Jasper took "The fee for each subsequent term is agreed at re…" off Harbor Retainer
  *
@@ -21,18 +21,18 @@ use Stringable;
  *
  * ## Why `Excerpt` and not `Blockquote`
  *
- * {@see FeedBody}: a detail names a FORM, not a component. `<blockquote>`
- * is how this is drawn in Blade today and a Vue or React renderer may not use
- * it — naming the class after the markup would hand every later renderer a
- * decision made for one of them.
+ * {@see FeedBody}: a body type names what the data IS, not a component.
+ * `<blockquote>` is how this is drawn in Blade today and a Vue or React
+ * renderer may not use it — naming the class after the markup would hand every
+ * later renderer a decision made for one of them.
  *
  * Attributed speech ("Jasper said …") and a document extract ("… off the
- * retainer") are the same form; they differ only in what the attribution points
- * at, which is a field.
+ * retainer") are the same body type; they differ only in what the attribution
+ * points at, which is a field.
  *
  * A CONVERSATION is core's `FeedThread` (node-level `thread`, painted by the
- * renderer's presenter), not this: the tell is a reply count. This form stays
- * the generic one-passage one and is unchanged by it.
+ * renderer's presenter), not this: the tell is a reply count. This body type
+ * stays the generic one-passage one and is unchanged by it.
  *
  * ## `truncated` exists because the NAME over-claims
  *
@@ -44,8 +44,8 @@ use Stringable;
  * ## Not `Change`
  *
  * A passage that was one thing and is now another is two passages and a pair,
- * which is {@see Change}. This form carries ONE passage and says where it came
- * from; it never says what it used to be.
+ * which is {@see Change}. This body type carries ONE passage and says where it
+ * came from; it never says what it used to be.
  *
  * The version travels in both storage and payload: core does not own the app's
  * key, so the renderer must upgrade the detail at read time, never write it back.
@@ -73,10 +73,10 @@ class Excerpt implements FeedBody
      * `Storyfeed/Body/Excerpt` — the VOCABULARY'S name, not a package's.
      *
      * A detail outlives whichever library defined it ({@see FeedBody}), so the
-     * name must not contain the library: this form has already moved packages
-     * once, and a `storyfeed-ui/` or `storyfeed-filament/` prefix would have
-     * moved with it. The name is a pure lookup key — no reflection, no
-     * autoloading — so it need not resolve to anything. PascalCase matches
+     * name must not contain the library: this body type has already moved
+     * packages once, and a `storyfeed-ui/` or `storyfeed-filament/` prefix
+     * would have moved with it. The name is a pure lookup key — no reflection,
+     * no autoloading — so it need not resolve to anything. PascalCase matches
      * AS2's own type casing, which the payload already carries (`FeedResource`
      * → `type: "Document"`), and a lowercase `vendor/name` reads as a Composer
      * package, which is the misreading that produced the earlier fork.
@@ -120,12 +120,12 @@ class Excerpt implements FeedBody
     /**
      * TEXT, and only text.
      *
-     * An `Htmlable` is flattened rather than kept — see KeyValue for why a stored
-     * value has to survive a JSON column. It matters more here: this is the one
-     * form whose whole content is a string an app quotes from somewhere else,
-     * and a quotation rendered as markup is an injection sink pointed at a
-     * signed guest link. If the source is authored rich text, that is
-     * {@see Prose}, which says so and is sanitised on the way out.
+     * An `Htmlable` is flattened rather than kept — see KeyValue for why a
+     * stored value has to survive a JSON column. It matters more here: this is
+     * the one body type whose whole content is a string an app quotes from
+     * somewhere else, and a quotation rendered as markup is an injection sink
+     * pointed at a signed guest link. If the source is authored rich text, that
+     * is {@see Prose}, which says so and is sanitised on the way out.
      */
     private static function text(mixed $text): string
     {

@@ -8,7 +8,7 @@ use Storyfeed\Contracts\FeedBody;
 use Stringable;
 
 /**
- * Labelled rows under a headline — the commonest form, and the one two
+ * Labelled rows under a headline — the commonest body type, and the one two
  * consumers hand-wrote independently before it existed.
  *
  *     ->data(KeyValue::make([
@@ -36,8 +36,8 @@ use Stringable;
  * ## What this never learns
  *
  * What a key MEANS. The app decides that `is_bot` reads as "Looked automated",
- * because the app is the only thing that knows it. This class owns the form and
- * nothing else.
+ * because the app is the only thing that knows it. This class owns the body
+ * type and nothing else.
  *
  * The version travels in both storage and payload: core does not own the app's
  * key, so the renderer must upgrade the detail at read time, never write it back.
@@ -139,10 +139,10 @@ class KeyValue implements FeedBody
      * `Storyfeed/Body/KeyValue` — the VOCABULARY'S name, not a package's.
      *
      * A detail outlives whichever library defined it ({@see FeedBody}), so the
-     * name must not contain the library: this form has already moved packages
-     * once, and a `storyfeed-ui/` or `storyfeed-filament/` prefix would have
-     * moved with it. The name is a pure lookup key — no reflection, no
-     * autoloading — so it need not resolve to anything. PascalCase matches
+     * name must not contain the library: this body type has already moved
+     * packages once, and a `storyfeed-ui/` or `storyfeed-filament/` prefix
+     * would have moved with it. The name is a pure lookup key — no reflection,
+     * no autoloading — so it need not resolve to anything. PascalCase matches
      * AS2's own type casing, which the payload already carries (`FeedResource`
      * → `type: "Document"`), and a lowercase `vendor/name` reads as a Composer
      * package, which is the misreading that produced the earlier fork.
@@ -194,7 +194,7 @@ class KeyValue implements FeedBody
      * rather than kept: it would serialize to `{}` in a JSON column and come
      * back as nothing at all, which is the kind of loss that shows up months
      * later in rows nobody can regenerate. An app that wants markup in a value
-     * is describing a different form — `Prose`, or a link on the entity.
+     * is describing a different body type — `Prose`, or a link on the entity.
      */
     private static function scalar(mixed $value): string|int|float|bool|null
     {

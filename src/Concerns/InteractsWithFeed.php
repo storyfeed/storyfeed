@@ -133,10 +133,10 @@ trait InteractsWithFeed
      *     data: MediaObject::make(subject: $this->name, image: $this->feedMediaIcon())
      *
      * reads as "the image is my feedMedia's icon", which is the one thing a
-     * reader of `toFeed()` needs and cannot otherwise see — that the picture
-     * a stored block draws is the one `feedMedia()` mints at read time, never
-     * a URL frozen into the row. `MediaSlot::Icon` says the same thing with
-     * the resolver's name missing from it.
+     * reader of `toFeed()` needs and cannot otherwise see — that the picture a
+     * stored block draws is the one `feedMedia()` resolves at read time, never
+     * a URL frozen into the row. `MediaSlot::Icon` says the same thing with the
+     * resolver's name missing from it.
      *
      * NOT `usingFeedMediaIcon()`. A verb would hint that something is
      * resolved here, eagerly, and nothing is: this is a lazy reference to a

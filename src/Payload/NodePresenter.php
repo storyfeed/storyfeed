@@ -45,7 +45,7 @@ class NodePresenter
      * container: were an app to bind it as a singleton, a setter would leak
      * one page's feed name into the next page rendered in the same process —
      * a queued digest rendering the customer feed after the kitchen feed
-     * would mint kitchen URLs. A copy cannot.
+     * would resolve kitchen URLs. A copy cannot.
      */
     public function forFeed(?string $feed): static
     {
@@ -568,10 +568,10 @@ class NodePresenter
             // itself is an image its dimensions ride here as `media.url`.
             'media' => $link?->media(),
             // Omit only absent body fields: old snapshots keep their shape,
-            // while an explicitly empty string remains authored content.
-            // The body: what the snapshot stored, then what the resolver minted.
+            // while an explicitly empty string remains authored content. The
+            // body: what the snapshot stored, then what the resolver resolved.
             // Stored first because it is the entity as the app decided it, and
-            // minted second because it is the entity as it stands right now.
+            // resolved second because it is the entity as it stands right now.
             // ORDER IS NOT CONTRACT beyond that — arrangement is a renderer's,
             // and a renderer that draws them another way is not wrong.
             'body' => self::bodyOrNull([...($snapshot->body ?? []), ...($link?->body() ?? [])]),

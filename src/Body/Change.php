@@ -42,10 +42,10 @@ class Change implements FeedBody
      * `Storyfeed/Body/Change` — the VOCABULARY'S name, not a package's.
      *
      * A detail outlives whichever library defined it ({@see FeedBody}), so the
-     * name must not contain the library: this form has already moved packages
-     * once, and a `storyfeed-ui/` or `storyfeed-filament/` prefix would have
-     * moved with it. The name is a pure lookup key — no reflection, no
-     * autoloading — so it need not resolve to anything. PascalCase matches
+     * name must not contain the library: this body type has already moved
+     * packages once, and a `storyfeed-ui/` or `storyfeed-filament/` prefix
+     * would have moved with it. The name is a pure lookup key — no reflection,
+     * no autoloading — so it need not resolve to anything. PascalCase matches
      * AS2's own type casing, which the payload already carries (`FeedResource`
      * → `type: "Document"`), and a lowercase `vendor/name` reads as a Composer
      * package, which is the misreading that produced the earlier fork.

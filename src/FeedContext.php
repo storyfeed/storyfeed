@@ -176,7 +176,7 @@ final readonly class FeedContext
      * it already needed for feed().
      *
      * KNOWN CONSEQUENCE, NOT A BUG. The entity's label comes from its
-     * snapshot; a link minted from the live model comes from now. The two
+     * snapshot; a link resolved from the live model comes from now. The two
      * can disagree — a row reading with the name from before a rename while
      * linking to the record as it is today. Fresh and stale in one sentence.
      * A resolver that has paid for the model can close that gap itself by

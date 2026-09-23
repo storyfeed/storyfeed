@@ -13,12 +13,12 @@ use Storyfeed\FeedMedia;
  *  - toFeed()     : the cacheable snapshot (label + data), written to the
  *                   snapshots table when an activity is published and
  *                   refreshed whenever the model is saved.
- *  - feedMedia()  : STATIC. Mints what the snapshot cannot cache — a url,
+ *  - feedMedia()  : STATIC. Resolves what the snapshot cannot cache — a url,
  *                   a label override, link attributes, a modal hint, the
  *                   image slots — from that snapshot at read time, so
  *                   labels stay fast and links never go stale.
  *
- * The snapshot holds what an entity IS; the resolver mints what EXPIRES.
+ * The snapshot holds what an entity IS; feedMedia() resolves what EXPIRES.
  * Read-time and static on purpose: signed URLs cannot be cached by
  * construction, absolute URLs vary by origin between a request and a queue
  * worker, and links built through a renderer's own registry resolve only
@@ -55,7 +55,7 @@ interface Feedable
      *
      * CHEAP AND SIDE-EFFECT-FREE. This may be called for entities that are
      * never rendered as links: a group node's `sample` goes through the
-     * same presenter path as a singular entity, so a grouped feed can mint
+     * same presenter path as a singular entity, so a grouped feed can resolve
      * URLs it never paints. Nothing here should write, or assume the
      * result will be shown — it is a pure function of the context, and a
      * slow one is paid for on every node of every page. The one sanctioned

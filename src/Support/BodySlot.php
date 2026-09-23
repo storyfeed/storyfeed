@@ -10,8 +10,8 @@ use Storyfeed\Contracts\FeedBody;
 /**
  * Turns whatever an app hands a `body:` slot into the list a payload carries.
  *
- * ONE SHAPE REACHES A RENDERER. A body is always a list of form arrays, even
- * when the app passed one form or a bare string, so nothing downstream ever
+ * ONE SHAPE REACHES A RENDERER. A body is always a list of body arrays, even
+ * when the app passed one body or a bare string, so nothing downstream ever
  * branches on "did I get a string, an object, or an array of them". A
  * renderer that had to answer that question would answer it differently in
  * Blade and in Vue, and the same payload would draw two ways.
@@ -20,7 +20,7 @@ use Storyfeed\Contracts\FeedBody;
  * coercion here and it earns its place: the alternative is a body that is
  * sometimes text and sometimes a list, which is the branch above, permanently.
  *
- * CORE STILL READS NOTHING. A form is asked for its own array and that array
+ * CORE STILL READS NOTHING. A body is asked for its own array and that array
  * is carried byte-identical; nothing here consults a name, a version, or a
  * key inside it.
  */
@@ -63,9 +63,9 @@ final class BodySlot
                 continue;
             }
 
-            // A stored form handed back in, or an app's own array in the same
+            // A stored body handed back in, or an app's own array in the same
             // shape. Passed through rather than validated: core does not know
-            // what a form's keys mean and is not going to start here.
+            // what a body's keys mean and is not going to start here.
             if (is_array($form) && isset($form[FeedBody::KEY])) {
                 $forms[] = $form;
             }
@@ -77,10 +77,10 @@ final class BodySlot
     /**
      * The app's own map, with a NESTED `Arrayable` flattened too.
      *
-     * `$data` itself has always been flattened; a form sitting inside it was
+     * `$data` itself has always been flattened; a body sitting inside it was
      * not, so `['diff' => Change::make(…)]` stored `{}` and the fix was to
      * remember `->toArray()`. That trap produced a docs example teaching the
-     * workaround rather than the mistake. One level is enough — a form never
+     * workaround rather than the mistake. One level is enough — a body never
      * nests, and walking further would be core reading the app's map.
      *
      * @param  array<string, mixed>|Arrayable<string, mixed>  $data

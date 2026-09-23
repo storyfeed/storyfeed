@@ -11,11 +11,11 @@ use Workbench\App\Models\Delivery;
 use Workbench\App\Models\User;
 
 /*
- * The `details` check: what {@see FeedBody} looks like from the column.
+ * The `body` check: what {@see FeedBody} looks like from the column.
  *
  * Core owns the spec and no implementation, so every assertion here is about
- * what a reader can see WITHOUT knowing a single form's name — which is the
- * property that keeps the spec a spec. A test that had to register a
+ * what a reader can see WITHOUT knowing a single body type's name — which is
+ * the property that keeps the spec a spec. A test that had to register a
  * vocabulary to make this check speak would be evidence the architecture had
  * moved.
  */
@@ -50,7 +50,7 @@ it('says nothing on an app that records no details', function () {
         ->and($report->isHealthy())->toBeTrue();
 });
 
-it('names each form it finds, as reportage rather than a finding', function () {
+it('names each body type it finds, as reportage rather than a finding', function () {
     recordWithData(['diff' => detail('acme/change', 1)]);
     recordWithData(['diff' => detail('acme/change', 1)]);
 
@@ -63,11 +63,11 @@ it('names each form it finds, as reportage rather than a finding', function () {
 
     $report = Storyfeed::doctor(['body']);
 
-    $change = $report->all()->firstWhere('subject.form', 'acme/change');
-    $excerpt = $report->all()->firstWhere('subject.form', 'acme/excerpt');
+    $change = $report->all()->firstWhere('subject.body_type', 'acme/change');
+    $excerpt = $report->all()->firstWhere('subject.body_type', 'acme/excerpt');
 
     expect($change->severity)->toBe(Severity::Info)
-        ->and($change->code)->toBe('body.form')
+        ->and($change->code)->toBe('body.type')
         ->and($change->subject['activities'])->toBe(2)
         ->and($change->subject['snapshots'])->toBe(0)
         ->and($change->subject['versions'])->toBe('1')
@@ -83,7 +83,7 @@ it('finds a detail alongside the app’s own keys, however deep the map is', fun
         'audit' => ['request' => ['fetch' => detail('acme/fields', 1)]],
     ]);
 
-    expect(Storyfeed::doctor(['body'])->withCode('body.form')->sole()->subject['form'])
+    expect(Storyfeed::doctor(['body'])->withCode('body.type')->sole()->subject['body_type'])
         ->toBe('acme/fields');
 });
 
@@ -121,7 +121,7 @@ it('reports rows with no version as a fact, because a missing version IS version
         ->and($report->isHealthy())->toBeTrue();
 });
 
-it('warns when a form declares a later version on some rows and nothing on others', function () {
+it('warns when a body type declares a later version on some rows and nothing on others', function () {
     recordWithData(['diff' => detail('acme/change', null)]);
     recordWithData(['diff' => detail('acme/change', 2)]);
 
@@ -129,7 +129,7 @@ it('warns when a form declares a later version on some rows and nothing on other
     $finding = $report->withCode('body.version_ambiguous')->sole();
 
     expect($finding->severity)->toBe(Severity::Warning)
-        ->and($finding->subject['form'])->toBe('acme/change')
+        ->and($finding->subject['body_type'])->toBe('acme/change')
         ->and($finding->subject['unversioned'])->toBe(1)
         ->and($finding->message)->toContain('1→2 upgrade')
         ->and($report->has('body.unversioned'))->toBeFalse();

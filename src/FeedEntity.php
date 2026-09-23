@@ -13,16 +13,16 @@ use Storyfeed\Support\BodySlot;
  * Returned by Feedable::toFeed() and persisted as a Snapshot. This class is
  * part of the versioned payload contract — see docs/payload.md.
  *
- * ## `body` is the slot a form goes in
+ * ## `body` is the slot a body type goes in
  *
- * A form used to hide inside `data`, at a key the app chose, so finding one
+ * A body used to hide inside `data`, at a key the app chose, so finding one
  * meant walking the app's own map and a renderer had to be told how deep to
  * look. `body` is a slot core owns and STILL DOES NOT READ: it carries
- * whatever array a form produces, byte-identical, and `data` goes back to
+ * whatever array a body produces, byte-identical, and `data` goes back to
  * being purely the app's, handed over unread.
  *
  * Owning the slot is not the same as knowing what is in it. Core never calls
- * a form's `name()` or `version()` to decide anything, which is what keeps
+ * a body type's `name()` or `version()` to decide anything, which is what keeps
  * the vocabulary free to grow in a library core has never heard of.
  */
 final class FeedEntity
@@ -40,7 +40,7 @@ final class FeedEntity
      * whichever actor happens to perform an activity on this entity.
      *
      * @param  array<string, mixed>|Arrayable<string, mixed>  $data
-     * @param  string|FeedBody|iterable<mixed>|null  $body  one form, several, or a line of text
+     * @param  string|FeedBody|iterable<mixed>|null  $body  one body, several, or a line of text
      */
     public function __construct(
         public readonly ?string $label = null,

@@ -14,12 +14,12 @@ namespace Storyfeed;
  *         alt: $context->label(),
  *     )
  *
- * ## The src is minted, never stored
+ * ## The src is resolved, never stored
  *
  * Same rule as the entity's url: a URL copied into a snapshot ages (disks
  * move, signed links expire), so the snapshot carries the intrinsic facts —
- * mediaType, width, height — and the resolver mints the location at read
- * time from them. That is why this class is what feedMedia() RETURNS and not
+ * mediaType, width, height — and the location is resolved from them at
+ * read time. That is why this class is what feedMedia() RETURNS and not
  * what toFeed() stores.
  *
  * ## Field names are AS2's where AS2 has one

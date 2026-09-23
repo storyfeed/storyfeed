@@ -51,7 +51,7 @@ use Storyfeed\Concerns\HasPayload;
  *
  * They quote text and they are not the same tool.
  *
- * `Detail\Excerpt` (paid Filament adapter) is the GENERIC one-passage form,
+ * `Body\Excerpt` is the GENERIC one-passage body type,
  * hung off an ENTITY's snapshot data: a fragment of a document, and where it
  * came from. It is renderer vocabulary, it has no AS2 term, and it stays
  * exactly what it was — this class does not replace it.

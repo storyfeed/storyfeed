@@ -346,7 +346,7 @@ class FeedBuilder
      * @internal Called by FeedDefinition::build() and nowhere else — the
      * identity is DECLARED by the registry, never asserted at a call site,
      * because a call site that can name the feed is a call site that can
-     * misname it, and a resolver would then mint the wrong surface's URL
+     * misname it, and a resolver would then resolve the wrong surface's URL
      * with no symptom. A bare Storyfeed::feed() stays unnamed on purpose.
      */
     public function declareFeed(string $name): static

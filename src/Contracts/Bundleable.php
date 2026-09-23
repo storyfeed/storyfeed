@@ -5,7 +5,7 @@ namespace Storyfeed\Contracts;
 /**
  * Marker: runs of this Feedable BUNDLE into one composite activity — "uploaded
  * 6 files" is one act, not six. Designating a model bundleable lets the
- * auto-bundler mint a composite story from an atomically-recorded run (same
+ * auto-bundler build a composite story from an atomically-recorded run (same
  * actor/verb/target, distinct objects) when the actor's batch closes; the
  * developer never corrals activities by hand.
  *
