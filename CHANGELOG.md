@@ -123,9 +123,9 @@
   documentation, in either doc set, so the one legitimate consumer — an app's
   idempotent republishing job — could not have found it.
 
-  It was also about to become rarer still: with an entity tombstone, deleting a
-  `Feedable` no longer cascade-deletes its stories, which removed its highest
-  volume writer.
+  Its highest-volume writer would also go if entity tombstones are built:
+  deleting a `Feedable` would then stop cascade-deleting its stories. (Specced,
+  not built.)
 
   **Not core's responsibility at this stage.** An app that needs to know what it
   removed can keep that record where it also knows why.
