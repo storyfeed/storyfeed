@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
 use Storyfeed\Actions\CompileStories;
+use Storyfeed\Actions\TombstoneEntity;
 use Storyfeed\ActivityStreams\ActivityType;
 use Storyfeed\ActivityStreams\CoreType;
 use Storyfeed\ActivityStreams\ObjectType;
@@ -26,6 +27,7 @@ use Storyfeed\Exceptions\StoryMisconfigured;
 use Storyfeed\Exceptions\UnknownFeed;
 use Storyfeed\Grouping\Axis;
 use Storyfeed\Models\Activity;
+use Storyfeed\Models\FeedTombstone;
 use Storyfeed\Models\Party;
 use Storyfeed\Support\DefinitionsFile;
 use Storyfeed\Support\Feedables;
@@ -1716,6 +1718,33 @@ class StoryfeedManager
     public function feedable(string $class): FeedableRegistration
     {
         return app(Feedables::class)->register($class);
+    }
+
+    /**
+     * Tombstone rows deleted without model events, straight after the bulk
+     * delete:
+     *
+     *     Order::query()->whereIn('id', $ids)->delete();
+     *     Storyfeed::tombstone(Order::class, $ids);
+     *
+     * Every activity naming one of them is repointed to its tombstone, as a
+     * single `$order->delete()` would have done. A key whose row still exists
+     * (and isn't trashed) is skipped. `$type` is a model class or a morph
+     * alias; an alias for a non-model Feedable works too, and its tombstones
+     * are never restorable. Without this call the trickle finds the deletions
+     * later, and marks their time as approximate.
+     *
+     * @param  class-string<Model>|string  $type
+     * @param  iterable<int|string>|int|string  $ids
+     * @return list<FeedTombstone>
+     */
+    public function tombstone(string $type, iterable|int|string $ids): array
+    {
+        $alias = class_exists($type) && is_a($type, Model::class, true)
+            ? (new $type)->getMorphClass()
+            : $type;
+
+        return (new TombstoneEntity)->missing($alias, is_iterable($ids) ? $ids : [$ids]);
     }
 
     /**

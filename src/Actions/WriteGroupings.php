@@ -2,6 +2,7 @@
 
 namespace Storyfeed\Actions;
 
+use Illuminate\Database\Eloquent\Model;
 use Storyfeed\Grouping\MultiAxisStrategy;
 use Storyfeed\Models\Activity;
 use Storyfeed\Models\Grouping;
@@ -51,5 +52,117 @@ class WriteGroupings
             ->whereNotIn('bucket', app(StoryfeedManager::class)->rowBackedBuckets())
             ->when($hashes !== [], fn ($query) => $query->whereNotIn('bucket', array_keys($hashes)))
             ->delete();
+    }
+
+    /**
+     * The same for many activities at once, in a handful of queries rather
+     * than several per activity: what a tombstone's repoint needs, where a
+     * popular entity is thousands of rows. Same rules as __invoke(): claimed
+     * rows are skipped, a changed hash keeps its row (and its winner stamp),
+     * and a bucket the strategy stopped emitting is removed unless it is
+     * row-backed.
+     *
+     * @param  iterable<Activity>  $activities
+     */
+    public function many(iterable $activities): void
+    {
+        $byKey = [];
+
+        foreach ($activities as $activity) {
+            $byKey[$activity->getKey()] = $activity;
+        }
+
+        if ($byKey === []) {
+            return;
+        }
+
+        $grouping = config('storyfeed.models.grouping', Grouping::class);
+        $strategy = app(config('storyfeed.grouping.strategy', MultiAxisStrategy::class));
+        $rowBacked = app(StoryfeedManager::class)->rowBackedBuckets();
+        $ids = array_keys($byKey);
+
+        $claimed = $grouping::query()->whereIn('activity_id', $ids)->where('bucket', 'composite')
+            ->pluck('activity_id')->flip();
+
+        $key = (new $grouping)->getKeyName();
+        $existing = $grouping::query()->whereIn('activity_id', $ids)
+            ->toBase()
+            ->get([$key, 'activity_id', 'bucket', 'hash'])
+            ->groupBy('activity_id');
+
+        /** @var array<int|string, string> $updates grouping row key => new hash */
+        $updates = [];
+        $inserts = [];
+        $deletes = [];
+        $now = now();
+
+        foreach ($byKey as $id => $activity) {
+            if ($claimed->has($id)) {
+                continue;
+            }
+
+            $hashes = $strategy->hashes($activity);
+            $own = ($existing->get($id) ?? collect())->keyBy('bucket');
+
+            foreach ($hashes as $bucket => $hash) {
+                $row = $own->get($bucket);
+
+                if ($row === null) {
+                    $inserts[] = ['activity_id' => $id, 'bucket' => $bucket, 'hash' => $hash, 'created_at' => $now, 'updated_at' => $now];
+                } elseif ($row->hash !== $hash) {
+                    $updates[$row->{$key}] = $hash;
+                }
+            }
+
+            foreach ($own as $bucket => $row) {
+                if (! isset($hashes[$bucket]) && ! in_array($bucket, $rowBacked, true)) {
+                    $deletes[] = $row->{$key};
+                }
+            }
+        }
+
+        $this->rehash(new $grouping, $updates);
+
+        if ($inserts !== []) {
+            $grouping::query()->insert($inserts);
+        }
+
+        if ($deletes !== []) {
+            $grouping::query()->whereKey($deletes)->delete();
+        }
+    }
+
+    /**
+     * Give many grouping rows each its own new hash, a few hundred rows per
+     * statement (`CASE id WHEN … THEN …`). A row per UPDATE was a thousand
+     * statements per chunk of a repoint, all inside its transaction. The
+     * winner stamp is untouched, as updateOrCreate() leaves it.
+     *
+     * @param  array<int|string, string>  $hashes  row key => hash
+     */
+    private function rehash(Model $grouping, array $hashes): void
+    {
+        $connection = $grouping->getConnection();
+        $grammar = $connection->getQueryGrammar();
+        $key = $grammar->wrap($grouping->getKeyName());
+
+        // 300 rows is 900 bindings, inside every driver's parameter limit.
+        foreach (array_chunk($hashes, 300, true) as $rows) {
+            $bindings = [];
+
+            foreach ($rows as $id => $hash) {
+                array_push($bindings, $id, $hash);
+            }
+
+            $cases = implode(' ', array_fill(0, count($rows), 'when ? then ?'));
+            $in = implode(', ', array_fill(0, count($rows), '?'));
+
+            $connection->update(
+                'update '.$grammar->wrapTable($grouping->getTable())
+                ." set {$grammar->wrap('hash')} = case {$key} {$cases} end, {$grammar->wrap('updated_at')} = ?"
+                ." where {$key} in ({$in})",
+                [...$bindings, $grouping->freshTimestampString(), ...array_keys($rows)],
+            );
+        }
     }
 }

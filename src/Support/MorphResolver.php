@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Storyfeed\Contracts\Feedable;
+use Storyfeed\Models\FeedTombstone;
 use Storyfeed\Models\Party;
 
 /**
@@ -109,6 +110,7 @@ class MorphResolver
 
         return [
             config('storyfeed.morph_alias', 'storyfeed.party') => $party,
+            FeedTombstone::MORPH_ALIAS => config('storyfeed.models.tombstone', FeedTombstone::class),
         ];
     }
 }

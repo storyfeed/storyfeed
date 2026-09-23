@@ -84,7 +84,7 @@ it('persists direct trickle results once per pass and retains a shape spike foll
 });
 
 it('preserves both unresolved and pruned counts rather than merging away their meaning', function () {
-    Activity::query()->create(['verb' => 'confirm', 'object_type' => 'delivery', 'object_id' => 999, 'published_at' => now()]);
+    Activity::query()->create(['verb' => 'confirm', 'object_type' => 'retired-type', 'object_id' => 999, 'published_at' => now()]);
     $reported = (new TrickleSnapshots)(prune: false);
     $pruned = (new TrickleSnapshots)(prune: true);
 
@@ -97,7 +97,7 @@ it('preserves both unresolved and pruned counts rather than merging away their m
 
 it('bounds history per command even at one timestamp without touching unrelated metadata', function () {
     $token = SyncToken::bump();
-    MaintenanceHistory::record('trickle', ['snapshotted' => 0, 'pruned' => 0, 'unresolved' => 0, 'reshaped' => 0]);
+    MaintenanceHistory::record('trickle', ['snapshotted' => 0, 'pruned' => 0, 'unresolved' => 0, 'reshaped' => 0, 'tombstoned' => 0, 'restored' => 0]);
     foreach (range(1, 23) as $count) {
         MaintenanceHistory::record('curate', ['processed' => $count, 'restamped' => 0, 'rehashed' => 0]);
     }

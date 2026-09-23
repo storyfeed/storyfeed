@@ -1,0 +1,36 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create(config('storyfeed.tables.tombstones', 'feed_tombstones'), function (Blueprint $table) {
+            $table->id();
+            // The deleted model's morph alias and key. The key is a string so
+            // UUID and ULID models get tombstones too.
+            $table->string('model_type');
+            $table->string('model_id');
+            // False once the model is gone for good (a hard delete): nothing
+            // will ever repoint its activities back.
+            $table->boolean('restorable')->default(false);
+            // True when the trickle found the deletion rather than an event
+            // reporting it, so `deleted_at` is when it was found.
+            $table->boolean('approximate')->default(false);
+            $table->timestamp('deleted_at')->nullable();
+            $table->string('label')->nullable();
+            $table->json('meta')->nullable();
+            $table->timestamps();
+
+            $table->unique(['model_type', 'model_id']);
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists(config('storyfeed.tables.tombstones', 'feed_tombstones'));
+    }
+};

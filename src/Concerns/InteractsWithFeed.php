@@ -5,7 +5,9 @@ namespace Storyfeed\Concerns;
 use Closure;
 use Storyfeed\Actions\DeleteFromFeed;
 use Storyfeed\Actions\ForceDeleteFromFeed;
+use Storyfeed\Actions\RestoreToFeed;
 use Storyfeed\Actions\SnapshotEntity;
+use Storyfeed\Actions\TombstoneEntity;
 use Storyfeed\FeedBuilder;
 use Storyfeed\FeedContext;
 use Storyfeed\FeedEntity;
@@ -16,8 +18,8 @@ use Storyfeed\Support\Feedables;
 
 /**
  * Keeps a Feedable model's presence in the feed in sync with its lifecycle —
- * refreshes its snapshot on save, removes its activities on delete — and gives
- * the model a feed of its own.
+ * refreshes its snapshot on save, leaves a tombstone on delete and takes it
+ * back on restore — and gives the model a feed of its own.
  *
  * It also answers the whole Feedable contract, so a model needs no feed code
  * to be valid:
@@ -63,13 +65,29 @@ trait InteractsWithFeed
             }
         });
 
+        // A deleted model leaves a tombstone, and its stories survive. The
+        // activities themselves are only deleted when asked, with
+        // deleteFromFeed() or forceDeleteFromFeed(). Muted like the saved
+        // hook: with recording off the trickle catches up later.
         static::deleted(function ($model) {
-            $model->deleteFromFeed();
+            if (app(StoryfeedManager::class)->isRecording()) {
+                (new TombstoneEntity)($model);
+            }
         });
 
         if (method_exists(static::class, 'forceDeleted')) {
             static::forceDeleted(function ($model) {
-                $model->forceDeleteFromFeed();
+                if (app(StoryfeedManager::class)->isRecording()) {
+                    (new TombstoneEntity)->forceDeleted($model);
+                }
+            });
+        }
+
+        if (method_exists(static::class, 'restored')) {
+            static::restored(function ($model) {
+                if (app(StoryfeedManager::class)->isRecording()) {
+                    (new RestoreToFeed)($model);
+                }
             });
         }
     }
@@ -264,7 +282,8 @@ trait InteractsWithFeed
 
     /**
      * Soft-delete every activity involving this model. See
-     * {@see DeleteFromFeed}.
+     * {@see DeleteFromFeed}. Never called automatically: a deleted model
+     * leaves a tombstone instead, and its activities stay.
      */
     public function deleteFromFeed(): void
     {
@@ -274,7 +293,8 @@ trait InteractsWithFeed
     /**
      * Permanently delete every activity involving this model, including
      * activities that were already soft-deleted, and everything that points
-     * at them. See {@see ForceDeleteFromFeed}.
+     * at them: erasure. See {@see ForceDeleteFromFeed}. Never called
+     * automatically; a force-deleted model's tombstone becomes permanent.
      */
     public function forceDeleteFromFeed(): void
     {

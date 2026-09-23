@@ -79,7 +79,7 @@ it('repairs snapshots and reports unresolved new roles without pruning', functio
 
     $activity->update(['cached_'.$role.'_id' => null]);
     expect((new TrickleSnapshots)()['snapshotted'])->toBe(1);
-    $activity->refresh()->update(['cached_'.$role.'_id' => null, $role.'_id' => 999999]);
+    $activity->refresh()->update(['cached_'.$role.'_id' => null, $role.'_type' => 'retired-type', $role.'_id' => 999999]);
     expect((new TrickleSnapshots)(prune: false)['unresolved'])->toBe(1)
         ->and($activity->fresh()->deleted_at)->toBeNull();
     expect(serialize_one($activity)[$role])->toHaveKey('type');

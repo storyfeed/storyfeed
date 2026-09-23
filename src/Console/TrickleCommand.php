@@ -28,6 +28,10 @@ class TrickleCommand extends Command
             ."reshaped {$result['reshaped']} stale snapshots."
         );
 
+        if ($result['tombstoned'] > 0 || $result['restored'] > 0) {
+            $this->info("Tombstoned {$result['tombstoned']} deleted entities, restored {$result['restored']}.");
+        }
+
         if ($result['unresolved'] > 0) {
             // A WARNING, not a tally. These rows are still in the feed and still
             // being read; what they are missing is a `Feedable` on the model

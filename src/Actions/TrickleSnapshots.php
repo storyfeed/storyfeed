@@ -6,6 +6,8 @@ use Illuminate\Database\Eloquent\Model;
 use Storyfeed\Contracts\Feedable;
 use Storyfeed\Models\Activity;
 use Storyfeed\Models\Builders\ActivityBuilder;
+use Storyfeed\Models\FeedTombstone;
+use Storyfeed\Models\Meta;
 use Storyfeed\Models\Snapshot;
 use Storyfeed\Support\Feedables;
 use Storyfeed\Support\MaintenanceHistory;
@@ -18,6 +20,12 @@ use Storyfeed\Support\ShapeSignature;
  * (rows whose fingerprint no longer matches what today's toFeed()
  * produces; see Support\ShapeSignature). Deploy a changed toFeed()/DTO
  * and the feed heals itself on the existing schedule, no command needed.
+ *
+ * It is also the guarantee behind tombstones. A model deleted without its
+ * `deleted` event (a bulk delete, raw SQL, a database cascade) gets its
+ * tombstone here, marked approximate, and a tombstoned model that is back
+ * (a bulk restore) is restored. A role whose model is simply gone is no
+ * longer an orphan; orphans are roles whose class doesn't resolve.
  *
  * Schedule: $schedule->command('storyfeed:trickle')->everyFifteenMinutes()
  *           ->withoutOverlapping();
@@ -64,9 +72,15 @@ class TrickleSnapshots
      */
     protected const SCAN_CEILING = 5;
 
+    /** Where the deletion sweep resumes, in `feed_meta`. */
+    protected const DELETIONS_CURSOR = 'trickle.deletions_cursor';
+
+    /** Where the restore sweep resumes, in `feed_meta`. */
+    protected const RESTORES_CURSOR = 'trickle.restores_cursor';
+
     /**
      * @param  bool|null  $prune  null defers to `storyfeed.trickle.prune`
-     * @return array{snapshotted: int, pruned: int, unresolved: int, reshaped: int}
+     * @return array{snapshotted: int, pruned: int, unresolved: int, reshaped: int, tombstoned: int, restored: int}
      */
     public function __invoke(?int $limit = null, ?bool $prune = null): array
     {
@@ -76,6 +90,7 @@ class TrickleSnapshots
         $snapshotted = 0;
         $pruned = 0;
         $unresolved = 0;
+        $tombstoned = 0;
 
         /** @var array<int, mixed> $examined */
         $examined = [];
@@ -99,6 +114,7 @@ class TrickleSnapshots
                 $examined[] = $activity->getKey();
 
                 $orphaned = false;
+                $repointed = false;
 
                 foreach (RebuildSnapshots::ROLES as $role) {
                     if ($activity->{"{$role}_type"} === null || $activity->{"cached_{$role}_id"} !== null) {
@@ -107,6 +123,15 @@ class TrickleSnapshots
 
                     $model = $this->resolve($activity->{"{$role}_type"}, $activity->{"{$role}_id"});
 
+                    if ($model === null && ($found = $this->tombstone($activity->{"{$role}_type"}, [$activity->{"{$role}_id"}])) > 0) {
+                        // Deleted without an event. The tombstone took this
+                        // role, and every other row naming the same entity.
+                        $tombstoned += $found;
+                        $repointed = true;
+
+                        continue;
+                    }
+
                     if ($model === null) {
                         $orphaned = true;
 
@@ -114,6 +139,13 @@ class TrickleSnapshots
                     }
 
                     $activity->{"cached_{$role}_id"} = (new SnapshotEntity)($model)->getKey();
+                }
+
+                if ($repointed) {
+                    // The repoint wrote the row behind this model's back;
+                    // read it again, keeping the snapshots cached above.
+                    $dirty = $activity->getDirty();
+                    $activity->refresh()->forceFill($dirty);
                 }
 
                 if ($orphaned) {
@@ -145,11 +177,20 @@ class TrickleSnapshots
 
         $reshaped = $this->convergeShapes($limit - $snapshotted);
 
+        $restored = 0;
+
+        if (TombstoneEntity::installed()) {
+            $tombstoned += $this->discoverDeletions($limit);
+            $restored = $this->restoreReturned($limit);
+        }
+
         $result = [
             'snapshotted' => $snapshotted,
             'pruned' => $pruned,
             'unresolved' => $unresolved,
             'reshaped' => $reshaped,
+            'tombstoned' => $tombstoned,
+            'restored' => $restored,
         ];
 
         MaintenanceHistory::record('trickle', $result);
@@ -272,6 +313,124 @@ class TrickleSnapshots
         }
 
         return $reshaped;
+    }
+
+    /**
+     * The deletion phase: a sweep through the snapshots, `$budget` rows per
+     * run, for models that are gone without their `deleted` event having
+     * been heard (a bulk `delete()`, raw SQL, a database cascade). Each one
+     * gets its tombstone, marked approximate, since the time it was found is
+     * all there is. The event is the instant path; this is the guarantee.
+     *
+     * A snapshotted role is never uncached, so the activity loop above can't
+     * see these: the snapshot is the thing to check. The sweep resumes from a
+     * cursor in `feed_meta`, and starts over once it reaches the end.
+     */
+    protected function discoverDeletions(int $budget): int
+    {
+        if ($budget <= 0) {
+            return 0;
+        }
+
+        $snapshot = config('storyfeed.models.snapshot', Snapshot::class);
+        $cursor = (int) $this->meta()::query()->where('key', self::DELETIONS_CURSOR)->value('value');
+
+        $rows = $snapshot::query()
+            ->where('id', '>', $cursor)
+            ->where('model_type', '!=', FeedTombstone::MORPH_ALIAS)
+            ->orderBy('id')
+            ->limit($budget)
+            ->get(['id', 'model_type', 'model_id']);
+
+        $this->meta()::query()->updateOrCreate(
+            ['key' => self::DELETIONS_CURSOR],
+            ['value' => (string) ($rows->count() < $budget ? 0 : $rows->last()?->getKey())],
+        );
+
+        $found = 0;
+
+        foreach ($rows->groupBy('model_type') as $type => $group) {
+            $found += $this->tombstone((string) $type, $group->pluck('model_id')->all());
+        }
+
+        return $found;
+    }
+
+    /**
+     * The restore phase: restorable tombstones whose model exists again (a
+     * bulk `restore()`, which fires no events) are repointed back. Same
+     * budget and the same kind of cursor as the deletion phase.
+     */
+    protected function restoreReturned(int $budget): int
+    {
+        if ($budget <= 0) {
+            return 0;
+        }
+
+        $tombstones = config('storyfeed.models.tombstone', FeedTombstone::class);
+        $cursor = (int) $this->meta()::query()->where('key', self::RESTORES_CURSOR)->value('value');
+
+        $rows = $tombstones::query()
+            ->where('id', '>', $cursor)
+            ->where('restorable', true)
+            ->orderBy('id')
+            ->limit($budget)
+            ->get();
+
+        $this->meta()::query()->updateOrCreate(
+            ['key' => self::RESTORES_CURSOR],
+            ['value' => (string) ($rows->count() < $budget ? 0 : $rows->last()?->getKey())],
+        );
+
+        $restored = 0;
+
+        foreach ($rows->groupBy('model_type') as $type => $group) {
+            $class = MorphResolver::classFor((string) $type);
+
+            if ($class === null || ! is_a($class, Model::class, true) || ! app(Feedables::class)->isFeedable($class)) {
+                continue;
+            }
+
+            $models = $class::query()->withoutGlobalScopes()
+                ->whereIn((new $class)->getQualifiedKeyName(), $group->pluck('model_id')->all())
+                ->get()
+                ->filter(fn (Model $model) => TombstoneEntity::trashedAt($model) === null)
+                ->keyBy(fn (Model $model) => (string) $model->getKey());
+
+            foreach ($group as $tombstone) {
+                if ($model = $models->get($tombstone->model_id)) {
+                    (new RestoreToFeed)->tombstone($tombstone, $model);
+                    $restored++;
+                }
+            }
+        }
+
+        return $restored;
+    }
+
+    /**
+     * Tombstone the missing keys of one alias, when the alias is a Feedable
+     * model class. A role whose class doesn't resolve stays an orphan: that
+     * is what `--prune` is for.
+     *
+     * @param  list<int|string>  $ids
+     */
+    protected function tombstone(string $type, array $ids): int
+    {
+        $class = MorphResolver::classFor($type);
+
+        if ($class === null || ! is_a($class, Model::class, true) || ! app(Feedables::class)->isFeedable($class)
+            || ! TombstoneEntity::installed()) {
+            return 0;
+        }
+
+        return count((new TombstoneEntity)->missing($type, $ids, approximate: true));
+    }
+
+    /** @return class-string<Meta> */
+    protected function meta(): string
+    {
+        return config('storyfeed.models.meta', Meta::class);
     }
 
     protected function resolve(string $type, int|string $id): ?Model

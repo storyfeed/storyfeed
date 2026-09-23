@@ -16,7 +16,7 @@ class MaintenanceHistory
     {
         $expected = match ($command) {
             'curate' => ['processed', 'restamped', 'rehashed'],
-            'trickle' => ['snapshotted', 'pruned', 'unresolved', 'reshaped'],
+            'trickle' => ['snapshotted', 'pruned', 'unresolved', 'reshaped', 'tombstoned', 'restored'],
             default => throw new InvalidArgumentException('Unknown maintenance command.'),
         };
 

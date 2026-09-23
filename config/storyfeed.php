@@ -3,6 +3,7 @@
 use Storyfeed\Grouping\MultiAxisStrategy;
 use Storyfeed\Models\Activity;
 use Storyfeed\Models\Batch;
+use Storyfeed\Models\FeedTombstone;
 use Storyfeed\Models\Grouping;
 use Storyfeed\Models\Meta;
 use Storyfeed\Models\Party;
@@ -47,6 +48,7 @@ return [
         'parties' => 'feed_parties',
         'batches' => 'feed_batches',
         'meta' => 'feed_meta',
+        'tombstones' => 'feed_tombstones',
     ],
 
     /*
@@ -97,6 +99,7 @@ return [
         'party' => Party::class,
         'batch' => Batch::class,
         'meta' => Meta::class,
+        'tombstone' => FeedTombstone::class,
     ],
 
     /*

@@ -11,6 +11,7 @@ use Storyfeed\FeedContext;
 use Storyfeed\FeedEntity;
 use Storyfeed\FeedMedia;
 use Storyfeed\Models\Activity;
+use Storyfeed\Models\FeedTombstone;
 use Storyfeed\Models\Snapshot;
 use Storyfeed\Support\Feedables;
 use Storyfeed\Tests\Fixtures\Models\Dish;
@@ -319,13 +320,14 @@ describe('Storyfeed::feedable()', function () {
     it('hears the registered model being deleted', function () {
         $photo = Photo::create(['file_name' => 'soup.jpg']);
 
-        Storyfeed::activity('upload', $photo)->publish();
+        $activity = Storyfeed::activity('upload', $photo)->publish();
         Storyfeed::activity()->verb('ping')->publish();
 
         $photo->delete();
 
-        expect(Activity::query()->count())->toBe(1)
-            ->and(Activity::query()->withTrashed()->count())->toBe(2);
+        expect(Activity::query()->count())->toBe(2)
+            ->and($activity->fresh()->object_type)->toBe('storyfeed.tombstone')
+            ->and(FeedTombstone::sole()->restorable)->toBeTrue();
     });
 
     it('hears the registered model being force-deleted', function () {
@@ -335,7 +337,21 @@ describe('Storyfeed::feedable()', function () {
 
         $photo->forceDelete();
 
-        expect(Activity::query()->withTrashed()->count())->toBe(0);
+        expect(Activity::query()->count())->toBe(1)
+            ->and(FeedTombstone::sole()->restorable)->toBeFalse();
+    });
+
+    it('hears the registered model being restored', function () {
+        $photo = Photo::create(['file_name' => 'soup.jpg']);
+
+        $activity = Storyfeed::activity('upload', $photo)->publish();
+
+        $photo->delete();
+        $photo->restore();
+
+        expect($activity->fresh()->object_type)->toBe('photo')
+            ->and($activity->fresh()->cachedObject->label)->toBe('soup.jpg')
+            ->and(FeedTombstone::query()->count())->toBe(0);
     });
 
     it('guesses the label when toFeedUsing() sets none', function () {

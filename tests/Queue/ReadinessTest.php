@@ -120,7 +120,9 @@ it('round trips immutable facts across trickle pruning with no live domain rows'
     $expected = unserialize(serialize(new ActivityPublished(ActivitySnapshot::fromModel($activity))))->activity->toPayload();
     DB::table('deliveries')->where('id', $delivery->id)->delete();
     DB::table('feed_snapshots')->where('model_type', 'delivery')->delete();
-    $activity->forceFill(['cached_object_id' => null])->saveQuietly();
+    // A class that no longer resolves: a merely deleted row would get a
+    // tombstone, and pruning is only for these.
+    $activity->forceFill(['cached_object_id' => null, 'object_type' => 'retired-type'])->saveQuietly();
     (new TrickleSnapshots)(prune: true);
     expect($activity->fresh()->trashed())->toBeTrue();
     queueReadinessRun();

@@ -141,7 +141,8 @@ it('reports a soft-deleted row the way the trickle would see it: unresolvable', 
     $customer = Customer::create(['name' => 'Gone']);
 
     insertRow('target', 'customer', $customer->id);
-    $customer->delete();
+    // Quietly, as a bulk delete would: a heard delete leaves a tombstone.
+    $customer->deleteQuietly();
 
     $finding = Storyfeed::doctor(['entities'])->withCode('entities.missing')->sole();
 

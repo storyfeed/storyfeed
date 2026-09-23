@@ -39,6 +39,7 @@ class StoryfeedServiceProvider extends PackageServiceProvider
                 'add_as2_roles_to_feed_activities_table',
                 'add_precision_to_feed_timestamps',
                 'add_meta_to_feed_snapshots_table',
+                'create_feed_tombstones_table',
             ])
             ->hasCommands([
                 Console\CacheSnapshotsCommand::class,

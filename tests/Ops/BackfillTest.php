@@ -252,7 +252,7 @@ it('REPORTS an imported row whose entity cannot be resolved, and keeps it', func
     // on a schedule. One consumer had EVERY operator activity in this state.
     rawInsert('gone-1', $this->ines, $this->order, '2024-03-01 09:00:00');
 
-    DB::table('feed_activities')->where('uid', 'gone-1')->update(['object_id' => 9999]);
+    DB::table('feed_activities')->where('uid', 'gone-1')->update(['object_type' => 'retired-type', 'object_id' => 9999]);
 
     expect((new TrickleSnapshots)())->toMatchArray(['pruned' => 0, 'unresolved' => 1])
         ->and(Activity::query()->count())->toBe(1);
@@ -261,7 +261,7 @@ it('REPORTS an imported row whose entity cannot be resolved, and keeps it', func
 it('prunes the same row when an app asks for it', function () {
     rawInsert('gone-2', $this->ines, $this->order, '2024-03-01 09:00:00');
 
-    DB::table('feed_activities')->where('uid', 'gone-2')->update(['object_id' => 9999]);
+    DB::table('feed_activities')->where('uid', 'gone-2')->update(['object_type' => 'retired-type', 'object_id' => 9999]);
 
     expect((new TrickleSnapshots)(null, true))->toMatchArray(['pruned' => 1, 'unresolved' => 0])
         ->and(Activity::query()->count())->toBe(0);
@@ -274,7 +274,7 @@ it('keeps snapshotting the rows behind a standing population of orphans', functi
     // run. A run that skips orphans keeps fetching past them.
     foreach (range(1, 3) as $i) {
         rawInsert("orphan-{$i}", $this->ines, $this->order, '2024-03-01 09:00:00');
-        DB::table('feed_activities')->where('uid', "orphan-{$i}")->update(['object_id' => 9999]);
+        DB::table('feed_activities')->where('uid', "orphan-{$i}")->update(['object_type' => 'retired-type', 'object_id' => 9999]);
     }
 
     rawInsert('good-1', $this->ines, $this->order, '2024-02-01 09:00:00');

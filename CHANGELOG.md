@@ -4,6 +4,35 @@
 
 ### Changed
 
+- **Deleting a model no longer deletes its activities.** A `Feedable`'s
+  `deleted` event now leaves an entity tombstone, a `Storyfeed\Models\FeedTombstone`
+  row (alias `storyfeed.tombstone`, resolved whatever the app's morph map
+  says), and repoints every reference to the model onto it: all seven role
+  columns, their `cached_*_id` pointers and the `feed_participants` rows, with
+  groupings rewritten, clusters re-settled and `sync_token` bumped. The
+  model's own snapshot is deleted, so its label doesn't outlive it. The
+  tombstone renders with `label: null`. `restored` reverses all of it (new
+  `Actions\RestoreToFeed`, heard for trait models and `Storyfeed::feedable()`
+  registrations alike). `forceDeleted` no longer deletes activities either: it
+  makes the tombstone permanent (`restorable = false`). `deleteFromFeed()` and
+  `forceDeleteFromFeed()` still delete activities, but only when called.
+  Activities the old cascade already soft-deleted stay deleted. The three hooks
+  are muted with recording, like the `saved` hook. **Publish and run the new
+  `create_feed_tombstones_table` migration**; until it runs, deletes go unheard
+  and `storyfeed:doctor` reports the missing table.
+- **The trickle finds deletions no event reported.** A role whose model is gone
+  (a bulk `delete()`, raw SQL, a database cascade) now gets a tombstone marked
+  `approximate` instead of being counted as `unresolved`, and a restorable
+  tombstone whose model is back (a bulk `restore()`) is restored. It sweeps the
+  snapshots `limit` rows per run from a cursor in `feed_meta`. `unresolved`,
+  and `--prune`, now cover only roles whose class no longer resolves (or
+  isn't `Feedable`). Its result, and `MaintenanceHistory`'s trickle record,
+  gain `tombstoned` and `restored`.
+- **`WriteGroupings::many()` and `CurateCluster::repairMany()`** do for many
+  activities or clusters what `__invoke()` and `repair()` do for one, in a
+  handful of queries. A tombstone on an entity with 5,000 activities takes
+  about 1,460 queries.
+
 - **`InteractsWithFeed` answers the whole `Feedable` contract.** A model with
   `use InteractsWithFeed` and no feed code is valid: its label is guessed
   (`guessFeedLabel()`: a `name` or `title` attribute, then the registered noun
@@ -217,9 +246,8 @@
   documentation, in either doc set, so the one legitimate consumer — an app's
   idempotent republishing job — could not have found it.
 
-  Its highest-volume writer would also go if entity tombstones are built:
-  deleting a `Feedable` would then stop cascade-deleting its stories. (Specced,
-  not built.)
+  Its highest-volume writer is gone too: deleting a `Feedable` no longer
+  cascade-deletes its stories (see entity tombstones, under Changed).
 
   **Not core's responsibility at this stage.** An app that needs to know what it
   removed can keep that record where it also knows why.
@@ -229,6 +257,10 @@
   participant rows and the `forceDelete` that follows it must still be atomic.
 
 ### Added
+
+- **`Storyfeed::tombstone(Order::class, $ids)`**, for rows deleted without
+  model events, straight after the bulk delete. It skips keys whose row still
+  exists, and takes a morph alias for a non-model `Feedable`.
 
 - **`describeFeed()` and `feedMediaUsing()`.** A model describes its snapshot
   with `$this->feedEntity()->label(...)->body(...)` in `describeFeed(): void`,

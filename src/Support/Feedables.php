@@ -8,9 +8,9 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
 use LogicException;
-use Storyfeed\Actions\DeleteFromFeed;
-use Storyfeed\Actions\ForceDeleteFromFeed;
+use Storyfeed\Actions\RestoreToFeed;
 use Storyfeed\Actions\SnapshotEntity;
+use Storyfeed\Actions\TombstoneEntity;
 use Storyfeed\Contracts\Feedable;
 use Storyfeed\FeedableRegistration;
 use Storyfeed\FeedContext;
@@ -93,10 +93,24 @@ class Feedables
             }
         });
 
-        $events->listen("eloquent.deleted: {$class}", fn (Model $model) => (new DeleteFromFeed)($model));
+        $events->listen("eloquent.deleted: {$class}", function (Model $model): void {
+            if (app(StoryfeedManager::class)->isRecording()) {
+                (new TombstoneEntity)($model);
+            }
+        });
 
-        // Fires only for a class using SoftDeletes; harmless otherwise.
-        $events->listen("eloquent.forceDeleted: {$class}", fn (Model $model) => (new ForceDeleteFromFeed)($model));
+        // Both fire only for a class using SoftDeletes; harmless otherwise.
+        $events->listen("eloquent.forceDeleted: {$class}", function (Model $model): void {
+            if (app(StoryfeedManager::class)->isRecording()) {
+                (new TombstoneEntity)->forceDeleted($model);
+            }
+        });
+
+        $events->listen("eloquent.restored: {$class}", function (Model $model): void {
+            if (app(StoryfeedManager::class)->isRecording()) {
+                (new RestoreToFeed)($model);
+            }
+        });
     }
 
     /**

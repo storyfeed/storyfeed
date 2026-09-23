@@ -7,9 +7,10 @@ use Storyfeed\Models\Activity;
 use Storyfeed\Models\Builders\ActivityBuilder;
 
 /**
- * Soft-delete every activity involving a model. What a Feedable's `deleted`
- * event does, whether the model uses InteractsWithFeed or was registered
- * with `Storyfeed::feedable()`.
+ * Soft-delete every activity involving a model, when asked with
+ * `deleteFromFeed()`. Until 2026-09-23 it was what a Feedable's `deleted`
+ * event did; a deleted model now leaves a tombstone (TombstoneEntity) and
+ * its activities stay.
  *
  * Chunked because the live scope excludes what the last pass soft-deleted,
  * so the loop converges without a running exclusion list.

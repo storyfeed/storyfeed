@@ -43,6 +43,14 @@ use Storyfeed\StoryfeedManager;
 class CurateCluster
 {
     /** @param (Closure(bool): void)|null $onSettled Optional maintenance accounting; absent on the publish path. */
+    /**
+     * Cluster eligibility decided during one repairMany() pass; null outside
+     * one, when nothing is remembered.
+     *
+     * @var array<string, bool>|null
+     */
+    private ?array $eligibility = null;
+
     public function __construct(protected ?Closure $onSettled = null) {}
 
     /**
@@ -113,15 +121,16 @@ class CurateCluster
      * cluster that is every settle but the new member's own.
      *
      * @param  array<string, string>  $hashes  bucket => hash
+     * @param  array<string, bool|null>|null  $before  the stamps, when the caller already read them (see winnerState())
      */
-    protected function settle(int|string $activityId, array $hashes): void
+    protected function settle(int|string $activityId, array $hashes, ?array $before = null): void
     {
         if ($hashes === []) {
             return;
         }
 
         $winner = $this->decide($hashes);
-        $before = $this->winnerState($activityId);
+        $before ??= $this->winnerState($activityId);
         $after = array_map(fn (string $bucket) => $bucket === $winner, array_combine(array_keys($before), array_keys($before)));
 
         $changed = $before !== $after;
@@ -190,6 +199,15 @@ class CurateCluster
      */
     protected function eligible(string $axis, string $hash): bool
     {
+        if ($this->eligibility === null) {
+            return $this->decideEligible($axis, $hash);
+        }
+
+        return $this->eligibility["{$axis}\0{$hash}"] ??= $this->decideEligible($axis, $hash);
+    }
+
+    protected function decideEligible(string $axis, string $hash): bool
+    {
         $declaration = $this->manager()->axis($axis);
 
         if ($declaration === null || $declaration->eligibility() === []) {
@@ -221,6 +239,69 @@ class CurateCluster
     {
         foreach ($this->memberIds($axis, $hash) as $id) {
             $this->settle($id, $this->hashes($id));
+        }
+    }
+
+    /**
+     * repair() for many clusters at once, settling each member ONCE however
+     * many of the clusters it belongs to: what a tombstone's repoint needs,
+     * where thousands of rows change clusters together and a member sits in
+     * one cluster per axis.
+     *
+     * Members and their stamps are read in chunks, and each cluster's
+     * eligibility is decided once for the pass. That memo is sound because
+     * settling writes only winner stamps, and eligibility never reads them.
+     *
+     * @param  iterable<array{string, string}>  $clusters  [axis, hash] pairs
+     */
+    public function repairMany(iterable $clusters): void
+    {
+        $hashesByAxis = [];
+
+        foreach ($clusters as [$axis, $hash]) {
+            $hashesByAxis[$axis][$hash] = true;
+        }
+
+        $ids = [];
+        $activities = $this->activitiesTable();
+        $groupings = $this->groupingsTable();
+
+        foreach ($hashesByAxis as $axis => $hashes) {
+            foreach (array_chunk(array_keys($hashes), 500) as $chunk) {
+                $members = $this->activityModel()->newQuery()
+                    ->join($groupings, fn (JoinClause $join) => $join
+                        ->on("{$groupings}.activity_id", '=', "{$activities}.id")
+                        ->where("{$groupings}.bucket", $axis))
+                    ->whereIn("{$groupings}.hash", $chunk)
+                    ->pluck("{$activities}.id");
+
+                foreach ($members as $id) {
+                    $ids[$id] = true;
+                }
+            }
+        }
+
+        $this->eligibility = [];
+
+        try {
+            foreach (array_chunk(array_keys($ids), 500) as $chunk) {
+                $rows = $this->groupings()
+                    ->whereIn('activity_id', $chunk)
+                    ->whereNotIn('bucket', $this->manager()->rowBackedBuckets())
+                    ->orderBy('bucket')
+                    ->toBase()
+                    ->get(['activity_id', 'bucket', 'hash', 'winner'])
+                    ->groupBy('activity_id');
+
+                foreach ($rows as $id => $own) {
+                    $this->settle($id, $own->pluck('hash', 'bucket')->all(), $own
+                        ->pluck('winner', 'bucket')
+                        ->map(fn ($winner) => $winner === null ? null : (bool) $winner)
+                        ->all());
+                }
+            }
+        } finally {
+            $this->eligibility = null;
         }
     }
 

@@ -40,8 +40,10 @@ it('trickles uncached activities newest-first', function () {
 it('keeps an orphaned activity and says so, rather than deleting it on a schedule', function () {
     $activity = Activity::query()->create([
         'verb' => 'confirm',
-        'object_type' => 'delivery',
-        'object_id' => 12345, // no such delivery
+        // A class that no longer resolves. A deleted delivery would get a
+        // tombstone instead (see TombstoneTest).
+        'object_type' => 'retired-type',
+        'object_id' => 12345,
         'published_at' => now(),
     ]);
 
@@ -59,7 +61,7 @@ it('keeps an orphaned activity and says so, rather than deleting it on a schedul
 it('prunes it only when the flag is passed, and soft-deletes when it does', function () {
     $activity = Activity::query()->create([
         'verb' => 'confirm',
-        'object_type' => 'delivery',
+        'object_type' => 'retired-type',
         'object_id' => 12345,
         'published_at' => now(),
     ]);

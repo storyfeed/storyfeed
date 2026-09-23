@@ -6,17 +6,19 @@ use Illuminate\Database\Eloquent\Model;
 
 /**
  * Permanently delete every activity involving a model, including activities
- * that were already soft-deleted — and everything that points at them. What
- * a Feedable's `forceDeleted` event does.
+ * that were already soft-deleted — and everything that points at them.
+ * Erasure, when asked with `forceDeleteFromFeed()`. Until 2026-09-23 it was
+ * what a Feedable's `forceDeleted` event did; a force delete now makes the
+ * model's tombstone permanent (TombstoneEntity) and its activities stay.
  *
  * A bulk `forceDelete()` fires no model events, so nothing downstream
  * hears about the rows going. Until 2026-09-05 this was that one query, and
  * it left `feed_groupings` and `feed_participants` rows behind pointing at
  * primary keys that no longer existed. It was the one hard-delete path with
- * no opt-in in front of it: `replace()` defaults to soft, the trickle prunes
- * only when asked, but this fires for every Feedable that is force-deleted.
- * So the ids are collected first and ForgetActivities clears their rows
- * before the delete, the same way PruneActivities does it.
+ * no opt-in in front of it then: `replace()` defaults to soft, the trickle
+ * prunes only when asked, but this fired for every Feedable that was
+ * force-deleted. So the ids are collected first and ForgetActivities clears
+ * their rows before the delete, the same way PruneActivities does it.
  *
  * Still a bulk operation, deliberately. Per-model deletes would get the
  * events back at the cost of a query per activity on exactly the path that

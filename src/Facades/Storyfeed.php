@@ -46,6 +46,7 @@ use Storyfeed\Testing\StoryfeedFake;
  * @method static array<string, string> registeredGlyphIntents()
  * @method static array<string, \Storyfeed\ActivityStreams\ActivityType|string> registeredVerbs()
  * @method static \Storyfeed\FeedableRegistration<TModel> feedable<TModel of \Illuminate\Database\Eloquent\Model>(class-string<TModel> $class)
+ * @method static list<\Storyfeed\Models\FeedTombstone> tombstone(string $type, iterable<int|string>|int|string $ids)
  * @method static \Storyfeed\StoryfeedManager guessFeedLabelsUsing((\Closure(\Illuminate\Database\Eloquent\Model): ?string)|null $guesser)
  * @method static void resolveActorUsing(\Closure $resolver)
  * @method static \Illuminate\Database\Eloquent\Model|null resolveActor()
