@@ -4,6 +4,7 @@ namespace Storyfeed\Diagnostics;
 
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Storyfeed\Grouping\GroupBuilder;
+use Storyfeed\Support\StoryName;
 
 /**
  * The registry edit that resolves a finding — as data, not prose.
@@ -24,7 +25,9 @@ use Storyfeed\Grouping\GroupBuilder;
  * NOTE: transcribing an OBSERVED fact is not inference. This carries no
  * guesses — every value comes from a pair actually recorded, an axis actually
  * stamped a winner, or tokens actually derived from a recipe. That is the line
- * between this and the parked `storyfeed:eject` inference engine.
+ * between this and the parked `storyfeed:eject` inference engine. A printed
+ * sentence conjugates the stored verb only where the spelling is certain
+ * (`StoryName::certainParticiple()`); elsewhere the line is left commented.
  */
 final class Fix
 {
@@ -50,10 +53,15 @@ final class Fix
     }
 
     /**
-     * Paste-ready registration code. The placeholder template is deliberately
-     * obvious prose ("TODO") rather than a plausible-looking sentence: a
-     * generated headline that reads well is one nobody rewrites, and only
-     * taste validates prose (grammar's one untoolable rule).
+     * Paste-ready registration code — or, where doctor cannot write a line
+     * that is true, the same code commented out beneath the reason.
+     *
+     * Never `TODO`. A pasted placeholder satisfies the very check that printed
+     * it: `headline('TODO …')` resolves, so doctor goes quiet while the feed
+     * says "TODO" to users. The sentence is therefore built the way
+     * `make:story` builds its own — the stored verb in the past tense, over
+     * tokens the axis pins — and only when that is certain. Otherwise nothing
+     * live is printed, and doctor keeps saying so until someone decides.
      */
     public function snippet(): string
     {
@@ -61,21 +69,19 @@ final class Fix
             return $this->snippet;
         }
 
-        $template = $this->tokens === []
-            ? 'TODO write the headline'
-            : 'TODO '.implode(' ', $this->tokens);
-
-        return sprintf(
+        $code = sprintf(
             "Storyfeed::%s([\n    '%s' => '%s',\n]);",
             $this->registry,
             $this->key,
-            $template,
+            $this->template() ?? '…',
         );
+
+        return $this->live($code);
     }
 
     /**
      * The same edit as a `routes/feed.php` definition, with the imports it
-     * needs: `Story::for(Order::class)->verb('place')->headline('TODO …');`.
+     * needs: `Story::for(Order::class)->verb('place')->headline(':actor placed :object');`.
      * Null for a registry the Story facade doesn't write, or a hand-built
      * snippet, which stay in the array form.
      *
@@ -88,7 +94,7 @@ final class Fix
         }
 
         [$first, $verb] = explode('.', $this->key, 2);
-        $template = $this->tokens === [] ? 'TODO write the headline' : 'TODO '.implode(' ', $this->tokens);
+        $template = $this->template() ?? '…';
         $imports = ['Storyfeed\Facades\Story'];
 
         if ($this->registry === 'aggregateGrammar') {
@@ -100,16 +106,16 @@ final class Fix
             };
 
             return [
-                'code' => $this->scope('*', $verb, $imports)."->grouped(fn (GroupBuilder \$group) => \$group->{$group});",
+                'code' => $this->live($this->scope('*', $verb, $imports)."->grouped(fn (GroupBuilder \$group) => \$group->{$group});"),
                 'imports' => $imports,
             ];
         }
 
         $call = match ($this->registry) {
             'grammar' => "headline('{$template}')",
-            'actorlessGrammar' => "anonymousHeadline('TODO write the headline without an actor')",
-            'icons' => "icon('TODO')",
-            'glyphIntents' => "intent('TODO')",
+            'actorlessGrammar' => "anonymousHeadline('{$template}')",
+            'icons' => "icon('…')",
+            'glyphIntents' => "intent('…')",
             default => null,
         };
 
@@ -117,7 +123,63 @@ final class Fix
             return null;
         }
 
-        return ['code' => $this->scope($first, $verb, $imports)."->{$call};", 'imports' => $imports];
+        return ['code' => $this->live($this->scope($first, $verb, $imports)."->{$call};"), 'imports' => $imports];
+    }
+
+    /**
+     * The value this edit registers, or null where doctor cannot know it: an
+     * icon or intent is the app's own vocabulary, a verb-agnostic key needs a
+     * sentence true of every verb, and a verb whose past tense is not certain
+     * (`ship`, `check_in`) would be printed misspelled.
+     *
+     * Every token used is one the finding says is safe here.
+     */
+    private function template(): ?string
+    {
+        [$type, $verb] = str_contains($this->key, '.') ? explode('.', $this->key, 2) : ['*', $this->key];
+        $past = $verb === '*' ? null : StoryName::certainParticiple($verb);
+        $pins = fn (string $token) => in_array($token, $this->tokens, true);
+
+        if ($past === null) {
+            return null;
+        }
+
+        return match ($this->registry) {
+            // `*` here is a pair recorded with no object, so none is named.
+            'grammar' => $type === '*' ? ":actor {$past}" : ":actor {$past} :object",
+            'actorlessGrammar' => $type === '*' ? ucfirst($past) : ":object was {$past}",
+            // A sentence naming the verb is true of a group only where the
+            // axis pins it; the singular forms only where it pins those.
+            'aggregateGrammar' => $pins(':verb')
+                ? ($pins(':actor') ? ':actor' : ':actors')." {$past} ".($pins(':object') ? ':object' : ':objects')
+                : null,
+            default => null,
+        };
+    }
+
+    /** The definition as it stands, or commented out beneath the reason. */
+    private function live(string $code): string
+    {
+        return $this->template() === null ? $this->commented($code) : $code;
+    }
+
+    private function commented(string $code): string
+    {
+        $verb = str_contains($this->key, '.') ? explode('.', $this->key, 2)[1] : $this->key;
+
+        $reason = match (true) {
+            $this->registry === 'icons' => "{$this->key}: an icon from your app's own set; doctor cannot choose one.",
+            $this->registry === 'glyphIntents' => "{$this->key}: an intent from your app's own set; doctor cannot choose one.",
+            $verb === '*' => "{$this->key}: one sentence true of every verb this key covers.",
+            $this->registry === 'aggregateGrammar' && ! in_array(':verb', $this->tokens, true) => "{$this->key}: the axis does not pin the verb, so a sentence naming it can be false of a group.",
+            default => "{$this->key}: doctor cannot spell '{$verb}' in the past tense for certain.",
+        };
+
+        if ($this->tokens !== []) {
+            $reason .= ' Safe tokens: '.implode(' ', $this->tokens);
+        }
+
+        return implode(PHP_EOL, array_map(fn (string $line) => "// {$line}", [$reason, ...explode("\n", $code)]));
     }
 
     /**

@@ -177,8 +177,42 @@ class StoryName
         return match (true) {
             Str::endsWith($verb, 'ed') => $verb,
             Str::endsWith($verb, 'e') => $verb.'d',          // archive → archived
-            Str::endsWith($verb, 'y') => Str::beforeLast($verb, 'y').'ied',  // apply → applied
-            default => $verb.'ed',                            // upload → uploaded
+            Str::endsWith($verb, 'y') && ! self::vowel(substr($verb, -2, 1)) => substr($verb, 0, -1).'ied', // apply → applied
+            default => $verb.'ed',                            // upload → uploaded, play → played
         };
+    }
+
+    /**
+     * The participle where appending is CERTAIN, else null — for printing a
+     * sentence the developer may paste as it stands (`storyfeed:doctor --stubs`).
+     *
+     * Null for anything but one plain word of three letters or more; for a
+     * word ending consonant-vowel-consonant, where doubling turns on stress no
+     * spelling reveals (`ship → shipped` but `visit → visited`); and for one
+     * already ending `-ed`, which `participle()` keeps as it stands (`embed`).
+     * Irregulars are known.
+     */
+    public static function certainParticiple(string $verb): ?string
+    {
+        $verb = Str::lower($verb);
+
+        if (array_search($verb, self::IRREGULAR, true) !== false) {
+            return self::participle($verb);
+        }
+
+        if (! ctype_alpha($verb) || strlen($verb) < 3 || Str::endsWith($verb, 'ed')) {
+            return null;
+        }
+
+        $tail = substr($verb, -3);
+        $doubling = ! self::vowel($tail[0]) && self::vowel($tail[1])
+            && ! self::vowel($tail[2]) && ! str_contains('wxy', $tail[2]);
+
+        return $doubling ? null : self::participle($verb);
+    }
+
+    protected static function vowel(string $letter): bool
+    {
+        return str_contains('aeiou', $letter);
     }
 }

@@ -322,12 +322,28 @@ describe('the verb rule', function () {
             ->and(StoryName::verbsIn('TaskWasCompleted', ['complete', 'upload']))->toBe(['complete']);
     });
 
+    it('conjugates for doctor only where the spelling is certain', function () {
+        expect(StoryName::certainParticiple('confirm'))->toBe('confirmed')
+            ->and(StoryName::certainParticiple('archive'))->toBe('archived')
+            ->and(StoryName::certainParticiple('copy'))->toBe('copied')
+            ->and(StoryName::certainParticiple('send'))->toBe('sent')
+            ->and(StoryName::certainParticiple('set'))->toBe('set')
+            // Doubling turns on stress: shipped, but visited.
+            ->and(StoryName::certainParticiple('ship'))->toBeNull()
+            ->and(StoryName::certainParticiple('visit'))->toBeNull()
+            // Not one plain word, too short to judge, or already past.
+            ->and(StoryName::certainParticiple('check_in'))->toBeNull()
+            ->and(StoryName::certainParticiple('go'))->toBeNull()
+            ->and(StoryName::certainParticiple('embed'))->toBeNull();
+    });
+
     it('builds the participle back for --from-doctor names', function () {
         // Only the easy direction: appending is regular where stripping is not.
         expect(StoryName::participle('archive'))->toBe('archived')
             ->and(StoryName::participle('upload'))->toBe('uploaded')
             ->and(StoryName::participle('apply'))->toBe('applied')
-            ->and(StoryName::participle('send'))->toBe('sent');
+            ->and(StoryName::participle('send'))->toBe('sent')
+            ->and(StoryName::participle('play'))->toBe('played');
     });
 
     it('tolerates a Story suffix without turning it into the verb', function () {

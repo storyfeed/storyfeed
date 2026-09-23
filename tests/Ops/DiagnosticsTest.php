@@ -68,7 +68,7 @@ it('derives stub tokens from the axis recipe, never from guesswork', function ()
         // and a snippet offering :object is the documented lie class.
         ->and($fix->tokens)->toContain(':actor')
         ->and($fix->tokens)->not->toContain(':object')
-        ->and($fix->snippet())->toContain("'repeat.upload' =>");
+        ->and($fix->snippet())->toContain("'repeat.upload' => ':actor uploaded :objects'");
 });
 
 it('prints stubs as bare code, with nothing to strip before pasting', function () {
@@ -76,10 +76,43 @@ it('prints stubs as bare code, with nothing to strip before pasting', function (
 
     $this->artisan('storyfeed:doctor --stubs')
         ->expectsOutputToContain('use Storyfeed\Facades\Story;')
-        ->expectsOutputToContain("->verb('confirm')->headline('TODO")
+        ->expectsOutputToContain("Story::for(Delivery::class)->verb('confirm')->headline(':actor confirmed :object');")
+        ->expectsOutputToContain("// Story::for(Delivery::class)->verb('confirm')->icon('…');")
+        ->doesntExpectOutputToContain('TODO')
         ->doesntExpectOutputToContain('finding(s)')
         ->doesntExpectOutputToContain('healthy')
         ->assertSuccessful();
+});
+
+it('prints a line commented beneath its reason where doctor cannot know the value', function () {
+    // `ship` doubles its consonant and `visit` does not; no spelling says
+    // which, so a live headline would be a guess at best, `shiped` at worst.
+    Storyfeed::activity('ship', Delivery::create(['tracking_number' => 'TN-1']))->publish();
+
+    $this->artisan('storyfeed:doctor --stubs')
+        ->expectsOutputToContain(
+            "// delivery.ship: doctor cannot spell 'ship' in the past tense for certain. Safe tokens: :actor :object :target :context :origin :result :instrument"
+            .PHP_EOL."// Story::for(Delivery::class)->verb('ship')->headline('…');"
+        )
+        ->doesntExpectOutputToContain('TODO')
+        ->assertSuccessful();
+});
+
+it('offers nothing that silences doctor while leaving the feed unwritten', function () {
+    // The point of never printing TODO: a pasted placeholder resolves, so the
+    // finding that printed it goes quiet while users read the placeholder.
+    confirmOne();
+
+    foreach (Storyfeed::doctor(['grammar'])->fixes() as $fix) {
+        if (preg_match("/^Storyfeed::\\w+\\(\\[\\n    '[^']+' => '(.+)',/", $fix->snippet(), $value)) {
+            Storyfeed::{$fix->registry}([$fix->key => $value[1]]);
+        }
+    }
+
+    $report = Storyfeed::doctor(['grammar']);
+
+    expect($report->has('grammar.missing'))->toBeFalse()
+        ->and($report->has('grammar.icon_missing'))->toBeTrue();
 });
 
 it('prints stubs as registry arrays with --arrays', function () {
