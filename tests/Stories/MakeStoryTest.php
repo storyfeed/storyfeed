@@ -8,12 +8,13 @@ use Workbench\App\Enums\ActivityVerb;
 use Workbench\App\Models\Delivery;
 
 /*
- * The generator, which is the ONLY place inference happens.
+ * The generator, which is the ONLY place inference happens — and it asks
+ * rather than guesses, like Laravel's own generators.
  *
- * The whole safety argument rests on the result being printed in the binding
- * line: a wrong one is visible and editable, and nothing consults the class
- * name at runtime. The verb is named only when the declared vocabulary settles
- * it — a suffix rule once printed 'complet' for TaskWasCompleted.
+ * The one inference left is exact: a predicate that spells exactly one
+ * declared verb. A suffix rule once printed 'complet' for TaskWasCompleted,
+ * and the fix after it printed 'TODO'; both came from reading meaning out of a
+ * name instead of asking. Nothing here writes a placeholder.
  */
 
 function storyPath(string $class): string
@@ -38,7 +39,19 @@ afterEach(function () {
  */
 function makeStory(array $parameters): string
 {
-    expect(Artisan::call('make:story', $parameters))->toBe(0);
+    expect(Artisan::call('make:story', [...$parameters, '--no-interaction' => true]))->toBe(0);
+
+    return Artisan::output();
+}
+
+/**
+ * Run make:story without a terminal, and return its failure message.
+ *
+ * @param  array<string, mixed>  $parameters
+ */
+function makeStoryFails(array $parameters): string
+{
+    expect(Artisan::call('make:story', [...$parameters, '--no-interaction' => true]))->toBe(1);
 
     return Artisan::output();
 }
@@ -80,52 +93,142 @@ it('handles the multi-word objects that killed token guessing', function () {
 });
 
 it('takes the verb from the app vocabulary, and says so', function () {
-    // 'uploaded' → candidates [upload, uploade, uploaded]. The declared enum
-    // settles it.
-    $this->artisan('make:story', ['name' => 'DeliveryWasUploaded'])
+    $this->artisan('make:story', ['name' => 'DeliveryWasUploaded', '--no-interaction' => true])
         ->expectsOutputToContain("Bound to 'upload'")
         ->assertSuccessful();
 });
 
-it('names the verb for every past-tense shape the vocabulary declares', function (string $class, string $verb) {
-    Storyfeed::verbs(['complete' => 'Update', 'copy' => 'Create', 'ship' => 'Update']);
+it('names the declared verb a predicate spells, in every past-tense shape', function (string $class, string $verb) {
+    Storyfeed::verbs(['complete' => 'Update', 'copy' => 'Create', 'ship' => 'Update', 'overdue' => 'Update', 'check_in' => 'Arrive', 'send' => 'Update']);
 
-    expect(bindingIn(makeStory(['name' => $class])))->toBe("Story::for('task')->verb('{$verb}', \\App\\Stories\\{$class}::class);");
+    expect(bindingIn(makeStory(['name' => $class])))->toEndWith("->verb('{$verb}', \\App\\Stories\\{$class}::class);");
 })->with([
-    '-ed after e' => ['TaskWasCompleted', 'complete'],
+    '-d after e' => ['TaskWasCompleted', 'complete'],
     '-ied' => ['TaskWasCopied', 'copy'],
-    'doubled consonant' => ['TaskWasShipped', 'ship'],
+    'doubled consonant' => ['OrderWasShipped', 'ship'],
+    'the verb itself' => ['TaskWasOverdue', 'overdue'],
+    'two words' => ['GuestWasCheckedIn', 'check_in'],
+    'irregular' => ['InvoiceWasSent', 'send'],
 ]);
 
-it('leaves the verb TODO rather than guess one the vocabulary does not declare', function (string $class) {
+it('fails without a terminal when no declared verb is spelled, naming the vocabulary', function (string $class) {
     // `uploaded → upload` and `completed → complete` are the same shape, so no
-    // suffix rule can separate them. Ranking the bare stem first printed
-    // 'complet', which looks plausible and is stored verbatim.
-    $output = makeStory(['name' => $class]);
+    // suffix rule can separate them. The old one printed 'complet'; the fix
+    // after it printed 'TODO'. Neither reached a file that compiled right.
+    Storyfeed::verbs(['upload' => 'Add', 'publish' => 'Update'], merge: false);
 
-    expect($output)->toContain("so the binding line says 'TODO'")
-        ->and(bindingIn($output))->toContain("->verb('TODO', ")
-        ->and($output)->not->toContain("'complet'");
+    $output = makeStoryFails(['name' => $class]);
+
+    expect($output)->toContain("No declared verb is spelled by {$class}. Pass --verb; the declared verbs are 'upload', 'publish'.")
+        ->and(storyPath($class))->not->toBeFile();
 })->with([
-    '-ed after e' => ['TaskWasCompleted'],
+    '-d after e' => ['TaskWasCompleted'],
     '-ied' => ['TaskWasCopied'],
-    'doubled consonant' => ['TaskWasShipped'],
+    'doubled consonant' => ['OrderWasShipped'],
     'no past tense at all' => ['TaskWasOverdue'],
+    'more than the verb' => ['TaskWasUploadedLate'],
 ]);
+
+it('fails on two declared verbs a predicate spells, naming both, rather than pick', function () {
+    // Free-form vocabularies store past tenses too. Both are real; choosing
+    // would be a guess.
+    Storyfeed::verbs(['complete' => 'Update', 'completed' => 'Update']);
+
+    expect(makeStoryFails(['name' => 'TaskWasCompleted']))
+        ->toContain("TaskWasCompleted spells more than one declared verb: 'complete', 'completed'. Pass --verb to choose.")
+        ->and(storyPath('TaskWasCompleted'))->not->toBeFile();
+});
+
+it('reads only the predicate, since objects are nouns that are often verbs too', function () {
+    Storyfeed::verbs(['comment' => 'Create', 'post' => 'Create']);
+
+    expect(bindingIn(makeStory(['name' => 'CommentWasPosted'])))
+        ->toBe("Story::for('comment')->verb('post', \\App\\Stories\\CommentWasPosted::class);");
+});
+
+it('splits on Was as a whole word only', function () {
+    Storyfeed::verbs(['collect' => 'Add']);
+
+    expect(bindingIn(makeStory(['name' => 'WasteWasCollected'])))
+        ->toBe("Story::for('waste')->verb('collect', \\App\\Stories\\WasteWasCollected::class);");
+});
 
 it('takes --verb over any reading of the class name', function () {
     $output = makeStory(['name' => 'DishWentLive', '--verb' => 'publish', '--model' => 'MenuItem']);
 
-    expect($output)->not->toContain('convention')
-        ->and(bindingIn($output))->toEndWith("->verb('publish', \\App\\Stories\\DishWentLive::class);");
+    expect(bindingIn($output))->toEndWith("->verb('publish', \\App\\Stories\\DishWentLive::class);")
+        ->and(file_get_contents(storyPath('DishWentLive')))->toContain(':actor published :object');
 });
 
-it('warns when the class name does not follow the convention', function () {
-    $output = makeStory(['name' => 'ConfirmDelivery']);
+it('fails without a terminal when the name does not follow the convention', function () {
+    expect(makeStoryFails(['name' => 'ConfirmDelivery', '--model' => Delivery::class]))
+        ->toContain('ConfirmDelivery does not follow the {Object}Was{Verbed} convention, so the verb cannot be read from it. Pass --verb.');
 
-    // Still generates, with the line marked so nothing is silently wrong.
-    expect($output)->toContain('does not follow the {Object}Was{Verbed} convention')
-        ->and(bindingIn($output))->toBe("Story::for(TODO::class)->verb('TODO', \\App\\Stories\\ConfirmDelivery::class);");
+    expect(makeStoryFails(['name' => 'ConfirmDelivery', '--verb' => 'confirm']))
+        ->toContain('ConfirmDelivery does not name the model the story is about. Pass --model.');
+});
+
+describe('with a terminal, it asks', function () {
+    it('offers the declared vocabulary when the name spells no verb', function () {
+        Storyfeed::verbs(['upload' => 'Add', 'publish' => 'Update'], merge: false);
+
+        $this->artisan('make:story', ['name' => 'DishWentLive', '--model' => 'Dish'])
+            ->expectsChoice('Which verb does this story record?', 'publish', array_keys(Storyfeed::registeredVerbs()))
+            ->expectsOutputToContain("Story::for('dish')->verb('publish', \\App\\Stories\\DishWentLive::class);")
+            ->assertSuccessful();
+    });
+
+    it('asks between the verbs when the name spells two', function () {
+        Storyfeed::verbs(['complete' => 'Update', 'completed' => 'Update'], merge: false);
+
+        $this->artisan('make:story', ['name' => 'TaskWasCompleted'])
+            ->expectsChoice('Which verb does this story record?', 'completed', array_keys(Storyfeed::registeredVerbs()))
+            ->expectsOutputToContain("->verb('completed', ")
+            ->assertSuccessful();
+    });
+
+    it('does not ask for what --verb, or the declared vocabulary, already settles', function () {
+        Storyfeed::verbs(['complete' => 'Update']);
+
+        // No expectsChoice: an unexpected prompt fails the test.
+        $this->artisan('make:story', ['name' => 'TaskWasCompleted'])
+            ->expectsOutputToContain("Bound to 'complete'")
+            ->assertSuccessful();
+
+        $this->artisan('make:story', ['name' => 'TaskWasDone', '--verb' => 'finish'])
+            ->expectsOutputToContain("->verb('finish', ")
+            ->assertSuccessful();
+    });
+
+    it('asks for free text when the app declares no verbs at all', function () {
+        Storyfeed::verbs([], merge: false);
+
+        $this->artisan('make:story', ['name' => 'DishWentLive', '--model' => 'MenuItem'])
+            ->expectsQuestion('Which verb does this story record?', 'publish')
+            ->expectsOutputToContain("->verb('publish', ")
+            ->assertSuccessful();
+    });
+
+    it('asks for the model when the name does not carry one, suggesting the Feedable ones', function () {
+        $this->artisan('make:story', ['name' => 'ConfirmDelivery', '--verb' => 'confirm'])
+            ->expectsQuestion('Which model is the object of this story?', Delivery::class)
+            ->expectsOutputToContain('Story::for(\\'.Delivery::class.'::class)->verb(\'confirm\', ')
+            ->assertSuccessful();
+    });
+
+    it('asks for the name when none is given', function () {
+        $this->artisan('make:story')
+            ->expectsQuestion('What should the story be named?', 'DeliveryWasConfirmed')
+            ->expectsOutputToContain("Story::for('delivery')->verb('confirm', ")
+            ->assertSuccessful();
+    });
+});
+
+it('never writes a placeholder into the class or the line', function () {
+    $output = makeStory(['name' => 'DeliveryWasConfirmed']);
+
+    expect($output)->not->toContain('TODO')
+        ->and(file_get_contents(storyPath('DeliveryWasConfirmed')))->not->toContain('TODO');
 });
 
 it('resolves a model class when one exists, for a rename-safe reference', function () {
@@ -193,21 +296,30 @@ it('says so when there is nothing to scaffold', function () {
         ->assertSuccessful();
 });
 
-it('refuses a bare invocation with no name', function () {
-    $this->artisan('make:story')
+it('refuses a bare invocation with no name and no terminal', function () {
+    $this->artisan('make:story', ['--no-interaction' => true])
         ->expectsOutputToContain('--from-doctor')
         ->assertFailed();
 });
 
-describe('participle candidates', function () {
-    it('handles the regular and irregular shapes', function () {
-        expect(StoryName::candidates('Uploaded'))->toContain('upload')
-            ->and(StoryName::candidates('Created'))->toContain('create')
-            ->and(StoryName::candidates('Applied'))->toContain('apply')
-            ->and(StoryName::candidates('Submitted'))->toContain('submit')
-            ->and(StoryName::candidates('Archived'))->toContain('archive')
-            ->and(StoryName::candidates('Sent'))->toBe(['send'])
-            ->and(StoryName::candidates('Written'))->toBe(['write']);
+describe('the verb rule', function () {
+    it('generates spellings forward from the declared verb', function () {
+        expect(StoryName::spellings('upload'))->toContain('uploaded')
+            ->and(StoryName::spellings('create'))->toContain('created')
+            ->and(StoryName::spellings('apply'))->toContain('applied')
+            ->and(StoryName::spellings('submit'))->toContain('submitted')
+            ->and(StoryName::spellings('play'))->toContain('played')
+            ->and(StoryName::spellings('panic'))->toContain('panicked')
+            ->and(StoryName::spellings('send'))->toContain('sent')
+            ->and(StoryName::spellings('check_in'))->toContain('checkedin')
+            ->and(StoryName::spellings('tentativeAccept'))->toContain('tentativeaccepted');
+    });
+
+    it('only ever answers with declared verbs', function () {
+        // The stripping rule's failure: 'complet' was nobody's verb.
+        expect(StoryName::verbsIn('TaskWasCompleted', []))->toBe([])
+            ->and(StoryName::verbsIn('TaskWasCompleted', ['upload']))->toBe([])
+            ->and(StoryName::verbsIn('TaskWasCompleted', ['complete', 'upload']))->toBe(['complete']);
     });
 
     it('builds the participle back for --from-doctor names', function () {
@@ -219,17 +331,12 @@ describe('participle candidates', function () {
     });
 
     it('tolerates a Story suffix without turning it into the verb', function () {
-        expect(StoryName::parse('DocumentWasUploadedStory', ['upload'])['verb'])->toBe('upload');
+        expect(StoryName::verbsIn('DocumentWasUploadedStory', ['upload']))->toBe(['upload']);
     });
 
-    it('names no verb the vocabulary does not settle', function () {
-        expect(StoryName::parse('TaskWasCompleted'))->toBe(['object' => 'Task', 'verb' => null])
-            ->and(StoryName::parse('TaskWasCompleted', ['complete']))->toBe(['object' => 'Task', 'verb' => 'complete']);
-    });
-
-    it('reports failure rather than guessing when there is no delimiter', function () {
+    it('splits nothing when there is no delimiter', function () {
         expect(StoryName::parse('CreatePurchaseOrder'))
-            ->toBe(['object' => null, 'verb' => null]);
+            ->toBe(['object' => null, 'predicate' => null]);
     });
 });
 

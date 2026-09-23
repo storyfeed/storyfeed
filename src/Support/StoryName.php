@@ -5,20 +5,14 @@ namespace Storyfeed\Support;
 use Illuminate\Support\Str;
 
 /**
- * Reads a Story class name into an object type and a verb — AT GENERATOR TIME
- * ONLY.
+ * Reads a Story class name into an object and a predicate, and finds the
+ * declared verb the predicate spells — AT GENERATOR TIME ONLY.
  *
  * This is where all the inference in the package lives, and it lives here on
  * purpose. A Story registers its own verb, so a wrongly-inferred verb at boot
  * would self-register and sail straight past `verbs.strict`, REMOVING the typo
  * safety net that exists today. Run once by `make:story`, the result is printed
- * in the binding line — visible, editable, and never consulted again.
- *
- * The verb is named only when the app's own vocabulary settles it. A suffix
- * rule cannot: `uploaded → upload` and `completed → complete` are the same
- * shape, and ranking the bare stem first once printed `'complet'`. A
- * truncated verb looks plausible and is stored verbatim, so an unsettled one
- * is left for the developer to name.
+ * in the binding line and never consulted again.
  *
  * THE NAMING CONVENTION: `{Object}Was{Verbed}` — `DocumentWasUploaded`,
  * `ProjectWasArchived`, `PurchaseOrderWasCreated`.
@@ -30,6 +24,19 @@ use Illuminate\Support\Str;
  * splits unambiguously, so the multi-word objects that broke token-guessing are
  * exactly the case this handles. It is also distinctive: no Laravel convention
  * uses `Was`, so a Story is never mistaken for an event, job or action.
+ *
+ * THE VERB RULE: a declared verb matches when the WHOLE predicate — everything
+ * after `Was` — is that verb, or one of its past-tense spellings. The spellings
+ * are generated FORWARD from the declared verb, never stripped back from the
+ * name. Stripping `-ed` is undecidable (`uploaded → upload`, `completed →
+ * complete` are the same shape) and once printed `'complet'`; conjugating is
+ * not, and where it is unsure it generates every regular spelling, because a
+ * spelling nobody types can never match. The result is always a verb the app
+ * declared, or nothing.
+ *
+ * Only the predicate is searched, not the whole name: objects are nouns that
+ * are often verbs too, so `CommentWasPosted` would otherwise match both
+ * `comment` and `post`.
  */
 class StoryName
 {
@@ -66,13 +73,15 @@ class StoryName
     ];
 
     /**
-     * The verb is the one declared verb among the participle's candidates, or
-     * null when none is, or more than one.
+     * The object and the predicate either side of the `Was` delimiter, or
+     * nulls when the name does not follow the convention.
      *
-     * @param  array<int, string>  $knownVerbs  the app's vocabulary, the only authority on the verb
-     * @return array{object: string|null, verb: string|null}
+     * `Was` counts only as a whole StudlyCase word, so `WasteWasCollected`
+     * splits after `Waste`.
+     *
+     * @return array{object: string|null, predicate: string|null}
      */
-    public static function parse(string $class, array $knownVerbs = []): array
+    public static function parse(string $class): array
     {
         $base = class_basename($class);
 
@@ -81,23 +90,73 @@ class StoryName
         // than accepting it.
         $base = Str::endsWith($base, 'Story') ? Str::beforeLast($base, 'Story') : $base;
 
-        if (! Str::contains($base, 'Was')) {
-            return ['object' => null, 'verb' => null];
+        if (! preg_match('/^([A-Z][A-Za-z0-9]*?)Was([A-Z][A-Za-z0-9]*)$/', $base, $match)) {
+            return ['object' => null, 'predicate' => null];
         }
 
-        $object = Str::before($base, 'Was');
-        $participle = Str::after($base, 'Was');
+        return ['object' => $match[1], 'predicate' => $match[2]];
+    }
 
-        if ($object === '' || $participle === '') {
-            return ['object' => null, 'verb' => null];
+    /**
+     * Every declared verb the class name's predicate spells: none, one, or —
+     * when two declared verbs share a spelling — more than one, which the
+     * caller reports rather than picks from.
+     *
+     * @param  array<int, string>  $knownVerbs  the app's vocabulary, the only authority on the verb
+     * @return list<string>
+     */
+    public static function verbsIn(string $class, array $knownVerbs): array
+    {
+        $predicate = self::parse($class)['predicate'];
+
+        if ($predicate === null) {
+            return [];
         }
 
-        $known = array_values(array_intersect(self::candidates($participle), $knownVerbs));
+        return array_values(array_filter(
+            $knownVerbs,
+            fn (string $verb) => in_array(Str::lower($predicate), self::spellings($verb), true),
+        ));
+    }
 
-        return [
-            'object' => $object,
-            'verb' => count($known) === 1 ? $known[0] : null,
-        ];
+    /**
+     * How a verb can appear as a class name's predicate, lower-cased: the verb
+     * itself, and its past tense conjugated one word at a time (`check_in` →
+     * `checkedin`, `tentativeAccept` → `tentativeaccepted`).
+     *
+     * Generous on purpose. Doubling is undecidable (`shipped`, but `visited`),
+     * so both are generated; the one nobody types never matches anything.
+     *
+     * @return list<string>
+     */
+    public static function spellings(string $verb): array
+    {
+        $words = explode(' ', Str::snake(Str::studly($verb), ' '));
+
+        $spellings = [implode('', $words)];
+
+        foreach ($words as $i => $word) {
+            foreach (self::pastTenses($word) as $past) {
+                $spellings[] = implode('', array_replace($words, [$i => $past]));
+            }
+        }
+
+        return array_values(array_unique($spellings));
+    }
+
+    /** @return list<string> every regular past tense of one word, plus its irregular one */
+    protected static function pastTenses(string $word): array
+    {
+        $last = substr($word, -1);
+
+        return array_values(array_filter([
+            self::participle($word),
+            $word.'ed',                                              // upload → uploaded, play → played
+            Str::endsWith($word, 'e') ? $word.'d' : null,            // complete → completed
+            Str::endsWith($word, 'y') ? substr($word, 0, -1).'ied' : null, // copy → copied
+            Str::endsWith($word, 'c') ? $word.'ked' : null,          // panic → panicked
+            ctype_alpha($last) && ! str_contains('aeiouwxy', $last) ? $word.$last.'ed' : null, // ship → shipped
+        ]));
     }
 
     /**
@@ -121,48 +180,5 @@ class StoryName
             Str::endsWith($verb, 'y') => Str::beforeLast($verb, 'y').'ied',  // apply → applied
             default => $verb.'ed',                            // upload → uploaded
         };
-    }
-
-    /**
-     * Plausible imperatives for a past participle, best first.
-     *
-     * DELIBERATELY NOT CLEVER. `uploaded → upload` and `frobnicated →
-     * frobnicate` are structurally identical (vowel, consonant, "ed"), so no
-     * suffix rule can separate them — it needs a dictionary. Rather than pick a
-     * rule that is wrong half the time, this returns every plausible form, in
-     * no meaningful order, and the app's declared vocabulary picks one.
-     *
-     * @return array<int, string>
-     */
-    public static function candidates(string $participle): array
-    {
-        $word = Str::lower($participle);
-
-        if (isset(self::IRREGULAR[$word])) {
-            return [self::IRREGULAR[$word]];
-        }
-
-        $candidates = [];
-
-        if (Str::endsWith($word, 'ied')) {
-            $candidates[] = Str::beforeLast($word, 'ied').'y';   // applied → apply
-        }
-
-        if (Str::endsWith($word, 'ed')) {
-            $stem = Str::beforeLast($word, 'ed');
-
-            // submitted → submit: a doubled final consonant is an artefact of
-            // the suffix, not part of the word.
-            if (strlen($stem) > 2 && $stem[-1] === $stem[-2] && ! in_array($stem[-1], ['s', 'l'], true)) {
-                $candidates[] = substr($stem, 0, -1);
-            }
-
-            $candidates[] = $stem;                                // uploaded → upload
-            $candidates[] = $stem.'e';                            // creat + e → create
-        }
-
-        $candidates[] = $word;
-
-        return array_values(array_unique(array_filter($candidates)));
     }
 }

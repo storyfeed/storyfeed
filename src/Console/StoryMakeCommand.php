@@ -3,18 +3,27 @@
 namespace Storyfeed\Console;
 
 use Illuminate\Console\GeneratorCommand;
+use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\Str;
 use Storyfeed\Diagnostics\Finding;
 use Storyfeed\Stories\DefinitionsFile;
 use Storyfeed\StoryfeedManager;
 use Storyfeed\Support\ActivityRoles;
+use Storyfeed\Support\Feedables;
 use Storyfeed\Support\StoryName;
 use Symfony\Component\Console\Input\InputArgument;
+use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
+use Symfony\Component\Console\Output\OutputInterface;
+
+use function Laravel\Prompts\select;
+use function Laravel\Prompts\suggest;
+use function Laravel\Prompts\text;
 
 /**
  * Generate a Story class.
  *
+ *   php artisan make:story
  *   php artisan make:story DocumentWasUploaded
  *   php artisan make:story TaskWasCompleted --verb=complete --model=Task
  *   php artisan make:story OrderStory --resource --model=Order
@@ -29,11 +38,12 @@ use Symfony\Component\Console\Input\InputOption;
  * four conventional ones filled in. Like make:controller, it never edits
  * routes/feed.php: the binding is yours to place.
  *
- * THIS IS WHERE INFERENCE LIVES, and nowhere else. The `Was` infix is parsed
- * into an object and a verb, and both are PRINTED in the binding line. A wrong
- * guess is therefore visible and editable, rather than a runtime behaviour that
- * self-registers a wrong verb past strict mode. The verb is named only when the
- * app's declared vocabulary settles it; otherwise the line says TODO.
+ * WHAT IT DOES NOT KNOW, IT ASKS, like Laravel's own generators. The verb is
+ * a select() over the app's declared vocabulary, and the object a suggest()
+ * over its Feedable models; `--verb` and `--model` skip their prompts. The
+ * only inference is exact: a class name whose predicate spells exactly one
+ * declared verb (see StoryName). Without a terminal, anything still unknown
+ * fails with the vocabulary named. Nothing is ever written as a placeholder.
  *
  * `--from-doctor` scaffolds from doctor's findings. That is NOT the parked
  * `storyfeed:eject`, and the distinction matters: eject was rejected because it
@@ -55,6 +65,64 @@ class StoryMakeCommand extends GeneratorCommand
     /** @var list<string> the binding line of each class written this run */
     protected array $bindings = [];
 
+    /**
+     * Ask for what the name does not settle. Runs only with a terminal, so
+     * scripted use goes straight to handle(), which fails instead.
+     */
+    protected function interact(InputInterface $input, OutputInterface $output): void
+    {
+        parent::interact($input, $output);
+
+        if ($this->option('from-doctor')) {
+            return;
+        }
+
+        if (! $this->argument('name')) {
+            $input->setArgument('name', text(
+                label: 'What should the story be named?',
+                placeholder: 'E.g. DocumentWasUploaded',
+                required: true,
+            ));
+        }
+
+        if (! $this->option('resource') && ! $this->option('verb') && count($matches = $this->declaredVerbsInName()) !== 1) {
+            $input->setOption('verb', $this->askForVerb($matches));
+        }
+
+        if ($this->objectFromName() === null) {
+            $input->setOption('model', suggest(
+                label: $this->option('resource') ? 'Which model are these stories about?' : 'Which model is the object of this story?',
+                options: $this->feedableModels(),
+                placeholder: 'E.g. '.$this->rootNamespace().'Models\\Order',
+                required: true,
+            ));
+        }
+    }
+
+    /** @param  list<string>  $matches  the declared verbs the name spells: none, or more than one */
+    protected function askForVerb(array $matches): string
+    {
+        $vocabulary = array_keys($this->storyfeed()->registeredVerbs());
+
+        if ($vocabulary === []) {
+            return text(
+                label: 'Which verb does this story record?',
+                placeholder: 'E.g. publish',
+                required: true,
+                hint: 'The app declares no verbs, so any is allowed. It is stored exactly as typed.',
+            );
+        }
+
+        return (string) select(
+            label: 'Which verb does this story record?',
+            options: $vocabulary,
+            scroll: 10,
+            hint: $matches === []
+                ? 'The app\'s declared verbs. Pass --verb for one it does not declare.'
+                : 'The name spells '.$this->quoted($matches).'.',
+        );
+    }
+
     public function handle(): ?bool
     {
         // NOTE on return values: Command::execute() does `(int) handle()`, so
@@ -69,6 +137,10 @@ class StoryMakeCommand extends GeneratorCommand
 
         if (! $this->argument('name')) {
             $this->fail('Provide a name, or pass --from-doctor to scaffold from doctor\'s findings.');
+        }
+
+        if ($this->objectFromName() === null) {
+            $this->fail(class_basename($this->getNameInput()).' does not name the model the story is about. Pass --model.');
         }
 
         $result = parent::handle();
@@ -108,11 +180,7 @@ class StoryMakeCommand extends GeneratorCommand
      */
     protected function modelReference(): string
     {
-        $model = (string) ($this->option('model') ?: Str::beforeLast(class_basename($this->getNameInput()), 'Story'));
-
-        if ($model === '') {
-            return 'TODO::class';
-        }
+        $model = (string) $this->objectFromName();
 
         foreach ([$model, $this->rootNamespace().'Models\\'.Str::studly($model), $this->rootNamespace().Str::studly($model)] as $candidate) {
             if (class_exists($candidate)) {
@@ -175,58 +243,107 @@ class StoryMakeCommand extends GeneratorCommand
         $stub = parent::buildClass($name);
 
         if ($this->option('resource')) {
-            return str_replace('{{ model }}', Str::studly(class_basename((string) ($this->option('model') ?: Str::beforeLast(class_basename($name), 'Story')))), $stub);
+            return str_replace('{{ model }}', Str::studly(class_basename((string) $this->objectFromName())), $stub);
         }
 
-        $parsed = StoryName::parse($name, array_keys($this->storyfeed()->registeredVerbs()));
-
-        $verb = (string) ($this->option('verb') ?: $parsed['verb'] ?: 'TODO');
-        $object = (string) ($this->option('object') ?: $this->option('model') ?: $parsed['object'] ?: 'TODO');
-
-        $this->reportInference($name, $parsed, $verb);
+        $verb = $this->resolveVerb($name);
+        $object = (string) $this->objectFromName();
 
         $this->bindings[] = 'Story::for('.$this->objectType($object).")->verb('{$verb}', \\{$name}::class);";
 
         return str_replace(
             ['{{ headline }}', '{{ groups }}'],
-            [$this->headline($name, $verb), $this->groups($verb)],
+            [$this->headline($name, $verb), $this->groups($this->pastTense($name, $verb))],
             $stub,
         );
     }
 
     /**
-     * Say what was guessed, and how confidently.
-     *
-     * The point of generator-time inference is that a wrong guess is VISIBLE.
-     * Printing it silently would give away most of that.
-     *
-     * @param  array{object: string|null, verb: string|null}  $parsed
+     * `--verb`, else the one declared verb the name spells — which cannot be
+     * wrong, because it is only ever one the app declared. Anything else
+     * fails, naming the vocabulary; it is never guessed or left blank.
      */
-    protected function reportInference(string $name, array $parsed, string $verb): void
+    protected function resolveVerb(string $name): string
     {
         if ($this->option('verb')) {
-            return;
+            return (string) $this->option('verb');
         }
 
-        if ($parsed['object'] === null) {
-            $this->components->warn(
-                class_basename($name).' does not follow the {Object}Was{Verbed} convention, so the verb could '
-                .'not be read from it. Name it in the binding line, or pass --verb.'
-            );
+        $matches = $this->declaredVerbsInName();
 
-            return;
+        if (count($matches) === 1) {
+            $this->components->info("Bound to '{$matches[0]}', the declared verb the class name spells.");
+
+            return $matches[0];
         }
 
-        if ($parsed['verb'] === null) {
-            $this->components->warn(
-                'No declared verb matches '.class_basename($name).", so the binding line says 'TODO'. Name the verb "
-                .'there, or pass --verb. It is stored verbatim, so it is not guessed from the spelling.'
-            );
+        $vocabulary = array_keys($this->storyfeed()->registeredVerbs());
+        $base = class_basename($name);
 
-            return;
+        $this->fail(match (true) {
+            count($matches) > 1 => "{$base} spells more than one declared verb: ".$this->quoted($matches)
+                .'. Pass --verb to choose.',
+            StoryName::parse($name)['predicate'] === null => "{$base} does not follow the {Object}Was{Verbed} "
+                .'convention, so the verb cannot be read from it. Pass --verb.',
+            $vocabulary === [] => "The app declares no verbs, so the verb cannot be read from {$base}. Pass --verb.",
+            default => "No declared verb is spelled by {$base}. Pass --verb; the declared verbs are "
+                .$this->quoted($vocabulary).'.',
+        });
+    }
+
+    /** @return list<string> the declared verbs the class name spells */
+    protected function declaredVerbsInName(): array
+    {
+        return StoryName::verbsIn($this->getNameInput(), array_keys($this->storyfeed()->registeredVerbs()));
+    }
+
+    /**
+     * `--object` or `--model`, else the name's own object: the words before
+     * `Was`, or a resource class name without its `Story` suffix. Null when
+     * there is none, which interact() asks about and handle() refuses.
+     */
+    protected function objectFromName(): ?string
+    {
+        $given = $this->option('object') ?: $this->option('model');
+
+        if ($given) {
+            return (string) $given;
         }
 
-        $this->components->info("Bound to '{$verb}' — the declared verb the class name matches.");
+        $name = class_basename($this->getNameInput());
+
+        $object = $this->option('resource')
+            ? Str::beforeLast($name, 'Story')
+            : StoryName::parse($name)['object'];
+
+        return $object === '' || $object === null ? null : $object;
+    }
+
+    /**
+     * The models a story can be about: those the morph map names, those
+     * registered, and those in app/Models, that are Feedable — suggested, not enforced, since the
+     * object may be a morph alias with no class.
+     *
+     * @return list<string>
+     */
+    protected function feedableModels(): array
+    {
+        $feedables = $this->laravel->make(Feedables::class);
+
+        return collect([...array_values(Relation::morphMap()), ...$feedables->registered()])
+            ->merge(collect(glob(app_path('Models/*.php')) ?: [])->map(fn (string $file) => $this->qualifyModel(basename($file, '.php'))))
+            ->filter(fn (string $class) => class_exists($class) && $feedables->isFeedable($class))
+            ->map(fn (string $class) => ltrim($class, '\\'))
+            ->unique()
+            ->sort()
+            ->values()
+            ->all();
+    }
+
+    /** @param  array<int, string>  $verbs */
+    protected function quoted(array $verbs): string
+    {
+        return implode(', ', array_map(fn (string $verb) => "'{$verb}'", $verbs));
     }
 
     /**
@@ -241,10 +358,6 @@ class StoryMakeCommand extends GeneratorCommand
             return "'*'";
         }
 
-        if ($object === 'TODO') {
-            return 'TODO::class';
-        }
-
         foreach ([$object, $this->rootNamespace().'Models\\'.Str::studly($object), $this->rootNamespace().Str::studly($object)] as $candidate) {
             if (class_exists($candidate)) {
                 return '\\'.ltrim($candidate, '\\').'::class';
@@ -255,19 +368,22 @@ class StoryMakeCommand extends GeneratorCommand
     }
 
     /**
-     * A skeleton headline using the participle the DEVELOPER wrote in the class
-     * name — correct English by construction, unlike conjugating the imperative
-     * ('create' + 'ed' = 'createed').
-     *
-     * Still marked TODO. A generated sentence that reads plausibly is one nobody
-     * rewrites, and only taste validates prose — so the stub is deliberately
-     * obvious rather than nearly right.
+     * The past tense the DEVELOPER wrote in the class name — correct English by
+     * construction — else the verb conjugated regularly, for a name that does
+     * not follow the convention.
      */
+    protected function pastTense(string $name, string $verb): string
+    {
+        $predicate = StoryName::parse($name)['predicate'];
+
+        return $predicate !== null
+            ? Str::snake($predicate, ' ')
+            : StoryName::participle(Str::snake($verb, ' '));
+    }
+
     protected function headline(string $name, string $verb): string
     {
-        $participle = Str::of(class_basename($name))->after('Was')->snake(' ')->toString();
-
-        return ':actor '.($participle !== '' ? $participle : 'TODO '.$verb).' :object';
+        return ':actor '.$this->pastTense($name, $verb).' :object';
     }
 
     /**
@@ -275,9 +391,11 @@ class StoryMakeCommand extends GeneratorCommand
      *
      * Derived, never reasoned about: this is the same derivation doctor and the
      * coverage assertion use, so a generated stub cannot suggest a token the
-     * axis fails to pin — which is the documented lie class, generated.
+     * axis fails to pin — which is the documented lie class, generated. Each
+     * headline says `:actor` and `:object` where the axis pins them and the
+     * plural forms where it doesn't, with every pinned token listed above it.
      */
-    protected function groups(string $verb): string
+    protected function groups(string $pastTense): string
     {
         $storyfeed = $this->storyfeed();
 
@@ -307,10 +425,14 @@ class StoryMakeCommand extends GeneratorCommand
                 default => "on('{$axis}')",
             };
 
-            // EVERY allowed token, not an arbitrary few: the developer deletes
-            // what they do not want, and a short slice would look like a
-            // considered choice while hiding the rest of the vocabulary.
-            $lines[] = "            Group::{$constructor}->headline('TODO ".implode(' ', $tokens)."'),";
+            // EVERY allowed token, not an arbitrary few: a short slice would
+            // look like a considered choice while hiding the rest.
+            $headline = (in_array(':actor', $tokens, true) ? ':actor' : ':actors')
+                ." {$pastTense} "
+                .(in_array(':object', $tokens, true) ? ':object' : ':objects');
+
+            $lines[] = '            // Pinned: '.implode(' ', $tokens);
+            $lines[] = "            Group::{$constructor}->headline('{$headline}'),";
         }
 
         return $lines === []
@@ -327,8 +449,8 @@ class StoryMakeCommand extends GeneratorCommand
     protected function getOptions(): array
     {
         return [
-            ['verb', null, InputOption::VALUE_OPTIONAL, 'The stored verb (default: the declared verb the class name matches)'],
-            ['object', null, InputOption::VALUE_OPTIONAL, "The object model or morph alias, or '*' for object-less"],
+            ['verb', null, InputOption::VALUE_OPTIONAL, 'The stored verb (default: the declared verb the class name spells, else asked)'],
+            ['object', null, InputOption::VALUE_OPTIONAL, "The object model or morph alias, or '*' for object-less (default: the class name's, else asked)"],
             ['resource', 'r', InputOption::VALUE_NONE, 'Write a resource Story class: one method per verb'],
             ['model', 'm', InputOption::VALUE_OPTIONAL, 'The model the story is about (the resource binding, or the object)'],
             ['axes', null, InputOption::VALUE_OPTIONAL, 'Comma-separated axes to pre-fill (default: all that apply)'],
