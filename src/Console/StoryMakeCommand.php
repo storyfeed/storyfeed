@@ -71,6 +71,9 @@ class StoryMakeCommand extends GeneratorCommand
     /** The select() answer that writes the headline commented, as without a terminal */
     protected const LEAVE_COMMENTED = 'None of these — leave the headline commented';
 
+    /** The --from-doctor select() answer that writes no class for the verb */
+    protected const SKIP = 'Skip this one';
+
     /**
      * Ask for what the name does not settle. Runs only with a terminal, so
      * scripted use goes straight to handle(), which fails instead.
@@ -236,12 +239,26 @@ class StoryMakeCommand extends GeneratorCommand
             return;
         }
 
+        $skipped = [];
+
         foreach ($findings as $finding) {
             /** @var Finding $finding */
             $type = $finding->subject['type'];
             $verb = (string) $finding->subject['verb'];
 
-            $name = Str::studly((string) ($type ?? 'Something')).'Was'.Str::studly(StoryName::participle($verb));
+            // The class name spells the past tense, and the headline reads it
+            // back from the name, so an uncertain one (`ship`) is asked, as
+            // make:story asks for one class, or else skipped — never guessed
+            // into a file called DeliveryWasShiped.
+            $past = $this->certainPastTense($verb) ?? $this->askForDoctorPastTense($verb);
+
+            if ($past === null) {
+                $skipped[] = [$type, $verb];
+
+                continue;
+            }
+
+            $name = Str::studly((string) ($type ?? 'Something')).'Was'.Str::studly($past);
 
             $this->input->setArgument('name', $name);
             $this->input->setOption('verb', $verb);
@@ -250,9 +267,40 @@ class StoryMakeCommand extends GeneratorCommand
             parent::handle();
         }
 
+        if ($skipped !== []) {
+            $this->newLine();
+            $this->components->warn('Skipped, because the past tense cannot be spelled for certain. '
+                .'Run make:story for each, naming the class with the right spelling:');
+
+            foreach ($skipped as [$type, $verb]) {
+                $this->line("    php artisan make:story --verb={$verb} --object=".($type === null ? "'*'" : $type));
+            }
+        }
+
         $this->newLine();
         $this->components->info('Review the generated verbs and headlines — the class names were derived from the '
             .'recorded pairs, so a few will read awkwardly.');
+    }
+
+    /**
+     * For `--from-doctor`: how a verb with no certain past tense is spelled,
+     * asked once per verb, or null to skip it — always null without a terminal.
+     */
+    protected function askForDoctorPastTense(string $verb): ?string
+    {
+        if (! $this->input->isInteractive()) {
+            return null;
+        }
+
+        $words = Str::snake($verb, ' ');
+
+        $answer = (string) select(
+            label: "How is '{$words}' written in the past tense?",
+            options: [...StoryName::pastTenseCandidates($words), self::SKIP],
+            hint: 'The class is named with it, and its headline says it.',
+        );
+
+        return $answer === self::SKIP ? null : $answer;
     }
 
     protected function getStub(): string

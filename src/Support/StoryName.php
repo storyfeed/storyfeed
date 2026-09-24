@@ -182,8 +182,9 @@ class StoryName
     }
 
     /**
-     * The past participle of an imperative — for building a class name FROM a
-     * recorded verb (`--from-doctor`).
+     * The regular past participle of an imperative: one guess, which may be
+     * wrong (`ship` → `shiped`). Nothing prints it without asking; a name or a
+     * headline built from a recorded verb goes through `certainParticiple()`.
      *
      * Only the easy direction is attempted, because only the easy direction is
      * decidable: appending is regular where stripping is not.

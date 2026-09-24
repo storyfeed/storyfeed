@@ -360,6 +360,43 @@ it('scaffolds one story per unauthored pair doctor actually found', function () 
         ->and(bindingIn($output))->toBe("Story::for('delivery')->verb('archive', \\App\\Stories\\DeliveryWasArchived::class);");
 });
 
+it('skips a verb doctor found whose past tense is not certain, and names the command for it', function () {
+    // `ship` once became DeliveryWasShiped.php, and its headline read the
+    // misspelling back out of the name.
+    Storyfeed::activity('ship', Delivery::create(['tracking_number' => 'TN-1']))->publish();
+    Storyfeed::activity('archive', Delivery::create(['tracking_number' => 'TN-2']))->publish();
+
+    $output = makeStory(['--from-doctor' => true]);
+
+    expect(storyPath('DeliveryWasArchived'))->toBeFile()
+        ->and(glob(app()->path('Stories/DeliveryWasShip*.php')))->toBe([])
+        ->and($output)->toContain('php artisan make:story --verb=ship --object=delivery')
+        ->and($output)->not->toContain('Shiped');
+});
+
+it('asks how to spell a verb doctor found, and names the class with the answer', function () {
+    Storyfeed::activity('ship', Delivery::create(['tracking_number' => 'TN-1']))->publish();
+
+    $this->artisan('make:story', ['--from-doctor' => true])
+        ->expectsChoice("How is 'ship' written in the past tense?", 'shipped', ['shiped', 'shipped', 'Skip this one'])
+        ->assertSuccessful();
+
+    expect(file_get_contents(storyPath('DeliveryWasShipped')))
+        ->toContain("return ':actor shipped :object';")
+        ->not->toContain('shiped');
+});
+
+it('writes nothing for a verb skipped at the prompt', function () {
+    Storyfeed::activity('ship', Delivery::create(['tracking_number' => 'TN-1']))->publish();
+
+    $this->artisan('make:story', ['--from-doctor' => true])
+        ->expectsChoice("How is 'ship' written in the past tense?", 'Skip this one', ['shiped', 'shipped', 'Skip this one'])
+        ->expectsOutputToContain('php artisan make:story --verb=ship --object=delivery')
+        ->assertSuccessful();
+
+    expect(glob(app()->path('Stories/*.php')))->toBe([]);
+});
+
 it('says so when there is nothing to scaffold', function () {
     $this->artisan('make:story', ['--from-doctor' => true])
         ->expectsOutputToContain('Nothing to scaffold')
