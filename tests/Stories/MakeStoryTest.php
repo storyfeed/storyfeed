@@ -370,8 +370,41 @@ it('skips a verb doctor found whose past tense is not certain, and names the com
 
     expect(storyPath('DeliveryWasArchived'))->toBeFile()
         ->and(glob(app()->path('Stories/DeliveryWasShip*.php')))->toBe([])
-        ->and($output)->toContain('php artisan make:story --verb=ship --object=delivery')
-        ->and($output)->not->toContain('Shiped');
+        ->and($output)->toContain('php artisan make:story DeliveryWasShipped --verb=ship --object=delivery')
+        ->and($output)->toContain('php artisan make:story DeliveryWasShiped --verb=ship --object=delivery');
+});
+
+it('prints, for a skipped verb, commands that each run exactly as printed', function () {
+    // The line once omitted the class name and failed as printed with
+    // "Provide a name". Skipping only happens without a terminal, so the
+    // line has to run without one too.
+    Storyfeed::activity('ship', Delivery::create(['tracking_number' => 'TN-1']))->publish();
+
+    preg_match_all('/^\s*php artisan (make:story .+)$/m', makeStory(['--from-doctor' => true]), $commands);
+
+    expect($commands[1])->toHaveCount(2);
+
+    foreach ($commands[1] as $command) {
+        expect(Artisan::call($command.' --no-interaction'))->toBe(0);
+    }
+
+    expect(file_get_contents(storyPath('DeliveryWasShipped')))->toContain("return ':actor shipped :object';")
+        ->and(file_get_contents(storyPath('DeliveryWasShiped')))->toContain("return ':actor shiped :object';");
+});
+
+it('prints where to bind what it wrote before asking for a review of it', function () {
+    Storyfeed::activity('archive', Delivery::create(['tracking_number' => 'TN-1']))->publish();
+
+    $output = makeStory(['--from-doctor' => true]);
+
+    expect(strpos($output, 'Bind it in routes/feed.php'))->toBeLessThan(strpos($output, 'Review the generated'));
+});
+
+it('asks for no review when it wrote nothing', function () {
+    Storyfeed::activity('ship', Delivery::create(['tracking_number' => 'TN-1']))->publish();
+
+    expect(makeStory(['--from-doctor' => true]))->not->toContain('Review the generated')
+        ->not->toContain('Bind it in');
 });
 
 it('asks how to spell a verb doctor found, and names the class with the answer', function () {
@@ -391,7 +424,7 @@ it('writes nothing for a verb skipped at the prompt', function () {
 
     $this->artisan('make:story', ['--from-doctor' => true])
         ->expectsChoice("How is 'ship' written in the past tense?", 'Skip this one', ['shiped', 'shipped', 'Skip this one'])
-        ->expectsOutputToContain('php artisan make:story --verb=ship --object=delivery')
+        ->expectsOutputToContain('php artisan make:story DeliveryWasShipped --verb=ship --object=delivery')
         ->assertSuccessful();
 
     expect(glob(app()->path('Stories/*.php')))->toBe([]);

@@ -165,7 +165,6 @@ class StoryMakeCommand extends GeneratorCommand
         // fail() for real failures rather than relying on that inversion.
         if ($this->option('from-doctor')) {
             $this->fromDoctor();
-            $this->printBindings();
 
             return null;
         }
@@ -258,28 +257,50 @@ class StoryMakeCommand extends GeneratorCommand
                 continue;
             }
 
-            $name = Str::studly((string) ($type ?? 'Something')).'Was'.Str::studly($past);
-
-            $this->input->setArgument('name', $name);
+            $this->input->setArgument('name', $this->doctorClassName($type, $past));
             $this->input->setOption('verb', $verb);
             $this->input->setOption('object', $type ?? '*');
 
             parent::handle();
         }
 
-        if ($skipped !== []) {
-            $this->newLine();
-            $this->components->warn('Skipped, because the past tense cannot be spelled for certain. '
-                .'Run make:story for each, naming the class with the right spelling:');
+        $this->printBindings();
 
-            foreach ($skipped as [$type, $verb]) {
-                $this->line("    php artisan make:story --verb={$verb} --object=".($type === null ? "'*'" : $type));
-            }
+        if ($this->bindings !== []) {
+            $this->components->info('Review the generated verbs and headlines — the class names were derived from the '
+                .'recorded pairs, so a few will read awkwardly.');
         }
 
-        $this->newLine();
-        $this->components->info('Review the generated verbs and headlines — the class names were derived from the '
-            .'recorded pairs, so a few will read awkwardly.');
+        if ($skipped === []) {
+            return;
+        }
+
+        // Skipping only happens without a terminal, so each line must run
+        // without one too: a complete command per spelling, name included,
+        // since the name is where the spelling lives. Pick the right line.
+        $this->components->warn('Skipped, because the past tense cannot be spelled for certain. '
+            .'Run the line with the right spelling:');
+
+        foreach ($skipped as [$type, $verb]) {
+            foreach (StoryName::pastTenseCandidates(Str::snake($verb, ' ')) as $past) {
+                $this->line('    php artisan make:story '.$this->doctorClassName($type, $past)
+                    .' --verb='.$this->shellArgument($verb).' --object='.$this->shellArgument($type ?? '*'));
+            }
+
+            $this->newLine();
+        }
+    }
+
+    /** `{Object}Was{Verbed}`, the name make:story reads the verb and headline back from */
+    protected function doctorClassName(?string $type, string $past): string
+    {
+        return Str::studly(class_basename($type ?? 'Something')).'Was'.Str::studly($past);
+    }
+
+    /** Quoted only where a shell would otherwise eat it: `'*'`, or a class name's backslashes */
+    protected function shellArgument(string $value): string
+    {
+        return preg_match('/^[\w.:-]+$/', $value) === 1 ? $value : "'{$value}'";
     }
 
     /**

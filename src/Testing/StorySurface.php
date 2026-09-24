@@ -51,22 +51,35 @@ class StorySurface
             'The surface check could not run, so surface coverage proves nothing: '.$failed?->message,
         );
 
-        // An unaliased Feedable fails with the unwired ones: it cannot appear
-        // in the feed either, and a publish that tried would throw.
-        $findings = $report
-            ->withCode('surface.unwired')
-            ->merge($report->withCode('surface.unaliased'))
-            ->reject(fn (Finding $finding) => in_array($finding->subject['model'] ?? null, $except, true));
+        $excepted = fn (Finding $finding) => in_array($finding->subject['model'] ?? null, $except, true);
 
-        Assert::assertTrue(
-            $findings->isEmpty(),
-            "Feed surface is declared but never appears in the feed:\n  - "
-            .$findings->map(fn (Finding $f) => (string) ($f->subject['model'] ?? '?'))->implode("\n  - ")
-            ."\n\nEither something should be publishing about it, or pass it in \$except if it is deliberately "
-            .'absent. Note `Feedable` means the model APPEARS in the feed — publishing from an Action class '
-            ."elsewhere is fine, and satisfies this as soon as the model appears in any role.\n"
-            .'(A module that never touches Storyfeed at all is invisible to Storyfeed — this only sees surface '
-            .'that declared itself part of the feed.)',
-        );
+        $unwired = $report->withCode('surface.unwired')->reject($excepted);
+
+        // An unaliased Feedable fails with the unwired ones: it cannot appear
+        // in the feed either, and a publish that tried would throw. It gets
+        // its own heading and doctor's own words, because "never appears"
+        // sends the reader looking for a missing publish when the fix is an
+        // alias.
+        $unaliased = $report->withCode('surface.unaliased')->reject($excepted);
+
+        $sections = [];
+
+        if ($unwired->isNotEmpty()) {
+            $sections[] = "Feed surface is declared but never appears in the feed:\n  - "
+                .$unwired->map(fn (Finding $f) => (string) ($f->subject['model'] ?? '?'))->implode("\n  - ")
+                ."\n\nEither something should be publishing about it, or pass it in \$except if it is deliberately "
+                .'absent. Note `Feedable` means the model APPEARS in the feed — publishing from an Action class '
+                ."elsewhere is fine, and satisfies this as soon as the model appears in any role.\n"
+                .'(A module that never touches Storyfeed at all is invisible to Storyfeed — this only sees surface '
+                .'that declared itself part of the feed.)';
+        }
+
+        if ($unaliased->isNotEmpty()) {
+            $sections[] = "Feed surface has no morph alias, so it cannot be published (surface.unaliased):\n  - "
+                .$unaliased->map(fn (Finding $f) => $f->message)->implode("\n  - ")
+                ."\n\nOr pass it in \$except if it is never meant to appear.";
+        }
+
+        Assert::assertTrue($sections === [], implode("\n\n", $sections));
     }
 }

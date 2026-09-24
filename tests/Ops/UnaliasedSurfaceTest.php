@@ -94,7 +94,13 @@ it('fails the surface assertion on an unaliased Feedable, unless excepted', func
         StorySurface::assertNoUnwiredSurface(except: [User::class, Customer::class, Courier::class, Stray::class]);
         $this->fail('Expected the unaliased Feedable to be reported.');
     } catch (AssertionFailedError $e) {
-        expect($e->getMessage())->toContain(ScaleCustomer::class);
+        // Named as the alias problem it is, in doctor's words, not as a model
+        // nothing publishes about: the fix is an alias, not a publish.
+        expect($e->getMessage())->toContain(ScaleCustomer::class)
+            ->toContain('surface.unaliased')
+            ->toContain('ClassMorphViolationException')
+            ->toContain('getMorphClass()')
+            ->not->toContain('never appears in the feed');
     }
 
     StorySurface::assertNoUnwiredSurface(except: [User::class, Customer::class, Courier::class, Stray::class, ScaleCustomer::class]);
