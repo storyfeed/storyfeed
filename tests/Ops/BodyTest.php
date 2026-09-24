@@ -1,9 +1,12 @@
 <?php
 
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;
 use Storyfeed\Contracts\FeedBody;
+use Storyfeed\Diagnostics\Checks\Body;
 use Storyfeed\Diagnostics\Severity;
 use Storyfeed\Facades\Storyfeed;
+use Storyfeed\FeedChange;
 use Storyfeed\FeedThread;
 use Storyfeed\Models\Snapshot;
 use Workbench\App\Models\Customer;
@@ -107,6 +110,32 @@ it('does not mistake core’s own reserved key for a broken detail', function ()
         ->publish();
 
     expect(Storyfeed::doctor(['body'])->all())->toBeEmpty();
+});
+
+it('does not mistake a revision’s change envelope for a broken detail', function () {
+    // `$change` is core's too, and carries a `$v` and no `$body` the same way.
+    recordWithData(FeedChange::make(['Status' => ['Draft', 'Ready']])->toData());
+
+    expect(Storyfeed::doctor(['body'])->all())->toBeEmpty();
+});
+
+it('steps over every core envelope that carries a version of its own', function () {
+    // The next core-owned key with a `$v` would otherwise be reported as a
+    // broken body on every row that has it, the way `$change` was.
+    $owned = collect(File::allFiles(dirname(__DIR__, 2).'/src'))
+        ->map(fn ($file) => 'Storyfeed\\'.str_replace(['/', '.php'], ['\\', ''], $file->getRelativePathname()))
+        ->filter(fn (string $class) => class_exists($class) || interface_exists($class))
+        ->filter(fn (string $class) => defined("{$class}::KEY") && defined("{$class}::VERSION"))
+        ->map(fn (string $class) => constant("{$class}::KEY"))
+        // A body is what the walk is looking for, not something to step over.
+        ->reject(fn (string $key) => $key === FeedBody::KEY)
+        ->unique()
+        ->values();
+
+    $reserved = (new ReflectionClassConstant(Body::class, 'RESERVED'))->getValue();
+
+    expect($owned)->toContain(FeedThread::KEY, FeedChange::KEY)
+        ->and(array_diff($owned->all(), $reserved))->toBe([]);
 });
 
 it('reports rows with no version as a fact, because a missing version IS version 1', function () {

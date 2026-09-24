@@ -574,6 +574,11 @@
 
 ### Fixed
 
+- **The doctor's `body` check no longer reports a revision as a broken body.**
+  Core's `$change` envelope carries a `$v` and no `$body`, as `$thread` does,
+  and the check stepped over only `$thread`: every activity recorded with a
+  `FeedChange` was reported as `body.untokenized`.
+
 - **The doctor's `surface` and `hydration` checks report a Feedable model
   that has no morph alias, instead of failing on it.** Under
   `Relation::enforceMorphMap()`, one unaliased Feedable (typically a
