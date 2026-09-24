@@ -1,8 +1,11 @@
 <?php
 
 use PHPUnit\Framework\AssertionFailedError;
+use Storyfeed\Facades\Story;
 use Storyfeed\Facades\Storyfeed;
 use Storyfeed\Grouping\Axis;
+use Storyfeed\Grouping\Group;
+use Storyfeed\Grouping\GroupBuilder;
 use Storyfeed\StoryfeedManager;
 use Storyfeed\Testing\GrammarCoverage;
 use Workbench\App\Models\Customer;
@@ -91,6 +94,80 @@ it('replaces a hand-partitioned matrix with one derived assertion', function () 
     GrammarCoverage::assertCoversPossibleAggregates();
 });
 
+it('sees group headlines filed under a type, the way a Story class writes them', function () {
+    Storyfeed::fake();
+
+    $user = User::create(['name' => 'Sally', 'email' => 'sally@example.com']);
+
+    Storyfeed::activity()->actor($user)->verb('upload', Delivery::create(['tracking_number' => 'TN-1']))->publish();
+
+    // What the docs teach first: the type's own headlines on the type, and
+    // the grouping across types on the verb, worded so it names no type.
+    Story::for(Delivery::class)->verb('upload')->headline(':actor uploaded :object')
+        ->grouped(fn (GroupBuilder $group) => $group
+            ->repeat(':actor uploaded :count deliveries')
+            ->object(':actor uploaded :object :count times'));
+    Story::verb('upload')->grouped(Group::byTargets()->headline(':actor uploaded :objects to :targets'));
+
+    GrammarCoverage::assertCoversPossibleAggregates();
+});
+
+it('sees them reading from the table too, without a fake', function () {
+    $user = User::create(['name' => 'Sally', 'email' => 'sally@example.com']);
+
+    Storyfeed::activity()->actor($user)->verb('upload', Delivery::create(['tracking_number' => 'TN-1']))->publish();
+
+    Story::for(Delivery::class)->verb('upload')
+        ->grouped(fn (GroupBuilder $group) => $group
+            ->repeat(':actor uploaded :count deliveries')
+            ->object(':actor uploaded :object :count times'));
+    Story::verb('upload')->grouped(Group::byTargets()->headline(':actor uploaded :objects to :targets'));
+
+    GrammarCoverage::assertCoversPossibleAggregates();
+});
+
+it('does not let one type\'s group headline stand in for another\'s', function () {
+    Storyfeed::fake();
+
+    $user = User::create(['name' => 'Sally', 'email' => 'sally@example.com']);
+
+    Storyfeed::activity()->actor($user)->verb('upload', Delivery::create(['tracking_number' => 'TN-1']))->publish();
+    Storyfeed::activity()->actor($user)->verb('upload', Customer::create(['name' => 'Acme Co.']))->publish();
+
+    Story::for(Delivery::class)->verb('upload')
+        ->grouped(fn (GroupBuilder $group) => $group
+            ->repeat(':actor uploaded :count deliveries')
+            ->object(':actor uploaded :object :count times'));
+    Story::verb('upload')->grouped(Group::byTargets()->headline(':actor uploaded :objects to :targets'));
+
+    try {
+        GrammarCoverage::assertCoversPossibleAggregates();
+        $this->fail('Expected the coverage assertion to fail.');
+    } catch (AssertionFailedError $e) {
+        expect($e->getMessage())
+            ->toContain('repeat.customer.upload (no aggregate headline)')
+            ->toContain('object.customer.upload (no aggregate headline)')
+            ->not->toContain('delivery.upload')
+            ->not->toContain('targets.upload');
+    }
+});
+
+it('checks a matrix per object type when given the types', function () {
+    Story::for(Delivery::class)->verb('upload')
+        ->grouped(Group::repeat()->headline(':actor uploaded :count deliveries'));
+    Story::verb('upload')->grouped(Group::byTargets()->headline(':actor uploaded :objects to :targets'));
+
+    GrammarCoverage::assertCoversAggregateMatrix(['repeat', 'targets'], ['upload'], objectTypes: [Delivery::class]);
+
+    try {
+        GrammarCoverage::assertCoversAggregateMatrix(['repeat', 'targets'], ['upload'], objectTypes: [Delivery::class, 'customer']);
+        $this->fail('Expected the coverage assertion to fail.');
+    } catch (AssertionFailedError $e) {
+        expect($e->getMessage())->toContain('repeat.customer.upload (no aggregate headline)')
+            ->not->toContain('targets.');
+    }
+});
+
 it('fails naming the missing cells, and names what it could not check', function () {
     Storyfeed::fake();
 
@@ -106,7 +183,8 @@ it('fails naming the missing cells, and names what it could not check', function
     } catch (AssertionFailedError $e) {
         expect($e->getMessage())
             ->toContain('targets.upload (no aggregate headline)')
-            ->toContain('object.upload (no aggregate headline)')
+            // The object axis pins the type, so the missing key is the type's own.
+            ->toContain('object.delivery.upload (no aggregate headline)')
             // Points at the command that prints the fix.
             ->toContain('storyfeed:doctor --stubs')
             // States its own limit rather than implying completeness.

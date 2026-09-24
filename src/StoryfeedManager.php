@@ -2509,12 +2509,14 @@ class StoryfeedManager
 
     public function aggregateTemplateKey(?string $axis, string $verb, ?string $objectType = null): ?string
     {
+        // Compiled FIRST: a type's group headline exists only once its Story
+        // compiles, so asking before that saw no `axis.type.verb` key at all.
+        $this->ensureStoriesCompiled();
+
         if (($qualified = self::qualifiedKey($axis, $verb, $objectType)) !== "\0"
             && isset($this->aggregateGrammar[$qualified])) {
             return $qualified;
         }
-
-        $this->ensureStoriesCompiled();
 
         return $this->resolveKey($this->aggregateGrammar, $axis, $verb);
     }

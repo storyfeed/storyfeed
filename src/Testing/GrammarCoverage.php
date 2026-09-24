@@ -2,6 +2,7 @@
 
 namespace Storyfeed\Testing;
 
+use Illuminate\Database\Eloquent\Model;
 use PHPUnit\Framework\Assert;
 use Storyfeed\Models\Activity;
 use Storyfeed\Models\Grouping;
@@ -220,22 +221,40 @@ class GrammarCoverage
      *       verbs: ['upload', 'comment', 'approve'],
      *   );
      *
+     * Group headlines written in a Story class are filed under its type
+     * (`repeat.order.place`), so name the types too, and each axis that pins
+     * the object type is checked once per type:
+     *
+     *   GrammarCoverage::assertCoversAggregateMatrix(
+     *       axes: ['repeat', 'actors'],
+     *       verbs: ['place'],
+     *       objectTypes: [Order::class, Reservation::class],
+     *   );
+     *
      * @param  array<int, string>  $axes
      * @param  array<int, string>  $verbs
+     * @param  array<int, string>  $objectTypes  morph aliases or model classes
      */
-    public static function assertCoversAggregateMatrix(array $axes, array $verbs, bool $allowWildcard = false): void
+    public static function assertCoversAggregateMatrix(array $axes, array $verbs, bool $allowWildcard = false, array $objectTypes = []): void
     {
         Assert::assertNotEmpty($axes, 'No axes given, so aggregate matrix coverage proves nothing.');
         Assert::assertNotEmpty($verbs, 'No verbs given, so aggregate matrix coverage proves nothing.');
 
         $storyfeed = app(StoryfeedManager::class);
 
+        $types = array_map(
+            fn (string $type) => class_exists($type) && is_subclass_of($type, Model::class) ? (new $type)->getMorphClass() : $type,
+            $objectTypes,
+        );
+
         $missing = [];
 
         foreach ($axes as $axis) {
             foreach ($verbs as $verb) {
-                if (! self::covered($storyfeed->aggregateTemplateKey($axis, $verb), $allowWildcard)) {
-                    $missing[] = "{$axis}.{$verb} (no aggregate headline)";
+                foreach ($types !== [] && $storyfeed->pinsType($axis, 'object') ? $types : [null] as $type) {
+                    if (! self::covered($storyfeed->aggregateTemplateKey($axis, $verb, $type), $allowWildcard)) {
+                        $missing[] = ($type === null ? "{$axis}.{$verb}" : "{$axis}.{$type}.{$verb}").' (no aggregate headline)';
+                    }
                 }
             }
         }
@@ -296,11 +315,30 @@ class GrammarCoverage
             .'(Closure-recipe and row-backed axes are excluded — their applicability is not derivable.)',
         );
 
+        $types = $storyfeed instanceof StoryfeedFake
+            ? self::objectTypesByVerb($storyfeed->recordedPairs())
+            : self::recordedObjectTypesFromDatabase();
+
         $missing = [];
 
+        /*
+         * PER OBJECT TYPE where the axis pins it, as assertCoversAggregates()
+         * does: a Story class files its group headlines under its type
+         * (`repeat.order.place`), so asking for the verb alone misses them and
+         * fails an app on grammar it has. And one type's headline says nothing
+         * about another's — `repeat.order.place` does not cover reservations.
+         */
         foreach ($pairs as [$axis, $verb]) {
-            if (! self::covered($storyfeed->aggregateTemplateKey($axis, $verb), $allowWildcard)) {
-                $missing[] = "{$axis}.{$verb} (no aggregate headline)";
+            $objectTypes = $storyfeed->pinsType($axis, 'object') ? ($types[$verb] ?? [null]) : [null];
+
+            foreach ($objectTypes as $objectType) {
+                if (self::covered($storyfeed->aggregateTemplateKey($axis, $verb, $objectType), $allowWildcard)) {
+                    continue;
+                }
+
+                $key = $objectType === null ? "{$axis}.{$verb}" : "{$axis}.{$objectType}.{$verb}";
+
+                $missing[] = "{$key} (no aggregate headline)";
             }
         }
 
@@ -353,6 +391,36 @@ class GrammarCoverage
             fn (array $roles) => array_values(array_filter(array_keys($roles), 'is_string')),
             $map,
         );
+    }
+
+    /**
+     * @param  array<int, array{0: string|null, 1: string}>  $pairs
+     * @return array<string, list<string|null>>
+     */
+    protected static function objectTypesByVerb(array $pairs): array
+    {
+        $map = [];
+
+        foreach ($pairs as [$type, $verb]) {
+            $map[$verb][] = $type;
+        }
+
+        return array_map(fn (array $types) => array_values(array_unique($types, SORT_REGULAR)), $map);
+    }
+
+    /**
+     * @return array<string, list<string|null>>
+     */
+    protected static function recordedObjectTypesFromDatabase(): array
+    {
+        $model = config('storyfeed.models.activity', Activity::class);
+
+        return self::objectTypesByVerb($model::query()
+            ->distinct()
+            ->toBase()
+            ->get(['object_type', 'verb'])
+            ->map(fn ($row) => [$row->object_type === null ? null : (string) $row->object_type, (string) $row->verb])
+            ->all());
     }
 
     /**

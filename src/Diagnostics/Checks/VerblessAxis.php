@@ -2,6 +2,7 @@
 
 namespace Storyfeed\Diagnostics\Checks;
 
+use Illuminate\Support\Str;
 use Storyfeed\Diagnostics\Finding;
 use Storyfeed\Diagnostics\Fix;
 use Storyfeed\Grouping\Axis;
@@ -116,7 +117,7 @@ class VerblessAxis extends Check
             .'first. This sentence renders over members that did something else'
             .($agnostic === null ? '' : ", or `{$agnostic}` renders instead, depending on the head")
             .'. Add `v` to the recipe if the key is meant literally; otherwise say it once, verb-agnostically.',
-            ['key' => $key, 'axis' => $axis->name, 'verb' => explode('.', $key, 2)[1]],
+            ['key' => $key, 'axis' => $axis->name, 'verb' => Str::afterLast($key, '.')],
         );
     }
 
@@ -129,7 +130,8 @@ class VerblessAxis extends Check
         $keys = [];
 
         foreach (array_keys($grammar) as $key) {
-            [$on, $verb] = array_pad(explode('.', (string) $key, 2), 2, '*');
+            // `axis.verb`, or `axis.type.verb` for a type's own headline.
+            [$on, $verb] = [Str::before((string) $key, '.'), str_contains((string) $key, '.') ? Str::afterLast((string) $key, '.') : '*'];
 
             if ($on === $axis && $verb !== '*') {
                 $keys[] = (string) $key;

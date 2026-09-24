@@ -121,3 +121,12 @@ it('reports the axis the moment it is registered, before anything has grouped', 
         // traffic-dependent check on the same subject has nothing to say.
         ->and(Storyfeed::doctor(['aggregates'])->has('aggregates.missing'))->toBeFalse();
 });
+
+it('reads the verb from a type\'s own key, not the type', function () {
+    Storyfeed::axes([photoAxis()]);
+    Storyfeed::aggregateGrammar(['photo.delivery.upload' => ':count photos uploaded']);
+
+    $finding = Storyfeed::doctor(['axes'])->withCode('axes.verbless_per_verb_grammar')->first();
+
+    expect($finding->subject)->toBe(['key' => 'photo.delivery.upload', 'axis' => 'photo', 'verb' => 'upload']);
+});

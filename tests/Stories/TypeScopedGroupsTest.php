@@ -219,3 +219,12 @@ it('keeps an object-less one-verb class on axis.verb', function () {
 
     expect(Storyfeed::registeredAggregateGrammar())->toHaveKey('actors.sweep');
 });
+
+it('finds a type\'s group headline when the key is the first thing asked', function () {
+    // The qualified key was looked up before the stories compiled, so a
+    // coverage tool asking first was told the type had no headline.
+    Story::for(Delivery::class)->verb('ship')
+        ->grouped(Group::repeat()->headline(':actor shipped :count deliveries'));
+
+    expect(Storyfeed::aggregateTemplateKey('repeat', 'ship', 'delivery'))->toBe('repeat.delivery.ship');
+});
