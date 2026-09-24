@@ -2,7 +2,9 @@
 
 namespace Storyfeed\Diagnostics\Checks;
 
+use Illuminate\Database\ClassMorphViolationException;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Schema;
 use Storyfeed\Contracts\DiagnosticCheck;
 use Storyfeed\Models\Activity;
@@ -68,6 +70,28 @@ abstract class Check implements DiagnosticCheck
         }
 
         return array_values(array_unique($aliases));
+    }
+
+    /**
+     * The alias a model class stores under, or null when it cannot store at all.
+     *
+     * NULL, NOT A THROW. Under `Relation::enforceMorphMap()` a model missing
+     * from the map throws on getMorphClass(), and one such class used to take
+     * a whole check down with it: an app with a probe subclass that is aliased
+     * only while it runs (`ScaleProject extends Project`) got `surface` and
+     * `hydration` reported as failed, on every run, telling it nothing about
+     * any of its other models. The class is a fact to report, once, by the
+     * check that owns it (`surface.unaliased`) — not a reason to stop looking.
+     *
+     * @param  class-string<Model>  $class
+     */
+    protected function aliasFor(string $class): ?string
+    {
+        try {
+            return (new $class)->getMorphClass();
+        } catch (ClassMorphViolationException) {
+            return null;
+        }
     }
 
     protected function lengthExpression(string $column): string

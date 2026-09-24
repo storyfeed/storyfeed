@@ -2,6 +2,8 @@
 
 namespace Storyfeed\Diagnostics\Checks;
 
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\Relation;
 use Storyfeed\Diagnostics\Finding;
 use Storyfeed\StoryfeedManager;
 use Storyfeed\Support\SurfaceScanner;
@@ -62,6 +64,42 @@ class UnwiredSurface extends Check
         return implode(', ', $shown).($rest > 0 ? ", and {$rest} more" : '');
     }
 
+    /**
+     * A Feedable the enforced morph map has no alias for.
+     *
+     * WARNING, because the contradiction is sharper than `unwired`: the model
+     * declares it appears in the feed, and anything publishing about it throws
+     * ClassMorphViolationException at write time. The usual shape is a subclass
+     * of an aliased model — a probe, a decorator, single-table inheritance —
+     * and Laravel's answer for that is to return the parent's alias from
+     * getMorphClass(), so the finding names the parent's alias when there is
+     * one rather than only saying "add an alias".
+     *
+     * @param  class-string<Model>  $model
+     */
+    protected function unaliased(string $model): Finding
+    {
+        $map = Relation::morphMap();
+        $parent = get_parent_class($model);
+
+        while ($parent !== false && array_search($parent, $map, true) === false) {
+            $parent = get_parent_class($parent);
+        }
+
+        $inherited = $parent === false ? null : array_search($parent, $map, true);
+
+        return Finding::warning(
+            'surface.unaliased',
+            "[{$model}] implements Feedable, but the morph map is enforced and has no alias for it, so publishing "
+            .'anything that names it throws ClassMorphViolationException. '
+            .(is_string($inherited)
+                ? "It extends [{$parent}], stored as `{$inherited}`: return `{$inherited}` from its getMorphClass() "
+                    .'if it should appear as that, or give it an alias of its own in Relation::enforceMorphMap().'
+                : 'Give it an alias in Relation::enforceMorphMap().'),
+            ['model' => $model, 'inherits' => is_string($inherited) ? $inherited : null],
+        );
+    }
+
     public function run(StoryfeedManager $storyfeed): iterable
     {
         $faked = $storyfeed instanceof StoryfeedFake;
@@ -71,6 +109,30 @@ class UnwiredSurface extends Check
         }
 
         $surface = $this->scanner->scan();
+
+        /** @var array<class-string, string> $aliases model => the alias it stores under */
+        $aliases = [];
+
+        foreach ($surface['feedable'] as $model) {
+            // The scan admits any instantiable Feedable; only a model has an
+            // alias to look for in the activities.
+            if (! is_a($model, Model::class, true)) {
+                continue;
+            }
+
+            $alias = $this->aliasFor($model);
+
+            if ($alias !== null) {
+                $aliases[$model] = $alias;
+
+                continue;
+            }
+
+            // BEFORE THE EVIDENCE GUARD, because it needs none: a Feedable the
+            // enforced morph map cannot name throws on the first publish that
+            // mentions it, in any role, whatever the table holds.
+            yield $this->unaliased($model);
+        }
 
         // Fake-aware, like GrammarCoverage. Under Storyfeed::fake() nothing
         // reaches the table, so a database read would report every declared model
@@ -97,9 +159,7 @@ class UnwiredSurface extends Check
             return;
         }
 
-        foreach ($surface['feedable'] as $model) {
-            $alias = (new $model)->getMorphClass();
-
+        foreach ($aliases as $model => $alias) {
             if (in_array($alias, $recordedTypes, true)) {
                 continue;
             }

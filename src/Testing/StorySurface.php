@@ -40,8 +40,22 @@ class StorySurface
             .'(exercise the code under test), or run this against a seeded database.',
         );
 
+        // A CHECK THAT THREW IS NOT A PASS. The doctor turns the throw into a
+        // finding so a report survives it, but this assertion only counted
+        // `surface.unwired`, so a surface scan that died on its first model
+        // went green having looked at nothing.
+        $failed = $report->withCode('doctor.check_failed')->first();
+
+        Assert::assertNull(
+            $failed,
+            'The surface check could not run, so surface coverage proves nothing: '.$failed?->message,
+        );
+
+        // An unaliased Feedable fails with the unwired ones: it cannot appear
+        // in the feed either, and a publish that tried would throw.
         $findings = $report
             ->withCode('surface.unwired')
+            ->merge($report->withCode('surface.unaliased'))
             ->reject(fn (Finding $finding) => in_array($finding->subject['model'] ?? null, $except, true));
 
         Assert::assertTrue(

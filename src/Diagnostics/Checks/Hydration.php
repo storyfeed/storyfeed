@@ -110,7 +110,16 @@ class Hydration extends Check
         $hydrating = [];
 
         foreach ($classes as $class) {
-            $alias = (new $class)->getMorphClass();
+            $alias = $this->aliasFor($class);
+
+            // No alias under an enforced morph map: nothing can publish it,
+            // so no page will ever carry it and there is no bill to name.
+            // `surface.unaliased` reports the class; saying it twice would
+            // only double the line an operator has to act on.
+            if ($alias === null) {
+                continue;
+            }
+
             $snapshot = $snapshots ? $this->representative($alias) : null;
 
             $asked = [];

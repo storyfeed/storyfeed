@@ -574,6 +574,18 @@
 
 ### Fixed
 
+- **The doctor's `surface` and `hydration` checks report a Feedable model
+  that has no morph alias, instead of failing on it.** Under
+  `Relation::enforceMorphMap()`, one unaliased Feedable (typically a
+  subclass of an aliased model) made both checks throw. They then showed up
+  as `doctor.check_failed` and said nothing about any other model. `surface`
+  now names each one as `surface.unaliased`, a Warning, because publishing
+  anything that names it throws. When a parent class has an alias, the
+  finding names that alias for its `getMorphClass()`. `hydration` skips
+  these models. `StorySurface::assertNoUnwiredSurface()` fails on them too,
+  unless they're in `$except`. It also fails when the surface check itself
+  failed: before, a check that threw passed without looking at anything.
+
 - **Parallel test workers each get their own story manifest.** Under
   `php artisan test --parallel`, `bootstrap/cache/storyfeed.php` becomes
   `storyfeed-{token}.php` per worker, as Laravel already does for the test
