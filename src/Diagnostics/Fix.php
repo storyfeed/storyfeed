@@ -93,7 +93,7 @@ final class Fix
             return null;
         }
 
-        [$first, $verb] = explode('.', $this->key, 2);
+        [$first, $type, $verb] = $this->parts();
         $template = $this->template() ?? '…';
         $imports = ['Storyfeed\Facades\Story'];
 
@@ -105,8 +105,11 @@ final class Fix
                 default => "axis('{$first}', '{$template}')",
             };
 
+            // A key naming a type (`repeat.order.place`, for an axis that pins
+            // it) is that type's headline, so it goes on that type, as the docs
+            // teach; one naming only the verb is for a grouping across types.
             return [
-                'code' => $this->live($this->scope('*', $verb, $imports)."->grouped(fn (GroupBuilder \$group) => \$group->{$group});"),
+                'code' => $this->live($this->scope($type, $verb, $imports)."->grouped(fn (GroupBuilder \$group) => \$group->{$group});"),
                 'imports' => $imports,
             ];
         }
@@ -126,6 +129,30 @@ final class Fix
     }
 
     /**
+     * The key's segments as [first, type, verb]: `type.verb` for singular
+     * registries, and `axis.verb` or `axis.type.verb` for aggregate grammar,
+     * whose type is `*` when the key names none.
+     *
+     * @return array{0: string, 1: string, 2: string}
+     */
+    private function parts(): array
+    {
+        if (! str_contains($this->key, '.')) {
+            return ['*', '*', $this->key];
+        }
+
+        if ($this->registry === 'aggregateGrammar') {
+            $parts = explode('.', $this->key, 3);
+
+            return count($parts) === 3 ? [$parts[0], $parts[1], $parts[2]] : [$parts[0], '*', $parts[1]];
+        }
+
+        [$type, $verb] = explode('.', $this->key, 2);
+
+        return [$type, $type, $verb];
+    }
+
+    /**
      * The value this edit registers, or null where doctor cannot know it: an
      * icon is the app's own vocabulary, a verb-agnostic key needs a
      * sentence true of every verb, and a verb whose past tense is not certain
@@ -135,7 +162,7 @@ final class Fix
      */
     private function template(): ?string
     {
-        [$type, $verb] = str_contains($this->key, '.') ? explode('.', $this->key, 2) : ['*', $this->key];
+        [, $type, $verb] = $this->parts();
         $past = $verb === '*' ? null : StoryName::certainParticiple($verb);
         $pins = fn (string $token) => in_array($token, $this->tokens, true);
 
@@ -164,7 +191,7 @@ final class Fix
 
     private function commented(string $code): string
     {
-        $verb = str_contains($this->key, '.') ? explode('.', $this->key, 2)[1] : $this->key;
+        $verb = $this->parts()[2];
 
         $reason = match (true) {
             $this->registry === 'icons' => "{$this->key}: an icon from your app's own set; doctor cannot choose one.",

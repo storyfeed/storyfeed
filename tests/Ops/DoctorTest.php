@@ -127,13 +127,14 @@ it('audits the fallback axis for aggregate coverage — a missing repeat.* key i
     }
 
     $this->artisan('storyfeed:doctor')
-        ->expectsOutputToContain('No aggregate grammar resolves for `repeat.archive`')
+        // Named for the type, as the repeat axis pins it: `Story::for(Delivery::class)`.
+        ->expectsOutputToContain('No aggregate grammar resolves for `repeat.delivery.archive`')
         ->assertSuccessful();
 
     Storyfeed::aggregateGrammar(['repeat.archive' => ':actor archived :count deliveries']);
 
     $this->artisan('storyfeed:doctor')
-        ->doesntExpectOutputToContain('No aggregate grammar resolves for `repeat.archive`')
+        ->doesntExpectOutputToContain('No aggregate grammar resolves for `repeat.delivery.archive`')
         ->assertSuccessful();
 });
 
@@ -190,8 +191,8 @@ it('can produce a coverage finding for EVERY registered axis', function () {
     $this->artisan('storyfeed:doctor')
         ->expectsOutputToContain('No aggregate grammar resolves for `actors.alpha`')
         ->expectsOutputToContain('No aggregate grammar resolves for `targets.beta`')
-        ->expectsOutputToContain('No aggregate grammar resolves for `object.gamma`')
-        ->expectsOutputToContain('No aggregate grammar resolves for `repeat.delta`')
+        ->expectsOutputToContain('No aggregate grammar resolves for `object.delivery.gamma`')
+        ->expectsOutputToContain('No aggregate grammar resolves for `repeat.delivery.delta`')
         ->expectsOutputToContain('No aggregate grammar resolves for `composite.epsilon`')
         ->assertSuccessful();
 });

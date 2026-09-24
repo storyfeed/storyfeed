@@ -5,6 +5,7 @@ use Storyfeed\Diagnostics\Finding;
 use Storyfeed\Diagnostics\Severity;
 use Storyfeed\Facades\Storyfeed;
 use Storyfeed\StoryfeedManager;
+use Workbench\App\Models\Customer;
 use Workbench\App\Models\Delivery;
 use Workbench\App\Models\User;
 
@@ -68,7 +69,7 @@ it('derives stub tokens from the axis recipe, never from guesswork', function ()
         // and a snippet offering :object is the documented lie class.
         ->and($fix->tokens)->toContain(':actor')
         ->and($fix->tokens)->not->toContain(':object')
-        ->and($fix->snippet())->toContain("'repeat.upload' => ':actor uploaded :objects'");
+        ->and($fix->snippet())->toContain("'repeat.delivery.upload' => ':actor uploaded :objects'");
 });
 
 it('prints stubs as bare code, with nothing to strip before pasting', function () {
@@ -82,6 +83,36 @@ it('prints stubs as bare code, with nothing to strip before pasting', function (
         ->doesntExpectOutputToContain('finding(s)')
         ->doesntExpectOutputToContain('healthy')
         ->assertSuccessful();
+});
+
+it('prints a one-type group headline on its type, and one across types on the verb', function () {
+    $customer = Customer::create(['name' => 'Acme Co.']);
+
+    // actors: several people, one target — a row that can hold any type.
+    foreach (['A1', 'A2', 'A3'] as $name) {
+        $user = User::create(['name' => $name, 'email' => "{$name}@example.com"]);
+        Storyfeed::activity()->actor($user)->verb('place', Delivery::create(['tracking_number' => "al-{$name}"]))->for($customer)->publish();
+    }
+
+    // repeat: one person, one type — the axis pins the object type.
+    $sally = User::create(['name' => 'Sally', 'email' => 's@example.com']);
+    foreach (range(1, 3) as $i) {
+        Storyfeed::activity()->actor($sally)->verb('place', Delivery::create(['tracking_number' => "de-{$i}"]))->publish();
+    }
+
+    $this->artisan('storyfeed:doctor', ['--only' => ['aggregates'], '--stubs' => true])
+        ->expectsOutputToContain("Story::for(Delivery::class)->verb('place')->grouped(fn (GroupBuilder \$group) => \$group->repeat(':actor placed :objects'));")
+        ->expectsOutputToContain("Story::verb('place')->grouped(fn (GroupBuilder \$group) => \$group->actors(':actors placed :objects'));")
+        ->doesntExpectOutputToContain("Story::verb('place')->grouped(fn (GroupBuilder \$group) => \$group->repeat(")
+        ->assertSuccessful();
+
+    // Pasted as printed, they settle the findings that printed them.
+    foreach (Storyfeed::doctor(['aggregates'])->fixes() as $fix) {
+        eval('use Storyfeed\Facades\Story; use Storyfeed\Grouping\GroupBuilder; use Workbench\App\Models\Delivery; '.$fix->definition()['code']);
+    }
+
+    expect(Storyfeed::registeredAggregateGrammar())->toHaveKeys(['repeat.delivery.place', 'actors.place'])
+        ->and(Storyfeed::doctor(['aggregates'])->has('aggregates.missing'))->toBeFalse();
 });
 
 it('prints a line commented beneath its reason where doctor cannot know the value', function () {

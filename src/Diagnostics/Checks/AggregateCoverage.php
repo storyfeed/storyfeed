@@ -106,7 +106,15 @@ class AggregateCoverage extends Check
                 continue;
             }
 
-            $missing[] = [(string) $pair->axis, (string) $pair->verb];
+            // The key it would be filed under: the type's own where the axis
+            // pins it, which is where a Story class puts it — so the stub is
+            // `Story::for(Order::class)->verb('place')->grouped(…)`, and one
+            // type's missing headline is never printed as every type's.
+            $key = $objectType === null
+                ? "{$pair->axis}.{$pair->verb}"
+                : "{$pair->axis}.{$objectType}.{$pair->verb}";
+
+            $missing[$key] = [(string) $pair->axis, (string) $pair->verb, $key];
         }
 
         if ($missing === []) {
@@ -119,30 +127,31 @@ class AggregateCoverage extends Check
         // complete answer by someone who stopped at the first warning.
         yield from $this->caveats($reach);
 
-        foreach ($missing as [$axis, $verb]) {
+        foreach ($missing as [$axis, $verb, $key]) {
             $readers = $reach->readers($axis, $verb);
 
             if ($readers === [] && $reach->isConclusive()) {
-                yield $this->latent($axis, $verb, $reach);
+                yield $this->latent($axis, $verb, $key, $reach);
 
                 continue;
             }
 
             yield Finding::error(
                 'aggregates.missing',
-                "No aggregate grammar resolves for `{$axis}.{$verb}` — those group nodes fall back "
+                "No aggregate grammar resolves for `{$key}` — those group nodes fall back "
                 .'to the singular headline only when its tokens are safe for the axis, and otherwise render '
                 .'with NO headline at all. Register one with Storyfeed::aggregateGrammar().',
                 [
                     'axis' => $axis,
                     'verb' => $verb,
+                    'key' => $key,
                     'read_by' => $readers === [] ? null : implode(', ', $readers),
                 ],
                 // Tokens derived from the axis recipe, so the suggested
                 // snippet cannot propose one the axis fails to pin.
                 Fix::make(
                     'aggregateGrammar',
-                    "{$axis}.{$verb}",
+                    $key,
                     $storyfeed->aggregateTokens($axis) ?? [],
                 ),
             );
@@ -154,16 +163,16 @@ class AggregateCoverage extends Check
      * declared mode can put on screen. Reportage, not a gap — and deliberately
      * without a Fix, since authoring it today changes nothing on any surface.
      */
-    protected function latent(string $axis, string $verb, Reachability $reach): Finding
+    protected function latent(string $axis, string $verb, string $key, Reachability $reach): Finding
     {
         return Finding::info(
             'aggregates.latent',
-            "`{$axis}.{$verb}` clusters and has no aggregate grammar, but no registered feed reads the "
+            "`{$key}` clusters and has no aggregate grammar, but no registered feed reads the "
             ."`{$axis}` axis — the registry declares {$reach->modes()}, and only summary() renders group "
             .'nodes outside `repeat` and `composite`. No stub is offered; this becomes a real gap the '
             .'moment a surface reads it, and a call site can override a declared mode without touching '
             .'the feed.',
-            ['axis' => $axis, 'verb' => $verb, 'modes' => $reach->modes()],
+            ['axis' => $axis, 'verb' => $verb, 'key' => $key, 'modes' => $reach->modes()],
         );
     }
 
