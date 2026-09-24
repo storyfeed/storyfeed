@@ -2,7 +2,6 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
@@ -111,21 +110,37 @@ return new class extends Migration
     /** `2026-09-10 12:00:00` becomes `2026-09-10 12:00:00.000000`; idempotent. */
     private function pad(string $table, string $column): void
     {
-        $wrapped = Schema::getConnection()->getQueryGrammar()->wrap($column);
-
-        DB::table($table)
-            ->whereNotNull($column)
-            ->whereRaw("length({$wrapped}) = ?", [self::LEGACY_WIDTH])
-            ->update([$column => DB::raw("{$wrapped} || '.000000'")]);
+        $this->rewrite($table, $column, "{column} || '.000000'", '=');
     }
 
     private function trim(string $table, string $column): void
     {
-        $wrapped = Schema::getConnection()->getQueryGrammar()->wrap($column);
+        $this->rewrite($table, $column, 'substr({column}, 1, '.self::LEGACY_WIDTH.')', '>');
+    }
 
-        DB::table($table)
-            ->whereNotNull($column)
-            ->whereRaw("length({$wrapped}) > ?", [self::LEGACY_WIDTH])
-            ->update([$column => DB::raw("substr({$wrapped}, 1, ".self::LEGACY_WIDTH.')')]);
+    /**
+     * One `statement()` rather than the builder's `whereRaw()` and `raw()`.
+     *
+     * This file is published into the app's own migrations and analysed by the
+     * app's PHPStan, not ours. Those two methods take a `literal-string`, and a
+     * grammar-wrapped identifier is not one, so the builder form fails level 7
+     * in every consumer that publishes it. Same SQL, same binding.
+     *
+     * @param  string  $value  the new column value, with `{column}` standing in
+     *                         for the wrapped identifier
+     * @param  '='|'>'  $comparison  against the legacy width
+     */
+    private function rewrite(string $table, string $column, string $value, string $comparison): void
+    {
+        $connection = Schema::getConnection();
+        $grammar = $connection->getQueryGrammar();
+        $wrapped = $grammar->wrap($column);
+        $value = str_replace('{column}', $wrapped, $value);
+
+        $connection->statement(
+            'update '.$grammar->wrapTable($table)." set {$wrapped} = {$value}"
+            ." where {$wrapped} is not null and length({$wrapped}) {$comparison} ?",
+            [self::LEGACY_WIDTH],
+        );
     }
 };

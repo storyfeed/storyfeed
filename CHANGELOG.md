@@ -574,6 +574,13 @@
 
 ### Fixed
 
+- **The published `add_precision_to_feed_timestamps` migration passes an
+  app's PHPStan at level 7.** It passed grammar-wrapped column names to
+  `whereRaw()` and `DB::raw()`, which take a `literal-string`: four errors in
+  a file the app did not write. It now runs one `statement()` with the same
+  SQL. `create_feed_batch_locks_table` also passes level 8. If you published
+  either and edited it to pass, republishing gives you the same result.
+
 - **The doctor's `body` check no longer reports a revision as a broken body.**
   Core's `$change` envelope carries a `$v` and no `$body`, as `$thread` does,
   and the check stepped over only `$thread`: every activity recorded with a

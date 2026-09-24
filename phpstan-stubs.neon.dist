@@ -1,0 +1,15 @@
+# Every published migration stub at level 8, two above the package's own.
+# A stub leaves the package and lands in the app's database/migrations, where
+# the app's PHPStan analyses it and the app cannot fix it without diverging
+# from what we ship. Core's own run never sees a .stub, which is how the
+# precision migration shipped four level-7 errors to every consumer.
+#
+# Not max: at level 9 every config('storyfeed.tables.*') is `mixed` here,
+# where in an app Larastan reads the published config file and types it.
+parameters:
+    level: 8
+    fileExtensions:
+        - stub
+    paths:
+        - database/migrations
+    tmpDir: build/phpstan-stubs

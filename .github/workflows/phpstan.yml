@@ -4,8 +4,10 @@ on:
   push:
     paths:
       - '**.php'
+      - 'database/migrations/**.stub'
       - 'phpstan.neon.dist'
       - 'phpstan-fixture.neon.dist'
+      - 'phpstan-stubs.neon.dist'
       - '.github/workflows/phpstan.yml'
 
 jobs:
@@ -30,3 +32,6 @@ jobs:
 
       - name: Run PHPStan on the level-7 model fixture
         run: ./vendor/bin/phpstan analyse -c phpstan-fixture.neon.dist --error-format=github
+
+      - name: Run PHPStan on the published migration stubs
+        run: ./vendor/bin/phpstan analyse -c phpstan-stubs.neon.dist --error-format=github

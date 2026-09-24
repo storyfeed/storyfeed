@@ -43,8 +43,8 @@ return new class extends Migration
             ->get(['id', 'actor_type', 'actor_id'])
             ->groupBy(fn ($batch) => $batch->actor_type."\0".$batch->actor_id)
             ->each(fn ($open) => DB::table($locks)->insert([
-                'actor_type' => $open->first()->actor_type,
-                'actor_id' => (string) $open->first()->actor_id,
+                'actor_type' => $open->firstOrFail()->actor_type,
+                'actor_id' => (string) $open->firstOrFail()->actor_id,
                 'open_batches' => json_encode($open->pluck('id')->map(fn ($id) => (int) $id)->all()),
             ]));
     }
