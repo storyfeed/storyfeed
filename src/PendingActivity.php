@@ -453,6 +453,14 @@ class PendingActivity
 
         $this->resolveDefaultActor($manager);
 
+        if ($this->activity->context_type === null && $this->activity->context_id === null
+            && ! isset($this->entities['context'])) {
+            $context = $manager->applyScopedContext($this->activity);
+            if ($context !== null) {
+                $this->entities['context'] = $context;
+            }
+        }
+
         $this->assertAuthored($manager);
 
         if ($manager instanceof StoryfeedFake) {

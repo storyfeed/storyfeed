@@ -43,6 +43,7 @@ use Storyfeed\Support\Feedables;
 use Storyfeed\Support\IgnoredParties;
 use Storyfeed\Support\MorphResolver;
 use Storyfeed\Support\QueuedActor;
+use Storyfeed\Support\QueuedContext;
 use Storyfeed\Support\TombstoneRules;
 use Throwable;
 use WeakMap;
@@ -73,6 +74,14 @@ class StoryfeedManager
 
     /** @var array<int, array{?Closure, array<string, mixed>|null, array<string, mixed>|null}> */
     protected array $queuedScopes = [];
+
+    protected ?Model $contextModel = null;
+
+    /** @var array<string, mixed>|null */
+    protected ?array $scopedContext = null;
+
+    /** @var array<int, array{?Model, array<string, mixed>|null}> */
+    protected array $queuedContexts = [];
 
     /**
      * The recording switch's RUNTIME half. Null defers to config; true or
@@ -510,6 +519,89 @@ class StoryfeedManager
         } finally {
             [$this->actorResolver, $this->scopedActor, $this->queuedActor] = $previous;
         }
+    }
+
+    /**
+     * Apply the context role inside a callback, or seed a builder without one.
+     * Explicit context wins; the innermost scope is restored even on failure.
+     * Returned PendingDispatch instances dispatch before the scope closes,
+     * exactly as in as(). There is no default context outside a scope.
+     *
+     * @return ($callback is null ? PendingActivity : mixed)
+     */
+    public function context(Model|string $context, ?callable $callback = null): mixed
+    {
+        if ($callback === null) {
+            return $this->activity()->context($context);
+        }
+
+        $resolved = is_string($context) ? $this->party($context) : $context;
+        $previous = [$this->contextModel, $this->scopedContext];
+        $this->contextModel = $resolved;
+        $this->scopedContext = QueuedContext::identify($resolved);
+
+        try {
+            return $this->withoutScope($callback);
+        } finally {
+            [$this->contextModel, $this->scopedContext] = $previous;
+        }
+    }
+
+    /**
+     * @internal
+     *
+     * @return array<string, mixed>|null
+     */
+    public function scopedContext(): ?array
+    {
+        return $this->scopedContext;
+    }
+
+    /**
+     * @internal
+     *
+     * @param  array<string, mixed>  $identity
+     */
+    public function enterQueuedContext(int $job, array $identity): void
+    {
+        $this->queuedContexts[$job] = [$this->contextModel, $this->scopedContext];
+        $this->contextModel = null;
+        $this->scopedContext = $identity;
+    }
+
+    /** @internal */
+    public function leaveQueuedContext(int $job): void
+    {
+        if (isset($this->queuedContexts[$job])) {
+            [$this->contextModel, $this->scopedContext] = $this->queuedContexts[$job];
+            unset($this->queuedContexts[$job]);
+        }
+    }
+
+    /** Apply the scope without requiring a queued model to still exist. */
+    public function applyScopedContext(Activity $activity): ?Model
+    {
+        if ($this->contextModel !== null) {
+            $activity->context()->associate($this->contextModel);
+
+            return $this->contextModel;
+        }
+
+        $identity = $this->scopedContext;
+        if ($identity === null || $identity === []) {
+            return null;
+        }
+
+        // Party restoration uses the same name/key and recording rules as as().
+        $model = $this->restoreQueuedActor($identity);
+        if (isset($identity['type'], $identity['id'])) {
+            $activity->context_type = $identity['type'];
+            $activity->context_id = $identity['id'];
+        } elseif ($model !== null) {
+            $activity->context()->associate($model);
+        }
+
+        return $model;
     }
 
     protected function withoutScope(callable $callback): mixed

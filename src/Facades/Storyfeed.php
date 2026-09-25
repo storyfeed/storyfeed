@@ -14,6 +14,7 @@ use Storyfeed\Testing\StoryfeedFake;
  * @method static \Storyfeed\PendingActivity activity(string|\Storyfeed\Contracts\FeedVerb|\BackedEnum|null $verb = null, \Illuminate\Database\Eloquent\Model|string|null $object = null)
  * @method static \Storyfeed\Models\Activity record(string|\Storyfeed\Contracts\FeedVerb|\BackedEnum $verb, \Illuminate\Database\Eloquent\Model|string|null $object = null, \Illuminate\Database\Eloquent\Model|string|null $actor = null, \Illuminate\Database\Eloquent\Model|string|null $target = null, \Illuminate\Database\Eloquent\Model|string|null $context = null, array<string, mixed> $data = [], \DateTimeInterface|string|null $publishedAt = null, bool $replace = false, iterable<int, \Illuminate\Database\Eloquent\Model> $objects = [], \Storyfeed\FeedThread|null $thread = null, \Illuminate\Database\Eloquent\Model|string|null $origin = null, \Illuminate\Database\Eloquent\Model|string|null $result = null, \Illuminate\Database\Eloquent\Model|string|null $instrument = null)
  * @method static \Storyfeed\PendingActivity anonymous()
+ * @method static mixed context(\Illuminate\Database\Eloquent\Model|string $context, ?callable $callback = null)
  * @method static mixed as(\Illuminate\Database\Eloquent\Model|string $actor, ?callable $callback = null)
  * @method static \Storyfeed\StoryfeedManager parties(list<string> $names, bool $merge = true)
  * @method static list<string>|null declaredParties()

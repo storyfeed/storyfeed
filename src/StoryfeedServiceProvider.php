@@ -5,10 +5,13 @@ namespace Storyfeed;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Foundation\Console\AboutCommand;
+use Illuminate\Foundation\Http\Kernel;
 use Illuminate\Queue\Events\JobAttempted;
 use Illuminate\Queue\Events\JobExceptionOccurred;
 use Illuminate\Queue\Events\JobProcessed;
 use Illuminate\Queue\Events\JobProcessing;
+use Illuminate\Routing\Middleware\SubstituteBindings;
+use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Context;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Route;
@@ -16,12 +19,15 @@ use Spatie\LaravelPackageTools\Package;
 use Spatie\LaravelPackageTools\PackageServiceProvider;
 use Storyfeed\Actions\CurateCluster;
 use Storyfeed\Events\ActivityDeleted;
+use Storyfeed\Http\Middleware\UseActor;
+use Storyfeed\Http\Middleware\UseContext;
 use Storyfeed\Models\Party;
 use Storyfeed\Stories\DefinitionsFile;
 use Storyfeed\Stories\Registrar;
 use Storyfeed\Stories\StoryManifest;
 use Storyfeed\Support\Feedables;
 use Storyfeed\Support\QueuedActor;
+use Storyfeed\Support\QueuedContext;
 use Storyfeed\Support\TombstoneRules;
 
 class StoryfeedServiceProvider extends PackageServiceProvider
@@ -111,6 +117,17 @@ class StoryfeedServiceProvider extends PackageServiceProvider
 
     public function packageBooted(): void
     {
+        $router = $this->app->make(Router::class);
+        $router->aliasMiddleware('storyfeed.context', UseContext::class);
+        $router->aliasMiddleware('storyfeed.as', UseActor::class);
+        $this->callAfterResolving(\Illuminate\Contracts\Http\Kernel::class, function (Kernel $kernel) {
+            $kernel->addToMiddlewarePriorityAfter(SubstituteBindings::class, UseContext::class);
+        });
+
+        Context::dehydrating(QueuedContext::capture(...));
+        Event::listen(JobProcessing::class, QueuedContext::enter(...));
+        Event::listen([JobProcessed::class, JobExceptionOccurred::class, JobAttempted::class], QueuedContext::leave(...));
+
         Context::dehydrating(QueuedActor::capture(...));
         Event::listen(JobProcessing::class, QueuedActor::enter(...));
         Event::listen([JobProcessed::class, JobExceptionOccurred::class, JobAttempted::class], QueuedActor::leave(...));

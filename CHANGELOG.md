@@ -7,6 +7,12 @@
 - `Storyfeed::record()` accepts `change:` facts and `anonymous: true`. Anonymous
   activities retain a null actor even with an explicit actor, an actor scope,
   a signed-in user, or a system fallback. Recording remains synchronous.
+- `Storyfeed::context($modelOrParty, $callback)` scopes the context role,
+  including jobs dispatched inside it. Without a callback it seeds a builder.
+  Explicit context wins over the innermost scope; there is no default context.
+  Queue payloads carry only morph alias/key or party name/key, never models.
+  Routes can use `storyfeed.context:routeParam` after model binding and
+  `storyfeed.as:PartyName` through the existing declared-party gate.
 
 - **Story classes: one class per type, one method per verb.**
   `Story::resource(Order::class, OrderStory::class)` binds a plain class that
