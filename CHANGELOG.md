@@ -4,6 +4,10 @@
 
 ### Changed
 
+- `Storyfeed::record()` accepts `change:` facts and `anonymous: true`. Anonymous
+  activities retain a null actor even with an explicit actor, an actor scope,
+  a signed-in user, or a system fallback. Recording remains synchronous.
+
 - **Story classes: one class per type, one method per verb.**
   `Story::resource(Order::class, OrderStory::class)` binds a plain class that
   extends nothing. Every public method is a verb, named as stored once

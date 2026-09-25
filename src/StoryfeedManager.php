@@ -320,7 +320,8 @@ class StoryfeedManager
     }
 
     /**
-     * Compose and publish an activity in one call.
+     * Compose and publish an activity synchronously in one call.
+     * An anonymous activity has no actor, even when actor is also supplied.
      *
      * @param  array<string, mixed>  $data
      * @param  iterable<int, Model>  $objects
@@ -339,6 +340,8 @@ class StoryfeedManager
         Model|string|null $origin = null,
         Model|string|null $result = null,
         Model|string|null $instrument = null,
+        ?FeedChange $change = null,
+        bool $anonymous = false,
     ): Activity {
         return $this->activity($verb, $object)
             ->when($objects !== [], fn (PendingActivity $a) => $a->objects($objects))
@@ -352,6 +355,8 @@ class StoryfeedManager
             ->when($thread !== null, fn (PendingActivity $a) => $a->thread($thread))
             ->when($publishedAt !== null, fn (PendingActivity $a) => $a->publishedAt($publishedAt))
             ->replace($replace)
+            ->when($change !== null, fn (PendingActivity $a) => $a->change($change))
+            ->when($anonymous, fn (PendingActivity $a) => $a->anonymously())
             ->publish();
     }
 
