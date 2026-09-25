@@ -1,6 +1,8 @@
 # Registered through composer's extra.phpstan.includes, so an app installing
-# storyfeed alongside phpstan/extension-installer gets this rule with no config.
-# It checks Feed::make() calls against the subclass constructor they reach —
-# see Storyfeed\PHPStan\FeedMakeArityRule for why that gap exists at all.
+# storyfeed alongside phpstan/extension-installer gets these rules with no config.
+# FeedMakeArityRule checks Feed::make() calls against the subclass constructor
+# they reach. StoryNameRule checks literal story names against the app's
+# defined stories, as Larastan checks route names.
 rules:
     - Storyfeed\PHPStan\FeedMakeArityRule
+    - Storyfeed\PHPStan\StoryNameRule
