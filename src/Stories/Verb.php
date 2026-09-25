@@ -274,16 +274,22 @@ final class Verb
         return (new ReflectionClass($class))->newInstanceWithoutConstructor();
     }
 
-    /** The keys the array form accepts. */
+    /**
+     * The keys the array form accepts.
+     *
+     * @deprecated Declare it in routes/feed.php; removed before v1.
+     */
     public const ARRAY_KEYS = ['name', 'headline', 'anonymousHeadline', 'icon', 'intent', 'type', 'noun', 'activityStreamsType', 'missing', 'missingHeadline', 'forgetWhenMissing', 'keepFor', 'keepForever', 'keepLatest', 'groupedPer', 'middleware', 'withoutMiddleware', 'actor', 'where', 'groups'];
 
     /**
      * Configure from the array form: what an action returning an array
-     * says.
+     * says. Return the fluent Verb from the action instead.
      *
      * @param  array<string, mixed>  $spec
      *
      * @internal
+     *
+     * @deprecated Declare it in routes/feed.php; removed before v1.
      */
     public function fill(array $spec, string $name): self
     {

@@ -31,7 +31,6 @@ class DoctorCommand extends Command
     protected $signature = 'storyfeed:doctor
         {--json : Emit the report as JSON}
         {--stubs : Print only the definitions the findings imply, for routes/feed.php}
-        {--arrays : With --stubs, print them as registry arrays for a service provider}
         {--only=* : Limit to named checks (see --list)}
         {--list : List the available check names}
         {--fail-on= : Exit non-zero when findings reach this severity (warning|error)}';
@@ -92,7 +91,7 @@ class DoctorCommand extends Command
 
     /**
      * Only the code. No headings, no counts — the output is meant to be piped
-     * or pasted, and a "3 findings" line in the middle of a PHP array is the
+     * or pasted, and a "3 findings" line in the middle of PHP code is the
      * kind of helpfulness that makes a tool unusable in a pipeline.
      */
     protected function renderStubs(Report $report): void
@@ -105,17 +104,7 @@ class DoctorCommand extends Command
             return;
         }
 
-        if ($this->option('arrays')) {
-            foreach ($fixes as $fix) {
-                $this->line($fix->snippet());
-                $this->newLine();
-            }
-
-            return;
-        }
-
         // routes/feed.php form: the imports once, then one line per edit.
-        // A fix the Story facade can't express keeps its array form.
         $imports = [];
         $lines = [];
 

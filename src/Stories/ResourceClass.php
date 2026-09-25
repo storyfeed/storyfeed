@@ -35,8 +35,8 @@ use Storyfeed\Exceptions\StoryMisconfigured;
  *     uses) is an action. The constructor and `__*` methods aren't. A helper
  *     is protected or private.
  *   - The declared return type is `Verb`, `string` (the headline alone) or
- *     `array` (the array form). Anything else, or none, is an error naming
- *     the method, so a helper left public fails loudly.
+ *     `array` (deprecated; return the fluent Verb instead). Anything else,
+ *     or none, is an error naming the method, so a helper left public fails loudly.
  *   - The verb is the method name, snake-cased: `confirmPayment()` stores
  *     `confirm_payment`, `pay()` stores `pay`. Nothing else is mapped.
  *
@@ -136,7 +136,8 @@ final class ResourceClass
             $result === $verb => $verb,
             $result instanceof Verb => throw StoryMisconfigured::actionReturnedAnotherVerb($uses),
             is_string($result) => $verb->headline($result),
-            is_array($result) => $verb->fill($result, $uses),
+            // Compatibility path until v1: actions returning arrays still work.
+            is_array($result) => $verb->fill($result, $uses), // @phpstan-ignore method.deprecated
             default => throw StoryMisconfigured::actionReturn($uses, get_debug_type($result)),
         };
     }

@@ -1094,6 +1094,8 @@ class StoryfeedManager
      * Typed loosely on the KEY on purpose — see assertKeyed().
      *
      * @param  array<array-key, string|Closure|FeedHeadline>  $grammar
+     *
+     * @deprecated Declare it in routes/feed.php; removed before v1.
      */
     public function grammar(array $grammar, bool $merge = true): static
     {
@@ -1115,6 +1117,8 @@ class StoryfeedManager
      * Closures receive the Activity, as in grammar().
      *
      * @param  array<array-key, string|Closure|FeedHeadline>  $grammar
+     *
+     * @deprecated Declare it in routes/feed.php; removed before v1.
      */
     public function actorlessGrammar(array $grammar, bool $merge = true): static
     {
@@ -1927,6 +1931,8 @@ class StoryfeedManager
      * Typed loosely on the KEY on purpose — see assertKeyed().
      *
      * @param  array<array-key, string|FeedNoun>  $nouns
+     *
+     * @deprecated Declare it in routes/feed.php; removed before v1.
      */
     public function nouns(array $nouns, bool $merge = true): static
     {
@@ -2024,6 +2030,8 @@ class StoryfeedManager
      * Typed loosely on the KEY on purpose — see assertKeyed().
      *
      * @param  array<array-key, string|Closure|FeedHeadline>  $grammar
+     *
+     * @deprecated Declare it in routes/feed.php; removed before v1.
      */
     public function aggregateGrammar(array $grammar, bool $merge = true): static
     {
@@ -2040,6 +2048,8 @@ class StoryfeedManager
      * Typed loosely on the KEY on purpose — see assertKeyed().
      *
      * @param  array<array-key, string>  $icons
+     *
+     * @deprecated Declare it in routes/feed.php; removed before v1.
      */
     public function icons(array $icons, bool $merge = true): static
     {
@@ -2065,6 +2075,8 @@ class StoryfeedManager
      * `glyph_intent`.
      *
      * @param  array<array-key, string>  $intents
+     *
+     * @deprecated Declare it in routes/feed.php; removed before v1.
      */
     public function glyphIntents(array $intents, bool $merge = true): static
     {
@@ -2147,6 +2159,8 @@ class StoryfeedManager
      * Typed loosely on the KEY on purpose — see assertKeyed().
      *
      * @param  array<array-key, ObjectType|string>  $objectTypes
+     *
+     * @deprecated Declare it in routes/feed.php; removed before v1.
      */
     public function objectTypes(array $objectTypes, bool $merge = true): static
     {

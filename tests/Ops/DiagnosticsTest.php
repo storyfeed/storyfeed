@@ -2,9 +2,11 @@
 
 use Storyfeed\Contracts\DiagnosticCheck;
 use Storyfeed\Diagnostics\Finding;
+use Storyfeed\Diagnostics\Fix;
 use Storyfeed\Diagnostics\Severity;
 use Storyfeed\Facades\Storyfeed;
 use Storyfeed\StoryfeedManager;
+use Symfony\Component\Console\Exception\RuntimeException;
 use Workbench\App\Models\Customer;
 use Workbench\App\Models\Delivery;
 use Workbench\App\Models\User;
@@ -69,7 +71,7 @@ it('derives stub tokens from the axis recipe, never from guesswork', function ()
         // and a snippet offering :object is the documented lie class.
         ->and($fix->tokens)->toContain(':actor')
         ->and($fix->tokens)->not->toContain(':object')
-        ->and($fix->snippet())->toContain("'repeat.delivery.upload' => ':actor uploaded :objects'");
+        ->and($fix->snippet())->toContain("Story::for(Delivery::class)->verb('upload')->grouped(fn (GroupBuilder \$group) => \$group->repeat(':actor uploaded :objects'));");
 });
 
 it('prints stubs as bare code, with nothing to strip before pasting', function () {
@@ -79,6 +81,8 @@ it('prints stubs as bare code, with nothing to strip before pasting', function (
         ->expectsOutputToContain('use Storyfeed\Facades\Story;')
         ->expectsOutputToContain("Story::for(Delivery::class)->verb('confirm')->headline(':actor confirmed :object');")
         ->expectsOutputToContain("// Story::for(Delivery::class)->verb('confirm')->icon('…');")
+        ->doesntExpectOutputToContain('Storyfeed::grammar([')
+        ->doesntExpectOutputToContain('Storyfeed::icons([')
         ->doesntExpectOutputToContain('TODO')
         ->doesntExpectOutputToContain('finding(s)')
         ->doesntExpectOutputToContain('healthy')
@@ -135,9 +139,7 @@ it('offers nothing that silences doctor while leaving the feed unwritten', funct
     confirmOne();
 
     foreach (Storyfeed::doctor(['grammar'])->fixes() as $fix) {
-        if (preg_match("/^Storyfeed::\\w+\\(\\[\\n    '[^']+' => '(.+)',/", $fix->snippet(), $value)) {
-            Storyfeed::{$fix->registry}([$fix->key => $value[1]]);
-        }
+        eval('use Storyfeed\\Facades\\Story; use Workbench\\App\\Models\\Delivery; '.$fix->snippet());
     }
 
     $report = Storyfeed::doctor(['grammar']);
@@ -146,13 +148,23 @@ it('offers nothing that silences doctor while leaving the feed unwritten', funct
         ->and($report->has('grammar.icon_missing'))->toBeTrue();
 });
 
-it('prints stubs as registry arrays with --arrays', function () {
-    confirmOne();
+it('rejects the retired arrays option', function () {
+    expect(fn () => $this->artisan('storyfeed:doctor --stubs --arrays')->run())
+        ->toThrow(RuntimeException::class, 'The "--arrays" option does not exist.');
+});
 
-    $this->artisan('storyfeed:doctor --stubs --arrays')
-        ->expectsOutputToContain('Storyfeed::grammar([')
-        ->doesntExpectOutputToContain('Story::for(')
-        ->assertSuccessful();
+it('does not invent a registry setter for an unknown fix', function () {
+    $fix = Fix::make('custom', 'delivery.confirm');
+
+    expect($fix->snippet())->toBe('// custom: declare delivery.confirm in routes/feed.php; doctor cannot generate this definition.')
+        ->and($fix->definition())->toBeNull();
+});
+
+it('preserves an explicitly authored custom fix', function () {
+    $fix = Fix::make('custom', 'delivery.confirm', snippet: 'CustomStories::register();');
+
+    expect($fix->snippet())->toBe('CustomStories::register();')
+        ->and($fix->definition())->toBeNull();
 });
 
 it('emits a machine-readable report', function () {
@@ -165,6 +177,11 @@ it('emits a machine-readable report', function () {
     expect(json_decode((string) json_encode($report), true))
         ->toHaveKeys(['healthy', 'count', 'severity', 'findings'])
         ->and($report['findings'][0])->toHaveKeys(['code', 'severity', 'message', 'subject', 'fix']);
+
+    $fix = Storyfeed::doctor(['grammar'])->withCode('grammar.missing')->first()->fix->toArray();
+
+    expect($fix['snippet'])->toBe($fix['definition'])
+        ->and($fix['snippet'])->toContain("Story::for(Delivery::class)->verb('confirm')->headline(");
 });
 
 it('limits the run to named checks', function () {

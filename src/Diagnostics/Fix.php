@@ -69,27 +69,15 @@ final class Fix
             return $this->snippet;
         }
 
-        // A declaration with no hand-written registry: only routes/feed.php
-        // can say it, and there is nothing to spell, so it is always live.
-        if ($this->registry === 'keepLatest' && ($definition = $this->definition()) !== null) {
-            return $definition['code'];
-        }
-
-        $code = sprintf(
-            "Storyfeed::%s([\n    '%s' => '%s',\n]);",
-            $this->registry,
-            $this->key,
-            $this->template() ?? '…',
-        );
-
-        return $this->live($code);
+        return $this->definition()['code']
+            ?? "// {$this->registry}: declare {$this->key} in routes/feed.php; doctor cannot generate this definition.";
     }
 
     /**
      * The same edit as a `routes/feed.php` definition, with the imports it
      * needs: `Story::for(Order::class)->verb('place')->headline(':actor placed :object');`.
      * Null for a registry the Story facade doesn't write, or a hand-built
-     * snippet, which stay in the array form.
+     * snippet. Unknown registries get guidance rather than a guessed setter.
      *
      * @return array{code: string, imports: list<string>}|null
      */

@@ -2,6 +2,22 @@
 
 ## Unreleased
 
+### Deprecated
+
+- Registry array setters `Storyfeed::grammar()`, `actorlessGrammar()`,
+  `aggregateGrammar()`, `icons()`, `glyphIntents()`, `nouns()` and
+  `objectTypes()`, and the declaration array form (`Verb::ARRAY_KEYS` /
+  `Verb::fill()`, including arrays returned by resource or invokable actions).
+  Declare them fluently in `routes/feed.php`; these forms will be removed
+  before v1. They still work without runtime deprecation notices.
+  `Storyfeed::verbs()` (including verb-enum registration) remains supported.
+
+### Removed
+
+- `storyfeed:doctor --stubs --arrays`. Use `storyfeed:doctor --stubs` for
+  fluent `routes/feed.php` definitions. Generated `Fix::snippet()` output
+  uses that same form, including the `snippet` field in JSON reports.
+
 ### Changed
 
 - **Story group attributes chain onto one `PendingGroup`**, as a

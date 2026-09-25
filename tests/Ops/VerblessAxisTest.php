@@ -48,7 +48,7 @@ it('offers the wildcard key as the fix, with tokens the recipe actually pins', f
         ->and($fix->key)->toBe('photo.*')
         ->and($fix->tokens)->toContain(':object')
         ->and($fix->tokens)->not->toContain(':verb')
-        ->and($fix->snippet())->toContain("//     'photo.*' => '…',")
+        ->and($fix->snippet())->toContain("// Story::fallback()->grouped(fn (GroupBuilder \$group) => \$group->axis('photo', '…'));")
         // No verb to put in a sentence, so nothing live: doctor keeps warning.
         ->and($fix->snippet())->toStartWith('// photo.*: one sentence true of every verb');
 });
