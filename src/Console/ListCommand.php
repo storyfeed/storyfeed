@@ -18,8 +18,9 @@ use Storyfeed\Support\ManifestClosure;
  * Every definition, the way `route:list` shows every route: type, verb, the
  * action it came from (`OrderStory@confirmPayment`, as route:list shows
  * `Controller@method`), what it says with and without an actor, its icon
- * and intent, its group headlines, what it keeps the latest of, the
- * `file:line` it was written on, and its story middleware.
+ * and intent, its group headlines, the period they group per, what it
+ * keeps the latest of, the `file:line` it was written on, and its story
+ * middleware.
  *
  *     php artisan storyfeed:list
  *     php artisan storyfeed:list --type=order --verb=place
@@ -64,7 +65,7 @@ class ListCommand extends Command
         $middleware = $this->output->isVerbose();
 
         $this->table(
-            ['Type', 'Verb', 'Action', 'Headline', 'Anonymous headline', 'Icon', 'Intent', 'Groups', 'Keep latest', 'Source', ...($middleware ? ['Middleware'] : [])],
+            ['Type', 'Verb', 'Action', 'Headline', 'Anonymous headline', 'Icon', 'Intent', 'Groups', 'Period', 'Keep latest', 'Source', ...($middleware ? ['Middleware'] : [])],
             array_map(fn (array $row) => [
                 $row['type'],
                 $row['verb'],
@@ -78,6 +79,7 @@ class ListCommand extends Command
                     array_keys($row['groups']),
                     $row['groups'],
                 )),
+                $row['period'] ?? '',
                 $row['keep_latest'] ?? '',
                 $row['source'],
                 ...($middleware ? [implode("\n", $row['middleware'])] : []),
@@ -90,7 +92,7 @@ class ListCommand extends Command
     }
 
     /**
-     * @return list<array{type: string, verb: string, action: string|null, headline: string|null, anonymous_headline: string|null, icon: string|null, intent: string|null, groups: array<string, string|null>, keep_latest: string|null, source: string, middleware: list<string>}>
+     * @return list<array{type: string, verb: string, action: string|null, headline: string|null, anonymous_headline: string|null, icon: string|null, intent: string|null, groups: array<string, string|null>, keep_latest: string|null, period: string|null, source: string, middleware: list<string>}>
      */
     protected function rows(StoryfeedManager $storyfeed): array
     {
@@ -111,7 +113,7 @@ class ListCommand extends Command
     }
 
     /**
-     * @return array{type: string, verb: string, action: string|null, headline: string|null, anonymous_headline: string|null, icon: string|null, intent: string|null, groups: array<string, string|null>, keep_latest: string|null, source: string, middleware: list<string>}
+     * @return array{type: string, verb: string, action: string|null, headline: string|null, anonymous_headline: string|null, icon: string|null, intent: string|null, groups: array<string, string|null>, keep_latest: string|null, period: string|null, source: string, middleware: list<string>}
      */
     protected function row(Verb $definition, string $type, StoryfeedManager $storyfeed): array
     {
@@ -131,6 +133,7 @@ class ListCommand extends Command
             'icon' => $definition->iconToken(),
             'intent' => $definition->glyphIntent(),
             'groups' => $groups,
+            'period' => $this->period($definition, $type, $storyfeed),
             'keep_latest' => $this->keepLatest($definition),
             'source' => $definition->source,
             'middleware' => $this->middleware($definition, $type, $storyfeed),
@@ -172,6 +175,21 @@ class ListCommand extends Command
     }
 
     /**
+     * The calendar period the definition's groups live in (`hour`, `day`,
+     * `week`, `month`): its own declaration when it made one, and otherwise
+     * what the type → verb ladder gives its key, as middleware is shown. A
+     * fallback that declares none shows none.
+     */
+    protected function period(Verb $definition, string $type, StoryfeedManager $storyfeed): ?string
+    {
+        if (($period = $definition->period()) !== null) {
+            return $period->value;
+        }
+
+        return $definition->verb === '*' ? null : $storyfeed->period($type === '*' ? null : $type, $definition->verb)->value;
+    }
+
+    /**
      * `per object`, `per object, actor`, `per object within 10 minutes`:
      * what `->keepLatest()` keeps, or nothing when every row is kept.
      */
@@ -195,8 +213,8 @@ class ListCommand extends Command
     }
 
     /**
-     * @param  list<array{type: string, verb: string, action: string|null, headline: string|null, anonymous_headline: string|null, icon: string|null, intent: string|null, groups: array<string, string|null>, keep_latest: string|null, source: string, middleware: list<string>}>  $rows
-     * @return list<array{type: string, verb: string, action: string|null, headline: string|null, anonymous_headline: string|null, icon: string|null, intent: string|null, groups: array<string, string|null>, keep_latest: string|null, source: string, middleware: list<string>}>
+     * @param  list<array{type: string, verb: string, action: string|null, headline: string|null, anonymous_headline: string|null, icon: string|null, intent: string|null, groups: array<string, string|null>, keep_latest: string|null, period: string|null, source: string, middleware: list<string>}>  $rows
+     * @return list<array{type: string, verb: string, action: string|null, headline: string|null, anonymous_headline: string|null, icon: string|null, intent: string|null, groups: array<string, string|null>, keep_latest: string|null, period: string|null, source: string, middleware: list<string>}>
      */
     protected function filter(array $rows): array
     {

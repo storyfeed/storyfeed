@@ -48,6 +48,7 @@ use Storyfeed\StoryfeedManager;
  *     forget: array<string, bool>,
  *     retention: array<string, string>,
  *     keepLatest: array<string, array{per: list<string>, within: string|null}>,
+ *     periods: array<string, string>,
  *     middleware: array<string, array{middleware: list<string|Closure>, excluded: list<string>}>,
  *     actors: array<string, string>,
  *     actions: array<string, array{uses: string, request: bool, parts: array<string, string>|null}>,
@@ -56,7 +57,7 @@ use Storyfeed\StoryfeedManager;
 class CompileStories
 {
     /** The registries a compile produces, in the order they are applied. */
-    public const REGISTRIES = ['grammar', 'aggregateGrammar', 'actorlessGrammar', 'icons', 'glyphIntents', 'nouns', 'objectTypes', 'verbs', 'missing', 'missingGrammar', 'forget', 'retention', 'keepLatest', 'middleware', 'actors', 'actions'];
+    public const REGISTRIES = ['grammar', 'aggregateGrammar', 'actorlessGrammar', 'icons', 'glyphIntents', 'nouns', 'objectTypes', 'verbs', 'missing', 'missingGrammar', 'forget', 'retention', 'keepLatest', 'periods', 'middleware', 'actors', 'actions'];
 
     /**
      * @param  array<int, Verb>  $definitions
@@ -77,6 +78,7 @@ class CompileStories
         $forget = [];
         $retention = [];
         $keepLatest = [];
+        $periods = [];
         $middleware = [];
         $actors = [];
         $actions = [];
@@ -166,6 +168,13 @@ class CompileStories
                     $keepLatest[$key] = $latest;
                 }
 
+                // The calendar period its groups live in, as the Period's
+                // value. Unsaid, a broader definition's, or a day.
+                if (($period = $definition->period()) !== null) {
+                    $this->claim($owners, 'periods', $key, $source);
+                    $periods[$key] = $period->value;
+                }
+
                 // Story middleware as declared: names, not classes, as
                 // route:cache keeps them, so aliases and groups resolve when
                 // the activity is published. The same declaration twice (a
@@ -247,6 +256,7 @@ class CompileStories
             'forget' => $forget,
             'retention' => $retention,
             'keepLatest' => $keepLatest,
+            'periods' => $periods,
             'middleware' => $middleware,
             'actors' => $actors,
             'actions' => $actions,

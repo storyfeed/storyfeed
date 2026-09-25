@@ -9,7 +9,7 @@ use Storyfeed\Actions\WriteGroupings;
 use Storyfeed\Models\Activity;
 use Storyfeed\Models\Grouping;
 use Storyfeed\StoryfeedManager;
-use Storyfeed\Support\Chronology;
+use Storyfeed\Support\CurationWindow;
 use Storyfeed\Support\MaintenanceHistory;
 use Storyfeed\Support\SyncToken;
 
@@ -36,7 +36,7 @@ use Storyfeed\Support\SyncToken;
 class CurateCommand extends Command
 {
     protected $signature = 'storyfeed:curate
-        {--window= : Only activities published within this many days}
+        {--window= : Only activities published within this many days (a verb grouped per week or month: its whole period)}
         {--rehash : Re-run the grouping strategy first, so rows adopt newly added axes}
         {--release : First release composite members whose parent no longer exists (one-off repair)}';
 
@@ -56,7 +56,7 @@ class CurateCommand extends Command
         $model = config('storyfeed.models.activity', Activity::class);
 
         $query = $model::query()
-            ->when($window !== null, fn ($q) => $q->where('published_at', '>=', Chronology::stamp(now()->subDays((int) $window))))
+            ->when($window !== null, fn ($q) => CurationWindow::constrain($q, (int) $window))
             ->orderBy('id');
 
         $write = new WriteGroupings;

@@ -11,6 +11,7 @@ use Storyfeed\Contracts\FeedVerb;
 use Storyfeed\Contracts\PublishesToFeed;
 use Storyfeed\Exceptions\UnknownStory;
 use Storyfeed\Grouping\Group;
+use Storyfeed\Grouping\Period;
 use Storyfeed\PendingActivity;
 use Storyfeed\StoryfeedManager;
 
@@ -67,9 +68,10 @@ use Storyfeed\StoryfeedManager;
  *
  * PRESENTATION NEVER READS THE CONSTRUCTOR'S STATE. The presentation methods
  * (headline(), icon(), intent(), groups(), missing(), keepFor(),
- * keepForever(), keepLatest()) compile into the registries at boot, from an instance made
- * WITHOUT calling the constructor: there is no order at boot to pass it. A
- * headline that reads `$this->order` fails the compile, naming the class.
+ * keepForever(), keepLatest(), period()) compile into the registries at
+ * boot, from an instance made WITHOUT calling the constructor: there is no
+ * order at boot to pass it. A headline that reads `$this->order` fails the
+ * compile, naming the class.
  * Per-publish wording belongs in toFeedActivity(), as data.
  *
  * A group headline here is about documents, so it is filed under documents
@@ -219,6 +221,16 @@ abstract class Story implements PublishesToFeed
      * @return true|array{per?: list<string>|string|null, within?: string|DateInterval|null}|null
      */
     public function keepLatest(): array|true|null
+    {
+        return null;
+    }
+
+    /**
+     * The calendar period these activities group per — see
+     * Verb::groupedPer(). Null, the default, leaves it to a broader
+     * definition, or a day.
+     */
+    public function period(): ?Period
     {
         return null;
     }

@@ -19,6 +19,7 @@ use Storyfeed\FeedHeadline;
 use Storyfeed\FeedNoun;
 use Storyfeed\Grouping\Group;
 use Storyfeed\Grouping\GroupBuilder;
+use Storyfeed\Grouping\Period;
 use Storyfeed\Middleware\Batch;
 use Storyfeed\Models\Activity;
 use Storyfeed\Support\ActivityRoles;
@@ -84,6 +85,9 @@ final class Verb
 
     /** @var array{per: list<string>, within: string|null}|null null: every row is kept */
     protected ?array $keepLatest = null;
+
+    /** The calendar bucket its groups live in; null: not said, so a broader definition's, or a day. */
+    protected ?Period $period = null;
 
     /** @var list<string|Closure> story middleware, in the order declared */
     protected array $middleware = [];
@@ -212,6 +216,10 @@ final class Verb
                 $definition = $definition->keepLatest(...($latest === true ? [] : $latest));
             }
 
+            if (($period = $instance->period()) !== null) {
+                $definition = $definition->groupedPer($period);
+            }
+
             // A job's `middleware()`, read when stories compile like the
             // rest, so it can't depend on what the class was constructed with.
             if (($middleware = $instance->middleware()) !== []) {
@@ -252,7 +260,7 @@ final class Verb
     }
 
     /** The keys the array form accepts. */
-    public const ARRAY_KEYS = ['headline', 'anonymousHeadline', 'icon', 'intent', 'type', 'noun', 'activityStreamsType', 'missing', 'missingHeadline', 'forgetWhenMissing', 'keepFor', 'keepForever', 'keepLatest', 'middleware', 'withoutMiddleware', 'actor', 'groups'];
+    public const ARRAY_KEYS = ['headline', 'anonymousHeadline', 'icon', 'intent', 'type', 'noun', 'activityStreamsType', 'missing', 'missingHeadline', 'forgetWhenMissing', 'keepFor', 'keepForever', 'keepLatest', 'groupedPer', 'middleware', 'withoutMiddleware', 'actor', 'groups'];
 
     /**
      * Configure from the array form: what an action returning an array
@@ -341,6 +349,13 @@ final class Verb
             /** @var true|array{per?: list<string>|string|null, within?: string|DateInterval|null} $latest */
             $latest = $spec['keepLatest'];
             $definition = $definition->keepLatest(...($latest === true ? [] : $latest));
+        }
+
+        // A Period, or its value: `'groupedPer' => 'week'`.
+        if (isset($spec['groupedPer'])) {
+            /** @var Period|string $period */
+            $period = $spec['groupedPer'];
+            $definition = $definition->groupedPer($period);
         }
 
         if (! empty($spec['middleware'])) {
@@ -845,6 +860,73 @@ final class Verb
     }
 
     /**
+     * Group this verb's activities per hour: an open cluster runs from the
+     * top of the hour to the next, on the clock (14:59 and 15:01 are two
+     * groups). See groupedPer().
+     */
+    public function groupedHourly(): self
+    {
+        return $this->groupedPer(Period::Hour);
+    }
+
+    /**
+     * Group this verb's activities per calendar day, which is what every
+     * verb does unless it says otherwise. Worth saying only to undo a
+     * broader definition's period (`Story::fallback()->groupedWeekly()`).
+     */
+    public function groupedDaily(): self
+    {
+        return $this->groupedPer(Period::Day);
+    }
+
+    /**
+     * Group this verb's activities per ISO week, Monday to Sunday:
+     *
+     *     Story::for(Recipe::class)->verb('publish')->groupedWeekly()
+     *         ->grouped(Group::repeat()->headline(':actor published :count recipes this week'));
+     */
+    public function groupedWeekly(): self
+    {
+        return $this->groupedPer(Period::Week);
+    }
+
+    /** Group this verb's activities per calendar month. See groupedPer(). */
+    public function groupedMonthly(): self
+    {
+        return $this->groupedPer(Period::Month);
+    }
+
+    /**
+     * The calendar period this verb's groups live in, for a period chosen
+     * in code; `groupedWeekly()` and the rest say the same in one word.
+     *
+     * The period is cut in `app.timezone` when the activity is published,
+     * and resolved on the type → verb ladder, the most specific definition
+     * winning, so `Story::fallback()->groupedWeekly()` changes it for every
+     * verb that says nothing. A group keeps changing for its whole period:
+     * each new member moves it back to the top of the feed, for a week or a
+     * month. Changing a verb's period re-keys the activities published after
+     * it; groups already made stay as they are.
+     *
+     * Verbs that should group together should share a period: a grouping
+     * that doesn't key on the verb never puts a weekly and a daily verb's
+     * activities in one group, even on the same day.
+     */
+    public function groupedPer(Period|string $period): self
+    {
+        if (is_string($period)) {
+            $period = Period::tryFrom($period) ?? throw new InvalidArgumentException(
+                "->groupedPer() on [{$this->key()}] was given '{$period}', which is not a period. Give one of "
+                .implode(', ', array_map(fn (Period $case) => "'{$case->value}'", Period::cases())).'.',
+            );
+        }
+
+        $this->period = $period;
+
+        return $this;
+    }
+
+    /**
      * Mark a definition made inside `Story::for(…)`, whose group headlines
      * compile per type (`repeat.order.place`) rather than per verb.
      *
@@ -932,6 +1014,16 @@ final class Verb
         return $this->keepLatest;
     }
 
+    /**
+     * The period this verb declared, or null when it said nothing.
+     *
+     * @internal
+     */
+    public function period(): ?Period
+    {
+        return $this->period;
+    }
+
     /** @internal */
     public function actorGiven(): Model|string|null
     {
@@ -1002,6 +1094,7 @@ final class Verb
             'forgetWhenMissing' => $this->forgetWhenMissing,
             'retention' => $this->retention,
             'keepLatest' => $this->keepLatest === null ? null : [...$this->keepLatest['per'], '@', (string) $this->keepLatest['within']],
+            'period' => $this->period,
             'groups' => $this->groups,
         ]);
     }

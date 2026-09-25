@@ -29,6 +29,7 @@ use Storyfeed\Exceptions\UndeclaredParty;
 use Storyfeed\Exceptions\UnknownFeed;
 use Storyfeed\Exceptions\UnknownStory;
 use Storyfeed\Grouping\Axis;
+use Storyfeed\Grouping\Period;
 use Storyfeed\Models\Activity;
 use Storyfeed\Models\FeedTombstone;
 use Storyfeed\Models\Party;
@@ -148,6 +149,15 @@ class StoryfeedManager
      * @var array<string, array{per: list<string>, within: string|null}>
      */
     protected array $storyKeepLatest = [];
+
+    /**
+     * The calendar period a verb's groups live in (`->groupedWeekly()` and
+     * the rest), as a Period's value, on the type → verb ladder.
+     * Story-compiled only.
+     *
+     * @var array<string, string>
+     */
+    protected array $storyPeriods = [];
 
     /**
      * Story middleware as each definition declared it (`->middleware()`,
@@ -1345,6 +1355,7 @@ class StoryfeedManager
         $this->storyActors = $compiled['actors'];
         $this->storyRetention = $compiled['retention'];
         $this->storyKeepLatest = $compiled['keepLatest'];
+        $this->storyPeriods = $compiled['periods'];
         $this->storyMiddleware = $compiled['middleware'];
         $this->storyActions = $compiled['actions'];
 
@@ -1370,7 +1381,7 @@ class StoryfeedManager
 
         foreach (CompileStories::REGISTRIES as $registry) {
             // Held by TombstoneRules, or replaced whole by the next compile.
-            if (in_array($registry, ['missing', 'forget', 'retention', 'keepLatest', 'middleware', 'missingGrammar', 'actors', 'actions'], true)) {
+            if (in_array($registry, ['missing', 'forget', 'retention', 'keepLatest', 'periods', 'middleware', 'missingGrammar', 'actors', 'actions'], true)) {
                 continue;
             }
 
@@ -1431,7 +1442,7 @@ class StoryfeedManager
      * with the Story facade (2026-09-23): actorless grammar, nouns and object
      * types.
      *
-     * @param  array{grammar: array<string, string|Closure|FeedHeadline>, aggregateGrammar: array<string, string>, actorlessGrammar?: array<string, string|Closure|FeedHeadline>, icons: array<string, string>, glyphIntents?: array<string, string>, nouns?: array<string, string|FeedNoun>, objectTypes?: array<string, ObjectType|string>, verbs: array<string, mixed>, missing?: array<string, list<string>>, missingGrammar?: array<string, string|Closure|FeedHeadline>, forget?: array<string, bool>, retention?: array<string, string>, keepLatest?: array<string, array{per: list<string>, within: string|null}>, middleware?: array<string, array{middleware: list<string|Closure>, excluded: list<string>}>, actors?: array<string, string>, actions?: array<string, array{uses: string, request: bool, parts: array<string, string>|null}>}  $compiled
+     * @param  array{grammar: array<string, string|Closure|FeedHeadline>, aggregateGrammar: array<string, string>, actorlessGrammar?: array<string, string|Closure|FeedHeadline>, icons: array<string, string>, glyphIntents?: array<string, string>, nouns?: array<string, string|FeedNoun>, objectTypes?: array<string, ObjectType|string>, verbs: array<string, mixed>, missing?: array<string, list<string>>, missingGrammar?: array<string, string|Closure|FeedHeadline>, forget?: array<string, bool>, retention?: array<string, string>, keepLatest?: array<string, array{per: list<string>, within: string|null}>, periods?: array<string, string>, middleware?: array<string, array{middleware: list<string|Closure>, excluded: list<string>}>, actors?: array<string, string>, actions?: array<string, array{uses: string, request: bool, parts: array<string, string>|null}>}  $compiled
      * @param  list<string>  $stories  the Story classes the manifest was compiled from
      */
     public function useCompiledStories(array $compiled, array $stories = []): static
@@ -1447,6 +1458,7 @@ class StoryfeedManager
         $compiled['forget'] ??= [];
         $compiled['retention'] ??= [];
         $compiled['keepLatest'] ??= [];
+        $compiled['periods'] ??= [];
         $compiled['middleware'] ??= [];
         $compiled['actors'] ??= [];
         $compiled['actions'] ??= [];
@@ -2624,6 +2636,33 @@ class StoryfeedManager
         $this->ensureStoriesCompiled();
 
         return $this->storyMiddleware;
+    }
+
+    /**
+     * The calendar period a verb's groups live in, on the type → verb
+     * ladder (the most specific declaration wins): a day when no
+     * declaration reaches it.
+     */
+    public function period(?string $type, string $verb): Period
+    {
+        $this->ensureStoriesCompiled();
+
+        $declared = $this->resolve($this->storyPeriods, $type, $verb);
+
+        return $declared === null ? Period::Day : Period::from($declared);
+    }
+
+    /**
+     * Every declared period, as its value, keyed `type.verb` (wildcards
+     * allowed).
+     *
+     * @return array<string, string>
+     */
+    public function storyPeriods(): array
+    {
+        $this->ensureStoriesCompiled();
+
+        return $this->storyPeriods;
     }
 
     /**

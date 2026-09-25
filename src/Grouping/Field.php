@@ -3,6 +3,7 @@
 namespace Storyfeed\Grouping;
 
 use Storyfeed\Models\Activity;
+use Storyfeed\StoryfeedManager;
 
 /**
  * The fields an axis recipe can reference, as bit flags. The recipe DSL
@@ -101,10 +102,12 @@ enum Field: int
     ];
 
     /**
-     * THE DAY SEGMENT IS CUT IN THE APPLICATION'S ZONE, at PUBLISH time.
+     * THE DAY SEGMENT HOLDS THE VERB'S PERIOD, CUT IN THE APPLICATION'S ZONE,
+     * at PUBLISH time. A day unless the verb declared otherwise (Period):
+     * `2026-09-23`, or `2026-09-23T14`, `2026-W39`, `2026-09`.
      *
-     * `toDateString()` reads `app.timezone` — usually UTC — and a renderer's
-     * day headings are cut in its own DISPLAY zone, at read time. The two can
+     * The value reads `app.timezone` — usually UTC — and a renderer's day
+     * headings are cut in its own DISPLAY zone, at read time. The two can
      * disagree, and when they do the GROUP wins: a burst straddling midnight in
      * the reader's zone is one group under one heading, because the members
      * were bound together before any renderer had a zone to have an opinion in.
@@ -115,7 +118,10 @@ enum Field: int
      * belonging to yesterday. Nothing looks wrong: the rows are ordered, the
      * count is right, and the run simply reads as today's.
      *
-     * This is a PROPERTY, not a defect to route around. The grouping day is a
+     * The same holds for every period: a week's Monday and a month's first
+     * are cut in the application's zone too.
+     *
+     * This is a PROPERTY, not a defect to route around. The grouping period is a
      * publish-time value written into a hash, and it cannot know a read-time
      * zone that may differ per reader; making it agree would mean taking the
      * day out of the key entirely, which is a different design with different
@@ -141,10 +147,24 @@ enum Field: int
             self::ResultId => $activity->result_id,
             self::InstrumentType => $activity->instrument_type,
             self::InstrumentId => $activity->instrument_id,
-            self::Day => ($activity->published_at ?? now())->toDateString(),
+            self::Day => self::period($activity)->valueFor($activity->published_at ?? now()),
         };
 
         return $raw === null ? '' : (string) $raw;
+    }
+
+    /**
+     * The period the activity's verb declared (`->groupedWeekly()` and the
+     * rest), on the type → verb ladder; a day when nothing reaches it.
+     */
+    protected static function period(Activity $activity): Period
+    {
+        $type = $activity->object_type;
+
+        return app(StoryfeedManager::class)->period(
+            is_string($type) && $type !== '' ? $type : null,
+            (string) $activity->verb,
+        );
     }
 
     public function isFilledOn(Activity $activity): bool

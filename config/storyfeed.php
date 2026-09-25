@@ -406,6 +406,12 @@ return [
     | reaches the same answer it reached yesterday. Two days covers today plus
     | yesterday, for timezone slop and late arrivals.
     |
+    | A VERB GROUPED PER WEEK OR MONTH (`->groupedWeekly()`, `->groupedMonthly()`
+    | in routes/feed.php) puts its week or month in that segment instead, so its
+    | clusters stay open for the whole period. The scheduled run looks back over
+    | that verb's period plus a day (8 days for a week, 32 for a month), for that
+    | verb only. Nothing to set here: it follows the declarations.
+    |
     | WHEN TWO DAYS IS WRONG. A CUSTOM AXIS WHOSE KEY DOES NOT PIN THE DAY has
     | no closed clusters — a group can gain a member weeks after it formed, and
     | the scheduled run has to be able to see it. Register one and raise this to

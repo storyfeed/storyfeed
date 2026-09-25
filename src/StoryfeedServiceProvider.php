@@ -90,6 +90,10 @@ class StoryfeedServiceProvider extends PackageServiceProvider
      * consumer generated 7,023,664 queries in a month against 1,546 requests,
      * and the feed nobody was browsing was the thing spending the budget.
      *
+     * A verb grouped per week or month (`->groupedWeekly()`) keeps its
+     * cluster open longer than the window, so the command looks back over
+     * that verb's whole period, for that verb only (CurationWindow).
+     *
      * `null` or `0` restores the unbounded pass, for an app whose axes do not
      * pin the day and whose clusters therefore never close.
      *

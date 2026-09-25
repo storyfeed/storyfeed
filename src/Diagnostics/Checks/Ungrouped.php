@@ -7,6 +7,7 @@ use Storyfeed\Contracts\GroupingStrategy;
 use Storyfeed\Diagnostics\Finding;
 use Storyfeed\Grouping\MultiAxisStrategy;
 use Storyfeed\StoryfeedManager;
+use Storyfeed\Support\CurationWindow;
 
 /**
  * Activities carrying no grouping row at all — rows the read path can only
@@ -52,7 +53,9 @@ use Storyfeed\StoryfeedManager;
  * to walk all of history, so it eventually reached every uncurated row on its
  * own and this condition repaired itself. Bounded to `curate.window` days, it
  * no longer does: an import backdated past the window is never visited again,
- * and nothing else would say so.
+ * and nothing else would say so. "Past the window" is the command's own
+ * reach (CurationWindow), so a verb grouped per week counts as reachable for
+ * its whole week.
  */
 class Ungrouped extends Check
 {
@@ -166,8 +169,14 @@ class Ungrouped extends Check
 
         // Only worth saying when the scheduled run genuinely cannot reach them.
         // Inside the window the next hourly pass fixes this by itself, and a
-        // finding an operator would act on unnecessarily is noise.
-        $unreachable = $window !== null && (int) $window > 0 && $age !== null && $age >= (int) $window;
+        // finding an operator would act on unnecessarily is noise. The reach
+        // is the command's own (CurationWindow): a verb grouped per week or
+        // month is looked back over its period.
+        $bounded = $window !== null && (int) $window > 0;
+        $unreachable = $bounded && (clone $uncurated)
+            ->whereNot(fn ($query) => CurationWindow::constrain($query, (int) $window, $activities))
+            ->exists();
+        $widest = $bounded ? CurationWindow::widest((int) $window) : null;
 
         yield Finding::warning(
             'grouping.uncurated',
@@ -177,6 +186,7 @@ class Ungrouped extends Check
             .($oldest === null ? '' : "The oldest was published {$age} ".str('day')->plural($age).' ago. ')
             .($unreachable
                 ? "The scheduled hourly run only looks back {$window} ".str('day')->plural((int) $window)
+                    .($widest > (int) $window ? " ({$widest} for a verb grouped per week or month)" : '')
                     .', so it will never reach these. Run `php artisan storyfeed:curate` with no flags. '
                 : 'The next scheduled run should stamp them; if this persists, run `php artisan storyfeed:curate`. ')
             .'(`storyfeed:trickle` writes grouping rows for imported activities but does not curate them.)',
