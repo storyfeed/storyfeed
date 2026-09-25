@@ -4,6 +4,10 @@
 
 ### Changed
 
+- `Storyfeed::record(actor: $actor, anonymous: true)` now throws a
+  `LogicException` instead of silently discarding the actor. Omit `actor:`
+  for an anonymous activity. Sequential builder calls keep last-call-wins.
+
 - **Story middleware.** A publish goes through its verb's middleware, an
   `Illuminate\Pipeline` around `publish()`, registered and attached under the
   router's names: `Story::aliasMiddleware()`, `Story::middlewareGroup()`,

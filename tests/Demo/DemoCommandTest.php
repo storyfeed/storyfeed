@@ -1,9 +1,17 @@
 <?php
 
+use Laravel\Prompts\Prompt;
 use Storyfeed\Facades\Storyfeed;
 use Storyfeed\Models\Activity;
 use Storyfeed\Models\Party;
 use Workbench\App\Models\Delivery;
+
+beforeEach(function () {
+    // These tests change the environment to production, so configurePrompts()
+    // no longer sees runningUnitTests(). Explicitly enable the test fallback
+    // instead of inheriting it from whichever command ran earlier.
+    Prompt::fallbackWhen(true);
+});
 
 it('seeds a demo tenant', function () {
     $this->artisan('storyfeed:demo', ['--days' => 2])->assertSuccessful();

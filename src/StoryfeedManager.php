@@ -12,6 +12,7 @@ use Illuminate\Log\Context\Repository;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
+use LogicException;
 use Storyfeed\Actions\TombstoneEntity;
 use Storyfeed\ActivityStreams\ActivityType;
 use Storyfeed\ActivityStreams\CoreType;
@@ -355,7 +356,7 @@ class StoryfeedManager
 
     /**
      * Compose and publish an activity synchronously in one call.
-     * An anonymous activity has no actor, even when actor is also supplied.
+     * An anonymous activity has no actor; supplying both arguments is an error.
      *
      * @param  array<string, mixed>  $data
      * @param  iterable<int, Model>  $objects
@@ -376,6 +377,10 @@ class StoryfeedManager
         ?FeedChange $change = null,
         bool $anonymous = false,
     ): Activity {
+        if ($actor !== null && $anonymous) {
+            throw new LogicException('record() was given an actor and anonymous: true; an anonymous activity has no actor.');
+        }
+
         return $this->activity($verb, $object)
             ->when($objects !== [], fn (PendingActivity $a) => $a->objects($objects))
             ->when($actor !== null, fn (PendingActivity $a) => $a->actor($actor))

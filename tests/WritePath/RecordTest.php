@@ -3,6 +3,7 @@
 use Storyfeed\Facades\Storyfeed;
 use Storyfeed\FeedChange;
 use Storyfeed\FeedThread;
+use Storyfeed\Models\Activity;
 use Storyfeed\PendingActivity;
 use Storyfeed\StoryfeedManager;
 use Workbench\App\Models\Delivery;
@@ -88,7 +89,7 @@ it('records an unknown actor even when another actor is available', function (st
         $this->actingAs($user);
     }
 
-    $record = fn () => Storyfeed::record('confirm', actor: $source === 'explicit' ? $user : null, anonymous: true);
+    $record = fn () => Storyfeed::record('confirm', anonymous: true);
     $activity = ($source === 'scope' ? Storyfeed::as($user, $record) : $record())->fresh();
 
     expect($activity->exists)->toBeTrue()
@@ -96,7 +97,25 @@ it('records an unknown actor even when another actor is available', function (st
         ->and($activity->actor_id)->toBeNull()
         ->and($activity->cached_actor_id)->toBeNull()
         ->and($activity->actor)->toBeNull();
-})->with(['fallback', 'authenticated', 'scope', 'explicit']);
+})->with(['fallback', 'authenticated', 'scope']);
+
+it('rejects an explicit actor combined with anonymous before publishing', function (string $kind) {
+    $actor = $kind === 'model'
+        ? User::create(['name' => 'Sally', 'email' => 'sally@example.com'])
+        : 'Sally';
+
+    expect(fn () => Storyfeed::record('confirm', actor: $actor, anonymous: true))
+        ->toThrow(LogicException::class, 'record() was given an actor and anonymous: true; an anonymous activity has no actor.');
+
+    expect(Activity::count())->toBe(0);
+})->with(['model', 'party']);
+
+it('keeps last-call-wins for sequential actor and anonymous builder calls', function () {
+    $user = User::create(['name' => 'Sally', 'email' => 'sally@example.com']);
+
+    expect(Storyfeed::activity('confirm')->actor($user)->anonymously()->publish()->fresh()->actor)->toBeNull()
+        ->and(Storyfeed::activity('confirm')->anonymously()->actor($user)->publish()->fresh()->actor->is($user))->toBeTrue();
+});
 
 it('keeps the default actor when anonymous is false', function () {
     $user = User::create(['name' => 'Sally', 'email' => 'sally@example.com']);
