@@ -9,7 +9,7 @@ use Storyfeed\PendingActivity;
 use Storyfeed\Stories\Story;
 use Workbench\App\Models\Delivery;
 
-/** A later publish within the window supersedes a pending one. Laravel 13 only. */
+/** An unsupported debounce declaration, rejected at the call site. Laravel 13 only. */
 #[DebounceFor(30)]
 class DebouncedDispatch extends Story implements ShouldQueue
 {

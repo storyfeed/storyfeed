@@ -4,5 +4,5 @@ namespace Storyfeed\Tests\Queue\Fixtures;
 
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 
-/** Debounced and unique: a job refuses this, and so does a queued story. */
+/** An inherited debounce attribute is rejected, including on a unique story. */
 class UniqueDebouncedDispatch extends DebouncedDispatch implements ShouldBeUnique {}

@@ -40,12 +40,10 @@ use Throwable;
  * listener's flags by knowing CallQueuedListener by name, so this job takes
  * and releases its lock itself, where the queue handler would.
  *
- * DEBOUNCING. `#[DebounceFor]` or `$debounceFor`, with `debounceId()`,
- * forwarded to this job so Laravel's own dispatch debounces it: a later
- * publish within the window supersedes a pending one, and the last wins.
- * Like a job, it can't be unique too. Its `maxWait` is read from the job
- * class's own attribute, which can't be forwarded, so a class that sets it
- * is refused rather than silently waiting forever.
+ * DEBOUNCING. Story classes cannot declare `#[DebounceFor]` or
+ * `$debounceFor`: Laravel does not forward these from queued mailables,
+ * notifications or listeners. The publisher rejects them at the call site;
+ * declare `keepLatest(within:)` on the verb to keep the latest stored row.
  *
  * `published_at` is stamped at the dispatch, and missing models fail or
  * drop the job as PublishQueuedActivity's do, on every supported Laravel.
@@ -85,10 +83,6 @@ class PublishQueuedStory implements ShouldQueue
     public mixed $uniqueId = null;
 
     public ?int $uniqueFor = null;
-
-    public ?int $debounceFor = null;
-
-    public mixed $debounceId = null;
 
     /** The message, or on the worker until handle() restores it, its serialized form. */
     private Story|string $story;
@@ -132,24 +126,15 @@ class PublishQueuedStory implements ShouldQueue
             $this->uniqueId = method_exists($story, 'uniqueId') ? $story->uniqueId() : self::declared($story, 'uniqueId');
             $this->uniqueFor = (int) (method_exists($story, 'uniqueFor') ? $story->uniqueFor() : (self::declared($story, 'uniqueFor', 'UniqueFor') ?? 0));
         }
+    }
 
-        $debounce = self::attribute($story, 'DebounceFor');
-        $this->debounceFor = self::declared($story, 'debounceFor', 'DebounceFor');
-
-        if ($this->debounceFor !== null) {
-            if ($this->shouldBeUnique) {
-                // PendingDispatch::acquireDebounceLock()'s words, since this
-                // job is never ShouldBeUnique itself for it to say them.
-                throw new LogicException("A debounced job cannot also implement ShouldBeUnique. [{$this->class}] does both.");
-            }
-
-            if (($debounce->maxWait ?? null) !== null) {
-                throw new LogicException(
-                    "[{$this->class}] sets #[DebounceFor(maxWait: …)], which a queued story can't honour: Laravel reads maxWait from the dispatched job's own class. Leave maxWait out.",
-                );
-            }
-
-            $this->debounceId = method_exists($story, 'debounceId') ? $story->debounceId() : self::declared($story, 'debounceId');
+    /** Reject unsupported declarations before dispatch, including on the fake. */
+    public static function ensureNotDebounced(Story $story): void
+    {
+        if (property_exists($story, 'debounceFor') || self::attribute($story, 'DebounceFor') !== null) {
+            throw new LogicException(
+                '['.$story::class."] DebounceFor isn't supported on Story classes, as it isn't on queued mailables, notifications or listeners. Declare ->keepLatest(within: '…') on the verb instead.",
+            );
         }
     }
 
@@ -167,7 +152,6 @@ class PublishQueuedStory implements ShouldQueue
             return;
         }
 
-        // Through `dispatch()`, which is where Laravel debounces.
         dispatch($job);
     }
 
@@ -239,7 +223,7 @@ class PublishQueuedStory implements ShouldQueue
         return $this->story;
     }
 
-    /** The class, as a queued listener's job is named for its listener: in Horizon, and in unique and debounce locks. */
+    /** The class, as a queued listener's job is named for its listener: in Horizon, and in unique locks. */
     public function displayName(): string
     {
         return $this->class;
@@ -254,17 +238,6 @@ class PublishQueuedStory implements ShouldQueue
         $story = $this->story();
 
         return method_exists($story, 'uniqueVia') ? $story->uniqueVia() : null;
-    }
-
-    public function debounceVia(): ?Cache
-    {
-        if (! method_exists($this->class, 'debounceVia')) {
-            return null;
-        }
-
-        $story = $this->story();
-
-        return method_exists($story, 'debounceVia') ? $story->debounceVia() : null;
     }
 
     /** @return array<string, mixed> */

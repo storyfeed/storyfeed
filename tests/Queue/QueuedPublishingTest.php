@@ -467,28 +467,46 @@ it('drops a second unique publish while the first is pending, and takes one once
         ->and(DB::table('jobs')->count())->toBe(1);
 });
 
-it('lets the last of several debounced publishes win', function () {
-    Story::for(Delivery::class)->verb('dispatch', DebouncedDispatch::class);
-    $delivery = queuedPublishingDelivery();
+it('rejects a debounce attribute on a Story before publishing or dispatching', function (string $class, string $method, bool $fake) {
+    if ($fake) {
+        Storyfeed::fake();
+    }
+    Story::for(Delivery::class)->verb('dispatch', $class);
 
-    Storyfeed::publish(new DebouncedDispatch($delivery, 'first'));
-    Storyfeed::publish(new DebouncedDispatch($delivery, 'last'));
+    expect(fn () => Storyfeed::{$method}(new $class(queuedPublishingDelivery())))
+        ->toThrow(LogicException::class, "[{$class}] DebounceFor isn't supported on Story classes, as it isn't on queued mailables, notifications or listeners. Declare ->keepLatest(within: '…') on the verb instead.");
 
-    expect(DB::table('jobs')->count())->toBe(2);
-
-    $this->travel(31)->seconds();
-    queuedPublishingWork();
-    queuedPublishingWork();
-
-    expect(Activity::sole()->data)->toBe(['status' => 'last']);
-})->skip(! class_exists(DebounceFor::class), 'DebounceFor is Laravel 13.');
-
-it('refuses a message that is both debounced and unique, as a job does', function () {
-    Story::for(Delivery::class)->verb('dispatch', UniqueDebouncedDispatch::class);
-
-    Storyfeed::publish(new UniqueDebouncedDispatch(queuedPublishingDelivery()));
-})->throws(LogicException::class, 'A debounced job cannot also implement ShouldBeUnique.')
+    expect(DB::table('jobs')->count())->toBe(0)
+        ->and(Activity::count())->toBe(0);
+    if ($fake) {
+        Storyfeed::assertNothingQueued();
+        Storyfeed::assertNothingPublished();
+    }
+})->with([DebouncedDispatch::class, UniqueDebouncedDispatch::class])
+    ->with(['publish', 'publishNow'])->with([false, true])
     ->skip(! class_exists(DebounceFor::class), 'DebounceFor is Laravel 13.');
+
+it('rejects a debounceFor property before constructing or dispatching an activity', function (?int $duration, string $method, bool $fake) {
+    if ($fake) {
+        Storyfeed::fake();
+    }
+    $story = new class(queuedPublishingDelivery()) extends QueuedDispatch
+    {
+        public ?int $debounceFor = null;
+    };
+    $story->debounceFor = $duration;
+    Story::for(Delivery::class)->verb('dispatch', $story::class);
+
+    expect(fn () => Storyfeed::{$method}($story))
+        ->toThrow(LogicException::class, '['.$story::class."] DebounceFor isn't supported on Story classes");
+    expect(DB::table('jobs')->count())->toBe(0)
+        ->and(Activity::count())->toBe(0)
+        ->and(QueuedDispatch::$built)->toBe(0);
+    if ($fake) {
+        Storyfeed::assertNothingQueued();
+        Storyfeed::assertNothingPublished();
+    }
+})->with([null, 0, 30])->with(['publish', 'publishNow'])->with([false, true]);
 
 // ── The fake ──────────────────────────────────────────────────────────────
 

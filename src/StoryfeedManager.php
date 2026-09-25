@@ -1384,6 +1384,8 @@ class StoryfeedManager
      */
     public function publish(Story $story): ?Activity
     {
+        PublishQueuedStory::ensureNotDebounced($story);
+
         if (! $story instanceof ShouldQueue) {
             return $this->publishNow($story);
         }
@@ -1412,6 +1414,8 @@ class StoryfeedManager
      */
     public function publishNow(Story $story): ?Activity
     {
+        PublishQueuedStory::ensureNotDebounced($story);
+
         return $this->publishFor($story);
     }
 

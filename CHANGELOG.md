@@ -564,9 +564,13 @@
   line's declaration, and `failed()` is called when the job fails.
   `ShouldBeUnique`, `ShouldBeUniqueUntilProcessing`, `uniqueId()` and
   `uniqueFor` are forwarded the way a queued listener's are (a second
-  publish while one is pending is dropped), and so is `#[DebounceFor]` with
-  `debounceId()` (the last pending publish wins; Laravel 13, and not with
-  `maxWait`, which Laravel reads from the job class itself). The base
+  publish while one is pending is dropped). **Breaking:** `#[DebounceFor]`
+  or a `$debounceFor` property on a Story class now throws a `LogicException`
+  at the call site, before dispatch, naming the class. Laravel does not
+  forward debounce declarations from queued mailables, notifications or
+  listeners. Declare `->keepLatest(within: '…')` on the verb instead:
+  `ShouldBeUnique` keeps the first pending publish; `keepLatest()` keeps
+  the latest row. The base
   `Story` class now uses `SerializesModels`.
 - **The fake keeps queued publishes apart**, as `Mail::fake()` does:
   `Storyfeed::assertQueued('confirm', $order)` (or a message class, or a
