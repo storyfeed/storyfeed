@@ -128,8 +128,10 @@ enum Field: int
      * costs. An app that needs "yesterday" to mean the reader's yesterday
      * should set `app.timezone` to the zone its feed is read in, so both cuts
      * land in the same place.
+     *
+     * A partition axis passes its own period, which overrides the verb's.
      */
-    public function valueFor(Activity $activity): string
+    public function valueFor(Activity $activity, ?Period $period = null): string
     {
         $raw = match ($this) {
             self::ActorType => $activity->actor_type,
@@ -147,7 +149,7 @@ enum Field: int
             self::ResultId => $activity->result_id,
             self::InstrumentType => $activity->instrument_type,
             self::InstrumentId => $activity->instrument_id,
-            self::Day => self::period($activity)->valueFor($activity->published_at ?? now()),
+            self::Day => ($period ?? self::period($activity))->valueFor($activity->published_at ?? now()),
         };
 
         return $raw === null ? '' : (string) $raw;

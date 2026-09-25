@@ -62,6 +62,10 @@ describe('the value of the Day segment', function () {
             'actors' => 'revise:customer:9:2026-08-12',
             'object' => 'user:7:revise:delivery:42:2026-08-12',
             'repeat' => 'user:7:revise:delivery:customer:9:2026-08-12',
+            'summary.day' => 'user:7:2026-08-12',
+            'summary.hour' => 'user:7:2026-08-12T09',
+            'summary.month' => 'user:7:2026-08',
+            'summary.week' => 'user:7:2026-W33',
             'targets' => 'user:7:revise:2026-08-12',
         ];
 

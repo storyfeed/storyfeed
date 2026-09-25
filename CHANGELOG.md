@@ -20,6 +20,42 @@
 
 ### Changed
 
+- **Read modes re-cut: `live` is today's feed, `summary` is the digest.**
+  `->live()` now reads what `->summary()` used to (each activity under its
+  curated winning axis) and is the default (`grouping.default => 'live'`).
+  An unconfigured app sees no change. **Breaking:** `->summary()` is now the
+  digest — one row per person per calendar day, across verbs, with people
+  whose whole day was one identical activity sharing a crowd row, at most
+  three phrases per row (`grouping.summary.phrases`) and actorless
+  activities left solo. `->summary(Period::Week)` (or `'week'`) picks another
+  calendar period. Call `->live()` wherever you meant the old `summary()`,
+  and set `grouping.default` to `'live'` if you pinned `'summary'`. The
+  repeats-only `live` is retired as a mode: set `grouping.curate => false`
+  to read repeats only. A configured `'grouped'` mode now says so; `'curated'`
+  now points at `live`.
+
+- **Four partition axes, `summary.hour|day|week|month`**, registered by
+  default and hashed at publish (`aa!:aid!:d`, the period fixed per axis, not
+  the verb's). Never curated (`Axis::partition()`,
+  `Storyfeed::uncuratedBuckets()`). Existing activities read solo in the
+  digest until `storyfeed:curate --rehash` writes their rows. A composite
+  parent gets its partition rows; its members stay told by it. A fresh
+  publish now writes all of its grouping rows in one insert.
+
+- **Payload (additive, plus one change):** a digest row is `kind: "group"`
+  with `axis: "summary"`, new keys `period`, `phrases` (per-verb parts in the
+  order each verb first occurred, each with its own `headline_template`,
+  `headline`, `glyph`, `glyph_intent`, `sample` and `distinct`) and
+  `phrases_truncated`. "And N more" counts activities: `count` less the
+  phrases' counts. **Breaking:** `verb`, `glyph` and `glyph_intent` are null
+  on a row that spans verbs.
+
+- **Phrase grammar:** `Group::summary()->headline('went on :count rides')` /
+  `GroupBuilder::summary()`, keyed `summary.{verb}` by exact key only (no
+  `*.verb` wildcard: a phrase starts at the verb). `summary.*` is the row's
+  own sentence when an app wants one. Unregistered phrases are null, and the
+  renderer names the verb by its label.
+
 - **Story group attributes chain onto one `PendingGroup`**, as a
   RouteRegistrar's do. `Story::for()`, `Story::middleware()`,
   `Story::withoutMiddleware()` (new), `Story::as()` / `Story::name()` and the

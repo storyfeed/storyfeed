@@ -10,6 +10,6 @@ class AdminFeed extends Feed
 {
     public function define(FeedBuilder $feed): void
     {
-        $feed->except(['order.margin_note'])->summary();
+        $feed->except(['order.margin_note'])->live();
     }
 }

@@ -95,12 +95,12 @@ trait InteractsWithFeed
     /**
      * This model's feed: every activity it took part in, in any role.
      *
-     *   $project->storyfeed()->summary()->get();
+     *   $project->storyfeed()->live()->get();
      *
      * Exactly equivalent to the facade form, with the argument already filled
      * in — the same builder, so every method still applies:
      *
-     *   Storyfeed::feed()->involving($project)->summary()->get();
+     *   Storyfeed::feed()->involving($project)->live()->get();
      *
      * Not to be confused with the `storyfeed()` HELPER, which returns the
      * manager, or a pending activity when given a verb. Both are reachable from

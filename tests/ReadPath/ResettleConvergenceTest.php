@@ -41,7 +41,7 @@ function resettleUser(string $name): User
 function resettleStamps(Activity $activity): array
 {
     return Grouping::query()->where('activity_id', $activity->id)
-        ->whereNotIn('bucket', ['composite', 'batch'])
+        ->whereNotIn('bucket', Storyfeed::uncuratedBuckets())
         ->orderBy('bucket')->pluck('winner', 'bucket')
         ->map(fn ($w) => $w === null ? null : (bool) $w)->all();
 }

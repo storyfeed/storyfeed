@@ -44,6 +44,12 @@ final class GroupBuilder
         return $this->add(Group::byObject(), $headline);
     }
 
+    /** The digest's phrase, starting at the verb — "confirmed :count orders". */
+    public function summary(?string $headline = null): self
+    {
+        return $this->add(Group::summary(), $headline);
+    }
+
     /**
      * An authored collection story (see Contracts\Bundleable), with the
      * singular headline its object-less parent needs.

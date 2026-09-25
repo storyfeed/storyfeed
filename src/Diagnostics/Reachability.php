@@ -12,19 +12,20 @@ use Throwable;
  *
  * WHY THIS EXISTS. A coverage check that walks the groupings table knows what
  * the database clustered; it knows nothing about what the reader is about to
- * do. A `->live()` dashboard renders `repeat` and authored `composite` group
- * nodes and NOTHING else, so aggregate grammar for `object.upload` on such an
- * app is a template that cannot fire — doctor asking for it is asking for
+ * do. A `->summary()` dashboard renders digest rows and NOTHING else, so
+ * aggregate grammar for `object.upload` on such an app is a template that
+ * cannot fire — doctor asking for it is asking for
  * work with no effect. This is the seam that lets a check tell the two apart.
  *
  * THE RULE IS READ OFF `FeedBuilder::winning()`, not reasoned about:
  *
  *   log      shouldGroup() is false — logPage() renders no group node at all,
  *            so no axis is readable.
- *   live     `bucket = 'repeat'` OR (`bucket = 'composite'` AND winner) —
- *            two axes, and the winner column is never consulted for repeat.
- *   summary  winner rows on ANY bucket, plus the repeat fallback — every
+ *   live     winner rows on ANY bucket, plus the repeat fallback — every
  *            registered axis is readable.
+ *   summary  the period's partition bucket only (`summary.day` and the
+ *            rest) — no curated axis is readable, and the digest's phrases
+ *            are keyed `summary.{verb}`.
  *
  * THE HONEST LIMITS, all of which push the SAME way — toward reporting a pair
  * rather than excusing it:
@@ -44,7 +45,7 @@ final class Reachability
 {
     /**
      * @param  array<string, array{mode: string, axes: list<string>|null, filter: VerbFilter}>  $feeds
-     *                                                                                                  `axes` null means every axis — a summary surface reads winners on any bucket.
+     *                                                                                                  `axes` null means every axis — a live surface reads winners on any bucket.
      * @param  array<string, string>  $opaque  feed name => the exception class that hid its mode
      * @param  array<string, string>  $sources  feed name => where it was declared, opaque ones included
      */
@@ -102,7 +103,7 @@ final class Reachability
     {
         return match ($mode) {
             'log' => [],
-            'live' => ['repeat', 'composite'],
+            'summary' => ['summary'],
             default => null,
         };
     }

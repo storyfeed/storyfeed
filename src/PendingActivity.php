@@ -970,6 +970,10 @@ class PendingActivity
                 'winner' => null,
             ]);
 
+            // The parent's partition rows, so the digest places it under its
+            // person's day; the claim keeps every other axis out.
+            (new WriteGroupings)($this->activity, $this->inserted);
+
             (new SyncParticipants)($this->activity, $this->inserted);
 
             foreach ($this->objects as $model) {

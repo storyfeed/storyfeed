@@ -40,6 +40,12 @@ it('produces the frozen hashes for a fully-roled activity', function () {
         'actors' => 'revise:customer:9:2026-08-12',
         'object' => 'user:7:revise:delivery:42:2026-08-12',
         'repeat' => 'user:7:revise:delivery:customer:9:2026-08-12',
+        // The digest's partition axes (v0.8): the actor and a FIXED period,
+        // whatever the verb declared.
+        'summary.day' => 'user:7:2026-08-12',
+        'summary.hour' => 'user:7:2026-08-12T09',
+        'summary.month' => 'user:7:2026-08',
+        'summary.week' => 'user:7:2026-W33',
         'targets' => 'user:7:revise:2026-08-12',
     ]);
 });
@@ -50,7 +56,8 @@ it('produces the frozen hashes for an anonymous, untargeted activity', function 
         'object_type' => 'delivery', 'object_id' => 42,
     ]);
 
-    // No actor: targets absent. No target: actors absent. Nulls are ''.
+    // No actor: targets and the digest's partitions absent. No target:
+    // actors absent. Nulls are ''.
     expect($hashes)->toBe([
         'object' => '::revise:delivery:42:2026-08-12',
         'repeat' => '::revise:delivery:::2026-08-12',
@@ -65,6 +72,10 @@ it('produces the frozen hashes for an objectless activity', function () {
 
     expect($hashes)->toBe([
         'repeat' => 'user:7:ping::::2026-08-12',
+        'summary.day' => 'user:7:2026-08-12',
+        'summary.hour' => 'user:7:2026-08-12T09',
+        'summary.month' => 'user:7:2026-08',
+        'summary.week' => 'user:7:2026-W33',
         'targets' => 'user:7:ping:2026-08-12',
     ]); // ksorted
 });

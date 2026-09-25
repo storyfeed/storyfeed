@@ -17,6 +17,7 @@ use InvalidArgumentException;
 use Storyfeed\Contracts\FeedVerb;
 use Storyfeed\Exceptions\FeedMisconfigured;
 use Storyfeed\Grouping\NullStrategy;
+use Storyfeed\Grouping\Period;
 use Storyfeed\Models\Activity;
 use Storyfeed\Models\Builders\ActivityBuilder;
 use Storyfeed\Models\FeedTombstone;
@@ -39,17 +40,22 @@ use Storyfeed\Support\VerbFilter;
  *
  * Three read modes, each naming what you get (docs/grouping.md):
  *
+ *   ->live()      today's feed: multi-axis winners ("Sally uploaded 12
+ *                 photos", "Bob, Sally and 3 others uploaded…")
+ *   ->summary()   the digest: one row per person per day, across verbs
+ *                 ("Sally uploaded 12 photos and approved 3 invoices")
  *   ->log()       the atomic timeline, no group nodes
- *   ->live()      repeat-only grouping ("Sally uploaded 12 photos")
- *   ->summary()   multi-axis winners ("Bob, Sally and 3 others uploaded…")
  *
- * The shipped default is summary; apps override via `grouping.default`.
+ * The shipped default is live; apps override via `grouping.default`.
+ *
+ * Re-cut in v0.8 (2026-09-25): `live` took what `summary` used to read, and
+ * `summary` became the per-person digest. The old repeats-only `live` is not
+ * a mode any more — `grouping.curate => false` reads that way, app-wide.
  *
  * Renamed in v0.7 from flat/grouped/curated. The modes vary GRANULARITY;
  * `curated` is deliberately reserved for a future relevance-ranked view, which
  * varies SELECTION and ORDER — a different axis, and the only one that would
- * earn the word. A fourth granularity tier, `digest` (age-decayed
- * retrospective), is designed but unbuilt.
+ * earn the word.
  *
  * READ STRATEGY (docs/grouping.md). The page is selected in two phases:
  *
@@ -121,8 +127,11 @@ class FeedBuilder
     /** A named filter was requested but matched no party. */
     protected bool $unresolvable = false;
 
-    /** Read mode: 'log' | 'live' | 'summary'. Null = configured default. */
+    /** Read mode: 'log' | 'live' | 'summary'. Null = configured default (live when unconfigured). */
     protected ?string $mode = null;
+
+    /** The summary's calendar period; read only in summary mode. */
+    protected Period $period = Period::Day;
 
     /**
      * Caller constraints on the candidate activities.
@@ -483,10 +492,12 @@ class FeedBuilder
      * a callback `$this`, and this hands over a different, inner builder.
      *
      * Runs once per BRANCH of the read, not once per page: measured at once for
-     * a log page, and eleven times for a grouped page carrying one group — the
+     * a log page, and eleven times for a live page carrying one group — the
      * group stream and its window probe, the solo stream, the member fetch, and
      * one distinct count per role; a page that fits in a history window also
-     * recounts its groups once. Keep it free of side effects.
+     * recounts its groups once. A summary page carrying one row runs it
+     * nineteen times (fifteen counts in place of seven), plus once more when
+     * the page has rows that might share a crowd. Keep it free of side effects.
      *
      * Constraints reach the whole read, including group children and the
      * distinct-role counts behind ":actors and 3 others", because every branch
@@ -523,9 +534,17 @@ class FeedBuilder
     }
 
     /**
-     * LIVE — repeat-only grouping, "Sally uploaded 12 photos", never
-     * multi-axis. The sensible middle tier, and the pre-package apps' proven
-     * behaviour.
+     * LIVE — today's feed, and the default. Each activity reads under its
+     * winning axis: "Sally uploaded 12 photos", "Bob, Sally and 3 others
+     * uploaded files to Concur", "Sally commented on 3 projects". The typical
+     * home page.
+     *
+     * Which clusters collapse is WRITE-time policy (`grouping.policy.min_*`,
+     * stamped by curation at publish); this mode only reads the stamp. An app
+     * that wants repeats only — the pre-0.8 `live` — sets
+     * `grouping.curate => false`, and every activity reads through `repeat`.
+     *
+     * Cursors are mode-specific: never replay one across modes.
      */
     public function live(): static
     {
@@ -535,25 +554,40 @@ class FeedBuilder
     }
 
     /**
-     * SUMMARY — multi-axis collapsing, each activity under its winning axis
-     * ("Bob, Sally and 3 others uploaded files to Concur"). The shipped
-     * default; experimental in the sense that the policy keeps evolving.
+     * SUMMARY — the digest: one row per person per day, across verbs.
+     *
+     *   Storyfeed::feed()->summary();              // today, then yesterday, …
+     *   Storyfeed::feed()->summary(Period::Week);  // one row per person per week
+     *
+     * The period takes the enum or its value, as `onQueue()` takes a queue
+     * name, and is the same Period a verb's `groupedPer()` declares. Calendar
+     * cuts only: "the last hour" is a filter, not a period.
      *
      * Named `summary`, not `curated`: it collapses MECHANICALLY, and the old
-     * name claimed editorial judgement it does not exercise. That misread its
-     * own author into shipping it as the Newsroom's landing page for weeks —
-     * the anti-lie rule that doctor enforces on headlines, applied to a mode
-     * name. `curated` is reserved for a relevance-RANKED view, which would be
-     * a different axis entirely (selection and order, not granularity) and
-     * would actually earn the word.
+     * name claimed editorial judgement it does not exercise. `curated` is
+     * reserved for a relevance-RANKED view, which would be a different axis
+     * entirely (selection and order, not granularity).
      *
-     * Cursors are mode-specific: never replay one across modes.
+     * Cursors are mode-specific: never replay one across modes or periods.
      */
-    public function summary(): static
+    public function summary(Period|string $period = Period::Day): static
     {
         $this->mode = 'summary';
+        $this->period = $this->normalizePeriod($period);
 
         return $this;
+    }
+
+    protected function normalizePeriod(Period|string $period): Period
+    {
+        if ($period instanceof Period) {
+            return $period;
+        }
+
+        return Period::tryFrom($period) ?? throw new InvalidArgumentException(
+            "Unknown summary period [{$period}]. Valid periods: "
+            .implode(', ', array_column(Period::cases(), 'value')).'.',
+        );
     }
 
     /**
@@ -564,14 +598,23 @@ class FeedBuilder
      */
     protected function mode(): string
     {
-        $mode = $this->mode ?? (string) config('storyfeed.grouping.default', 'summary');
+        $mode = $this->mode ?? (string) config('storyfeed.grouping.default', 'live');
 
         if (! in_array($mode, ['log', 'live', 'summary'], true)) {
-            $renamed = ['flat' => 'log', 'grouped' => 'live', 'curated' => 'summary'];
+            // `curated` meant multi-axis winners, which is what live reads now.
+            $renamed = ['flat' => 'log', 'curated' => 'live'];
 
             if (isset($renamed[$mode])) {
                 throw new InvalidArgumentException(
-                    "Feed mode [{$mode}] was renamed to [{$renamed[$mode]}] in v0.7. "
+                    "Feed mode [{$mode}] was renamed to [{$renamed[$mode]}]. "
+                    .'Valid modes: log, live, summary.',
+                );
+            }
+
+            if ($mode === 'grouped') {
+                throw new InvalidArgumentException(
+                    'Feed mode [grouped] (repeats only) is not a mode any more. Set '
+                    .'`storyfeed.grouping.curate` to false to read repeats only, and use [live]. '
                     .'Valid modes: log, live, summary.',
                 );
             }
@@ -686,6 +729,23 @@ class FeedBuilder
 
         $groups = $candidates->filter(fn (FeedCandidate $candidate) => $candidate->isGroup())->values();
 
+        $slices = $this->mode() === 'summary'
+            ? $this->summarySlices($now, $candidates, $groups)
+            : $this->groupSlices($now, $candidates, $groups);
+
+        return [$slices, $next];
+    }
+
+    /**
+     * Phase 2 for live: one slice per selected group, members and distinct
+     * counts fetched for the page's groups only.
+     *
+     * @param  Collection<int, FeedCandidate>  $candidates
+     * @param  Collection<int, FeedCandidate>  $groups
+     * @return Collection<int, GroupSlice>
+     */
+    protected function groupSlices(Carbon $now, Collection $candidates, Collection $groups): Collection
+    {
         $members = $this->fetchMembers($now, $groups);
         ['distinct' => $distinct, 'tombstoned' => $tombstoned] = $this->countDistinctRoles($now, $groups);
 
@@ -733,7 +793,310 @@ class FeedBuilder
             ->reject(fn (GroupSlice $slice) => $slice->members->isEmpty())
             ->values();
 
-        return [$slices, $next];
+        return $slices;
+    }
+
+    /**
+     * Phase 2 for summary: the page's person-periods, with people whose
+     * whole period was one identical thing merged into a crowd, each row
+     * carrying its per-verb phrases.
+     *
+     * THE CROWD MERGE IS PAGE-LOCAL, and that is policy, not contract. Two
+     * people who each only checked in at the fair read as one row when both
+     * rows land on the same page; a crowd that straddles a page boundary
+     * reads as two rows, one per page. Nothing is hidden either way, and the
+     * cursor is untouched: it was minted from the unmerged candidates, so
+     * the next page starts exactly where it would have. Merging across pages
+     * would need the whole period in hand, which is the materialized read
+     * model's job (docs/grouping.md), not this read's.
+     *
+     * @param  Collection<int, FeedCandidate>  $candidates
+     * @param  Collection<int, FeedCandidate>  $groups
+     * @return Collection<int, GroupSlice>
+     */
+    protected function summarySlices(Carbon $now, Collection $candidates, Collection $groups): Collection
+    {
+        $units = $this->crowds($now, $groups);
+        $members = $this->fetchMembers($now, $groups, byVerb: true);
+        $aggregates = $this->summaryAggregates($now, $groups, $units);
+
+        $counts = [];
+        $keys = [];
+
+        foreach ($groups as $group) {
+            $key = $this->groupKey($group);
+            $unit = $units[$key];
+            $counts[$unit] = ($counts[$unit] ?? 0) + $group->count;
+            $keys[$unit][] = $key;
+        }
+
+        $emitted = [];
+        $slices = [];
+
+        foreach ($candidates as $candidate) {
+            if ($candidate->activity !== null) {
+                $slices[] = GroupSlice::solo($candidate->activity);
+
+                continue;
+            }
+
+            $unit = $units[$this->groupKey($candidate)];
+
+            // A crowd sits where its newest person would have.
+            if (isset($emitted[$unit])) {
+                continue;
+            }
+
+            $emitted[$unit] = true;
+
+            /** @var EloquentCollection<int, Activity> $all */
+            $all = $this->activityModel()->newCollection(
+                Collection::make($keys[$unit])
+                    ->flatMap(fn (string $key) => $members->get($key)?->all() ?? [])
+                    ->sort(fn (Activity $a, Activity $b): int => $this->normalizeTimestamp($b->published_at) <=> $this->normalizeTimestamp($a->published_at)
+                        ?: $b->getKey() <=> $a->getKey())
+                    ->values()
+                    ->all(),
+            );
+
+            if ($all->isEmpty()) {
+                continue; // deleted between the phases; see groupSlices()
+            }
+
+            $phrases = Collection::make($aggregates['phrases'][$unit] ?? [])
+                ->map(fn (array $phrase, int|string $verb) => [
+                    'verb' => (string) $verb,
+                    'count' => $phrase['count'],
+                    'first' => $phrase['first'],
+                    'distinct' => $phrase['distinct'],
+                    'members' => $all->filter(fn (Activity $a) => $a->verb === (string) $verb)->values(),
+                ])
+                // In the order the period happened: each verb where it first
+                // occurred ("checked in, got a balloon and went on 3 rides"),
+                // read from every member, not the capped ones. Then the verb,
+                // so the order never depends on the database's.
+                ->sort(fn (array $a, array $b): int => strcmp($a['first'], $b['first'])
+                    ?: strcmp($a['verb'], $b['verb']))
+                ->map(fn (array $phrase) => array_diff_key($phrase, ['first' => true]))
+                ->values()
+                ->all();
+
+            $slices[] = GroupSlice::summary(
+                (string) $candidate->axis,
+                count($keys[$unit]) === 1 ? (string) $candidate->hash : 'crowd'."\x1f".implode("\x1e", array_map(
+                    fn (string $key) => explode("\x1f", $key, 2)[1],
+                    $keys[$unit],
+                )),
+                $this->period,
+                $counts[$unit],
+                $all->take($this->childrenLimit())->values(),
+                $aggregates['distinct'][$unit] ?? [],
+                $aggregates['tombstoned'][$unit] ?? [],
+                $phrases,
+            );
+        }
+
+        return Collection::make($slices);
+    }
+
+    /**
+     * Which selected person-periods read as one crowd row: those whose
+     * whole period was ONE activity, and the same verb at the same target
+     * (or at none) as the others'. "Murray Bauman and Karen Wheeler checked
+     * in at the Fun Fair."
+     *
+     * One activity each, not one verb each: a person who checked in twice
+     * keeps their own row ("checked in at the Fun Fair 2 times"), because a
+     * crowd row counts people and would make that sentence untrue. An
+     * actorless activity has no partition row to begin with and reads solo:
+     * anonymous is not a crowd.
+     *
+     * @param  Collection<int, FeedCandidate>  $groups  in page order
+     * @return array<string, string> group key => the unit it reads in (its first group's key)
+     */
+    protected function crowds(Carbon $now, Collection $groups): array
+    {
+        $units = [];
+
+        foreach ($groups as $group) {
+            $units[$this->groupKey($group)] = $this->groupKey($group);
+        }
+
+        if ($groups->count() < 2) {
+            return $units;
+        }
+
+        $activities = $this->activityModel()->getTable();
+        $groupings = $this->groupingModel()->getTable();
+
+        $shapes = $this->activityModel()->getConnection()->query()
+            ->fromSub($this->selectedGroupMembers($now, $groups)->toBase()->select([
+                "{$groupings}.bucket as group_bucket",
+                "{$groupings}.hash as group_hash",
+                "{$activities}.verb",
+                "{$activities}.target_type",
+                "{$activities}.target_id",
+            ]), 'm')
+            ->groupBy('group_bucket', 'group_hash')
+            ->select(['group_bucket', 'group_hash'])
+            ->selectRaw('count(*) as members')
+            ->selectRaw('min(verb) as verb')
+            ->selectRaw('count(target_type) as targeted')
+            ->selectRaw('min(target_type) as min_type, max(target_type) as max_type')
+            ->selectRaw('min(target_id) as min_id, max(target_id) as max_id')
+            ->get();
+
+        $crowds = [];
+
+        foreach ($shapes as $shape) {
+            $untargeted = (int) $shape->targeted === 0;
+            $oneTarget = (int) $shape->targeted === (int) $shape->members
+                && $shape->min_type === $shape->max_type
+                && (string) $shape->min_id === (string) $shape->max_id;
+
+            // One activity, not one kind of activity: a crowd row's count is
+            // its number of people, so ":count times" on it stays honest.
+            if ((int) $shape->members !== 1 || ! ($untargeted || $oneTarget)) {
+                continue;
+            }
+
+            // Same period VALUE, not just the same bucket: the day is the
+            // key's last segment (`user:7:2026-09-25`). A key long enough to
+            // be digested has lost it, and keeps its own row.
+            $hash = (string) $shape->group_hash;
+
+            if (! str_contains($hash, ':')) {
+                continue;
+            }
+
+            $thing = implode("\x1f", [$shape->group_bucket, substr($hash, strrpos($hash, ':') + 1), $shape->verb, $untargeted ? '' : $shape->min_type, $untargeted ? '' : (string) $shape->min_id]);
+
+            $crowds[$thing][] = $shape->group_bucket."\x1f".$shape->group_hash;
+        }
+
+        foreach ($crowds as $keys) {
+            if (count($keys) < 2) {
+                continue;
+            }
+
+            // The unit is the crowd's first person in page order.
+            $first = collect(array_keys($units))->first(fn (string $key) => in_array($key, $keys, true));
+
+            foreach ($keys as $key) {
+                $units[$key] = (string) $first;
+            }
+        }
+
+        return $units;
+    }
+
+    /**
+     * The digest's true numbers, per row and per phrase: member counts per
+     * verb, and distinct counts per role, both across every member rather
+     * than the capped children. A crowd's rows count together, so two
+     * people who checked in at one fair are one target, not two.
+     *
+     * Fifteen queries a page: one for the phrase counts, and two per role,
+     * because a role's distinct count per row cannot be summed from its
+     * counts per phrase (one target, three verbs). The Step 3 read model
+     * absorbs them someday; settled periods never change.
+     *
+     * @param  Collection<int, FeedCandidate>  $groups
+     * @param  array<string, string>  $units  group key => unit
+     * @return array{distinct: array<string, array<string, int>>, tombstoned: array<string, array<string, int>>, phrases: array<string, array<string, array{count: int, first: string, distinct: array<string, int>}>>}
+     */
+    protected function summaryAggregates(Carbon $now, Collection $groups, array $units): array
+    {
+        $result = ['distinct' => [], 'tombstoned' => [], 'phrases' => []];
+
+        if ($groups->isEmpty()) {
+            return $result;
+        }
+
+        $activities = $this->activityModel()->getTable();
+        $groupings = $this->groupingModel()->getTable();
+        $connection = $this->activityModel()->getConnection();
+        [$unit, $bindings] = $this->unitColumn($groups, $units);
+
+        $members = fn (array $columns) => $this->selectedGroupMembers($now, $groups)
+            ->toBase()
+            ->selectRaw("{$unit} as unit_key", $bindings)
+            ->addSelect($columns);
+
+        $counts = $connection->query()
+            ->fromSub($members(["{$activities}.verb", "{$activities}.published_at"]), 'm')
+            ->groupBy('unit_key', 'verb')
+            ->select(['unit_key', 'verb'])
+            ->selectRaw('count(*) as total')
+            ->selectRaw('min(published_at) as first_at')
+            ->get();
+
+        foreach ($counts as $row) {
+            $result['phrases'][$row->unit_key][$row->verb] = [
+                'count' => (int) $row->total,
+                'first' => $this->normalizeTimestamp($row->first_at),
+                'distinct' => [],
+            ];
+        }
+
+        foreach (ActivityRoles::GROUPABLE as $role) {
+            $identity = ["{$activities}.{$role}_type", "{$activities}.{$role}_id"];
+
+            $perPhrase = $connection->query()
+                ->fromSub($members(["{$activities}.verb", ...$identity])->whereNotNull("{$activities}.{$role}_type")->distinct(), 'd')
+                ->groupBy('unit_key', 'verb')
+                ->select(['unit_key', 'verb'])
+                ->selectRaw('count(*) as total')
+                ->get();
+
+            foreach ($perPhrase as $row) {
+                if (isset($result['phrases'][$row->unit_key][$row->verb])) {
+                    $result['phrases'][$row->unit_key][$row->verb]['distinct'][$role] = (int) $row->total;
+                }
+            }
+
+            $perRow = $connection->query()
+                ->fromSub($members($identity)->whereNotNull("{$activities}.{$role}_type")->distinct(), 'd')
+                ->groupBy('unit_key')
+                ->select(['unit_key'])
+                ->selectRaw('count(*) as total')
+                ->selectRaw("sum(case when {$role}_type = ? then 1 else 0 end) as tombstoned", [FeedTombstone::MORPH_ALIAS])
+                ->get();
+
+            foreach ($perRow as $row) {
+                $result['distinct'][$row->unit_key][$role] = (int) $row->total;
+                $result['tombstoned'][$row->unit_key][$role] = (int) $row->tombstoned;
+            }
+        }
+
+        return $result;
+    }
+
+    /**
+     * The row each member counts in, as SQL: its group's own key, or its
+     * crowd's. A CASE over the page's groups, so a crowd aggregates in the
+     * same query as everything else on the page.
+     *
+     * @param  Collection<int, FeedCandidate>  $groups
+     * @param  array<string, string>  $units
+     * @return array{0: string, 1: list<string>}
+     */
+    protected function unitColumn(Collection $groups, array $units): array
+    {
+        $groupings = $this->groupingModel()->getTable();
+        $grammar = $this->groupingModel()->getConnection()->getQueryGrammar();
+        $bucket = $grammar->wrapTable($groupings).'.'.$grammar->wrap('bucket');
+        $hash = $grammar->wrapTable($groupings).'.'.$grammar->wrap('hash');
+
+        $sql = 'case';
+        $bindings = [];
+
+        foreach ($groups as $group) {
+            $sql .= " when {$bucket} = ? and {$hash} = ? then ?";
+            array_push($bindings, (string) $group->axis, (string) $group->hash, $units[$this->groupKey($group)]);
+        }
+
+        return [$sql.' end', $bindings];
     }
 
     /**
@@ -1115,26 +1478,24 @@ class FeedBuilder
      * The grouping predicate, applied wherever the groupings table is in
      * play.
      *
-     * grouped: the `repeat` axis, plain and proven.
-     *
-     * curated: `winner = true` is the curated answer, and a row with NO
-     * winner stamped anywhere for its activity falls back to `repeat` —
-     * so adopters upgrade into the winner column with no backfill cliff
+     * live: `winner = true` is the curated answer, and a row with NO winner
+     * stamped anywhere for its activity falls back to `repeat` — so adopters
+     * upgrade into the winner column with no backfill cliff
      * (`storyfeed:curate` settles history incrementally), and an app with
      * curation stamping disabled reads as repeat-only.
+     *
+     * summary: the period's partition bucket, one equality. Every activity
+     * with an actor has exactly one such row, and nothing is ever stamped
+     * on it, so curation and its races never reach the digest.
      */
     protected function winning(): Closure
     {
         $groupings = $this->groupingModel()->getTable();
 
-        if ($this->mode() === 'live') {
-            // Authored stories (composites) belong in the classic tier too —
-            // grouped mode excludes multi-axis INFERENCE, not declarations.
-            return fn ($query) => $query
-                ->where("{$groupings}.bucket", 'repeat')
-                ->orWhere(fn ($composite) => $composite
-                    ->where("{$groupings}.bucket", 'composite')
-                    ->where("{$groupings}.winner", true));
+        if ($this->mode() === 'summary') {
+            $bucket = $this->summaryBucket();
+
+            return fn ($query) => $query->where("{$groupings}.bucket", $bucket);
         }
 
         return function ($query) use ($groupings) {
@@ -1150,6 +1511,25 @@ class FeedBuilder
     }
 
     /**
+     * The partition bucket summary() reads. An app whose registry dropped it
+     * (`Storyfeed::axes([...], merge: false)`) gets an error naming it rather
+     * than a digest in which everything reads solo.
+     */
+    protected function summaryBucket(): string
+    {
+        $axis = app(StoryfeedManager::class)->summaryAxis($this->period);
+
+        if ($axis === null) {
+            throw new FeedMisconfigured(
+                "summary(Period::{$this->period->name}) reads the [summary.{$this->period->value}] axis, which is not registered. "
+                .'Keep the built-in summary axes when replacing the registry, or read this feed with live().',
+            );
+        }
+
+        return $axis->name;
+    }
+
+    /**
      * `winning()` re-expressed as the disjuncts of an ANTIJOIN — the shapes
      * whose ABSENCE makes an activity solo. Each returned closure narrows a
      * subquery already correlated to the activity; an activity is solo when
@@ -1160,7 +1540,7 @@ class FeedBuilder
      * 1. `NOT EXISTS(P1 OR P2)` ≡ `NOT EXISTS(P1) AND NOT EXISTS(P2)`.
      *    Universally true, and what splits either mode's predicate in two.
      *
-     * 2. In the summary/grouped branch the second disjunct is
+     * 2. In the live branch the second disjunct is
      *    `bucket = 'repeat' AND NOT EXISTS(w: winner = true)` — but it is
      *    only ever evaluated alongside the first, `NOT EXISTS(winner = true)`,
      *    which already guarantees this activity has no winner stamped
@@ -1181,12 +1561,11 @@ class FeedBuilder
     {
         $groupings = $this->groupingModel()->getTable();
 
-        if ($this->mode() === 'live') {
+        if ($this->mode() === 'summary') {
+            $bucket = $this->summaryBucket();
+
             return [
-                fn (QueryBuilder $sub) => $sub->where("{$groupings}.bucket", 'repeat'),
-                fn (QueryBuilder $sub) => $sub
-                    ->where("{$groupings}.bucket", 'composite')
-                    ->where("{$groupings}.winner", true),
+                fn (QueryBuilder $sub) => $sub->where("{$groupings}.bucket", $bucket),
             ];
         }
 
@@ -1235,12 +1614,16 @@ class FeedBuilder
 
         $query
             // Composite parents and members are never solo: the parent is
-            // told by its cluster node, the members by their composite.
+            // told by its cluster node, the members by their composite. In
+            // the digest the parent IS the telling and takes its person's
+            // row; one written before partition rows existed has none, and
+            // reads solo here until the trickle or `--rehash` writes it.
             ->whereNotExists(fn (QueryBuilder $sub) => $sub
                 ->selectRaw('1')
                 ->from("{$groupings} as composite_rows")
                 ->whereColumn('composite_rows.activity_id', "{$activities}.id")
-                ->where('composite_rows.bucket', 'composite'))
+                ->where('composite_rows.bucket', 'composite')
+                ->when($this->mode() === 'summary', fn (QueryBuilder $members) => $members->where('composite_rows.winner', true)))
             ->with(ActivityRoles::cachedRelations())
             ->orderBy("{$activities}.published_at", 'desc')
             ->orderBy("{$activities}.id", 'desc')
@@ -1265,12 +1648,13 @@ class FeedBuilder
 
     /**
      * Phase 2 — members of the selected groups, newest first, capped per
-     * group by ROW_NUMBER() so one 10k-member group cannot swamp a page.
+     * group (per group and verb, `$byVerb`) by ROW_NUMBER() so one
+     * 10k-member group cannot swamp a page.
      *
      * @param  Collection<int, FeedCandidate>  $groups
      * @return Collection<array-key, EloquentCollection<int, Activity>>
      */
-    protected function fetchMembers(Carbon $now, Collection $groups): Collection
+    protected function fetchMembers(Carbon $now, Collection $groups, bool $byVerb = false): Collection
     {
         if ($groups->isEmpty()) {
             return Collection::make();
@@ -1279,11 +1663,14 @@ class FeedBuilder
         $activities = $this->activityModel()->getTable();
         $groupings = $this->groupingModel()->getTable();
 
+        // A digest row caps per VERB, so a busy day's first 25 children
+        // cannot all be one verb and leave the other phrases no sample.
         $grammar = $this->activityModel()->getConnection()->getQueryGrammar();
         $partition = sprintf(
-            'row_number() over (partition by %s, %s order by %s desc, %s desc) as member_rank',
+            'row_number() over (partition by %s, %s%s order by %s desc, %s desc) as member_rank',
             $grammar->wrapTable($groupings).'.'.$grammar->wrap('bucket'),
             $grammar->wrapTable($groupings).'.'.$grammar->wrap('hash'),
+            $byVerb ? ', '.$grammar->wrapTable($activities).'.'.$grammar->wrap('verb') : '',
             $grammar->wrapTable($activities).'.'.$grammar->wrap('published_at'),
             $grammar->wrapTable($activities).'.'.$grammar->wrap('id'),
         );

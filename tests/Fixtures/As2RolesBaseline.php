@@ -11,5 +11,9 @@ return [
         'targets' => 'user:1:confirm:2026-09-08',
         'object' => 'user:1:confirm:delivery:1:2026-09-08',
         'repeat' => 'user:1:confirm:delivery:customer:1:2026-09-08',
+        'summary.hour' => 'user:1:2026-09-08T12',
+        'summary.day' => 'user:1:2026-09-08',
+        'summary.week' => 'user:1:2026-W37',
+        'summary.month' => 'user:1:2026-09',
     ],
 ];

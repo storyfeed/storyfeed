@@ -238,7 +238,7 @@ it('reports true member counts, not the windowed ones', function () {
     WindowedFeedBuilder::$depths = [2, null];
     WindowedFeedBuilder::$attempts = [];
 
-    $items = (new WindowedFeedBuilder)->summary()->limit(1)->get()->toArray()['items'];
+    $items = (new WindowedFeedBuilder)->live()->limit(1)->get()->toArray()['items'];
 
     expect($items)->toHaveCount(1)
         ->and($items[0]['kind'])->toBe('group')

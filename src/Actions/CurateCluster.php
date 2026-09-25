@@ -182,7 +182,7 @@ class CurateCluster
     protected function winnerState(int|string $activityId): array
     {
         return $this->stamps($this->groupings()->where('activity_id', $activityId)
-            ->whereNotIn('bucket', $this->manager()->rowBackedBuckets())
+            ->whereNotIn('bucket', $this->manager()->uncuratedBuckets())
             ->orderBy('bucket')
             ->toBase()
             ->get([$this->groupingKey(), 'bucket', 'winner']));
@@ -315,7 +315,7 @@ class CurateCluster
             foreach (array_chunk(array_keys($ids), 500) as $chunk) {
                 $rows = $this->groupings()
                     ->whereIn('activity_id', $chunk)
-                    ->whereNotIn('bucket', $this->manager()->rowBackedBuckets())
+                    ->whereNotIn('bucket', $this->manager()->uncuratedBuckets())
                     ->orderBy('bucket')
                     ->toBase()
                     ->get([$this->groupingKey(), 'activity_id', 'bucket', 'hash', 'winner'])
@@ -443,7 +443,7 @@ class CurateCluster
     {
         return $this->groupings()
             ->where('activity_id', $activityId)
-            ->whereNotIn('bucket', app(StoryfeedManager::class)->rowBackedBuckets())
+            ->whereNotIn('bucket', app(StoryfeedManager::class)->uncuratedBuckets())
             ->pluck('hash', 'bucket')
             ->all();
     }

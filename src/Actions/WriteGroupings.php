@@ -25,19 +25,39 @@ class WriteGroupings
 
         // A composite parent or member is CLAIMED: its story is the
         // composite, so it never (re)enters inference — without this guard
-        // the trickle would hand claimed rows back to the axes.
-        $claimed = $grouping::query()
+        // the trickle would hand claimed rows back to the axes. A member's
+        // claim names its parent's uid; the parent's names its own.
+        $claim = $grouping::query()
             ->where('activity_id', $activity->getKey())
             ->where('bucket', 'composite')
-            ->exists();
+            ->value('hash');
 
-        if ($claimed) {
+        if ($claim !== null && $claim !== $activity->uid) {
             return;
         }
 
         $strategy = app(config('storyfeed.grouping.strategy', MultiAxisStrategy::class));
 
-        $hashes = $strategy->hashes($activity);
+        $hashes = self::admitted($strategy->hashes($activity), $claim !== null);
+
+        // A fresh publish has no rows to update, so every axis goes in one
+        // multi-row insert, as many() writes new rows. The four partition
+        // axes made this matter: a SELECT and an INSERT per axis would be
+        // sixteen statements inside the publish transaction, and on Postgres
+        // the cost is planning per statement, not row width.
+        if ($inserted) {
+            $now = now();
+
+            if ($hashes !== []) {
+                $grouping::query()->insert(array_map(
+                    fn (string $axis, string $hash) => ['activity_id' => $activity->getKey(), 'bucket' => $axis, 'hash' => $hash, 'created_at' => $now, 'updated_at' => $now],
+                    array_keys($hashes),
+                    $hashes,
+                ));
+            }
+
+            return;
+        }
 
         foreach ($hashes as $axis => $hash) {
             $grouping::query()->updateOrCreate(
@@ -51,13 +71,10 @@ class WriteGroupings
         // The batch bucket is exempt: batch membership is written by the
         // publish path, not the strategy, so it is never in $hashes — the
         // delete would otherwise destroy it on every re-run (trickle!).
-        // A row the calling publish just inserted has nothing to drop, and on InnoDB
-        // deleting nothing still locks the index's tail, where every
-        // concurrent publish inserts (see SyncParticipants).
-        if ($inserted) {
-            return;
-        }
-
+        // A row the calling publish just inserted has nothing to drop (it
+        // returned above), and on InnoDB deleting nothing still locks the
+        // index's tail, where every concurrent publish inserts (see
+        // SyncParticipants).
         $grouping::query()
             ->where('activity_id', $activity->getKey())
             ->whereNotIn('bucket', app(StoryfeedManager::class)->rowBackedBuckets())
@@ -92,8 +109,8 @@ class WriteGroupings
         $rowBacked = app(StoryfeedManager::class)->rowBackedBuckets();
         $ids = array_keys($byKey);
 
-        $claimed = $grouping::query()->whereIn('activity_id', $ids)->where('bucket', 'composite')
-            ->pluck('activity_id')->flip();
+        $claims = $grouping::query()->whereIn('activity_id', $ids)->where('bucket', 'composite')
+            ->pluck('hash', 'activity_id');
 
         $key = (new $grouping)->getKeyName();
         $existing = $grouping::query()->whereIn('activity_id', $ids)
@@ -108,11 +125,13 @@ class WriteGroupings
         $now = now();
 
         foreach ($byKey as $id => $activity) {
-            if ($claimed->has($id)) {
+            $claim = $claims->get($id);
+
+            if ($claim !== null && $claim !== $activity->uid) {
                 continue;
             }
 
-            $hashes = $strategy->hashes($activity);
+            $hashes = self::admitted($strategy->hashes($activity), $claim !== null);
             $own = ($existing->get($id) ?? collect())->keyBy('bucket');
 
             foreach ($hashes as $bucket => $hash) {
@@ -141,6 +160,30 @@ class WriteGroupings
         if ($deletes !== []) {
             $grouping::query()->whereKey($deletes)->delete();
         }
+    }
+
+    /**
+     * A COMPOSITE PARENT KEEPS ITS PARTITION ROWS. Its members are told by
+     * the parent, so they stay claimed; but the parent is the telling, and
+     * the digest must place it under its person's day like anything else.
+     * Every other axis stays out: the parent never enters inference.
+     *
+     * @param  array<string, string>  $hashes
+     * @return array<string, string>
+     */
+    private static function admitted(array $hashes, bool $parent): array
+    {
+        if (! $parent) {
+            return $hashes;
+        }
+
+        $storyfeed = app(StoryfeedManager::class);
+
+        return array_filter(
+            $hashes,
+            fn (string $bucket) => $storyfeed->axis($bucket)?->isPartition() === true,
+            ARRAY_FILTER_USE_KEY,
+        );
     }
 
     /**

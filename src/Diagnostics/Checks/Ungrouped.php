@@ -146,12 +146,12 @@ class Ungrouped extends Check
 
         $activities = $this->table('activities');
         $groupings = $this->table('groupings');
-        $rowBacked = $storyfeed->rowBackedBuckets();
+        $outside = $storyfeed->uncuratedBuckets();
 
         $candidates = fn ($sub) => $sub
             ->from($groupings)
             ->whereColumn('activity_id', "{$activities}.id")
-            ->whereNotIn('bucket', $rowBacked);
+            ->whereNotIn('bucket', $outside);
 
         $uncurated = $this->activities()
             ->whereExists($candidates)

@@ -65,7 +65,7 @@ it('produces group nodes, not a wall of solo rows', function () {
 
     Vocabulary::register();
 
-    $items = Storyfeed::feed()->limit(50)->summary()->get()->toArray()['items'];
+    $items = Storyfeed::feed()->limit(50)->live()->get()->toArray()['items'];
 
     $groups = array_filter($items, fn ($i) => $i['kind'] === 'group');
     $solos = array_filter($items, fn ($i) => $i['kind'] !== 'group');
@@ -80,7 +80,7 @@ it('gives its group nodes headlines, which is what makes the demo look alive', f
 
     Vocabulary::register();
 
-    $items = Storyfeed::feed()->limit(50)->summary()->get()->toArray()['items'];
+    $items = Storyfeed::feed()->limit(50)->live()->get()->toArray()['items'];
     $groups = array_values(array_filter($items, fn ($i) => $i['kind'] === 'group'));
 
     expect($groups)->not->toBeEmpty();

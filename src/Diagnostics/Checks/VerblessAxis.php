@@ -60,6 +60,10 @@ class VerblessAxis extends Check
                 continue; // pins the verb, or is not derivable — see the docblock
             }
 
+            if ($axis->isPartition()) {
+                continue; // the digest spans verbs by design; its phrases are keyed per verb
+            }
+
             // The wildcard entries are the only keys that can be true of a
             // group whose members did different things.
             $agnostic = array_key_exists("{$name}.*", $grammar) ? "{$name}.*"

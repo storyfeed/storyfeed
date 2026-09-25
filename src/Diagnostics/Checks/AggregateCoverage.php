@@ -15,10 +15,11 @@ use Storyfeed\StoryfeedManager;
  * TWO SENTENCES, NOT ONE (2026-08-27). This check kept being right about the
  * database and wrong about what the reader would do next: it warned for every
  * clustered (axis, verb) pair regardless of whether any surface would ever
- * render that axis. A consumer got eight warnings on a `->live()` dashboard;
- * five were `object.*` and one `targets.*`, and `FeedBuilder::winning()` shows
- * live reads only `repeat` and authored composites — six templates that could
- * not have fired, asked for by name. So the registry now answers the second
+ * render that axis. A consumer got eight warnings on a repeats-only
+ * dashboard (the pre-0.8 `live`); five were `object.*` and one `targets.*`,
+ * six templates that could not have fired, asked for by name. Today the
+ * same holds for a `->summary()` dashboard, which reads only the digest's
+ * partition rows. So the registry now answers the second
  * half: `Reachability` reads each REGISTERED feed's declared mode, and a pair
  * nothing can read is reported as LATENT rather than as a gap to go fix.
  *
@@ -175,8 +176,8 @@ class AggregateCoverage extends Check
         return Finding::info(
             'aggregates.latent',
             "`{$key}` clusters and has no aggregate grammar, but no registered feed reads the "
-            ."`{$axis}` axis — the registry declares {$reach->modes()}, and only summary() renders group "
-            .'nodes outside `repeat` and `composite`. No stub is offered; this becomes a real gap the '
+            ."`{$axis}` axis — the registry declares {$reach->modes()}, and only live() renders "
+            .'curated group nodes. No stub is offered; this becomes a real gap the '
             .'moment a surface reads it, and a call site can override a declared mode without touching '
             .'the feed.',
             ['axis' => $axis, 'verb' => $verb, 'key' => $key, 'modes' => $reach->modes()],

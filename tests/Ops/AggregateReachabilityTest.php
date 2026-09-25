@@ -10,7 +10,7 @@ use Workbench\App\Models\User;
  * The half of AggregateCoverage that is about the READER, not the database.
  *
  * The check has been technically correct and practically misleading twice —
- * silent on an empty database, then asking a `->live()` dashboard for five
+ * silent on an empty database, then asking a repeats-only dashboard for five
  * `object.*` templates that its mode could never render. These tests are what
  * stop a third: they pin the two sentences apart, and they pin the honest
  * degradation, which is the part that fails quietly if it ever regresses.
@@ -47,19 +47,19 @@ it('reports every pair and says reachability is unknown when no feeds are regist
         ->toBe(Severity::Error);
 });
 
-it('calls an object-axis pair latent when every registered feed reads live', function () {
-    Storyfeed::feeds(['dashboard' => fn (FeedBuilder $feed) => $feed->live()]);
+it('calls an object-axis pair latent when every registered feed reads the digest', function () {
+    Storyfeed::feeds(['dashboard' => fn (FeedBuilder $feed) => $feed->summary()]);
 
     objectCluster();
 
     $report = Storyfeed::doctor(['aggregates']);
     $latent = $report->withCode('aggregates.latent')->first();
 
-    // `live()` selects bucket = 'repeat' plus authored composites and never
-    // consults the winner column — so no object.* template could ever fire.
+    // `summary()` selects the period's partition bucket and never consults
+    // the winner column — so no object.* template could ever fire.
     expect($latent)->not->toBeNull()
         ->and($latent->subject['axis'])->toBe('object')
-        ->and($latent->subject['modes'])->toBe('live')
+        ->and($latent->subject['modes'])->toBe('summary')
         ->and($latent->severity)->toBe(Severity::Info)
         // Still reported, and still not a gap to go fix: a stub here is six
         // registrations that cannot render.
@@ -71,7 +71,7 @@ it('calls an object-axis pair latent when every registered feed reads live', fun
 });
 
 it('still warns, with a stub, for a pair a registered feed can actually read', function () {
-    Storyfeed::feeds(['newsroom' => fn (FeedBuilder $feed) => $feed->summary()]);
+    Storyfeed::feeds(['newsroom' => fn (FeedBuilder $feed) => $feed->live()]);
 
     objectCluster();
 
@@ -86,8 +86,8 @@ it('still warns, with a stub, for a pair a registered feed can actually read', f
 });
 
 it('does not call a pair latent on the strength of a verb a live feed does read', function () {
-    // `repeat` IS live-readable, so this is the control for the test above:
-    // the mode filter must narrow by axis, not blanket-excuse a live app.
+    // `repeat` IS live-readable, so this is the control: the mode filter must
+    // narrow by axis, not blanket-excuse a live app.
     Storyfeed::feeds(['dashboard' => fn (FeedBuilder $feed) => $feed->live()]);
 
     $user = User::create(['name' => 'Bob', 'email' => 'bob@example.com']);
@@ -124,9 +124,9 @@ it('never claims unreadable when a feed would not inspect', function () {
 });
 
 it('holds a feed to the verbs it declared, not just its mode', function () {
-    // summary() reads every axis, but this feed cannot show `upload` at all,
+    // live() reads every axis, but this feed cannot show `upload` at all,
     // so it is no evidence that anything renders the pair.
-    Storyfeed::feeds(['orders' => fn (FeedBuilder $feed) => $feed->summary()->only(['order.*'])]);
+    Storyfeed::feeds(['orders' => fn (FeedBuilder $feed) => $feed->live()->only(['order.*'])]);
 
     objectCluster();
 

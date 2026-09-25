@@ -37,7 +37,7 @@ it('requires a fresh page after rehash moves an unread group before a live curso
     $at = now();
     $first = Storyfeed::activity('middle')->publishedAt($at)->publish();
     $unread = Storyfeed::activity('zebra')->publishedAt($at)->publish();
-    $page = Storyfeed::feed()->summary()->limit(1)->get()->toArray();
+    $page = Storyfeed::feed()->live()->limit(1)->get()->toArray();
 
     expect($page['items'][0]['id'])->toBe($first->uid)
         ->and($page['next_cursor'])->not->toBeNull();
@@ -46,8 +46,8 @@ it('requires a fresh page after rehash moves an unread group before a live curso
         Axis::make('repeat')->key(fn ($activity) => $activity->verb === 'zebra' ? 'alpha' : 'middle')->fallback(),
     ], merge: false);
     $this->artisan('storyfeed:curate --rehash')->assertSuccessful();
-    $next = Storyfeed::feed()->summary()->limit(1)->cursor($page['next_cursor'])->get()->toArray();
-    $fresh = Storyfeed::feed()->summary()->get()->toArray();
+    $next = Storyfeed::feed()->live()->limit(1)->cursor($page['next_cursor'])->get()->toArray();
+    $fresh = Storyfeed::feed()->live()->get()->toArray();
 
     expect($next['items'])->toBeEmpty()
         ->and($next['sync_token'])->not->toBe($page['sync_token'])

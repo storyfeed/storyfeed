@@ -1282,9 +1282,37 @@ class StoryfeedManager
         return $this->axes ??= $this->defaultAxes();
     }
 
+    /**
+     * A registered axis by name. A partition family's grammar name
+     * (`summary`) answers with its day axis: the periods share one recipe,
+     * so they pin the same tokens and take the same headlines.
+     */
     public function axis(string $name): ?Axis
     {
-        return $this->registeredAxes()[$name] ?? null;
+        $axes = $this->registeredAxes();
+
+        if (isset($axes[$name])) {
+            return $axes[$name];
+        }
+
+        foreach ($axes as $axis) {
+            if ($axis->isPartition() && $axis->grammarName() === $name) {
+                return $axes["{$name}.".Period::Day->value] ?? $axis;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * The partition axis `summary()` reads for a period, or null when the
+     * app's registry has none.
+     */
+    public function summaryAxis(Period $period): ?Axis
+    {
+        $axis = $this->registeredAxes()['summary.'.$period->value] ?? null;
+
+        return $axis?->isPartition() === true ? $axis : null;
     }
 
     /**
@@ -1303,7 +1331,7 @@ class StoryfeedManager
     {
         return array_keys(array_filter(
             $this->registeredAxes(),
-            fn (Axis $axis) => $axis->appliesToRoles(array_values($filledRoles)),
+            fn (Axis $axis) => ! $axis->isPartition() && $axis->appliesToRoles(array_values($filledRoles)),
         ));
     }
 
@@ -1349,7 +1377,7 @@ class StoryfeedManager
     {
         return array_keys(array_filter(
             $this->registeredAxes(),
-            fn (Axis $axis) => ! $axis->isFallback() && ! $axis->isRowBacked(),
+            fn (Axis $axis) => ! $axis->isFallback() && ! $axis->isRowBacked() && ! $axis->isPartition(),
         ));
     }
 
@@ -1365,6 +1393,22 @@ class StoryfeedManager
         return array_keys(array_filter(
             $this->registeredAxes(),
             fn (Axis $axis) => $axis->isRowBacked(),
+        ));
+    }
+
+    /**
+     * Buckets curation never reads or stamps: the row-backed ones, and the
+     * partition axes `summary()` reads (Axis::partition()). A partition row
+     * is written and stale-deleted like any strategy row; it just never
+     * competes.
+     *
+     * @return array<int, string>
+     */
+    public function uncuratedBuckets(): array
+    {
+        return array_keys(array_filter(
+            $this->registeredAxes(),
+            fn (Axis $axis) => $axis->isRowBacked() || $axis->isPartition(),
         ));
     }
 
@@ -2008,6 +2052,15 @@ class StoryfeedManager
                 ->pins(':actor', ':target', ':context'),
             Axis::make('batch')
                 ->rowBacked(),
+            // Partition axes: what `summary()` reads. One row per person per
+            // period, across verbs; never curated. Actorless activities have
+            // no row and read solo — anonymous is not a person.
+            ...array_map(
+                fn (Period $period) => Axis::make('summary.'.$period->value)
+                    ->key('aa!:aid!:d')
+                    ->partition($period),
+                Period::cases(),
+            ),
         ];
 
         return array_combine(array_column($axes, 'name'), $axes);
@@ -2242,6 +2295,28 @@ class StoryfeedManager
 
         return self::headlineEntry($this->aggregateGrammar[self::qualifiedKey($axis, $verb, $objectType)]
             ?? $this->resolve($this->aggregateGrammar, $axis, $verb));
+    }
+
+    /**
+     * A digest's grammar, by EXACT key only: a phrase is `summary.{verb}`
+     * (or `summary.{type}.{verb}`), and the row's own sentence is
+     * `summary.*`. None of the wildcard ladder applies: `*.upload` is a
+     * whole sentence with a subject (":actors uploaded :count files"), and a
+     * phrase is a predicate without one ("uploaded :count files"), so a
+     * wildcard would put the subject in twice.
+     *
+     * A null verb asks for the row's sentence.
+     */
+    public function summaryTemplate(?string $verb, ?string $objectType = null): string|Closure|null
+    {
+        $this->ensureStoriesCompiled();
+
+        if ($verb === null) {
+            return self::headlineEntry($this->aggregateGrammar['summary.*'] ?? null);
+        }
+
+        return self::headlineEntry(($objectType === null ? null : $this->aggregateGrammar["summary.{$objectType}.{$verb}"] ?? null)
+            ?? $this->aggregateGrammar["summary.{$verb}"] ?? null);
     }
 
     /**

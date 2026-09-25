@@ -285,31 +285,30 @@ it('lets the last mode call win', function () {
         uploadsTo($project, $name);
     }
 
-    $items = Storyfeed::feed()->log()->summary()->get()->toArray()['items'];
+    $items = Storyfeed::feed()->log()->live()->get()->toArray()['items'];
 
     expect($items)->toHaveCount(1)
         ->and($items[0]['axis'])->toBe('actors');
 });
 
-it('returns repeat-only groups with ->live(), ignoring stamped winners', function () {
+it('reads the stamped winner with ->live(), the default', function () {
     $project = Customer::create(['name' => 'Concur']);
 
     foreach (['Bob', 'Sally', 'Ann'] as $name) {
         uploadsTo($project, $name);
     }
 
-    // Curation stamped an actors winner; grouped mode is the proven middle
-    // tier and reads the repeat axis regardless — the pre-flip default,
-    // back as a per-view choice.
+    // Since v0.8 live is multi-axis: the curated winner, no longer repeats
+    // only. The repeats-only reading is `grouping.curate => false`.
     $items = Storyfeed::feed()->live()->get()->toArray()['items'];
 
-    expect($items)->toHaveCount(3)
-        ->and(collect($items)->pluck('kind')->unique()->values()->all())->toBe(['activity'])
-        ->and(Grouping::query()->where('bucket', 'actors')->where('winner', true)->count())->toBe(3);
+    expect($items)->toHaveCount(1)
+        ->and($items[0]['axis'])->toBe('actors')
+        ->and(Storyfeed::feed()->get()->toArray()['items'])->toBe($items);
 });
 
 it('reads the app-wide default mode from config', function () {
-    config()->set('storyfeed.grouping.default', 'live');
+    config()->set('storyfeed.grouping.default', 'summary');
 
     $project = Customer::create(['name' => 'Concur']);
 
@@ -317,8 +316,10 @@ it('reads the app-wide default mode from config', function () {
         uploadsTo($project, $name);
     }
 
-    expect(Storyfeed::feed()->get()->toArray()['items'])->toHaveCount(3)
-        ->and(Storyfeed::feed()->summary()->get()->toArray()['items'])->toHaveCount(1);
+    // Three people who each uploaded once to Concur: one crowd row in the
+    // digest, as in live, but read through the summary axis.
+    expect(Storyfeed::feed()->get()->toArray()['items'][0]['axis'])->toBe('summary')
+        ->and(Storyfeed::feed()->live()->get()->toArray()['items'][0]['axis'])->toBe('actors');
 });
 
 it('rejects unknown feed modes', function () {
@@ -336,12 +337,19 @@ it('names the replacement when a pre-0.7 mode is configured', function () {
     // an affordance with no test is a promise.
     Storyfeed::activity()->verb('ping')->publish();
 
-    foreach (['flat' => 'log', 'grouped' => 'live', 'curated' => 'summary'] as $old => $new) {
+    foreach (['flat' => 'log', 'curated' => 'live'] as $old => $new) {
         config()->set('storyfeed.grouping.default', $old);
 
         expect(fn () => Storyfeed::feed()->get())
             ->toThrow(InvalidArgumentException::class, "renamed to [{$new}]");
     }
+
+    // Repeats only has no mode of its own any more; the error says how to
+    // get it.
+    config()->set('storyfeed.grouping.default', 'grouped');
+
+    expect(fn () => Storyfeed::feed()->get())
+        ->toThrow(InvalidArgumentException::class, 'storyfeed.grouping.curate');
 });
 
 it('degrades to classic repeat-only grouping app-wide when curation is disabled', function () {

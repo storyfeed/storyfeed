@@ -418,7 +418,8 @@ class CompileStories
      * A grouping that can gather several types (everything one person did,
      * say) has no one type to file under, so a type's headline for it throws
      * rather than being filed somewhere untrue. Row-backed axes (composite,
-     * batch) keep `axis.verb`; their headline belongs to the verb already.
+     * batch) and the digest's phrases (summary) keep `axis.verb`; their
+     * headline belongs to the verb already.
      *
      * Verb::make()/for() keep `axis.verb`.
      *
@@ -429,7 +430,12 @@ class CompileStories
         $verb = $definition->verb;
         $method = $this->classMethod($definition);
 
-        if ((! $definition->isTypeScoped() && $method === null) || $storyfeed->axis($group->axis)?->isRowBacked() === true) {
+        $axis = $storyfeed->axis($group->axis);
+
+        // A digest phrase is per verb across types, like a row-backed
+        // headline: it belongs to the verb, and two types claiming the same
+        // verb's phrase collide loudly at claim().
+        if ((! $definition->isTypeScoped() && $method === null) || $axis?->isRowBacked() === true || $axis?->isPartition() === true) {
             return ["{$group->axis}.{$verb}"];
         }
 

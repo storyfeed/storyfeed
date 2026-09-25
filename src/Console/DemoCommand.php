@@ -79,7 +79,7 @@ class DemoCommand extends Command
 
         $this->newLine();
         $this->line('  Three surfaces now have material:');
-        $this->line('    world     Storyfeed::feed()->summary()');
+        $this->line('    world     Storyfeed::feed()->live()');
         $this->line('    project   Storyfeed::feed()->context(Party::find(\''.Cast::keyFor($cast->projects[0]).'\'))');
         $this->line('    person    Storyfeed::feed()->actor(Party::find(\''.Cast::keyFor($cast->members[0]).'\'))->log()');
         $this->newLine();

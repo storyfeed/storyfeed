@@ -210,10 +210,14 @@ return [
         | Policy is not payload contract: change it freely (docs/payload.md).
         */
         /*
-        | The app-wide default read mode: 'log' (the atomic timeline), 'live'
-        | (repeat-only, the classic behaviour), or 'summary' (multi-axis
-        | winners). Per-view calls (->log() / ->live() / ->summary()) always
-        | override.
+        | The app-wide default read mode: 'live' (today's feed, the typical
+        | home page: each activity under its winning axis), 'summary' (the
+        | digest: one row per person per day, across verbs), or 'log' (the
+        | atomic timeline). Per-view calls (->live() / ->summary() / ->log())
+        | always override.
+        |
+        | Re-cut in v0.8: 'live' reads what 'summary' used to. Repeats only,
+        | the old 'live', is `'curate' => false` below.
         |
         | Renamed in v0.7 from flat/grouped/curated — the old `curated` claimed
         | editorial judgement over what is mechanical collapsing, and the name
@@ -221,7 +225,7 @@ return [
         | reserved for a future relevance-RANKED view. The old values now throw
         | with the new name rather than falling back to a default.
         */
-        'default' => 'summary',
+        'default' => 'live',
 
         'curate' => true,
         'policy' => [
@@ -229,6 +233,15 @@ return [
             'min_targets' => 2,
             'min_target_members' => 3,
             'min_object_members' => 2,
+        ],
+
+        /*
+        | The digest (->summary()): one row per person per period, across
+        | verbs. `phrases` caps the per-verb parts a row carries; the rest
+        | read "and N more". Policy, not contract.
+        */
+        'summary' => [
+            'phrases' => 3,
         ],
 
         /*

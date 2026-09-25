@@ -127,7 +127,11 @@ class BundleComposites
                 'winner' => null,
             ]);
 
+            // The parent's partition rows (WriteGroupings::admitted()).
+            (new WriteGroupings)($parent, inserted: true);
+
             $rowBacked = app(StoryfeedManager::class)->rowBackedBuckets();
+            $uncurated = app(StoryfeedManager::class)->uncuratedBuckets();
 
             foreach ($run as $member) {
                 // Claim: axis rows out (recording the clusters they leave),
@@ -139,6 +143,11 @@ class BundleComposites
                     ->get(['bucket', 'hash']);
 
                 foreach ($released as $row) {
+                    // Partition clusters are never curated; nothing to repair.
+                    if (in_array($row->bucket, $uncurated, true)) {
+                        continue;
+                    }
+
                     $affected[$row->bucket."\x1f".$row->hash] = [$row->bucket, $row->hash];
                 }
 

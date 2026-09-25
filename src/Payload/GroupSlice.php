@@ -3,6 +3,7 @@
 namespace Storyfeed\Payload;
 
 use Illuminate\Support\Collection;
+use Storyfeed\Grouping\Period;
 use Storyfeed\Models\Activity;
 
 /**
@@ -24,6 +25,8 @@ final class GroupSlice
      * @param  array<string, int>  $tombstoned  TRUE counts per role of the
      *                                          distinct entities that are
      *                                          tombstones, from the same query
+     * @param  list<array{verb: string, count: int, distinct: array<string, int>, members: Collection<int, Activity>}>  $phrases
+     *                                                                                                                            a summary row's per-verb parts, in the order each verb first occurred
      */
     public function __construct(
         public readonly ?string $axis,
@@ -32,6 +35,8 @@ final class GroupSlice
         public readonly Collection $members,
         public readonly array $distinct = [],
         public readonly array $tombstoned = [],
+        public readonly ?Period $period = null,
+        public readonly array $phrases = [],
     ) {}
 
     /**
@@ -42,6 +47,21 @@ final class GroupSlice
     public static function group(string $axis, string $hash, int $count, Collection $members, array $distinct = [], array $tombstoned = []): self
     {
         return new self($axis, $hash, $count, $members, $distinct, $tombstoned);
+    }
+
+    /**
+     * One row of the digest: a person's period, or a crowd of people whose
+     * whole period was the same one thing. `$axis` is the partition bucket
+     * (`summary.day`); the node says `summary` and the period beside it.
+     *
+     * @param  Collection<int, Activity>  $members
+     * @param  array<string, int>  $distinct
+     * @param  array<string, int>  $tombstoned
+     * @param  list<array{verb: string, count: int, distinct: array<string, int>, members: Collection<int, Activity>}>  $phrases
+     */
+    public static function summary(string $axis, string $hash, Period $period, int $count, Collection $members, array $distinct, array $tombstoned, array $phrases): self
+    {
+        return new self($axis, $hash, $count, $members, $distinct, $tombstoned, $period, $phrases);
     }
 
     public static function solo(Activity $activity): self

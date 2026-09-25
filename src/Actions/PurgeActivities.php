@@ -147,7 +147,7 @@ class PurgeActivities
     {
         $rows = $this->groupings()
             ->whereIn('activity_id', $ids)
-            ->whereNotIn('bucket', app(StoryfeedManager::class)->rowBackedBuckets())
+            ->whereNotIn('bucket', app(StoryfeedManager::class)->uncuratedBuckets())
             ->toBase()
             ->get(['bucket', 'hash']);
 

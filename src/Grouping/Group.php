@@ -68,6 +68,17 @@ final class Group
         return new self('repeat');
     }
 
+    /**
+     * The digest's phrase for this verb — "confirmed :count orders". A
+     * phrase starts at the verb: the row names the person once, and the
+     * renderer joins the phrases ("confirmed 11 orders and marked 9 ready").
+     * Keyed `summary.{verb}`; one phrase serves every period.
+     */
+    public static function summary(): self
+    {
+        return new self('summary');
+    }
+
     /** An authored collection story (see Contracts\Bundleable). */
     public static function composite(): self
     {

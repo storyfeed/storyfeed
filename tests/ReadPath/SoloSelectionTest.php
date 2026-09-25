@@ -58,7 +58,7 @@ function shaped(string $name, array $rows): array
 }
 
 /** The uids the read surfaces as SOLO activity nodes, ungrouped. */
-function soloUids(string $mode = 'summary'): array
+function soloUids(string $mode = 'live'): array
 {
     return collect(Storyfeed::feed()->{$mode}()->get()->toArray()['items'])
         ->where('kind', 'activity')
@@ -115,21 +115,30 @@ it('does not treat a winning composite as solo', function () {
     shaped('composite', [['composite', true]]);
 
     expect(soloUids())->toBeEmpty()
-        ->and(soloUids('live'))->toBeEmpty();
+        ->and(soloUids('summary'))->toBeEmpty();
 });
 
-it('reads an actors winner as solo in live mode and grouped in summary', function () {
-    // live() has its own winning() branch (repeat, plus declared composites),
-    // so it has its own mirror in notSolo(). An `actors` row is invisible to
-    // live mode, which makes these activities solo THERE and grouped here.
-    $uids = shaped('live', [['actors', true]]);
+it('reads an actors winner as grouped in live and solo in summary', function () {
+    // summary() has its own winning() branch (the period's partition bucket),
+    // so it has its own mirror in notSolo(). A curated row is invisible to
+    // the digest, which makes these activities solo THERE and grouped here.
+    $uids = shaped('digest', [['actors', true]]);
 
-    expect(soloUids('live'))->toEqualCanonicalizing($uids)
+    expect(soloUids('summary'))->toEqualCanonicalizing($uids)
         ->and(soloUids())->toBeEmpty();
 });
 
-it('does not treat a repeat row as solo in live mode', function () {
-    shaped('liverepeat', [['repeat', null]]);
+it('does not treat a partition row as solo in summary', function () {
+    shaped('partition', [['summary.day', null]]);
 
-    expect(soloUids('live'))->toBeEmpty();
+    expect(soloUids('summary'))->toBeEmpty();
+});
+
+it('reads a composite parent with no partition row as solo in summary', function () {
+    // A parent written before partition rows existed carries only its
+    // self-row (winner null). The digest must not lose it: it reads solo
+    // until the trickle or `storyfeed:curate --rehash` writes its row.
+    $uids = shaped('parent', [['composite', null]]);
+
+    expect(soloUids('summary'))->toEqualCanonicalizing($uids);
 });

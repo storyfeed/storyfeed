@@ -180,15 +180,23 @@ it('runs the callback once per branch of the read, with no side effects assumed'
     $grouped = 0;
     $this->project->storyfeed()->query(function () use (&$grouped) {
         $grouped++;
+    })->live()->get();
+
+    $digest = 0;
+    $this->project->storyfeed()->query(function () use (&$digest) {
+        $digest++;
     })->summary()->get();
 
     // Pinned for this fixture: one group and no solo rows. A grouped page runs
     // the group stream's window probe and aggregate, the solo stream, the member
     // fetch and one count per role. (History this shallow never fits a window,
-    // so the windowed recount does not run here.) If these numbers move, the
-    // docblock on FeedBuilder::query() is now wrong.
+    // so the windowed recount does not run here.) The digest swaps the seven
+    // role counts for fifteen: its phrase counts, and each role counted per
+    // phrase and per row. (One row on the page, so no crowd probe.) If these
+    // numbers move, the docblock on FeedBuilder::query() is now wrong.
     expect($log)->toBe(1)
-        ->and($grouped)->toBe(11);
+        ->and($grouped)->toBe(11)
+        ->and($digest)->toBe(19);
 });
 
 /**

@@ -113,7 +113,7 @@ class RepointReferences
 
         foreach ($grouping::query()
             ->whereIn('activity_id', $ids)
-            ->whereNotIn('bucket', app(StoryfeedManager::class)->rowBackedBuckets())
+            ->whereNotIn('bucket', app(StoryfeedManager::class)->uncuratedBuckets())
             ->distinct()
             ->toBase()
             ->get(['bucket', 'hash']) as $row) {

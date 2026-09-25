@@ -37,7 +37,7 @@ function stampCurationRaceOutcome(int $mask): void
 
 function curationPayloadMemberIds(): array
 {
-    return collect(Storyfeed::feed()->summary()->get()->toArray()['items'])
+    return collect(Storyfeed::feed()->live()->get()->toArray()['items'])
         ->flatMap(fn ($node) => $node['kind'] === 'group' ? array_column($node['children'], 'id') : [$node['id']])
         ->sort()->values()->all();
 }
@@ -59,7 +59,7 @@ it('converges after writers stop to one canonical winner per activity without lo
 
     $activities = Activity::query()->get();
     $winners = Grouping::query()->where('winner', true)->get();
-    $node = Storyfeed::feed()->summary()->get()->toArray()['items'];
+    $node = Storyfeed::feed()->live()->get()->toArray()['items'];
 
     expect($winners->count())->toBe($activities->count())
         ->and($winners->pluck('activity_id')->unique()->count())->toBe($activities->count())
@@ -82,12 +82,12 @@ it('does not heal on reads or elapsed time and needs a repair that includes the 
     $this->travel(30)->days();
     $this->artisan('storyfeed:curate --window=1')->assertSuccessful();
 
-    expect(Storyfeed::feed()->summary()->get()->toArray()['items'])->toHaveCount(3)
+    expect(Storyfeed::feed()->live()->get()->toArray()['items'])->toHaveCount(3)
         ->and(Grouping::query()->where('winner', true)->pluck('bucket')->unique()->all())->toBe(['repeat'])
         ->and(curationPayloadMemberIds())->toBe($ids);
 
     $this->artisan('storyfeed:curate')->assertSuccessful();
-    $node = Storyfeed::feed()->summary()->get()->toArray()['items'];
+    $node = Storyfeed::feed()->live()->get()->toArray()['items'];
 
     expect($node)->toHaveCount(1)
         ->and($node[0]['axis'])->toBe('actors')

@@ -98,17 +98,17 @@ it('orders two activities in one second by the clock, not by id, in every read m
 
     // Before the column carried microseconds both rows stored `:00`, the
     // tiebreak took over, and id DESC put the EARLIER row first — in log()
-    // and in the grouped modes alike.
-    foreach (['log', 'live', 'summary'] as $mode) {
+    // and in live alike. (summary() folds one person's day into one row; its
+    // phrase order is pinned in SummaryDigestTest.)
+    foreach (['log', 'live'] as $mode) {
         expect(itemIds($mode))->toBe([(string) $later->uid, (string) $earlier->uid], "mode: {$mode}");
     }
 });
 
-it('reads two activities from one second in the same order through log() and summary()', function () {
+it('reads two activities from one second in the same order through log() and live()', function () {
     microsecondsApart();
 
-    expect(itemIds('summary'))->toBe(itemIds('log'))
-        ->and(itemIds('live'))->toBe(itemIds('log'));
+    expect(itemIds('live'))->toBe(itemIds('log'));
 });
 
 it('admits a row published microseconds before the reader looked', function () {
@@ -134,7 +134,7 @@ it('pages through one second at microsecond positions without repeating or skipp
 
     $expected = [$uids[300], $uids[200], $uids[100]];
 
-    foreach (['log', 'live', 'summary'] as $mode) {
+    foreach (['log', 'live'] as $mode) {
         $seen = [];
         $cursor = null;
 
