@@ -46,6 +46,14 @@ use Throwable;
  * itself is resolved fresh for every entity, because two entities of a
  * class have two different links.
  *
+ * A DEFERRED BODY IS THE SAME KIND OF FAILURE, LATER (2026-09-25, todo
+ * 1472). A body closure runs when the body is read, not when feedMedia()
+ * returns, so the try above never saw it: one throwing closure failed the
+ * whole feed read. `body()` builds it under the same rule — reported once
+ * per class per scope, left out, the entity kept with its label, url and
+ * media. Its own ledger, because a class whose resolver throws never gets
+ * as far as a body, and a class whose body throws has news of its own.
+ *
  * THE ALIAS IS REMEMBERED, THE SAME WAY (2026-09-23, todo 1338). What an
  * alias names is the one answer that IS the same for every entity on the
  * page: a summary page asks about ~200 entities of ~4 aliases, and each ask
@@ -58,6 +66,9 @@ class LinkResolver
 {
     /** @var array<class-string, true> classes whose resolver has thrown and been reported in this scope */
     private array $reported = [];
+
+    /** @var array<string, true> classes (or the alias, when it named none) whose deferred body has thrown and been reported in this scope */
+    private array $bodyReported = [];
 
     /** @var array<string, class-string|null> what each alias resolved to in this scope, null included */
     private array $classes = [];
@@ -85,5 +96,24 @@ class LinkResolver
         }
 
         return null;
+    }
+
+    /**
+     * The media's body, built now, with a body that throws reported and
+     * left out.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function body(?FeedMedia $media, string $alias): array
+    {
+        return $media?->resolveBody(function (Throwable $e) use ($alias): void {
+            $class = $this->classes[$alias] ?? $alias;
+
+            if (! isset($this->bodyReported[$class])) {
+                $this->bodyReported[$class] = true;
+
+                report($e);
+            }
+        }) ?? [];
     }
 }

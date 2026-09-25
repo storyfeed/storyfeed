@@ -6,6 +6,7 @@ use Closure;
 use Illuminate\Support\Traits\Conditionable;
 use Storyfeed\Contracts\FeedBody;
 use Storyfeed\Support\BodySlot;
+use Throwable;
 
 /**
  * What a resolver knows about an entity at read time that its snapshot
@@ -102,7 +103,39 @@ final class FeedMedia
      * @var list<array<string, mixed>>
      */
     public array $body {
-        get => array_merge(...array_map(BodySlot::normalize(...), $this->bodies));
+        get => $this->resolveBody();
+    }
+
+    /**
+     * The body, built now, with each held body built on its own.
+     *
+     * WITH A RESCUE, A BODY THAT THROWS IS LEFT OUT and the rest are kept:
+     * the closure is handed the exception and the forms around it still
+     * arrive. The read path passes one, because an activity is never hidden
+     * by the read path and a body is the costliest thing an app defers to it.
+     * Without one the exception is thrown, as reading `$body` throws: outside
+     * a feed read, a broken closure should be loud.
+     *
+     * @param  (Closure(Throwable): mixed)|null  $rescue
+     * @return list<array<string, mixed>>
+     */
+    public function resolveBody(?Closure $rescue = null): array
+    {
+        $forms = [];
+
+        foreach ($this->bodies as $body) {
+            try {
+                $forms[] = BodySlot::normalize($body);
+            } catch (Throwable $e) {
+                if ($rescue === null) {
+                    throw $e;
+                }
+
+                $rescue($e);
+            }
+        }
+
+        return array_merge(...$forms);
     }
 
     /**

@@ -882,6 +882,14 @@
 
 ### Fixed
 
+- **A deferred body that throws no longer fails the feed read.** A closure
+  handed to `FeedMedia::body()` runs when the node is built, after
+  `feedMedia()` has returned, so the resolver's catch never saw it and one
+  broken closure took the whole read down. It is now reported once per class
+  per page and left out; the activity stays, and its entity keeps its label,
+  url, media and other bodies. `FeedMedia::resolveBody($rescue)` is the
+  seam; reading `$media->body` outside a feed still throws.
+
 - **A feed holding a deleted model's activity no longer throws under
   immutable dates.** With `Date::use(CarbonImmutable::class)`, which Laravel
   supports, `FeedTombstone::deletedAt()` was typed to the mutable

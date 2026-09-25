@@ -755,7 +755,8 @@ class NodePresenter
         // No snapshot ⇒ no link regeneration: the contract promises degraded
         // entities arrive with url: null, and calling the app's resolver
         // with empty data makes every naive implementation warn.
-        $link = $snapshot === null ? null : ($this->links ?? new LinkResolver)->resolve(new FeedContext(
+        $links = $this->links ?? new LinkResolver;
+        $link = $snapshot === null ? null : $links->resolve(new FeedContext(
             type: $type,
             key: $id,
             label: $snapshot->label,
@@ -783,8 +784,10 @@ class NodePresenter
             // Stored first because it is the entity as the app decided it, and
             // resolved second because it is the entity as it stands right now.
             // ORDER IS NOT CONTRACT beyond that — arrangement is a renderer's,
-            // and a renderer that draws them another way is not wrong.
-            'body' => self::bodyOrNull([...($snapshot->body ?? []), ...($link->body ?? [])]),
+            // and a renderer that draws them another way is not wrong. A
+            // resolved body that throws is reported and left out; the stored
+            // body and the rest of the entity still arrive.
+            'body' => self::bodyOrNull([...($snapshot->body ?? []), ...$links->body($link, $type)]),
             // Additive (2026-09-23): what a deleted entity left behind, or
             // null. Distinct from DEGRADED (a live entity with no snapshot
             // yet: `label: null`, `tombstone: null`) and from ANONYMOUS (no
