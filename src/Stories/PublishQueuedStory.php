@@ -2,6 +2,7 @@
 
 namespace Storyfeed\Stories;
 
+use Carbon\CarbonInterface;
 use Illuminate\Bus\Queueable;
 use Illuminate\Bus\UniqueLock;
 use Illuminate\Contracts\Cache\Repository as Cache;
@@ -12,7 +13,6 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Contracts\Queue\ShouldQueueAfterCommit;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Queue\InteractsWithQueue;
-use Illuminate\Support\Carbon;
 use LogicException;
 use ReflectionClass;
 use Storyfeed\PublishQueuedActivity;
@@ -57,8 +57,11 @@ class PublishQueuedStory implements ShouldQueue
     /** @var class-string<Story> */
     public string $class;
 
-    /** When `Storyfeed::publish()` was called: the activity's time, unless it says another. */
-    public Carbon $publishedAt;
+    /**
+     * When `Storyfeed::publish()` was called: the activity's time, unless it
+     * says another. `now()`, so immutable under `Date::use(CarbonImmutable::class)`.
+     */
+    public CarbonInterface $publishedAt;
 
     public bool $deleteWhenMissingModels = false;
 

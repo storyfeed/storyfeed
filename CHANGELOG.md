@@ -830,6 +830,14 @@
 
 ### Fixed
 
+- **A feed holding a deleted model's activity no longer throws under
+  immutable dates.** With `Date::use(CarbonImmutable::class)`, which Laravel
+  supports, `FeedTombstone::deletedAt()` was typed to the mutable
+  `Illuminate\Support\Carbon`, so reading or serializing a tombstoned row
+  threw a TypeError (found on the Newsroom, which uses immutable dates).
+  It now returns `?CarbonInterface`. `Storyfeed::publish()` of a message
+  class that implements `ShouldQueue` threw the same way, and now works.
+
 - **The doctor reads a deleted model's activities under its own type.** Once
   a model is deleted its activities are stored against the tombstone, and
   `grammar.missing` reported `storyfeed.tombstone.create` as an error while

@@ -2,6 +2,7 @@
 
 namespace Storyfeed\Models;
 
+use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Carbon;
 use Storyfeed\ActivityStreams\ObjectType;
@@ -83,8 +84,10 @@ class FeedTombstone extends Model implements Feedable, HasActivityStreamsType
     /**
      * When the model was deleted, or null when nobody knows. For a deletion
      * the trickle found, this is when it was found (see isApproximate()).
+     * An interface, because an app on `Date::use(CarbonImmutable::class)`
+     * gets an immutable date from the cast.
      */
-    public function deletedAt(): ?Carbon
+    public function deletedAt(): ?CarbonInterface
     {
         return $this->deleted_at;
     }

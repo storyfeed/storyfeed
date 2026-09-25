@@ -2,9 +2,13 @@
 
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Date;
+use Storyfeed\Facades\Story;
 use Storyfeed\Facades\Storyfeed;
 use Storyfeed\Models\Activity;
 use Storyfeed\Models\Batch;
+use Storyfeed\Models\FeedTombstone;
+use Storyfeed\Serialization\ActivitySerializer;
+use Storyfeed\Tests\Queue\Fixtures\QueuedDispatch;
 use Workbench\App\Models\Delivery;
 use Workbench\App\Models\User;
 
@@ -81,4 +85,29 @@ it('closes a stale batch when the actor returns, with immutable dates', function
 
     expect(Batch::query()->count())->toBe(2)
         ->and(Batch::query()->whereNotNull('closed_at')->count())->toBe(1);
+});
+
+it('reads a tombstoned row back when dates are immutable', function () {
+    // Found on the Newsroom: a feed holding a deleted model's activity threw
+    // from FeedTombstone::deletedAt(), typed to the mutable class.
+    $sally = User::create(['name' => 'Sally', 'email' => 'sally@example.com']);
+    $delivery = Delivery::create(['tracking_number' => 'TN-1']);
+
+    Storyfeed::activity()->actor($sally)->verb('confirm', $delivery)->publish();
+    $delivery->delete();
+
+    $node = Storyfeed::feed()->get()->toArray()['items'][0];
+
+    expect($node['object']['type'])->toBe(FeedTombstone::MORPH_ALIAS)
+        ->and($node['object']['tombstone']['deleted'])->toBe(FeedTombstone::sole()->deleted_at?->toISOString())
+        ->and(app(ActivitySerializer::class)->activity(Activity::sole()))->toBeArray();
+});
+
+it('queues a message class when dates are immutable', function () {
+    config()->set('queue.default', 'sync');
+    Story::for(Delivery::class)->verb('dispatch', QueuedDispatch::class);
+
+    Storyfeed::publish(new QueuedDispatch(Delivery::create(['tracking_number' => 'TN-1'])));
+
+    expect(Activity::sole()->verb)->toBe('dispatch');
 });
