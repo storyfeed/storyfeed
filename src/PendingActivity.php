@@ -3,8 +3,10 @@
 namespace Storyfeed;
 
 use BackedEnum;
+use Carbon\CarbonInterval;
 use DateTimeInterface;
 use Illuminate\Contracts\Support\Arrayable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -30,6 +32,7 @@ use Storyfeed\Models\Grouping;
 use Storyfeed\Models\Party;
 use Storyfeed\Stories\Story;
 use Storyfeed\Support\BodySlot;
+use Storyfeed\Support\Chronology;
 use Storyfeed\Support\Feedables;
 use Storyfeed\Testing\StoryfeedFake;
 
@@ -68,8 +71,6 @@ class PendingActivity
     use Conditionable;
 
     public Activity $activity;
-
-    protected bool $replace = false;
 
     private bool $anonymous = false;
 
@@ -431,18 +432,6 @@ class PendingActivity
         return $this;
     }
 
-    public function replace(bool $replace = true): static
-    {
-        $this->replace = $replace;
-
-        return $this;
-    }
-
-    public function publishAndReplace(): Activity
-    {
-        return $this->replace()->publish();
-    }
-
     public function publish(): Activity
     {
         if (blank($this->activity->verb)) {
@@ -482,8 +471,17 @@ class PendingActivity
             return $this->publishComposite();
         }
 
-        $activity = DB::transaction(function () {
+        $keep = $this->latestKept($manager);
+
+        $activity = DB::transaction(function () use ($keep) {
             $this->snapshotEntities();
+
+            // A row older than a live one on its key is born superseded:
+            // stored trashed (or, under force, not stored), and never
+            // grouped, curated, batched or indexed, so the feed is unchanged.
+            if ($keep !== null && $this->outlived($keep)) {
+                return $this->bornSuperseded($keep['delete']);
+            }
 
             $this->inserted = ! $this->activity->exists;
 
@@ -491,12 +489,16 @@ class PendingActivity
 
             $this->writeGroupings();
 
-            if ($this->replace && $this->activity->object_id !== null) {
-                $this->supersede();
+            if ($keep !== null) {
+                $this->supersede($keep);
             }
 
             return $this->activity;
         });
+
+        if ($activity->trashed() || ! $activity->exists) {
+            return $activity;
+        }
 
         // After the package's own transaction — and, because the event is
         // after-commit, after the consumer's outermost one when publish()
@@ -507,8 +509,139 @@ class PendingActivity
     }
 
     /**
-     * Retire every earlier activity with this one's (object, verb), inside the
-     * publish transaction. Bulk queries on purpose: the superseded set is
+     * The verb's `->keepLatest()` declaration for this row, with the columns
+     * it keys on filled in. Null when nothing is declared, or when a role
+     * the key names is empty: an unknown actor is nobody in particular, so
+     * two anonymous rows are not the same person's, and an object-less row
+     * has no object to keep the latest of.
+     *
+     * The delete mode is validated here, before any query, not once there is
+     * something to supersede: a typo that only threw on the second publish
+     * would pass every first one, and the suite that never supersedes twice
+     * would ship it.
+     *
+     * @return array{key: array<string, int|string>, within: string|null, delete: string}|null
+     */
+    private function latestKept(StoryfeedManager $manager): ?array
+    {
+        if ($this->objects !== []) {
+            return null;
+        }
+
+        $type = $this->activity->object_type;
+        $declared = $manager->keepLatest(is_string($type) && $type !== '' ? $type : null, (string) $this->activity->verb);
+
+        if ($declared === null) {
+            return null;
+        }
+
+        $mode = config('storyfeed.keep_latest.delete', 'soft');
+
+        if ($mode !== 'soft' && $mode !== 'force') {
+            throw new InvalidArgumentException(
+                "storyfeed.keep_latest.delete must be 'soft' or 'force', got [".var_export($mode, true).'].',
+            );
+        }
+
+        $key = ['verb' => (string) $this->activity->verb];
+
+        foreach ($declared['per'] as $role) {
+            $morph = $this->activity->getAttribute("{$role}_type");
+            $id = $this->activity->getAttribute("{$role}_id");
+
+            if ($morph === null || $id === null) {
+                return null;
+            }
+
+            $key["{$role}_type"] = $morph;
+            $key["{$role}_id"] = $id;
+        }
+
+        return ['key' => $key, 'within' => $declared['within'], 'delete' => $mode];
+    }
+
+    /**
+     * The live rows on this row's key, other than itself, within the window
+     * when one is declared. The window is measured both ways from this row's
+     * `published_at`, so a row and a backdated one arriving after it meet
+     * whichever came first.
+     *
+     * @param  array{key: array<string, int|string>, within: string|null, delete: string}  $keep
+     * @return Builder<Activity>
+     */
+    private function siblings(array $keep): Builder
+    {
+        $query = $this->activity->newQuery()->where($keep['key']);
+
+        if ($this->activity->exists) {
+            $query->whereKeyNot($this->activity->getKey());
+        }
+
+        if ($keep['within'] !== null) {
+            /** @var Carbon $at */
+            $at = $this->activity->published_at;
+            $window = CarbonInterval::make($keep['within']);
+
+            $query->whereBetween('published_at', [
+                Chronology::stamp($at->copy()->sub($window)),
+                Chronology::stamp($at->copy()->add($window)),
+            ]);
+        }
+
+        return $query;
+    }
+
+    /**
+     * Whether a live row on the key was published after this one. A tie goes
+     * to the row being published, as it always has.
+     *
+     * @param  array{key: array<string, int|string>, within: string|null, delete: string}  $keep
+     */
+    private function outlived(array $keep): bool
+    {
+        /** @var Carbon $at */
+        $at = $this->activity->published_at;
+
+        return $this->siblings($keep)->where('published_at', '>', Chronology::stamp($at))->exists();
+    }
+
+    /**
+     * Store this row already superseded: soft-deleted, so the history is
+     * kept and the feed is unchanged. Under `force` a superseded row is not
+     * kept at all, so nothing is written and the Activity comes back
+     * unsaved, as it does when recording is off.
+     */
+    private function bornSuperseded(string $mode): Activity
+    {
+        // A row already stored (a healer re-publishing it) is retired the
+        // way supersede() retires any other.
+        if ($this->activity->exists) {
+            $id = $this->activity->getKey();
+
+            if ($mode === 'force') {
+                (new ForgetActivities)($id);
+                $this->activity->newQuery()->whereKey($id)->forceDelete();
+                $this->activity->exists = false;
+
+                return $this->activity;
+            }
+
+            SyncParticipants::forget($id);
+        }
+
+        if ($mode === 'force') {
+            return $this->activity;
+        }
+
+        $this->activity->setAttribute($this->activity->getDeletedAtColumn(), $this->activity->freshTimestamp());
+        $this->activity->save();
+
+        return $this->activity;
+    }
+
+    /**
+     * Retire the earlier live rows on this row's key, inside the publish
+     * transaction. Bulk queries on purpose: the superseded set is
      * "everything that matches", not a list of models, and Eloquent's
      * per-model delete would fire ActivityDeleted once per row for a change
      * curation cannot see anyway (the survivor keeps the cluster's hashes).
@@ -524,31 +657,17 @@ class PendingActivity
      * `involving()` is an index over rows that exist, and a superseded row
      * must not be findable by an entity it involved.
      *
-     * `storyfeed.replace.delete = 'force'` hard-deletes instead, and then the
-     * grouping rows must go too — there is no DB-level cascade, by design,
-     * and a hard-deleted activity may leave nothing behind that points at it.
-     * That is `ForgetActivities`, the same bookkeeping prune and
-     * `forceDeleteFromFeed()` do ahead of their bulk deletes.
+     * `storyfeed.keep_latest.delete = 'force'` hard-deletes instead, and then
+     * the grouping rows must go too — there is no DB-level cascade, by
+     * design, and a hard-deleted activity may leave nothing behind that
+     * points at it. That is `ForgetActivities`, the same bookkeeping prune
+     * and `forceDeleteFromFeed()` do ahead of their bulk deletes.
      *
-     * The mode is validated before the query, not after: a typo that only
-     * threw once there was something to supersede would pass every first
-     * publish, and the suite that never supersedes twice would ship it.
+     * @param  array{key: array<string, int|string>, within: string|null, delete: string}  $keep
      */
-    private function supersede(): void
+    private function supersede(array $keep): void
     {
-        $mode = config('storyfeed.replace.delete', 'soft');
-
-        if ($mode !== 'soft' && $mode !== 'force') {
-            throw new InvalidArgumentException(
-                "storyfeed.replace.delete must be 'soft' or 'force', got [".var_export($mode, true).'].',
-            );
-        }
-
-        $superseded = $this->activity->newQuery()
-            ->whereKeyNot($this->activity->getKey())
-            ->where('object_type', $this->activity->object_type)
-            ->where('object_id', $this->activity->object_id)
-            ->where('verb', $this->activity->verb);
+        $superseded = $this->siblings($keep);
 
         $ids = $superseded->pluck('id')->all();
 
@@ -556,17 +675,17 @@ class PendingActivity
             return;
         }
 
-        if ($mode === 'force') {
+        if ($keep['delete'] === 'force') {
             (new ForgetActivities)(...$ids);
 
-            $superseded->forceDelete();
+            $this->activity->newQuery()->whereKey($ids)->forceDelete();
 
             return;
         }
 
         SyncParticipants::forget(...$ids);
 
-        $superseded->delete();
+        $this->activity->newQuery()->whereKey($ids)->delete();
     }
 
     /**

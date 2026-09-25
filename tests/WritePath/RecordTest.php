@@ -40,7 +40,7 @@ it('keeps existing positional record calls unchanged without a thread', function
     $delivery = Delivery::create(['tracking_number' => 'TN-1']);
     $date = now()->subDays(3)->startOfSecond();
 
-    $activity = Storyfeed::record('confirm', $delivery, 'Sally', 'Warehouse', 'Import', ['source' => 'import'], $date, false, []);
+    $activity = Storyfeed::record('confirm', $delivery, 'Sally', 'Warehouse', 'Import', ['source' => 'import'], $date, []);
 
     expect($activity->fresh()->data)->toBe(['source' => 'import'])
         ->and($activity->object_id)->toEqual($delivery->id)
@@ -110,7 +110,7 @@ it('has a record parameter for every public builder role and setter', function (
     $record = new ReflectionMethod(StoryfeedManager::class, 'record');
     $excluded = [
         '__construct', 'make', 'of', 'inline', // Construction, not setters.
-        'publish', 'publishAndReplace', // Terminals.
+        'publish', // The terminal.
         'verb', 'action', // The required verb argument starts the builder.
         'by', 'using', 'resulting', 'in', 'to', 'for', 'from', 'on', 'with', 'into', // Role aliases.
         'when', 'unless', // Conditional composition, not activity fields.

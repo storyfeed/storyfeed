@@ -94,7 +94,6 @@ trait AsFeedVerb
         Model|string|null $context = null,
         array $data = [],
         DateTimeInterface|string|null $publishedAt = null,
-        bool $replace = false,
         Model|string|null $origin = null,
         Model|string|null $result = null,
         Model|string|null $instrument = null,
@@ -109,7 +108,6 @@ trait AsFeedVerb
             context: $context,
             data: $data,
             publishedAt: $publishedAt,
-            replace: $replace,
             origin: $origin,
             result: $result,
             instrument: $instrument,
@@ -243,20 +241,10 @@ trait AsFeedVerb
         return $this->of()->publishedAt($date);
     }
 
-    public function replace(bool $replace = true): PendingActivity
-    {
-        return $this->of()->replace($replace);
-    }
-
     // ── Terminals ────────────────────────────────────────────────────────
 
     public function publish(Model|string|null $object = null): Activity
     {
         return $this->of($object)->publish();
-    }
-
-    public function publishAndReplace(Model|string|null $object = null): Activity
-    {
-        return $this->of($object)->publishAndReplace();
     }
 }

@@ -185,6 +185,19 @@ abstract class Story
     }
 
     /**
+     * Keep only the latest of these activities per object — see
+     * Verb::keepLatest(). Null, the default, keeps every row; `true` is the
+     * plain form; an array is its named arguments:
+     * `['per' => ['object', 'actor'], 'within' => '10 minutes']`.
+     *
+     * @return true|array{per?: list<string>|string|null, within?: string|DateInterval|null}|null
+     */
+    public function keepLatest(): array|true|null
+    {
+        return null;
+    }
+
+    /**
      * The verb this class publishes: its `$verb`, or else the verb
      * routes/feed.php binds it to (`Story::for(Task::class)->verb('complete',
      * TaskWasCompleted::class)`).
@@ -211,7 +224,7 @@ abstract class Story
      * the argument is the thing the activity is about.
      *
      * Returns PendingActivity, so the whole fluent surface — actor/target/in/
-     * to/for/data/when/replace — comes from the one builder. A parallel
+     * to/for/data/when — comes from the one builder. A parallel
      * chainable surface on Story would need its own parity test and would
      * drift; the trait that forwards the builder for verb enums already pays
      * that tax with twelve forwarders.
@@ -257,7 +270,6 @@ abstract class Story
         Model|string|null $target = null,
         Model|string|null $context = null,
         array $data = [],
-        bool $replace = false,
         iterable $objects = [],
         DateTimeInterface|string|null $publishedAt = null,
         ?FeedThread $thread = null,
@@ -276,7 +288,6 @@ abstract class Story
             ->when($data !== [], fn (PendingActivity $a) => $a->data($data))
             ->when($thread !== null, fn (PendingActivity $a) => $a->thread($thread))
             ->when($publishedAt !== null, fn (PendingActivity $a) => $a->publishedAt($publishedAt))
-            ->replace($replace)
             ->publish();
     }
 

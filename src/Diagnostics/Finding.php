@@ -51,9 +51,9 @@ final class Finding
     /**
      * @param  array<string, scalar|null>  $subject
      */
-    public static function info(string $code, string $message, array $subject = []): self
+    public static function info(string $code, string $message, array $subject = [], ?Fix $fix = null): self
     {
-        return new self($code, Severity::Info, $message, $subject);
+        return new self($code, Severity::Info, $message, $subject, $fix);
     }
 
     /** The check that produced this, derived from the code's first segment. */

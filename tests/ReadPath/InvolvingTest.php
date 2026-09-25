@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\DB;
 use Storyfeed\Actions\SyncParticipants;
+use Storyfeed\Facades\Story;
 use Storyfeed\Facades\Storyfeed;
 use Storyfeed\Models\Activity;
 use Workbench\App\Models\Customer;
@@ -112,14 +113,16 @@ it('keeps group counts scope-correct when involving narrows a group', function (
         ->and($scoped[0]['count'])->toBe(2); // recounted within scope, not 4
 });
 
-it('re-syncs when replace() supersedes an earlier activity', function () {
+it('re-syncs when keepLatest() supersedes an earlier activity', function () {
+    Story::verb('update')->keepLatest();
+
     $user = User::create(['name' => 'Ann', 'email' => 'ann@example.com']);
     $doc = Delivery::create(['tracking_number' => 'D-1']);
     $first = Customer::create(['name' => 'First']);
     $second = Customer::create(['name' => 'Second']);
 
-    Storyfeed::activity()->actor($user)->verb('update', $doc)->to($first)->replace()->publish();
-    Storyfeed::activity()->actor($user)->verb('update', $doc)->to($second)->replace()->publish();
+    Storyfeed::activity()->actor($user)->verb('update', $doc)->to($first)->publish();
+    Storyfeed::activity()->actor($user)->verb('update', $doc)->to($second)->publish();
 
     // The superseded row is gone, and so are its participant rows.
     expect(Storyfeed::feed()->involving($first)->get()->items())->toBeEmpty()

@@ -5,6 +5,7 @@ namespace Storyfeed\Console;
 use Closure;
 use Illuminate\Console\Command;
 use Illuminate\Database\Eloquent\Model;
+use Storyfeed\Diagnostics\Checks\Retention;
 use Storyfeed\FeedHeadline;
 use Storyfeed\Grouping\Group;
 use Storyfeed\Stories\Verb;
@@ -15,7 +16,8 @@ use Storyfeed\Support\ManifestClosure;
  * Every definition, the way `route:list` shows every route: type, verb, the
  * action it came from (`OrderStory@confirmPayment`, as route:list shows
  * `Controller@method`), what it says with and without an actor, its icon
- * and intent, its group headlines, and the `file:line` it was written on.
+ * and intent, its group headlines, what it keeps the latest of, and the
+ * `file:line` it was written on.
  *
  *     php artisan storyfeed:list
  *     php artisan storyfeed:list --type=order --verb=place
@@ -53,7 +55,7 @@ class ListCommand extends Command
         }
 
         $this->table(
-            ['Type', 'Verb', 'Action', 'Headline', 'Anonymous headline', 'Icon', 'Intent', 'Groups', 'Source'],
+            ['Type', 'Verb', 'Action', 'Headline', 'Anonymous headline', 'Icon', 'Intent', 'Groups', 'Keep latest', 'Source'],
             array_map(fn (array $row) => [
                 $row['type'],
                 $row['verb'],
@@ -67,6 +69,7 @@ class ListCommand extends Command
                     array_keys($row['groups']),
                     $row['groups'],
                 )),
+                $row['keep_latest'] ?? '',
                 $row['source'],
             ], $rows),
         );
@@ -77,7 +80,7 @@ class ListCommand extends Command
     }
 
     /**
-     * @return list<array{type: string, verb: string, action: string|null, headline: string|null, anonymous_headline: string|null, icon: string|null, intent: string|null, groups: array<string, string|null>, source: string}>
+     * @return list<array{type: string, verb: string, action: string|null, headline: string|null, anonymous_headline: string|null, icon: string|null, intent: string|null, groups: array<string, string|null>, keep_latest: string|null, source: string}>
      */
     protected function rows(StoryfeedManager $storyfeed): array
     {
@@ -98,7 +101,7 @@ class ListCommand extends Command
     }
 
     /**
-     * @return array{type: string, verb: string, action: string|null, headline: string|null, anonymous_headline: string|null, icon: string|null, intent: string|null, groups: array<string, string|null>, source: string}
+     * @return array{type: string, verb: string, action: string|null, headline: string|null, anonymous_headline: string|null, icon: string|null, intent: string|null, groups: array<string, string|null>, keep_latest: string|null, source: string}
      */
     protected function row(Verb $definition, string $type): array
     {
@@ -118,6 +121,7 @@ class ListCommand extends Command
             'icon' => $definition->iconToken(),
             'intent' => $definition->glyphIntent(),
             'groups' => $groups,
+            'keep_latest' => $this->keepLatest($definition),
             'source' => $definition->source,
         ];
     }
@@ -132,6 +136,20 @@ class ListCommand extends Command
         return $definition->action();
     }
 
+    /**
+     * `per object`, `per object, actor`, `per object within 10 minutes`:
+     * what `->keepLatest()` keeps, or nothing when every row is kept.
+     */
+    protected function keepLatest(Verb $definition): ?string
+    {
+        if (($latest = $definition->latestKept()) === null) {
+            return null;
+        }
+
+        return 'per '.implode(', ', $latest['per'])
+            .($latest['within'] === null ? '' : ' within '.Retention::describe($latest['within']));
+    }
+
     protected function describe(string|Closure|FeedHeadline|null $headline): ?string
     {
         return match (true) {
@@ -142,8 +160,8 @@ class ListCommand extends Command
     }
 
     /**
-     * @param  list<array{type: string, verb: string, action: string|null, headline: string|null, anonymous_headline: string|null, icon: string|null, intent: string|null, groups: array<string, string|null>, source: string}>  $rows
-     * @return list<array{type: string, verb: string, action: string|null, headline: string|null, anonymous_headline: string|null, icon: string|null, intent: string|null, groups: array<string, string|null>, source: string}>
+     * @param  list<array{type: string, verb: string, action: string|null, headline: string|null, anonymous_headline: string|null, icon: string|null, intent: string|null, groups: array<string, string|null>, keep_latest: string|null, source: string}>  $rows
+     * @return list<array{type: string, verb: string, action: string|null, headline: string|null, anonymous_headline: string|null, icon: string|null, intent: string|null, groups: array<string, string|null>, keep_latest: string|null, source: string}>
      */
     protected function filter(array $rows): array
     {

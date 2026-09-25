@@ -69,6 +69,12 @@ final class Fix
             return $this->snippet;
         }
 
+        // A declaration with no hand-written registry: the array form of a
+        // definition, and nothing to spell, so it is always live.
+        if ($this->registry === 'keepLatest') {
+            return sprintf("Storyfeed::stories([\n    '%s' => ['keepLatest' => true],\n]);", $this->key);
+        }
+
         $code = sprintf(
             "Storyfeed::%s([\n    '%s' => '%s',\n]);",
             $this->registry,
@@ -118,6 +124,7 @@ final class Fix
             'grammar' => "headline('{$template}')",
             'actorlessGrammar' => "anonymousHeadline('{$template}')",
             'icons' => "icon('…')",
+            'keepLatest' => 'keepLatest()',
             default => null,
         };
 
@@ -186,7 +193,7 @@ final class Fix
     /** The definition as it stands, or commented out beneath the reason. */
     private function live(string $code): string
     {
-        return $this->template() === null ? $this->commented($code) : $code;
+        return $this->template() === null && $this->registry !== 'keepLatest' ? $this->commented($code) : $code;
     }
 
     private function commented(string $code): string

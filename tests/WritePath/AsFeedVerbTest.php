@@ -140,7 +140,7 @@ it('preserves all existing positional enum record arguments', function () {
     $date = now()->subDays(3)->startOfSecond();
     $activity = ActivityVerb::Confirm->record(
         $delivery, 'Sally', 'Warehouse', 'Import', ['source' => 'import'],
-        $date, false, 'Source', 'Output', 'Tool',
+        $date, 'Source', 'Output', 'Tool',
     )->fresh();
 
     expect($activity->object_id)->toEqual($delivery->id)

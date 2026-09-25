@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Support\Facades\Auth;
+use Storyfeed\Facades\Story;
 use Storyfeed\Facades\Storyfeed;
 use Storyfeed\Models\Activity;
 use Workbench\App\Models\Customer;
@@ -9,22 +10,25 @@ use Workbench\App\Models\User;
 
 /**
  * Evidence for the adoption question "one status verb + data:from/to +
- * publishAndReplace(), or a verb per transition?" — asked by a real app with a
+ * keepLatest(), or a verb per transition?" — asked by a real app with a
  * seven-state, CUSTOMER-FACING order lifecycle.
  *
- * The crux is not authoring taste, it is what replace does to history. These
+ * The crux is not authoring taste, it is what keeping the latest does to
+ * history. These
  * tests are the answer, and they are here so a future refactor cannot quietly
  * change it.
  */
 $states = ['placed', 'confirmed', 'cooking', 'ready', 'out_for_delivery', 'delivered', 'paid'];
 
-it('destroys the timeline when one verb is published with replace', function () use ($states) {
+it('destroys the timeline when one verb keeps the latest', function () use ($states) {
+    Story::for(Delivery::class)->verb('updateStatus')->keepLatest();
+
     $order = Delivery::create(['tracking_number' => 'ORDER-1']);
 
     foreach (array_slice($states, 1) as $i => $to) {
         Storyfeed::activity('updateStatus', $order)
             ->data(['from' => $states[$i], 'to' => $to])
-            ->publishAndReplace();
+            ->publish();
     }
 
     $items = $order->storyfeed()->log()->get()->items();
@@ -39,7 +43,7 @@ it('destroys the timeline when one verb is published with replace', function () 
     expect($data['to'])->toBe('paid')->and($data['from'])->toBe('delivered');
 });
 
-it('keeps the timeline when the same one verb is published without replace', function () use ($states) {
+it('keeps the timeline when the same one verb keeps every row', function () use ($states) {
     $order = Delivery::create(['tracking_number' => 'ORDER-2']);
 
     foreach (array_slice($states, 1) as $i => $to) {
@@ -51,25 +55,33 @@ it('keeps the timeline when the same one verb is published without replace', fun
     expect($order->storyfeed()->log()->get()->items())->toHaveCount(6);
 });
 
-it('keeps the timeline with a verb per transition, replace or not', function () use ($states) {
+it('keeps the timeline with a verb per transition, keeping the latest or not', function () use ($states) {
+    foreach (array_slice($states, 1) as $to) {
+        Story::for(Delivery::class)->verb('order.'.$to)->keepLatest();
+    }
+
     $order = Delivery::create(['tracking_number' => 'ORDER-3']);
 
     foreach (array_slice($states, 1) as $to) {
-        // Replace matches on object + verb, so distinct verbs never collide:
-        // each transition is idempotent against ITSELF and nothing else.
-        Storyfeed::activity('order.'.$to, $order)->publishAndReplace();
+        // The key is object + verb, so distinct verbs never collide: each
+        // transition is idempotent against ITSELF and nothing else.
+        Storyfeed::activity('order.'.$to, $order)->publish();
     }
 
     expect($order->storyfeed()->log()->get()->items())->toHaveCount(6);
 });
 
 it('collapses a re-fired transition without touching its neighbours', function () {
+    foreach (['confirmed', 'cooking', 'ready'] as $to) {
+        Story::for(Delivery::class)->verb('order.'.$to)->keepLatest();
+    }
+
     $order = Delivery::create(['tracking_number' => 'ORDER-4']);
 
-    Storyfeed::activity('order.confirmed', $order)->publishAndReplace();
-    Storyfeed::activity('order.cooking', $order)->publishAndReplace();
-    Storyfeed::activity('order.cooking', $order)->publishAndReplace(); // double-click, retried job
-    Storyfeed::activity('order.ready', $order)->publishAndReplace();
+    Storyfeed::activity('order.confirmed', $order)->publish();
+    Storyfeed::activity('order.cooking', $order)->publish();
+    Storyfeed::activity('order.cooking', $order)->publish(); // double-click, retried job
+    Storyfeed::activity('order.ready', $order)->publish();
 
     expect($order->storyfeed()->log()->get()->items())->toHaveCount(3);
 });

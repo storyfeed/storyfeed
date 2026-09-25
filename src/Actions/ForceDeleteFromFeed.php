@@ -18,7 +18,7 @@ use Storyfeed\Models\Builders\ActivityBuilder;
  * hears about the rows going. Until 2026-09-05 this was that one query, and
  * it left `feed_groupings` and `feed_participants` rows behind pointing at
  * primary keys that no longer existed. It was the one hard-delete path with
- * no opt-in in front of it then: `replace()` defaults to soft, the trickle
+ * no opt-in in front of it then: replacement defaulted to soft, the trickle
  * prunes only when asked, but this fired for every Feedable that was
  * force-deleted. So the ids are collected first and ForgetActivities clears
  * their rows before the delete, the same way PruneActivities does it.

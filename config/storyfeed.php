@@ -324,12 +324,13 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Replace
+    | Keep latest
     |--------------------------------------------------------------------------
     |
-    | What `->replace()` / `publishAndReplace()` does to the rows it
-    | supersedes. Superseding is the shape for repeatable verbs — a status
-    | tick, a re-save — where only the latest row should read as the story.
+    | What a verb that declares `->keepLatest()` in routes/feed.php does to
+    | the rows each publish supersedes. Superseding is the shape for
+    | repeatable verbs — a status tick, a re-save — where only the latest
+    | row should read as the story.
     |
     | 'soft' (the default) SOFT-deletes the superseded rows: they leave the
     | feed and every query the package makes, but stay in the activities
@@ -339,11 +340,13 @@ return [
     | Their participant rows are removed; their grouping rows stay, inert,
     | because curation and the read path only ever reach groupings through
     | the live-activity query. `storyfeed:prune` retires them with the rest.
+    | A backdated publish older than a live row is stored soft-deleted.
     |
     | 'force' HARD-deletes them, grouping rows and participant rows included,
     | inside the publish transaction. For an app where a busy repeatable verb
     | would otherwise accumulate soft-deleted rows for the life of the table
-    | and nothing ever reads them back. Nothing else is touched: snapshots
+    | and nothing ever reads them back. A backdated publish older than a
+    | live row is not written at all. Nothing else is touched: snapshots
     | are per-entity, and a batch's `activities_count` is a running total of
     | what was recorded, under either setting.
     |
@@ -351,7 +354,7 @@ return [
     |
     */
 
-    'replace' => [
+    'keep_latest' => [
         'delete' => 'soft',
     ],
 

@@ -50,18 +50,16 @@ it('records a story publication date', function ($date) {
 
 it('keeps existing positional story record calls unchanged', function () {
     $delivery = Delivery::create(['tracking_number' => 'TN-1']);
-    $original = DeliveryWasConfirmed::record($delivery);
     $this->freezeSecond();
 
-    $activity = DeliveryWasConfirmed::record($delivery, 'Sally', 'Warehouse', 'Import', ['source' => 'import'], true, []);
+    $activity = DeliveryWasConfirmed::record($delivery, 'Sally', 'Warehouse', 'Import', ['source' => 'import'], []);
 
     expect($activity->fresh()->data)->toBe(['source' => 'import'])
         ->and($activity->object_id)->toEqual($delivery->id)
         ->and($activity->actor->name)->toBe('Sally')
         ->and($activity->target->name)->toBe('Warehouse')
         ->and($activity->context->name)->toBe('Import')
-        ->and($activity->published_at->equalTo(now()))->toBeTrue()
-        ->and($original->fresh()->trashed())->toBeTrue();
+        ->and($activity->published_at->equalTo(now()))->toBeTrue();
 
     $node = Storyfeed::feed()->get()->toArray()['items'][0];
 

@@ -93,6 +93,9 @@ final class Verb
     /** An ISO 8601 duration, `forever`, or null: not said, so `prune.after_days` stands. */
     protected ?string $retention = null;
 
+    /** @var array{per: list<string>, within: string|null}|null null: every row is kept */
+    protected ?array $keepLatest = null;
+
     /** Per publish: who acted, when the call site and `Storyfeed::as()` didn't say. */
     protected Model|string|null $actor = null;
 
@@ -212,11 +215,15 @@ final class Verb
             $definition = $definition->keepFor($window);
         }
 
+        if (($latest = $instance->keepLatest()) !== null) {
+            $definition = $definition->keepLatest(...($latest === true ? [] : $latest));
+        }
+
         return $definition;
     }
 
     /** The keys the array form accepts. */
-    public const ARRAY_KEYS = ['headline', 'anonymousHeadline', 'icon', 'intent', 'type', 'noun', 'activityStreamsType', 'missing', 'missingHeadline', 'forgetWhenMissing', 'keepFor', 'keepForever', 'actor', 'groups'];
+    public const ARRAY_KEYS = ['headline', 'anonymousHeadline', 'icon', 'intent', 'type', 'noun', 'activityStreamsType', 'missing', 'missingHeadline', 'forgetWhenMissing', 'keepFor', 'keepForever', 'keepLatest', 'actor', 'groups'];
 
     /**
      * @param  array<string, mixed>  $spec
@@ -305,6 +312,14 @@ final class Verb
 
         if (! empty($spec['keepForever'])) {
             $definition = $definition->keepForever();
+        }
+
+        // `true` for the plain form, or its named arguments:
+        // `'keepLatest' => ['per' => ['object', 'actor']]`.
+        if (! empty($spec['keepLatest'])) {
+            /** @var true|array{per?: list<string>|string|null, within?: string|DateInterval|null} $latest */
+            $latest = $spec['keepLatest'];
+            $definition = $definition->keepLatest(...($latest === true ? [] : $latest));
         }
 
         if (isset($spec['actor'])) {
@@ -507,6 +522,61 @@ final class Verb
     }
 
     /**
+     * Keep only the latest of this verb's activities about one thing: each
+     * publish supersedes the earlier rows on its key.
+     *
+     *     Story::for(MenuItem::class)->verb('reprice')->keepLatest();
+     *     Story::verb('save')->keepLatest(per: ['object', 'actor']);
+     *     Story::for(MenuItem::class)->verb('update')->keepLatest(within: '10 minutes');
+     *
+     * The key is the object, or the roles `per` names, plus the verb. The
+     * latest `published_at` wins, whatever order the rows arrive in: a
+     * backdated publish older than a live row on its key is stored already
+     * superseded, so a backfill can replay in any order. `within` limits
+     * the match to rows published within that long of the new one, which
+     * coalesces a burst and keeps the rest of the day.
+     *
+     * Superseded rows are soft-deleted (`storyfeed.keep_latest.delete`), so
+     * they leave every feed, `log()` included, and stay in the table. A
+     * timeline that needs every row should not declare this.
+     *
+     * Declared here only, never at the call site: `ShouldBeUnique` lives on
+     * the job, not the dispatch. The two answer different questions:
+     * `ShouldBeUnique` keeps the first pending job, `keepLatest()` keeps the
+     * latest stored row.
+     *
+     * @param  list<string>|string|null  $per  role names; null is the object
+     */
+    public function keepLatest(array|string|null $per = null, string|DateInterval|null $within = null): self
+    {
+        $roles = $per === null ? ['object'] : array_values(array_unique((array) $per));
+
+        foreach ($roles as $role) {
+            if (! in_array($role, ActivityRoles::STORED, true)) {
+                throw new InvalidArgumentException(
+                    "->keepLatest() on [{$this->key()}] was given per: '{$role}', which is not a role. "
+                    .'Name roles: '.implode(', ', ActivityRoles::STORED).'.',
+                );
+            }
+        }
+
+        if ($roles === []) {
+            throw new InvalidArgumentException(
+                "->keepLatest() on [{$this->key()}] was given no roles to keep the latest per. Leave per: out to key on the object.",
+            );
+        }
+
+        $this->keepLatest = [
+            // In the stored roles' order, so `['actor', 'object']` and
+            // `['object', 'actor']` compile the same.
+            'per' => array_values(array_intersect(ActivityRoles::STORED, $roles)),
+            'within' => $within === null ? null : self::window($within, $this->key(), 'keepLatest', 'within: '),
+        ];
+
+        return $this;
+    }
+
+    /**
      * Who acted, when the call site didn't say and no `Storyfeed::as()` scope
      * is open: a party name (`'Stripe'`), or, from an action that takes the
      * request, a model. Ranks below both and above the default actor (the
@@ -638,6 +708,19 @@ final class Verb
         return $this->retention;
     }
 
+    /**
+     * The roles each kept row is the latest per, and the window as an ISO
+     * 8601 duration; null when every row is kept.
+     *
+     * @return array{per: list<string>, within: string|null}|null
+     *
+     * @internal
+     */
+    public function latestKept(): ?array
+    {
+        return $this->keepLatest;
+    }
+
     /** @internal */
     public function actorGiven(): Model|string|null
     {
@@ -707,6 +790,7 @@ final class Verb
             'missing' => $this->missing === null ? null : ['[', ...$this->missing],
             'forgetWhenMissing' => $this->forgetWhenMissing,
             'retention' => $this->retention,
+            'keepLatest' => $this->keepLatest === null ? null : [...$this->keepLatest['per'], '@', (string) $this->keepLatest['within']],
             'groups' => $this->groups,
         ]);
     }
@@ -815,7 +899,7 @@ final class Verb
      * `CarbonInterval::days(30)` both compile to `P30D`. Months stay months,
      * so `'6 months'` is measured on the calendar when the prune runs.
      */
-    protected static function window(string|DateInterval $window, string $key): string
+    protected static function window(string|DateInterval $window, string $key, string $method = 'keepFor', string $argument = ''): string
     {
         try {
             $interval = $window instanceof DateInterval
@@ -829,8 +913,10 @@ final class Verb
             $given = $window instanceof DateInterval ? 'the interval given' : "'{$window}'";
 
             throw new InvalidArgumentException(
-                "->keepFor() on [{$key}] was given {$given}, which is not a positive interval. "
-                ."Give one Carbon reads, like '30 days' or '6 months', or call ->keepForever().",
+                "->{$method}() on [{$key}] was given {$argument}{$given}, which is not a positive interval. "
+                .($method === 'keepFor'
+                    ? "Give one Carbon reads, like '30 days' or '6 months', or call ->keepForever()."
+                    : "Give one Carbon reads, like '10 minutes' or '1 day'."),
             );
         }
 

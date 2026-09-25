@@ -8,6 +8,7 @@ use Storyfeed\Actions\TrickleSnapshots;
 use Storyfeed\Events\ActivityPublished;
 use Storyfeed\Exceptions\UnauthoredActivity;
 use Storyfeed\Exceptions\UnknownVerb;
+use Storyfeed\Facades\Story;
 use Storyfeed\Facades\Storyfeed;
 use Storyfeed\Models\Activity;
 use Storyfeed\Models\Snapshot;
@@ -204,13 +205,15 @@ it('duplicates a naive re-import, and dedupes on a source key recorded in data',
     expect(Activity::query()->where('verb', 'order.paid')->count())->toBe(1);
 });
 
-it('collapses legitimately repeated history under publishAndReplace(), which is why a transition log must not use it', function () {
+it('collapses legitimately repeated history under keepLatest(), which is why a transition log must not declare it', function () {
+    Story::verb('order.paid')->keepLatest();
+
     // pending → paid → refunded → paid: the second `paid` is real history.
     foreach (['2024-03-01', '2024-03-03'] as $day) {
         Storyfeed::activity()->actor($this->ines)
             ->verb('order.paid', $this->order)
             ->publishedAt("{$day} 09:00:00")
-            ->publishAndReplace();
+            ->publish();
     }
 
     expect(Activity::query()->where('verb', 'order.paid')->count())->toBe(1);

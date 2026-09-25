@@ -139,6 +139,15 @@ class StoryfeedManager
     protected array $storyRetention = [];
 
     /**
+     * Which of a verb's rows a publish supersedes (`->keepLatest()`): the
+     * roles it keys on and the window, on the type → verb ladder.
+     * Story-compiled only.
+     *
+     * @var array<string, array{per: list<string>, within: string|null}>
+     */
+    protected array $storyKeepLatest = [];
+
+    /**
      * A verb's fixed actor (`->actor('Stripe')`), a party name on the
      * type → verb ladder. Story-compiled only.
      *
@@ -343,7 +352,6 @@ class StoryfeedManager
         Model|string|null $context = null,
         array $data = [],
         DateTimeInterface|string|null $publishedAt = null,
-        bool $replace = false,
         iterable $objects = [],
         ?FeedThread $thread = null,
         Model|string|null $origin = null,
@@ -363,7 +371,6 @@ class StoryfeedManager
             ->when($data !== [], fn (PendingActivity $a) => $a->data($data))
             ->when($thread !== null, fn (PendingActivity $a) => $a->thread($thread))
             ->when($publishedAt !== null, fn (PendingActivity $a) => $a->publishedAt($publishedAt))
-            ->replace($replace)
             ->when($change !== null, fn (PendingActivity $a) => $a->change($change))
             ->when($anonymous, fn (PendingActivity $a) => $a->anonymously())
             ->publish();
@@ -1310,6 +1317,7 @@ class StoryfeedManager
         $this->missingGrammar = $compiled['missingGrammar'];
         $this->storyActors = $compiled['actors'];
         $this->storyRetention = $compiled['retention'];
+        $this->storyKeepLatest = $compiled['keepLatest'];
         $this->storyActions = $compiled['actions'];
 
         $this->applied = $compiled;
@@ -1334,7 +1342,7 @@ class StoryfeedManager
 
         foreach (CompileStories::REGISTRIES as $registry) {
             // Held by TombstoneRules, or replaced whole by the next compile.
-            if (in_array($registry, ['missing', 'forget', 'retention', 'missingGrammar', 'actors', 'actions'], true)) {
+            if (in_array($registry, ['missing', 'forget', 'retention', 'keepLatest', 'missingGrammar', 'actors', 'actions'], true)) {
                 continue;
             }
 
@@ -1398,7 +1406,7 @@ class StoryfeedManager
      * with the Story facade (2026-09-23): actorless grammar, nouns and object
      * types.
      *
-     * @param  array{grammar: array<string, string|Closure|FeedHeadline>, aggregateGrammar: array<string, string>, actorlessGrammar?: array<string, string|Closure|FeedHeadline>, icons: array<string, string>, glyphIntents?: array<string, string>, nouns?: array<string, string|FeedNoun>, objectTypes?: array<string, ObjectType|string>, verbs: array<string, mixed>, missing?: array<string, list<string>>, missingGrammar?: array<string, string|Closure|FeedHeadline>, forget?: array<string, bool>, retention?: array<string, string>, actors?: array<string, string>, actions?: array<string, array{uses: string, request: bool, parts: array<string, string>|null}>}  $compiled
+     * @param  array{grammar: array<string, string|Closure|FeedHeadline>, aggregateGrammar: array<string, string>, actorlessGrammar?: array<string, string|Closure|FeedHeadline>, icons: array<string, string>, glyphIntents?: array<string, string>, nouns?: array<string, string|FeedNoun>, objectTypes?: array<string, ObjectType|string>, verbs: array<string, mixed>, missing?: array<string, list<string>>, missingGrammar?: array<string, string|Closure|FeedHeadline>, forget?: array<string, bool>, retention?: array<string, string>, keepLatest?: array<string, array{per: list<string>, within: string|null}>, actors?: array<string, string>, actions?: array<string, array{uses: string, request: bool, parts: array<string, string>|null}>}  $compiled
      * @param  list<string>  $stories  the Story classes the manifest was compiled from
      */
     public function useCompiledStories(array $compiled, array $stories = []): static
@@ -1413,6 +1421,7 @@ class StoryfeedManager
         $compiled['missingGrammar'] ??= [];
         $compiled['forget'] ??= [];
         $compiled['retention'] ??= [];
+        $compiled['keepLatest'] ??= [];
         $compiled['actors'] ??= [];
         $compiled['actions'] ??= [];
 
@@ -2475,6 +2484,33 @@ class StoryfeedManager
         $this->ensureStoriesCompiled();
 
         return $this->storyRetention;
+    }
+
+    /**
+     * Which rows a publish of this verb supersedes, on the type → verb
+     * ladder (the most specific declaration wins): the roles each kept row
+     * is the latest per, and the window as an ISO 8601 duration. Null when
+     * no declaration reaches it and every row is kept.
+     *
+     * @return array{per: list<string>, within: string|null}|null
+     */
+    public function keepLatest(?string $type, string $verb): ?array
+    {
+        $this->ensureStoriesCompiled();
+
+        return $this->resolve($this->storyKeepLatest, $type, $verb);
+    }
+
+    /**
+     * Every keep-latest declaration, keyed `type.verb` (wildcards allowed).
+     *
+     * @return array<string, array{per: list<string>, within: string|null}>
+     */
+    public function storyKeepLatest(): array
+    {
+        $this->ensureStoriesCompiled();
+
+        return $this->storyKeepLatest;
     }
 
     /**

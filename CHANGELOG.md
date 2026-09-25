@@ -13,6 +13,35 @@
   Queue payloads carry only morph alias/key or party name/key, never models.
   Routes can use `storyfeed.context:routeParam` after model binding and
   `storyfeed.as:PartyName` through the existing declared-party gate.
+- **Replacement is declared on the verb, as `->keepLatest()`.** Only the
+  latest of a verb's activities about one thing stays in the feed:
+  `Story::for(MenuItem::class)->verb('reprice')->keepLatest()`. `per:` names
+  the roles the key is made of (`keepLatest(per: ['object', 'actor'])`, one
+  row per person per draft); leave it out to key on the object. `within:`
+  limits it to rows published that close to the new one
+  (`keepLatest(within: '10 minutes')` coalesces a burst and keeps the day).
+  The most specific declaration on the `type.verb` ladder wins. A Story class
+  says it with a `keepLatest()` method returning `true` or those named
+  arguments, and the array form with `'keepLatest' => true`. It follows
+  `ShouldBeUnique`, which lives on the job and never on the dispatch; the two
+  differ in what they keep: `ShouldBeUnique` keeps the first pending job,
+  `keepLatest()` keeps the latest stored row. `storyfeed:cache` compiles it
+  and `storyfeed:list` gains a Keep latest column.
+- **The latest `published_at` wins, whatever order rows arrive in.** It used
+  to be the last write. A backdated publish older than a live row on its key
+  is now stored already superseded: soft-deleted at birth, never grouped or
+  announced, so the feed is unchanged and a backfill can replay in any
+  order. Under `keep_latest.delete = 'force'` it is not written at all. An
+  unknown actor is nobody in particular, so a key naming `actor` never
+  matches an anonymous row.
+- **The doctor checks it.** `keep_latest.split` (Warning) names a verb that
+  keeps the latest but has keys with superseded rows and more than one live
+  row, so it was published both ways. `keep_latest.undeclared` (Info) names
+  superseded rows on a verb with no declaration, and `--stubs` prints the
+  line to add.
+- **`storyfeed.replace` is renamed `storyfeed.keep_latest`**, with the same
+  `delete` option (`'soft'` or `'force'`). Rename the key in a published
+  config.
 
 - **Story classes: one class per type, one method per verb.**
   `Story::resource(Order::class, OrderStory::class)` binds a plain class that
@@ -323,6 +352,16 @@
 - **`make:story --from-doctor` never names a class with a misspelled past tense.** A recorded `ship` became `DeliveryWasShiped.php`, and its headline read `shiped` back out of the name. Where the past tense is certain the class is named as before. Otherwise it asks, per verb, "How is 'ship' written in the past tense?", offering the spellings and "Skip this one". Without a terminal it skips the verb, writes nothing for it, and prints one complete command per spelling, to run as printed: `php artisan make:story DeliveryWasShipped --verb=ship --object=delivery` and `php artisan make:story DeliveryWasShiped --verb=ship --object=delivery`. It prints where to bind what it wrote before asking you to review it, and asks for no review when it wrote nothing.
 
 ### Removed
+
+- **Replacement at the call site is gone.** `PendingActivity::replace()`,
+  `PendingActivity::publishAndReplace()`, the enum forwarders
+  `AsFeedVerb::replace()` and `AsFeedVerb::publishAndReplace()`, and the
+  `replace:` parameter on `Storyfeed::record()`, `AsFeedVerb::record()` and
+  `Story::record()`. Declare `->keepLatest()` on the verb in
+  `routes/feed.php` and publish with `publish()`. A positional call to
+  `record()` that passed `$replace` must drop it: the parameters after it
+  move up one. An unnamed `Storyfeed::activity()` publish can no longer
+  replace; declare the verb.
 
 - **`component` is retired from `FeedEntity`, the snapshot write and the
   payload's entity node.** It was a renderer hint that predated bodies. Add a

@@ -47,6 +47,7 @@ use Storyfeed\StoryfeedManager;
  *     missingGrammar: array<string, string|Closure|FeedHeadline>,
  *     forget: array<string, bool>,
  *     retention: array<string, string>,
+ *     keepLatest: array<string, array{per: list<string>, within: string|null}>,
  *     actors: array<string, string>,
  *     actions: array<string, array{uses: string, request: bool, parts: array<string, string>|null}>,
  * }
@@ -54,7 +55,7 @@ use Storyfeed\StoryfeedManager;
 class CompileStories
 {
     /** The registries a compile produces, in the order they are applied. */
-    public const REGISTRIES = ['grammar', 'aggregateGrammar', 'actorlessGrammar', 'icons', 'glyphIntents', 'nouns', 'objectTypes', 'verbs', 'missing', 'missingGrammar', 'forget', 'retention', 'actors', 'actions'];
+    public const REGISTRIES = ['grammar', 'aggregateGrammar', 'actorlessGrammar', 'icons', 'glyphIntents', 'nouns', 'objectTypes', 'verbs', 'missing', 'missingGrammar', 'forget', 'retention', 'keepLatest', 'actors', 'actions'];
 
     /**
      * @param  array<int, Verb>  $definitions
@@ -74,6 +75,7 @@ class CompileStories
         $missingGrammar = [];
         $forget = [];
         $retention = [];
+        $keepLatest = [];
         $actors = [];
         $actions = [];
 
@@ -155,6 +157,13 @@ class CompileStories
                     $retention[$key] = $window;
                 }
 
+                // Which rows a publish supersedes: the roles it keys on and
+                // the window, both scalars. Unsaid, every row is kept.
+                if (($latest = $definition->latestKept()) !== null) {
+                    $this->claim($owners, 'keepLatest', $key, $source);
+                    $keepLatest[$key] = $latest;
+                }
+
                 // A fixed actor. An action that takes the request chooses its
                 // actor at each publish, so what the blank one gave is moot.
                 if (! $definition->takesRequest() && ($actor = $definition->actorGiven()) !== null) {
@@ -222,6 +231,7 @@ class CompileStories
             'missingGrammar' => $missingGrammar,
             'forget' => $forget,
             'retention' => $retention,
+            'keepLatest' => $keepLatest,
             'actors' => $actors,
             'actions' => $actions,
         ];

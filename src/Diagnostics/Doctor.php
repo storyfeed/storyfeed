@@ -54,6 +54,7 @@ class Doctor
         Checks\DanglingClaims::class,
         Checks\InheritedDeletes::class,
         Checks\Retention::class,
+        Checks\KeepLatest::class,
         Checks\RequestActions::class,
     ];
 
