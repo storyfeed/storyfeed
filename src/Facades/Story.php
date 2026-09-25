@@ -20,12 +20,20 @@ use Storyfeed\Stories\Registrar;
  * one: `use Storyfeed\Stories\Story as BaseStory;`.
  *
  * `Story::verb('x')` returns the definition to configure; binding a message
- * class, `Story::verb('x', X::class)`, returns null — the class says it all.
+ * class, `Story::verb('x', X::class)`, returns the binding, which takes only
+ * middleware — the class says the rest.
  *
  * @method static \Storyfeed\Stories\TypeScope for(string|array<int, string> $objectType)
- * @method static ($story is null ? \Storyfeed\Stories\Verb : null) verb(string|\Storyfeed\Contracts\FeedVerb|\BackedEnum $verb, ?string $story = null)
+ * @method static ($story is null ? \Storyfeed\Stories\Verb : \Storyfeed\Stories\BoundStory) verb(string|\Storyfeed\Contracts\FeedVerb|\BackedEnum $verb, ?string $story = null)
  * @method static \Storyfeed\Stories\Verb fallback()
  * @method static \Storyfeed\Stories\PendingResource resource(string|array<int, string> $objectType, ?string $class = null)
+ * @method static \Storyfeed\Stories\MiddlewareScope middleware(string|list<string|\Closure>|\Closure $middleware)
+ * @method static \Storyfeed\Stories\Registrar aliasMiddleware(string $name, string|\Closure $class)
+ * @method static \Storyfeed\Stories\Registrar middlewareGroup(string $name, list<string|\Closure> $middleware)
+ * @method static \Storyfeed\Stories\Registrar pushMiddlewareToGroup(string $group, string|\Closure $middleware)
+ * @method static \Storyfeed\Stories\Registrar prependMiddlewareToGroup(string $group, string|\Closure $middleware)
+ * @method static array<string, string|\Closure> getMiddleware()
+ * @method static array<string, list<string|\Closure>> getMiddlewareGroups()
  *
  * @see Registrar
  */

@@ -19,6 +19,7 @@ use Storyfeed\FeedHeadline;
 use Storyfeed\FeedNoun;
 use Storyfeed\Grouping\Group;
 use Storyfeed\Grouping\GroupBuilder;
+use Storyfeed\Middleware\Batch;
 use Storyfeed\Models\Activity;
 use Storyfeed\Support\ActivityRoles;
 use Storyfeed\Support\ManifestClosure;
@@ -83,6 +84,12 @@ final class Verb
 
     /** @var array{per: list<string>, within: string|null}|null null: every row is kept */
     protected ?array $keepLatest = null;
+
+    /** @var list<string|Closure> story middleware, in the order declared */
+    protected array $middleware = [];
+
+    /** @var list<string> middleware taken out of what this verb would otherwise run */
+    protected array $excludedMiddleware = [];
 
     /** Per publish: who acted, when the call site and `Storyfeed::as()` didn't say. */
     protected Model|string|null $actor = null;
@@ -204,6 +211,12 @@ final class Verb
             if (($latest = $instance->keepLatest()) !== null) {
                 $definition = $definition->keepLatest(...($latest === true ? [] : $latest));
             }
+
+            // A job's `middleware()`, read when stories compile like the
+            // rest, so it can't depend on what the class was constructed with.
+            if (($middleware = $instance->middleware()) !== []) {
+                $definition->middleware($middleware);
+            }
         } catch (Error $e) {
             // "must not be accessed before initialization": a presentation
             // method read what only the constructor sets.
@@ -239,7 +252,7 @@ final class Verb
     }
 
     /** The keys the array form accepts. */
-    public const ARRAY_KEYS = ['headline', 'anonymousHeadline', 'icon', 'intent', 'type', 'noun', 'activityStreamsType', 'missing', 'missingHeadline', 'forgetWhenMissing', 'keepFor', 'keepForever', 'keepLatest', 'actor', 'groups'];
+    public const ARRAY_KEYS = ['headline', 'anonymousHeadline', 'icon', 'intent', 'type', 'noun', 'activityStreamsType', 'missing', 'missingHeadline', 'forgetWhenMissing', 'keepFor', 'keepForever', 'keepLatest', 'middleware', 'withoutMiddleware', 'actor', 'groups'];
 
     /**
      * Configure from the array form: what an action returning an array
@@ -328,6 +341,18 @@ final class Verb
             /** @var true|array{per?: list<string>|string|null, within?: string|DateInterval|null} $latest */
             $latest = $spec['keepLatest'];
             $definition = $definition->keepLatest(...($latest === true ? [] : $latest));
+        }
+
+        if (! empty($spec['middleware'])) {
+            /** @var string|list<string|Closure>|Closure $middleware */
+            $middleware = $spec['middleware'];
+            $definition->middleware($middleware);
+        }
+
+        if (! empty($spec['withoutMiddleware'])) {
+            /** @var string|list<string> $without */
+            $without = $spec['withoutMiddleware'];
+            $definition->withoutMiddleware($without);
         }
 
         if (isset($spec['actor'])) {
@@ -582,6 +607,184 @@ final class Verb
         ];
 
         return $this;
+    }
+
+    /**
+     * Middleware this verb's activities go through when they are published,
+     * after the `default` group, as a route's own middleware runs after its
+     * group's. A class, an alias with arguments (`'batch:5 minutes'`), a
+     * group's name, or a closure:
+     *
+     *     Story::verb('pay')->middleware('audit');
+     *     Story::verb('pay')->middleware(['audit', fn (PendingActivity $activity, Closure $next) => $next($activity)]);
+     *
+     * Each receives the PendingActivity and `$next`; what it does after
+     * `$next($activity)` sees the stored Activity. Appends. With no argument,
+     * returns what was declared, as `Route::middleware()` does.
+     *
+     * @param  string|list<string|Closure>|Closure|null  $middleware
+     * @return ($middleware is null ? list<string|Closure> : self)
+     */
+    public function middleware(string|array|Closure|null $middleware = null): self|array
+    {
+        if ($middleware === null) {
+            return $this->middleware;
+        }
+
+        $this->middleware = [...$this->middleware, ...self::middlewareList($middleware, $this->key())];
+
+        return $this;
+    }
+
+    /**
+     * Middleware ahead of what was declared: a bound line's, before its
+     * class's own.
+     *
+     * @param  list<string|Closure>  $middleware
+     *
+     * @internal
+     */
+    public function prependMiddleware(array $middleware): self
+    {
+        $this->middleware = [...$middleware, ...$this->middleware];
+
+        return $this;
+    }
+
+    /**
+     * Take middleware out of what this verb would run, the default group's
+     * included, as `Route::withoutMiddleware()` does. A name matches the
+     * same name only: excluding `batch` leaves `batch:5 minutes` in place.
+     *
+     * @param  string|list<string>  $middleware
+     */
+    public function withoutMiddleware(string|array $middleware): self
+    {
+        foreach ((array) $middleware as $name) {
+            if (trim($name) === '') {
+                throw new InvalidArgumentException("->withoutMiddleware() on [{$this->key()}] takes middleware names.");
+            }
+
+            if (! in_array($name, $this->excludedMiddleware, true)) {
+                $this->excludedMiddleware[] = $name;
+            }
+        }
+
+        return $this;
+    }
+
+    /**
+     * What `withoutMiddleware()` took out.
+     *
+     * @return list<string>
+     */
+    public function excludedMiddleware(): array
+    {
+        return $this->excludedMiddleware;
+    }
+
+    /**
+     * Join the actor's sitting, with this verb's own quiet window:
+     *
+     *     Story::verb('comment')->batched();                      // storyfeed.grouping.batch.quiet_minutes
+     *     Story::for(Todo::class)->verb('add')->batched(within: '5 minutes');
+     *
+     * Shorthand for the `batch` middleware, as `->can('update', 'post')` is
+     * for `can:update,post`: with a window it takes `batch` out and puts
+     * `batch:5 minutes` in; without one it makes sure `batch` is there.
+     * The last of `batched()` and `unbatched()` wins.
+     */
+    public function batched(string|DateInterval|null $within = null): self
+    {
+        $this->forgetBatch();
+
+        if ($within === null) {
+            $this->middleware[] = 'batch';
+
+            return $this;
+        }
+
+        $window = self::window($within, $this->key(), 'batched', 'within: ');
+
+        $this->excludedMiddleware[] = 'batch';
+        $this->middleware[] = 'batch:'.(is_string($within) && ! str_contains($within, ',') ? trim($within) : $window);
+
+        return $this;
+    }
+
+    /**
+     * Never join a sitting: `->withoutMiddleware('batch')`, and any `batch`
+     * this verb was given is taken back. An unbatched activity doesn't join,
+     * extend or close the actor's open sitting.
+     *
+     *     Story::for(Project::class)->verb('create')->unbatched();
+     */
+    public function unbatched(): self
+    {
+        $this->forgetBatch();
+
+        $this->excludedMiddleware[] = 'batch';
+
+        return $this;
+    }
+
+    private function forgetBatch(): void
+    {
+        $this->middleware = array_values(array_filter(
+            $this->middleware,
+            fn (string|Closure $middleware) => ! is_string($middleware)
+                || ! in_array(explode(':', $middleware, 2)[0], ['batch', Batch::class], true),
+        ));
+
+        $this->excludedMiddleware = array_values(array_diff($this->excludedMiddleware, ['batch']));
+    }
+
+    /**
+     * What this verb declared about middleware, or null when it said
+     * nothing and a broader definition's answer stands.
+     *
+     * @return array{middleware: list<string|Closure>, excluded: list<string>}|null
+     *
+     * @internal
+     */
+    public function declaredMiddleware(): ?array
+    {
+        if ($this->middleware === [] && $this->excludedMiddleware === []) {
+            return null;
+        }
+
+        return ['middleware' => $this->middleware, 'excluded' => $this->excludedMiddleware];
+    }
+
+    /**
+     * Middleware as given to `->middleware()`, `Story::middleware()` or a
+     * Story class's `middleware()`, as a list. Strings and closures only:
+     * those are what `storyfeed:list` can show and `storyfeed:cache` can
+     * write, as route middleware is.
+     *
+     * @param  string|array<mixed>|Closure  $middleware
+     * @return list<string|Closure>
+     *
+     * @internal
+     */
+    public static function middlewareList(string|array|Closure $middleware, string $where = 'Story::middleware()'): array
+    {
+        $list = [];
+
+        foreach (is_array($middleware) ? $middleware : [$middleware] as $entry) {
+            if ($entry instanceof Closure || (is_string($entry) && trim($entry) !== '')) {
+                $list[] = $entry;
+
+                continue;
+            }
+
+            throw new InvalidArgumentException(
+                "The middleware for [{$where}] must be class names, aliases (`'batch:5 minutes'`) or closures, got "
+                .get_debug_type($entry).'. An object can\'t be listed or cached.',
+            );
+        }
+
+        return $list;
     }
 
     /**

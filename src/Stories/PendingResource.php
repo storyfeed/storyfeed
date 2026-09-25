@@ -2,6 +2,7 @@
 
 namespace Storyfeed\Stories;
 
+use Closure;
 use InvalidArgumentException;
 use Storyfeed\Exceptions\StoryMisconfigured;
 use Storyfeed\FeedNoun;
@@ -50,14 +51,19 @@ final class PendingResource
 
     private ?FeedNoun $noun = null;
 
+    /** @var list<string> */
+    private array $excludedMiddleware = [];
+
     /**
      * @param  string|array<int, string>  $objectType  a model class, a morph alias, or a list
      * @param  class-string|null  $class  the resource Story class
+     * @param  list<string|Closure>  $middleware  an enclosing `Story::middleware()->group()`'s
      */
     public function __construct(
         public readonly string|array $objectType,
         public readonly string $source,
         public readonly ?string $class = null,
+        private array $middleware = [],
     ) {
         if ($class !== null && ! class_exists($class)) {
             throw StoryMisconfigured::notAResourceClass($source, $class);
@@ -89,6 +95,31 @@ final class PendingResource
     }
 
     /**
+     * Middleware for every verb of the resource, ahead of what an action
+     * declares, as `Route::resource()->middleware()` does.
+     *
+     * @param  string|list<string|Closure>|Closure  $middleware
+     */
+    public function middleware(string|array|Closure $middleware): self
+    {
+        $this->middleware = [...$this->middleware, ...Verb::middlewareList($middleware, $this->source)];
+
+        return $this;
+    }
+
+    /**
+     * @param  string|list<string>  $middleware
+     *
+     * @see Verb::withoutMiddleware()
+     */
+    public function withoutMiddleware(string|array $middleware): self
+    {
+        $this->excludedMiddleware = [...$this->excludedMiddleware, ...(is_array($middleware) ? $middleware : [$middleware])];
+
+        return $this;
+    }
+
+    /**
      * The type's noun, `'order|orders'`, which is what lets a group of these
      * say "5 orders". The same as `Story::for(Order::class)->noun(…)`.
      */
@@ -113,14 +144,14 @@ final class PendingResource
         $definitions = [];
 
         foreach ($this->verbs($actions) as $verb) {
-            $definition = Verb::for($this->objectType, $verb, $this->source);
+            $definition = $this->withMiddleware(Verb::for($this->objectType, $verb, $this->source));
 
             if (isset($actions[$verb])) {
                 /** @var class-string $class */
                 $class = $this->class;
                 $uses = ResourceClass::uses($class, $actions[$verb]['method']);
 
-                $definitions[] = ResourceClass::run($class, $actions[$verb]['method'], Verb::for($this->objectType, $verb, $uses))
+                $definitions[] = ResourceClass::run($class, $actions[$verb]['method'], $this->withMiddleware(Verb::for($this->objectType, $verb, $uses)))
                     ->fromAction($uses, $actions[$verb]['request']);
 
                 continue;
@@ -146,6 +177,11 @@ final class PendingResource
         }
 
         return $definitions;
+    }
+
+    private function withMiddleware(Verb $definition): Verb
+    {
+        return $definition->middleware($this->middleware)->withoutMiddleware($this->excludedMiddleware);
     }
 
     /**

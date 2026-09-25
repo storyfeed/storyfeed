@@ -6,7 +6,9 @@ use BackedEnum;
 use Closure;
 use Storyfeed\Contracts\FeedVerb;
 use Storyfeed\Exceptions\StoryMisconfigured;
+use Storyfeed\Middleware\Batch;
 use Storyfeed\StoryfeedManager;
+use Storyfeed\Support\MiddlewareNameResolver;
 
 /**
  * The registrar behind the `Story` facade: Route-style definitions of what
@@ -41,11 +43,37 @@ use Storyfeed\StoryfeedManager;
  *
  * `Storyfeed::` stays the facade for recording and reading; this one only
  * defines. One facade per concern, as `Route`, `Schedule` and `Broadcast` are.
+ *
+ * MIDDLEWARE is the router's, under the router's names. Every publish goes
+ * through the `default` group, then its verb's own middleware, minus what
+ * the verb excludes:
+ *
+ *     Story::aliasMiddleware('audit', RecordAudit::class);
+ *     Story::middlewareGroup('default', ['batch', 'audit']);
+ *
+ *     Story::middleware(['audit'])->group(function () {
+ *         Story::for(Project::class)->verb('create')->unbatched();
+ *     });
+ *
+ * The package registers `batch` ({@see Batch}) and puts it in `default`, so
+ * with nothing declared every verb batches as it always has.
  */
 class Registrar
 {
+    /** The group every verb's middleware starts from. */
+    public const DEFAULT_GROUP = 'default';
+
     /** @var list<array<int, string>> the object types of each open group() */
     protected array $scopes = [];
+
+    /** @var list<list<string|Closure>> the middleware of each open `Story::middleware()->group()` */
+    protected array $middlewareScopes = [];
+
+    /** @var array<string, string|Closure> */
+    protected array $middlewareAliases = ['batch' => Batch::class];
+
+    /** @var array<string, list<string|Closure>> */
+    protected array $middlewareGroups = [self::DEFAULT_GROUP => ['batch']];
 
     /**
      * Scope definitions to one or more object types: a model class (resolved
@@ -68,19 +96,19 @@ class Registrar
      * headlines and a composite parent's headline belong.
      *
      * With a message class, binds the class to the verb instead, as
-     * `Route::post('…', ShipOrder::class)` binds an invokable controller, and
-     * returns nothing to configure: the class says it all. Outside a group,
-     * the class's own `$objectType` names the types.
+     * `Route::post('…', ShipOrder::class)` binds an invokable controller. The
+     * class says what the activity reads as; the binding comes back to take
+     * only middleware, as a route bound to a controller does:
+     * `Story::verb('create', ProjectWasCreated::class)->unbatched()`. Outside
+     * a group, the class's own `$objectType` names the types.
      *
      * @param  class-string<Story>|null  $story
-     * @return ($story is null ? Verb : null)
+     * @return ($story is null ? Verb : BoundStory)
      */
-    public function verb(string|FeedVerb|BackedEnum $verb, ?string $story = null): ?Verb
+    public function verb(string|FeedVerb|BackedEnum $verb, ?string $story = null): Verb|BoundStory
     {
         if ($story !== null) {
-            $this->bind(end($this->scopes) ?: null, $verb, $story);
-
-            return null;
+            return $this->bind(end($this->scopes) ?: null, $verb, $story);
         }
 
         return $this->define(end($this->scopes) ?: ['*'], $verb);
@@ -108,7 +136,7 @@ class Registrar
      */
     public function resource(string|array $objectType, ?string $class = null): PendingResource
     {
-        $resource = new PendingResource($objectType, Verb::caller(), $class);
+        $resource = new PendingResource($objectType, Verb::caller(), $class, $this->scopedMiddleware());
 
         app(StoryfeedManager::class)->addStory($resource);
 
@@ -141,9 +169,13 @@ class Registrar
      *
      * @internal Use Story::for(…)->verb('complete', TaskWasCompleted::class).
      */
-    public function bind(?array $objectTypes, string|FeedVerb|BackedEnum $verb, string $story): void
+    public function bind(?array $objectTypes, string|FeedVerb|BackedEnum $verb, string $story): BoundStory
     {
-        app(StoryfeedManager::class)->addStory(BoundStory::make($objectTypes, $verb, $story, Verb::caller()));
+        $bound = BoundStory::make($objectTypes, $verb, $story, Verb::caller())->middleware($this->scopedMiddleware());
+
+        app(StoryfeedManager::class)->addStory($bound);
+
+        return $bound;
     }
 
     /**
@@ -157,8 +189,141 @@ class Registrar
     {
         $definition = Verb::for($objectTypes, $verb, Verb::caller())->scopedToType();
 
+        if (($middleware = $this->scopedMiddleware()) !== []) {
+            $definition->middleware($middleware);
+        }
+
         app(StoryfeedManager::class)->addStory($definition);
 
         return $definition;
+    }
+
+    /**
+     * Middleware for every definition made inside the group, ahead of each
+     * one's own, as `Route::middleware([...])->group(fn)` does:
+     *
+     *     Story::middleware(['audit'])->group(function () {
+     *         Story::for(Invoice::class)->verb('pay');
+     *     });
+     *
+     * @param  string|list<string|Closure>|Closure  $middleware
+     */
+    public function middleware(string|array|Closure $middleware): MiddlewareScope
+    {
+        return new MiddlewareScope($this, Verb::middlewareList($middleware));
+    }
+
+    /**
+     * Name a middleware class (or closure), `Route::aliasMiddleware()`'s
+     * twin: `Story::aliasMiddleware('audit', RecordAudit::class)`, then
+     * `->middleware('audit')` or `'audit:strict'`.
+     */
+    public function aliasMiddleware(string $name, string|Closure $class): static
+    {
+        $this->middlewareAliases[$name] = $class;
+
+        return $this;
+    }
+
+    /**
+     * Name a list of middleware, `Route::middlewareGroup()`'s twin. The
+     * `default` group runs for every verb; any other runs where a verb names
+     * it. Defining a group replaces it, so the default group is changed with
+     * `Story::middlewareGroup('default', ['batch', 'audit'])`.
+     *
+     * Aliases and groups are read at each publish, as the router reads its
+     * own at each request, so they belong in a service provider's `boot()`,
+     * not routes/feed.php: `storyfeed:cache` skips that file, exactly as a
+     * cached route file never runs an alias it registers.
+     *
+     * @param  list<string|Closure>  $middleware
+     */
+    public function middlewareGroup(string $name, array $middleware): static
+    {
+        $this->middlewareGroups[$name] = $middleware;
+
+        return $this;
+    }
+
+    /** Add to the end of a group, as `Router::pushMiddlewareToGroup()` does. */
+    public function pushMiddlewareToGroup(string $group, string|Closure $middleware): static
+    {
+        if (! in_array($middleware, $this->middlewareGroups[$group] ?? [], true)) {
+            $this->middlewareGroups[$group][] = $middleware;
+        }
+
+        return $this;
+    }
+
+    /** Add to the start of a group, as `Router::prependMiddlewareToGroup()` does. */
+    public function prependMiddlewareToGroup(string $group, string|Closure $middleware): static
+    {
+        $this->middlewareGroups[$group] ??= [];
+
+        if (! in_array($middleware, $this->middlewareGroups[$group], true)) {
+            array_unshift($this->middlewareGroups[$group], $middleware);
+        }
+
+        return $this;
+    }
+
+    /** @return array<string, string|Closure> */
+    public function getMiddleware(): array
+    {
+        return $this->middlewareAliases;
+    }
+
+    /** @return array<string, list<string|Closure>> */
+    public function getMiddlewareGroups(): array
+    {
+        return $this->middlewareGroups;
+    }
+
+    /**
+     * What a verb runs: the default group, then what it declared, minus what
+     * it excluded, with aliases and groups resolved and duplicates dropped.
+     *
+     * @param  list<string|Closure>  $middleware
+     * @param  list<string>  $excluded
+     * @return list<string|Closure>
+     *
+     * @internal
+     */
+    public function gatherMiddleware(array $middleware, array $excluded): array
+    {
+        return MiddlewareNameResolver::gather(
+            [self::DEFAULT_GROUP, ...$middleware],
+            $excluded,
+            $this->middlewareAliases,
+            $this->middlewareGroups,
+        );
+    }
+
+    /**
+     * Run a group closure with the middleware pushed.
+     *
+     * @param  list<string|Closure>  $middleware
+     *
+     * @internal Use Story::middleware([...])->group(…).
+     */
+    public function withMiddleware(array $middleware, Closure $callback): void
+    {
+        $this->middlewareScopes[] = $middleware;
+
+        try {
+            $callback();
+        } finally {
+            array_pop($this->middlewareScopes);
+        }
+    }
+
+    /**
+     * The middleware of every open `Story::middleware()->group()`, outermost first.
+     *
+     * @return list<string|Closure>
+     */
+    protected function scopedMiddleware(): array
+    {
+        return array_merge(...$this->middlewareScopes);
     }
 }

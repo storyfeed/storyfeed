@@ -48,6 +48,7 @@ use Storyfeed\StoryfeedManager;
  *     forget: array<string, bool>,
  *     retention: array<string, string>,
  *     keepLatest: array<string, array{per: list<string>, within: string|null}>,
+ *     middleware: array<string, array{middleware: list<string|Closure>, excluded: list<string>}>,
  *     actors: array<string, string>,
  *     actions: array<string, array{uses: string, request: bool, parts: array<string, string>|null}>,
  * }
@@ -55,7 +56,7 @@ use Storyfeed\StoryfeedManager;
 class CompileStories
 {
     /** The registries a compile produces, in the order they are applied. */
-    public const REGISTRIES = ['grammar', 'aggregateGrammar', 'actorlessGrammar', 'icons', 'glyphIntents', 'nouns', 'objectTypes', 'verbs', 'missing', 'missingGrammar', 'forget', 'retention', 'keepLatest', 'actors', 'actions'];
+    public const REGISTRIES = ['grammar', 'aggregateGrammar', 'actorlessGrammar', 'icons', 'glyphIntents', 'nouns', 'objectTypes', 'verbs', 'missing', 'missingGrammar', 'forget', 'retention', 'keepLatest', 'middleware', 'actors', 'actions'];
 
     /**
      * @param  array<int, Verb>  $definitions
@@ -76,6 +77,7 @@ class CompileStories
         $forget = [];
         $retention = [];
         $keepLatest = [];
+        $middleware = [];
         $actors = [];
         $actions = [];
 
@@ -164,6 +166,19 @@ class CompileStories
                     $keepLatest[$key] = $latest;
                 }
 
+                // Story middleware as declared: names, not classes, as
+                // route:cache keeps them, so aliases and groups resolve when
+                // the activity is published. The same declaration twice (a
+                // `Story::middleware()` group around two lines for one key)
+                // is one declaration, not a conflict.
+                if (($declared = $definition->declaredMiddleware()) !== null) {
+                    if (! isset($middleware[$key]) || $middleware[$key] !== $declared) {
+                        $this->claim($owners, 'middleware', $key, $source);
+                    }
+
+                    $middleware[$key] = $declared;
+                }
+
                 // A fixed actor. An action that takes the request chooses its
                 // actor at each publish, so what the blank one gave is moot.
                 if (! $definition->takesRequest() && ($actor = $definition->actorGiven()) !== null) {
@@ -232,6 +247,7 @@ class CompileStories
             'forget' => $forget,
             'retention' => $retention,
             'keepLatest' => $keepLatest,
+            'middleware' => $middleware,
             'actors' => $actors,
             'actions' => $actions,
         ];

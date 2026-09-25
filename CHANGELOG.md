@@ -4,6 +4,51 @@
 
 ### Changed
 
+- **Story middleware.** A publish goes through its verb's middleware, an
+  `Illuminate\Pipeline` around `publish()`, registered and attached under the
+  router's names: `Story::aliasMiddleware()`, `Story::middlewareGroup()`,
+  `->middleware('alias:args')` and `->withoutMiddleware()` on a verb,
+  `Story::middleware([...])->group(fn)` in routes/feed.php, and a
+  `middleware(): array` method on a Story class, as on a job. A middleware
+  gets the PendingActivity and `$next`; code after `$next()` sees the stored
+  Activity. What runs is the `default` group, then the most specific
+  declaration on the `type.verb` ladder, minus its exclusions, with identical
+  strings once. Aliases and groups resolve at each publish, as the router's
+  do, so register them in a service provider, not routes/feed.php.
+  `storyfeed:list` shows the resolved middleware (`--json`, or the table
+  with `-v`, as route:list), and `storyfeed:cache` compiles the names, with
+  closures serialised as closure headlines are. The fake runs the same
+  pipeline. A middleware that returns without calling `$next` publishes
+  nothing: `publish()` returns what it returned, and null becomes the unsaved
+  Activity that recording-off gives, as the router turns null into an empty
+  response. `PendingActivity` gains `hasActor()`, `isAnonymous()` and
+  `has($role)` for middleware to read.
+- **Who acted is decided in four steps:** the call site, then a scope
+  (`Storyfeed::as()`, `Storyfeed::context()`), then middleware, then the
+  defaults (the verb's `->actor()`, the resolver, the signed-in user,
+  `parties.fallback`). A middleware that sets a default actor should check
+  `hasActor()`, which is true after `->anonymously()`.
+- **Batching is the `batch` middleware**, which the package registers and
+  puts in the `default` group, so nothing changes unless a verb says so.
+  `->batched(within: '5 minutes')` gives a verb its own window,
+  `->batched()` makes sure it batches, and `->unbatched()` keeps it out:
+  `Story::for(Project::class)->verb('create')->unbatched()`. The last of
+  those two wins. `batch:5 minutes` and `batch:5` (minutes) also work as
+  middleware strings. `Actions\AssignToBatch` is no longer called from
+  `PendingActivity`; it runs from the middleware, after the row is stored, in
+  a transaction of its own, and takes the window as a second argument.
+  `Story::verb('x', X::class)` now returns the binding (`BoundStory`), not
+  null, so a bound line takes middleware and the shortcuts too.
+- **Schema: `feed_batches.closes_at`.** Publish
+  `add_closes_at_to_feed_batches_table` and migrate. A batch is a sitting;
+  each batched activity moves `closes_at` to its own `published_at` plus its
+  verb's window, never backwards, and the next one joins if it was published
+  before then. An unbatched activity doesn't join, extend or close a
+  sitting. `storyfeed:close-batches` and the lazy close use `closes_at`, and
+  `--quiet-minutes` still closes by last seen plus the minutes. The migration
+  backfills open batches with last seen plus `grouping.batch.quiet_minutes`,
+  and a batch it missed closes as it always did.
+
 - `Storyfeed::record()` accepts `change:` facts and `anonymous: true`. Anonymous
   activities retain a null actor even with an explicit actor, an actor scope,
   a signed-in user, or a system fallback. Recording remains synchronous.

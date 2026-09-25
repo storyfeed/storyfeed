@@ -8,12 +8,13 @@ use DateTimeInterface;
 use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Pipeline\Pipeline;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Support\Traits\Conditionable;
 use InvalidArgumentException;
-use Storyfeed\Actions\AssignToBatch;
+use LogicException;
 use Storyfeed\Actions\CurateCluster;
 use Storyfeed\Actions\ForgetActivities;
 use Storyfeed\Actions\SnapshotEntity;
@@ -29,10 +30,12 @@ use Storyfeed\Exceptions\UnknownVerb;
 use Storyfeed\Models\Activity;
 use Storyfeed\Models\Grouping;
 use Storyfeed\Models\Party;
+use Storyfeed\Support\ActivityRoles;
 use Storyfeed\Support\BodySlot;
 use Storyfeed\Support\Chronology;
 use Storyfeed\Support\Feedables;
 use Storyfeed\Testing\StoryfeedFake;
+use UnexpectedValueException;
 
 /**
  * Fluent builder for publishing activities.
@@ -396,6 +399,27 @@ class PendingActivity
         return $this;
     }
 
+    /**
+     * Publish through the verb's story middleware, as a request goes through
+     * its route's: the `default` group, then what the verb declared, minus
+     * what it excludes ({@see StoryfeedManager::middleware()}). Each one gets
+     * this PendingActivity and `$next`, and what it does after `$next()` sees
+     * the stored Activity. The package's own `batch` works that way.
+     *
+     * WHO ACTED, highest first: the call site (`->actor()`, `->anonymously()`),
+     * then a scope (`Storyfeed::as()`, `Storyfeed::context()`, carried into a
+     * job or not), then middleware, then the defaults (the verb's `->actor()`,
+     * the resolver, the signed-in user, `parties.fallback`). So a middleware
+     * that sets a default actor sees `hasActor()` true for anything above it,
+     * `->anonymously()` included, and should leave it.
+     *
+     * A SHORT CIRCUIT, a middleware that returns without calling `$next`,
+     * publishes nothing. What it returns is what `publish()` returns, as a
+     * route middleware's response is the response: an Activity as it is, and
+     * null as the unsaved Activity recording-off gives (`exists` false), the
+     * way the router turns a null into an empty response. Nothing is stored
+     * or dispatched, and the fake records nothing.
+     */
     public function publish(): Activity
     {
         if (blank($this->activity->verb)) {
@@ -404,7 +428,78 @@ class PendingActivity
 
         $manager = app(StoryfeedManager::class);
 
-        $this->resolveDefaultActor($manager);
+        $this->applyScopes($manager);
+
+        $this->assertAuthored($manager);
+
+        // Stamped HERE, not only in the model's creating hook: a consumer
+        // seeding inside WithoutModelEvents (the starter kit's default!)
+        // would otherwise persist published_at = NULL and every activity
+        // silently vanishes from the feed. "Published means timestamped"
+        // must not depend on model events being enabled. Before the
+        // middleware, so it sees when the act happened.
+        $this->activity->published_at ??= now();
+
+        $type = $this->activity->object_type;
+        $verb = (string) $this->activity->verb;
+
+        $published = (new Pipeline(app()))
+            ->send($this)
+            ->through($manager->middleware(is_string($type) && $type !== '' ? $type : null, $verb))
+            ->then(function (PendingActivity $activity) use ($manager, $type, $verb): Activity {
+                // The middleware was chosen for this type and verb; a row
+                // that left as something else would have skipped its own.
+                if ($activity->activity->object_type !== $type || (string) $activity->activity->verb !== $verb) {
+                    throw new LogicException("Story middleware may not change what an activity is: [{$verb}] became [{$activity->activity->verb}].");
+                }
+
+                return $activity->persist($manager);
+            });
+
+        return match (true) {
+            $published instanceof Activity => $published,
+            $published === null => $this->decline(),
+            default => throw new UnexpectedValueException(
+                'Story middleware for ['.$verb.'] returned '.get_debug_type($published).'. Return what $next() returns, or null to publish nothing.',
+            ),
+        };
+    }
+
+    /**
+     * Whether anyone has said who acted: an actor, or `->anonymously()`.
+     * A middleware that sets a default actor asks this first.
+     */
+    public function hasActor(): bool
+    {
+        return $this->anonymous || $this->activity->actor_type !== null || $this->activity->actor_id !== null;
+    }
+
+    /** Whether the actor was said to be unknown (`->anonymously()`). */
+    public function isAnonymous(): bool
+    {
+        return $this->anonymous;
+    }
+
+    /** Whether a role is filled: `$activity->has('context')`. */
+    public function has(string $role): bool
+    {
+        if (! in_array($role, ActivityRoles::STORED, true)) {
+            throw new InvalidArgumentException("[{$role}] is not a role. The roles are ".implode(', ', ActivityRoles::STORED).'.');
+        }
+
+        return $this->activity->getAttribute("{$role}_type") !== null || isset($this->entities[$role]);
+    }
+
+    /**
+     * The scopes, which rank above middleware: `Storyfeed::as()` and
+     * `Storyfeed::context()`, in this process or carried into a job. The
+     * call site ranks above both, so neither touches a role it filled.
+     */
+    private function applyScopes(StoryfeedManager $manager): void
+    {
+        if (! $this->hasActor() && ($actor = $manager->applyScopedActor($this->activity)) !== null) {
+            $this->actor($actor);
+        }
 
         if ($this->activity->context_type === null && $this->activity->context_id === null
             && ! isset($this->entities['context'])) {
@@ -413,8 +508,15 @@ class PendingActivity
                 $this->entities['context'] = $context;
             }
         }
+    }
 
-        $this->assertAuthored($manager);
+    /**
+     * The innermost step: the defaults, then the row, its groupings and the
+     * event. What the middleware wraps.
+     */
+    private function persist(StoryfeedManager $manager): Activity
+    {
+        $this->resolveDefaultActor($manager);
 
         if ($manager instanceof StoryfeedFake) {
             return $this->captureOnFake($manager);
@@ -423,13 +525,6 @@ class PendingActivity
         if (! $manager->isRecording()) {
             return $this->decline();
         }
-
-        // Stamped HERE, not only in the model's creating hook: a consumer
-        // seeding inside WithoutModelEvents (the starter kit's default!)
-        // would otherwise persist published_at = NULL and every activity
-        // silently vanishes from the feed. "Published means timestamped"
-        // must not depend on model events being enabled.
-        $this->activity->published_at ??= now();
 
         if ($this->objects !== []) {
             return $this->publishComposite();
@@ -714,8 +809,6 @@ class PendingActivity
                 (new SyncParticipants)($member, inserted: true);
             }
 
-            (new AssignToBatch)($this->activity);
-
             return $this->activity;
         });
 
@@ -892,10 +985,8 @@ class PendingActivity
         // participant row can never outlive (or precede) the row it points at.
         (new SyncParticipants)($this->activity, $this->inserted);
 
-        // Batching is invisible to the recording code: the activity joins
-        // (or opens) its actor's current batch here, in the same
-        // transaction. Infrastructure only — no feed effect.
-        (new AssignToBatch)($this->activity);
+        // Batching is not here: it is the `batch` story middleware, which
+        // runs once this row is stored (Middleware\Batch).
 
         // Curation is a policy, not a process: it is pure, idempotent and
         // touches only the <= 3 clusters this activity emits, so it runs

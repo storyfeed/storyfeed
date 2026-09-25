@@ -3,6 +3,7 @@
 namespace Storyfeed\Actions;
 
 use Carbon\CarbonInterface;
+use Carbon\CarbonInterval;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
@@ -12,13 +13,20 @@ use Storyfeed\Models\Grouping;
 
 /**
  * Link a just-published activity to its actor's event-time batch — an earlier
- * implementation's open-window pattern, generalized. Called inside the
- * publish transaction; the developer never sees it (atomic activities are
- * recorded, the rest is handled).
+ * implementation's open-window pattern, generalized. Run by the `batch` story
+ * middleware ({@see \Storyfeed\Middleware\Batch}) after the row is stored,
+ * in a transaction of its own; the developer never sees it (atomic
+ * activities are recorded, the rest is handled).
  *
- * The quiet window is enforced HERE, lazily: if the next event is beyond
- * an open batch's event-time window, it is closed (firing BatchClosed) and
- * a fresh one opened. Feeds and batch membership are therefore correct
+ * A batch is a SITTING and `closes_at` is when it ends: each member pushes
+ * it to its own `published_at` plus its verb's window, never backwards, so a
+ * verb batched `within: '1 hour'` keeps the sitting open longer than one
+ * batched within five minutes. An activity joins when it was published
+ * before `closes_at`.
+ *
+ * That is enforced HERE, lazily: if the next event is at or beyond an open
+ * batch's `closes_at`, the batch is closed (firing BatchClosed) and a fresh
+ * one opened. Feeds and batch membership are therefore correct
  * with zero scheduling; storyfeed:close-batches exists only so BatchClosed
  * fires promptly for actors who walked away.
  *
@@ -36,16 +44,17 @@ use Storyfeed\Models\Grouping;
  * MySQL and MariaDB two new actors whose keys share that gap each held it,
  * each tried to insert into it, and one publish died with a deadlock.
  *
- * The lock is taken here, at the batch decision, not at the top of publish.
- * Like any row lock it is held until the publish transaction commits, which
- * is what makes the second publish see the first one's batch.
+ * The lock is taken here, at the batch decision. Like any row lock it is
+ * held until the enclosing transaction commits, which is what makes the
+ * second publish see the first one's batch.
  */
 class AssignToBatch
 {
     /**
+     * @param  CarbonInterval|null  $window  this verb's window; null is `grouping.batch.quiet_minutes`
      * @return Batch|null the batch the activity joined
      */
-    public function __invoke(Activity $activity): ?Batch
+    public function __invoke(Activity $activity, ?CarbonInterval $window = null): ?Batch
     {
         if (! config('storyfeed.grouping.batch.enabled', true)) {
             return null;
@@ -59,6 +68,8 @@ class AssignToBatch
 
         $batch = $this->resolveOpenBatch($activity, $publishedAt);
 
+        $closesAt = $publishedAt->copy()->add($window ?? self::configuredWindow());
+
         $grouping = config('storyfeed.models.grouping', Grouping::class);
 
         $grouping::query()->updateOrCreate(
@@ -70,6 +81,7 @@ class AssignToBatch
             'activities_count' => $batch->activities_count + 1,
             // Out-of-order members must not move the window backwards.
             'last_activity_at' => $batch->last_activity_at?->max($publishedAt) ?? $publishedAt,
+            'closes_at' => $batch->closes_at?->max($closesAt) ?? $closesAt,
         ])->save();
 
         return $batch;
@@ -167,11 +179,23 @@ class AssignToBatch
 
     protected function withinWindow(Batch $batch, CarbonInterface $publishedAt): bool
     {
-        $quiet = (int) config('storyfeed.grouping.batch.quiet_minutes', 10);
+        return $publishedAt->lt(self::closesAt($batch));
+    }
 
-        $lastSeen = $batch->last_activity_at ?? $batch->opened_at;
+    /**
+     * When the sitting ends. A batch opened before `closes_at` existed, and
+     * missed by the migration's backfill, ends where it always did: last
+     * seen plus the configured window.
+     */
+    public static function closesAt(Batch $batch): CarbonInterface
+    {
+        return $batch->closes_at
+            ?? ($batch->last_activity_at ?? $batch->opened_at)->copy()->add(self::configuredWindow());
+    }
 
-        return $lastSeen->gt($publishedAt->copy()->subMinutes($quiet));
+    public static function configuredWindow(): CarbonInterval
+    {
+        return CarbonInterval::minutes((int) config('storyfeed.grouping.batch.quiet_minutes', 10));
     }
 
     protected function close(Batch $batch, CarbonInterface $now): void

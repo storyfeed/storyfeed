@@ -3,6 +3,7 @@
 namespace Storyfeed\Stories;
 
 use BackedEnum;
+use Closure;
 use DateInterval;
 use Illuminate\Database\Eloquent\Model;
 use Storyfeed\ActivityStreams\ActivityType;
@@ -220,6 +221,20 @@ abstract class Story implements PublishesToFeed
     public function keepLatest(): array|true|null
     {
         return null;
+    }
+
+    /**
+     * Middleware this activity goes through when it is published, after the
+     * `default` group, as a job's `middleware()` wraps the job — see
+     * Verb::middleware(). Read when stories compile, like the presentation
+     * methods, so it must not read constructor state. Strings
+     * (`'batch:5 minutes'`) and closures.
+     *
+     * @return list<string|Closure>
+     */
+    public function middleware(): array
+    {
+        return [];
     }
 
     /**

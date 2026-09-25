@@ -30,6 +30,7 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $closed_at Wall-clock time the batch was closed
  * @property int $activities_count
  * @property Carbon|null $last_activity_at Greatest assigned publication time
+ * @property Carbon|null $closes_at When the sitting ends: the latest of each member's published_at plus its verb's window
  * @property array<array-key, mixed>|null $meta
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
@@ -46,6 +47,7 @@ class Batch extends Model
             'opened_at' => 'datetime',
             'closed_at' => 'datetime',
             'last_activity_at' => 'datetime',
+            'closes_at' => 'datetime',
             'meta' => 'array',
         ];
     }

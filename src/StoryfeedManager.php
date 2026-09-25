@@ -36,6 +36,7 @@ use Storyfeed\Stories\BoundStory;
 use Storyfeed\Stories\CompileStories;
 use Storyfeed\Stories\DefinitionsFile;
 use Storyfeed\Stories\PendingResource;
+use Storyfeed\Stories\Registrar;
 use Storyfeed\Stories\ResourceClass;
 use Storyfeed\Stories\Story;
 use Storyfeed\Stories\Verb;
@@ -147,6 +148,14 @@ class StoryfeedManager
      * @var array<string, array{per: list<string>, within: string|null}>
      */
     protected array $storyKeepLatest = [];
+
+    /**
+     * Story middleware as each definition declared it (`->middleware()`,
+     * `->withoutMiddleware()`, `->batched()`), keyed `type.verb`.
+     *
+     * @var array<string, array{middleware: list<string|Closure>, excluded: list<string>}>
+     */
+    protected array $storyMiddleware = [];
 
     /**
      * A verb's fixed actor (`->actor('Stripe')`), a party name on the
@@ -1336,6 +1345,7 @@ class StoryfeedManager
         $this->storyActors = $compiled['actors'];
         $this->storyRetention = $compiled['retention'];
         $this->storyKeepLatest = $compiled['keepLatest'];
+        $this->storyMiddleware = $compiled['middleware'];
         $this->storyActions = $compiled['actions'];
 
         $this->applied = $compiled;
@@ -1360,7 +1370,7 @@ class StoryfeedManager
 
         foreach (CompileStories::REGISTRIES as $registry) {
             // Held by TombstoneRules, or replaced whole by the next compile.
-            if (in_array($registry, ['missing', 'forget', 'retention', 'keepLatest', 'missingGrammar', 'actors', 'actions'], true)) {
+            if (in_array($registry, ['missing', 'forget', 'retention', 'keepLatest', 'middleware', 'missingGrammar', 'actors', 'actions'], true)) {
                 continue;
             }
 
@@ -1421,7 +1431,7 @@ class StoryfeedManager
      * with the Story facade (2026-09-23): actorless grammar, nouns and object
      * types.
      *
-     * @param  array{grammar: array<string, string|Closure|FeedHeadline>, aggregateGrammar: array<string, string>, actorlessGrammar?: array<string, string|Closure|FeedHeadline>, icons: array<string, string>, glyphIntents?: array<string, string>, nouns?: array<string, string|FeedNoun>, objectTypes?: array<string, ObjectType|string>, verbs: array<string, mixed>, missing?: array<string, list<string>>, missingGrammar?: array<string, string|Closure|FeedHeadline>, forget?: array<string, bool>, retention?: array<string, string>, keepLatest?: array<string, array{per: list<string>, within: string|null}>, actors?: array<string, string>, actions?: array<string, array{uses: string, request: bool, parts: array<string, string>|null}>}  $compiled
+     * @param  array{grammar: array<string, string|Closure|FeedHeadline>, aggregateGrammar: array<string, string>, actorlessGrammar?: array<string, string|Closure|FeedHeadline>, icons: array<string, string>, glyphIntents?: array<string, string>, nouns?: array<string, string|FeedNoun>, objectTypes?: array<string, ObjectType|string>, verbs: array<string, mixed>, missing?: array<string, list<string>>, missingGrammar?: array<string, string|Closure|FeedHeadline>, forget?: array<string, bool>, retention?: array<string, string>, keepLatest?: array<string, array{per: list<string>, within: string|null}>, middleware?: array<string, array{middleware: list<string|Closure>, excluded: list<string>}>, actors?: array<string, string>, actions?: array<string, array{uses: string, request: bool, parts: array<string, string>|null}>}  $compiled
      * @param  list<string>  $stories  the Story classes the manifest was compiled from
      */
     public function useCompiledStories(array $compiled, array $stories = []): static
@@ -1437,6 +1447,7 @@ class StoryfeedManager
         $compiled['forget'] ??= [];
         $compiled['retention'] ??= [];
         $compiled['keepLatest'] ??= [];
+        $compiled['middleware'] ??= [];
         $compiled['actors'] ??= [];
         $compiled['actions'] ??= [];
 
@@ -2280,6 +2291,23 @@ class StoryfeedManager
     }
 
     /**
+     * The scope's actor, applied ahead of story middleware: `Storyfeed::as()`
+     * in this process, or the one a job was dispatched under. Null, touching
+     * nothing, outside such a scope; the rest of the ladder waits for
+     * applyDefaultActor(), after the middleware.
+     *
+     * @internal
+     */
+    public function applyScopedActor(Activity $activity): ?Model
+    {
+        if ($this->queuedActor === null && $this->scopedActor === null) {
+            return null;
+        }
+
+        return $this->applyDefaultActor($activity);
+    }
+
+    /**
      * Apply a transported identity without requiring its model to still exist.
      * Explicit actors and anonymity are guarded by the callers. Application
      * resolvers retain authority over a transported auth user, but not over a
@@ -2562,6 +2590,40 @@ class StoryfeedManager
         $this->ensureStoriesCompiled();
 
         return $this->resolve($this->storyKeepLatest, $type, $verb);
+    }
+
+    /**
+     * The story middleware a publish of this type and verb runs, as the
+     * pipeline receives it: the `default` group, then what the most specific
+     * declaration on the type → verb ladder says, minus what it excludes,
+     * with aliases and groups resolved (`batch:5 minutes` is
+     * `Storyfeed\Middleware\Batch:5 minutes`) and duplicates dropped.
+     *
+     * Resolved at each call, as the router resolves a route's middleware at
+     * each request, so an alias registered in a service provider applies to
+     * a cached manifest too.
+     *
+     * @return list<string|Closure>
+     */
+    public function middleware(?string $type, string $verb): array
+    {
+        $this->ensureStoriesCompiled();
+
+        $declared = $this->resolve($this->storyMiddleware, $type, $verb);
+
+        return app(Registrar::class)->gatherMiddleware($declared['middleware'] ?? [], $declared['excluded'] ?? []);
+    }
+
+    /**
+     * Every middleware declaration, keyed `type.verb` (wildcards allowed), as declared.
+     *
+     * @return array<string, array{middleware: list<string|Closure>, excluded: list<string>}>
+     */
+    public function storyMiddleware(): array
+    {
+        $this->ensureStoriesCompiled();
+
+        return $this->storyMiddleware;
     }
 
     /**

@@ -191,6 +191,15 @@ class StoryManifest
             }
         }
 
+        // Middleware closures sit inside each declaration's list.
+        foreach ($compiled['middleware'] as $key => $declared) {
+            foreach ($declared['middleware'] as $i => $middleware) {
+                if ($middleware instanceof Closure) {
+                    $compiled['middleware'][$key]['middleware'][$i] = ManifestClosure::wrap($middleware, "middleware[{$key}]");
+                }
+            }
+        }
+
         foreach (['verbs', 'objectTypes'] as $registry) {
             $compiled[$registry] = array_map(
                 fn (mixed $type) => $type instanceof \BackedEnum ? (string) $type->value : (string) $type,

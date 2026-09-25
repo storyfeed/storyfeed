@@ -3,6 +3,8 @@
 namespace Storyfeed\Stories;
 
 use BackedEnum;
+use Closure;
+use DateInterval;
 use Storyfeed\Contracts\FeedVerb;
 use Storyfeed\Exceptions\StoryMisconfigured;
 
@@ -24,10 +26,24 @@ use Storyfeed\Exceptions\StoryMisconfigured;
  * without the constructor (see Verb::presentation()): a message class takes
  * its data there, and at boot there is none.
  *
- * @internal Made by the Story facade.
+ * The line takes middleware, as a route bound to a controller does, ahead of
+ * the class's own `middleware()`:
+ *
+ *     Story::verb('create', ProjectWasCreated::class)->unbatched();
+ *
+ * Made by the Story facade.
  */
 final class BoundStory
 {
+    /** @var list<string|Closure> */
+    private array $middleware = [];
+
+    /** @var list<string> */
+    private array $excludedMiddleware = [];
+
+    /** @var list<array{0: 'batched', 1: string|DateInterval|null}|array{0: 'unbatched'}> in the order called */
+    private array $shortcuts = [];
+
     /**
      * @param  array<int, string>|null  $objectTypes  the scope's types; null outside one, where the class's own stand
      * @param  class-string<Story>  $class
@@ -53,6 +69,51 @@ final class BoundStory
         return new self($objectTypes, $verb, $class, $source);
     }
 
+    /**
+     * @param  string|list<string|Closure>|Closure  $middleware
+     *
+     * @see Verb::middleware()
+     */
+    public function middleware(string|array|Closure $middleware): self
+    {
+        $this->middleware = [...$this->middleware, ...Verb::middlewareList($middleware, $this->source)];
+
+        return $this;
+    }
+
+    /**
+     * @param  string|list<string>  $middleware
+     *
+     * @see Verb::withoutMiddleware()
+     */
+    public function withoutMiddleware(string|array $middleware): self
+    {
+        $this->excludedMiddleware = [...$this->excludedMiddleware, ...(is_array($middleware) ? $middleware : [$middleware])];
+
+        return $this;
+    }
+
+    /** @see Verb::batched() */
+    public function batched(string|DateInterval|null $within = null): self
+    {
+        // Checked now, at the line, rather than when stories compile.
+        if ($within !== null) {
+            Verb::for('*', $this->verb, $this->source)->batched($within);
+        }
+
+        $this->shortcuts[] = ['batched', $within];
+
+        return $this;
+    }
+
+    /** @see Verb::unbatched() */
+    public function unbatched(): self
+    {
+        $this->shortcuts[] = ['unbatched'];
+
+        return $this;
+    }
+
     /** The definition the class compiles to, for the line's verb and types. */
     public function definition(): Verb
     {
@@ -73,6 +134,16 @@ final class BoundStory
         }
 
         // The class's enum case, when it has one, carries the AS2.0 type.
-        return Verb::fromStory($story, $this->objectTypes, $story->verb ?? $this->verb, $this->source);
+        $definition = Verb::fromStory($story, $this->objectTypes, $story->verb ?? $this->verb, $this->source);
+
+        // The line's middleware runs ahead of the class's own, as a route's
+        // runs ahead of its controller's; its shortcuts are said last.
+        $definition->prependMiddleware($this->middleware)->withoutMiddleware($this->excludedMiddleware);
+
+        foreach ($this->shortcuts as $shortcut) {
+            $shortcut[0] === 'batched' ? $definition->batched($shortcut[1]) : $definition->unbatched();
+        }
+
+        return $definition;
     }
 }

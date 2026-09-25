@@ -114,6 +114,7 @@ it('has a record parameter for every public builder role and setter', function (
         'verb', 'action', // The required verb argument starts the builder.
         'by', 'using', 'resulting', 'in', 'to', 'for', 'from', 'on', 'with', 'into', // Role aliases.
         'when', 'unless', // Conditional composition, not activity fields.
+        'hasActor', 'isAnonymous', 'has', // What story middleware reads, not setters.
     ];
     $parameters = array_map(fn (ReflectionParameter $p) => $p->getName(), $record->getParameters());
     $setters = [];

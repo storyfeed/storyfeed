@@ -239,6 +239,10 @@ return [
         | grouping — see docs/grouping.md, "the composite-activity open
         | problem". Stale batches close lazily at the actor's next publish;
         | schedule storyfeed:close-batches for prompt BatchClosed delivery.
+        |
+        | Batching is the `batch` story middleware, in the `default` group.
+        | quiet_minutes is its window when a verb gives none; a verb can give
+        | its own (->batched(within: '5 minutes')) or opt out (->unbatched()).
         */
         'batch' => [
             'enabled' => true,

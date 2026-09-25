@@ -54,6 +54,7 @@ class StoryfeedServiceProvider extends PackageServiceProvider
                 'add_meta_to_feed_snapshots_table',
                 'create_feed_tombstones_table',
                 'create_feed_batch_locks_table',
+                'add_closes_at_to_feed_batches_table',
             ])
             ->hasCommands([
                 Console\CacheSnapshotsCommand::class,
