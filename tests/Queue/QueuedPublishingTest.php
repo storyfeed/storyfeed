@@ -63,6 +63,11 @@ beforeEach(function () {
 
 afterEach(function () {
     app(StoryManifest::class)->delete();
+
+    // The fixture's state is static: leave it clean for other files that use it.
+    QueuedDispatch::$failures = [];
+    QueuedDispatch::$built = 0;
+    QueuedDispatch::$throws = false;
 });
 
 function queuedPublishingWork(string $queue = 'default'): void
