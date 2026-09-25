@@ -20,8 +20,11 @@ class ActorlessCoverage extends Check
             return;
         }
 
-        $pairs = $this->activities()->whereNull('actor_type')->whereNull('actor_id')
-            ->select(['object_type', 'verb'])->distinct()->toBase()->get();
+        // A tombstoned row asks under its former type, as the read path does.
+        $query = $this->activities()->whereNull('actor_type')->whereNull('actor_id');
+        $objectType = $this->objectTypeOf($query);
+
+        $pairs = $query->toBase()->selectRaw("{$objectType} as object_type, verb")->distinct()->get();
 
         foreach ($pairs as $pair) {
             $type = $pair->object_type === null ? null : (string) $pair->object_type;

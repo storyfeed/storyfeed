@@ -105,7 +105,11 @@ class VerbDrift extends Check
     {
         $pairs = [];
 
-        foreach ($this->activities()->select('object_type', 'verb')->distinct()->get() as $row) {
+        // A deleted model's rows still record its pair, under the tombstone.
+        $query = $this->activities();
+        $objectType = $this->objectTypeOf($query);
+
+        foreach ($query->toBase()->selectRaw("{$objectType} as object_type, verb")->distinct()->get() as $row) {
             $pairs["{$row->object_type}.{$row->verb}"] = true;
         }
 

@@ -5,10 +5,14 @@ namespace Storyfeed\Diagnostics\Checks;
 use Illuminate\Database\ClassMorphViolationException;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Query\Builder as QueryBuilder;
+use Illuminate\Database\Query\JoinClause;
 use Illuminate\Support\Facades\Schema;
+use Storyfeed\Actions\TombstoneEntity;
 use Storyfeed\Contracts\DiagnosticCheck;
 use Storyfeed\Models\Activity;
 use Storyfeed\Models\Builders\ActivityBuilder;
+use Storyfeed\Models\FeedTombstone;
 use Storyfeed\Models\Grouping;
 use Storyfeed\Support\ActivityRoles;
 
@@ -43,6 +47,40 @@ abstract class Check implements DiagnosticCheck
         $model = config('storyfeed.models.grouping', Grouping::class);
 
         return $model::query();
+    }
+
+    /**
+     * The object type the registries are asked about, as SQL to select and
+     * group by, with the join it needs added to `$query`.
+     *
+     * A deleted model's activities are stored against the tombstone, but the
+     * read path asks grammar, icons and tombstone rules about the deleted
+     * model's own alias (NodePresenter::objectType()), and so does prune. A
+     * check that grouped by the stored `object_type` reported
+     * `storyfeed.tombstone.create` as missing grammar, an error, while the
+     * feed rendered `order.create`'s headline (found on a production doctor).
+     *
+     * `$activities` names the activities table where the query aliases it.
+     *
+     * @param  ActivityBuilder<Activity>|QueryBuilder  $query
+     */
+    protected function objectTypeOf(ActivityBuilder|QueryBuilder $query, ?string $activities = null): string
+    {
+        $activities ??= $this->activities()->getModel()->getTable();
+        $grammar = $query instanceof QueryBuilder ? $query->getGrammar() : $query->getQuery()->getGrammar();
+
+        if (! TombstoneEntity::installed()) {
+            return $grammar->wrap("{$activities}.object_type");
+        }
+
+        $tombstone = new (config('storyfeed.models.tombstone', FeedTombstone::class));
+
+        $query->leftJoin("{$tombstone->getTable()} as former_objects", function (JoinClause $join) use ($activities, $tombstone) {
+            $join->on('former_objects.'.$tombstone->getKeyName(), '=', "{$activities}.object_id")
+                ->where("{$activities}.object_type", '=', $tombstone->getMorphClass());
+        });
+
+        return 'coalesce('.$grammar->wrap('former_objects.model_type').', '.$grammar->wrap("{$activities}.object_type").')';
     }
 
     /**

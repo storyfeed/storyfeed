@@ -117,11 +117,16 @@ class SingularTokens extends Check
             ActivityRoles::PAYLOAD,
         );
 
+        // A tombstoned row counts under its former type, whose template it
+        // renders with.
+        $query = $this->activities();
+        $objectType = $this->objectTypeOf($query);
+
         // toBase(): these rows are aggregate tuples, not Activity models.
-        return $this->activities()
+        return $query
             ->toBase()
-            ->selectRaw(implode(', ', ['object_type as type', 'verb', 'count(*) as total', ...$counts]))
-            ->groupBy('object_type', 'verb')
+            ->selectRaw(implode(', ', ["{$objectType} as type", 'verb', 'count(*) as total', ...$counts]))
+            ->groupByRaw("{$objectType}, verb")
             ->get();
     }
 

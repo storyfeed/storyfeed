@@ -6,7 +6,6 @@ use Illuminate\Database\Query\Builder;
 use Storyfeed\Diagnostics\Finding;
 use Storyfeed\Diagnostics\Fix;
 use Storyfeed\Exceptions\StoryMisconfigured;
-use Storyfeed\Models\FeedTombstone;
 use Storyfeed\StoryfeedManager;
 
 /**
@@ -51,7 +50,7 @@ class KeepLatest extends Check
 
     /**
      * Superseded rows per object type and verb, the type null for an
-     * object-less row or one about a tombstone.
+     * object-less row, and a tombstoned row under its former type.
      *
      * @return list<array{type: string|null, verb: string, count: int}>
      */
@@ -59,9 +58,10 @@ class KeepLatest extends Check
     {
         $model = $this->activities()->getModel();
         $table = $model->getTable();
-        $tombstone = (new (config('storyfeed.models.tombstone', FeedTombstone::class)))->getMorphClass();
+        $query = $model->getConnection()->table("{$table} as superseded");
+        $objectType = $this->objectTypeOf($query, 'superseded');
 
-        $rows = $model->getConnection()->table("{$table} as superseded")
+        $rows = $query
             ->whereNotNull('superseded.deleted_at')
             ->whereNotNull('superseded.object_id')
             ->whereExists(fn (Builder $live) => $live->selectRaw('1')->from("{$table} as live")
@@ -70,13 +70,13 @@ class KeepLatest extends Check
                 ->whereColumn('live.object_id', 'superseded.object_id')
                 ->whereColumn('live.verb', 'superseded.verb')
                 ->whereColumn('live.published_at', '>=', 'superseded.published_at'))
-            ->select('superseded.object_type', 'superseded.verb')->selectRaw('count(*) as aggregate')
-            ->groupBy('superseded.object_type', 'superseded.verb')
-            ->orderBy('superseded.verb')->orderBy('superseded.object_type')
+            ->selectRaw("{$objectType} as object_type, superseded.verb, count(*) as aggregate")
+            ->groupByRaw("{$objectType}, superseded.verb")
+            ->orderBy('superseded.verb')->orderByRaw($objectType)
             ->get();
 
         return $rows->map(fn (object $row) => [
-            'type' => $row->object_type === null || $row->object_type === $tombstone ? null : (string) $row->object_type,
+            'type' => $row->object_type === null ? null : (string) $row->object_type,
             'verb' => (string) $row->verb,
             'count' => (int) $row->aggregate,
         ])->values()->all();

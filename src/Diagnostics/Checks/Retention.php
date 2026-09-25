@@ -7,7 +7,6 @@ use Illuminate\Support\Carbon;
 use Storyfeed\Actions\PruneActivities;
 use Storyfeed\Diagnostics\Finding;
 use Storyfeed\Exceptions\StoryMisconfigured;
-use Storyfeed\Models\FeedTombstone;
 use Storyfeed\StoryfeedManager;
 use Storyfeed\Support\Chronology;
 
@@ -105,19 +104,21 @@ class Retention extends Check
             return;
         }
 
-        $tombstone = (new (config('storyfeed.models.tombstone', FeedTombstone::class)))->getMorphClass();
+        // A tombstoned row under its former type, whose window prune applies.
+        $query = $this->activities();
+        $objectType = $this->objectTypeOf($query);
 
-        $rows = $this->activities()->toBase()
+        $rows = $query->toBase()
             ->where('published_at', '>=', Chronology::stamp(Carbon::now()->subDays(self::RECENT_DAYS)))
-            ->select('object_type', 'verb')->selectRaw('count(*) as aggregate')
-            ->groupBy('object_type', 'verb')
+            ->selectRaw("{$objectType} as object_type, verb, count(*) as aggregate")
+            ->groupByRaw("{$objectType}, verb")
             ->get();
 
         /** @var array<string, int> $kept verb => rows no window reaches */
         $kept = [];
 
         foreach ($rows as $row) {
-            $type = $row->object_type === null || $row->object_type === $tombstone ? null : (string) $row->object_type;
+            $type = $row->object_type === null ? null : (string) $row->object_type;
             $declared = $storyfeed->retention($type, (string) $row->verb);
 
             // A window, or `->keepForever()`: either way, decided.

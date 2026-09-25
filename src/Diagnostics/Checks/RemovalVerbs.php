@@ -48,7 +48,12 @@ class RemovalVerbs extends Check
         /** @var array<string, list<string>> $unclassified verb => the types it's recorded on */
         $unclassified = [];
 
-        foreach ($this->activities()->withTrashed()->toBase()->select('object_type', 'verb')->distinct()->get() as $row) {
+        // Tombstoned rows under their former type, which the tombstone rules
+        // are asked about on the read path.
+        $query = $this->activities()->withTrashed();
+        $objectType = $this->objectTypeOf($query);
+
+        foreach ($query->toBase()->selectRaw("{$objectType} as object_type, verb")->distinct()->get() as $row) {
             $verb = (string) $row->verb;
             $type = $row->object_type === null ? null : (string) $row->object_type;
 

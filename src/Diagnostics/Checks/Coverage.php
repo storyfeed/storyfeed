@@ -27,8 +27,16 @@ class Coverage extends Check
             return;
         }
 
-        // toBase(): these rows are aliased column tuples, not Activity models.
-        $pairs = $this->activities()->distinct()->toBase()->get(['object_type as type', 'verb']);
+        // A tombstoned row is counted under the deleted model's alias, the
+        // type its headline is looked up under (see objectTypeOf()).
+        $query = $this->activities();
+        $objectType = $this->objectTypeOf($query);
+
+        // toBase(): these rows are aggregate tuples, not Activity models.
+        $pairs = $query->toBase()
+            ->selectRaw("{$objectType} as type, verb, count(*) as aggregate")
+            ->groupByRaw("{$objectType}, verb")
+            ->get();
 
         foreach ($pairs as $pair) {
             $label = ($pair->type ?? '(no object)').'.'.$pair->verb;
@@ -68,10 +76,7 @@ class Coverage extends Check
             }
 
             if ($type instanceof ActivityType && $type->isIntransitive() && $pair->type !== null) {
-                $count = $this->activities()
-                    ->where('verb', $pair->verb)
-                    ->where('object_type', $pair->type)
-                    ->count();
+                $count = (int) $pair->aggregate;
 
                 yield Finding::warning(
                     'grammar.intransitive_with_object',

@@ -72,7 +72,12 @@ class AggregateCoverage extends Check
             ->groupBy(["{$groupings}.bucket", "{$groupings}.hash"])
             ->havingRaw('count(*) > 1');
 
-        $pairs = $this->activities()
+        // A tombstoned head qualifies the key with its former type, as the
+        // read path's aggregateHeadline() does.
+        $query = $this->activities();
+        $objectType = $this->objectTypeOf($query);
+
+        $pairs = $query
             ->join($groupings, "{$groupings}.activity_id", '=', "{$activities}.id")
             ->where("{$groupings}.winner", true)
             ->joinSub($clustered, 'clustered', function ($join) use ($groupings) {
@@ -82,7 +87,9 @@ class AggregateCoverage extends Check
             ->distinct()
             // toBase(): aliased tuples, not Activity models.
             ->toBase()
-            ->get(["{$groupings}.bucket as axis", "{$activities}.verb", "{$activities}.object_type"]);
+            ->select(["{$groupings}.bucket as axis", "{$activities}.verb"])
+            ->selectRaw("{$objectType} as object_type")
+            ->get();
 
         $missing = [];
 

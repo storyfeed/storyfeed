@@ -830,6 +830,18 @@
 
 ### Fixed
 
+- **The doctor reads a deleted model's activities under its own type.** Once
+  a model is deleted its activities are stored against the tombstone, and
+  `grammar.missing` reported `storyfeed.tombstone.create` as an error while
+  the feed rendered `order.create`'s headline. The read path and prune
+  already asked about the deleted model's alias (the tombstone's
+  `formerType`); the doctor now does too, in `grammar`, `actorless`,
+  `roles`, `verbs` (`grammar.unrecorded`), `removals`, `aggregates`,
+  `retention`, `role_constraints` and `keep_latest`. A tombstoned row whose
+  type has no grammar is still reported, under that type. The last three
+  used to read a tombstoned row as verb-wide, so a declaration on the type
+  was missed.
+
 - **The published `add_precision_to_feed_timestamps` migration passes an
   app's PHPStan at level 7.** It passed grammar-wrapped column names to
   `whereRaw()` and `DB::raw()`, which take a `literal-string`: four errors in

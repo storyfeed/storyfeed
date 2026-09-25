@@ -52,16 +52,21 @@ class RoleConstraints extends Check
         $violations = [];
 
         foreach ($roles as $role) {
-            $rows = $this->activities()->toBase()
+            // A tombstoned object answers with its former type, whose
+            // constraints the row was published under.
+            $query = $this->activities();
+            $objectType = $this->objectTypeOf($query);
+
+            $rows = $query->toBase()
                 ->whereNotNull("{$role}_type")
                 ->when(! in_array('*', $verbs, true), fn ($query) => $query->whereIn('verb', $verbs))
-                ->select('object_type', 'verb', "{$role}_type as role_type")->selectRaw('count(*) as aggregate')
-                ->groupBy('object_type', 'verb', "{$role}_type")
-                ->orderBy('verb')->orderBy('object_type')
+                ->selectRaw("{$objectType} as object_type, verb, {$role}_type as role_type, count(*) as aggregate")
+                ->groupByRaw("{$objectType}, verb, {$role}_type")
+                ->orderBy('verb')->orderByRaw($objectType)
                 ->get();
 
             foreach ($rows as $row) {
-                $type = $row->object_type === null || $row->object_type === $tombstone ? null : (string) $row->object_type;
+                $type = $row->object_type === null ? null : (string) $row->object_type;
                 $verb = (string) $row->verb;
                 $given = (string) $row->role_type;
                 $allowed = $storyfeed->wheres($type, $verb)[$role] ?? null;
