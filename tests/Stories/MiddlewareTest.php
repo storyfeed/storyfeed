@@ -337,7 +337,9 @@ describe('tooling', function () {
     });
 
     it('survives storyfeed:cache as names, closures included', function () {
-        Story::verb('add')->batched(within: '5 minutes')->middleware(static function (PendingActivity $activity, Closure $next) {
+        // Untyped: a serialised closure resolves a bare class name against
+        // the namespace Pest compiles this file into, and pint un-qualifies one.
+        Story::verb('add')->batched(within: '5 minutes')->middleware(static function ($activity, $next) {
             return $next($activity->data(['cached' => true]));
         });
 
