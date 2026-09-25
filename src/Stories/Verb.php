@@ -98,7 +98,7 @@ final class Verb
     /** @var list<string> middleware taken out of what this verb would otherwise run */
     protected array $excludedMiddleware = [];
 
-    /** Per publish: who acted, when the call site and `Storyfeed::as()` didn't say. */
+    /** Per publish: who acted, when the call site and `Storyfeed::actor()` didn't say. */
     protected Model|string|null $actor = null;
 
     /** `App\Stories\OrderStory@place`, or a message class: the action this definition came from. */
@@ -897,7 +897,7 @@ final class Verb
     }
 
     /**
-     * Who acted, when the call site didn't say and no `Storyfeed::as()` scope
+     * Who acted, when the call site didn't say and no `Storyfeed::actor()` scope
      * is open: a party name (`'Stripe'`), or, from an action that takes the
      * request, a model. Ranks below both and above the default actor (the
      * signed-in user, then `parties.fallback`). Null or `''` says nothing.

@@ -114,14 +114,14 @@ describe('config off', function () {
         expectNoFeedRows();
     });
 
-    it('does not insert a party for a string actor or an as() scope', function () {
+    it('does not insert a party for a string actor or an actor() scope', function () {
         // Parties resolve at association time, before publish() can decline:
         // the switch has to reach them or a muted suite still writes.
         $activity = Storyfeed::activity('sync', Delivery::create(['tracking_number' => 'TN-1']))
             ->actor('Concur Web Service')
             ->publish();
 
-        Storyfeed::as('System', fn () => Storyfeed::activity('ping')->publish());
+        Storyfeed::actor('System', fn () => Storyfeed::activity('ping')->publish());
 
         expect($activity->actor_type)->toBe('storyfeed.party')
             ->and($activity->actor_id)->toBeNull()

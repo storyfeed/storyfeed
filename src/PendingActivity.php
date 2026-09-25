@@ -176,7 +176,7 @@ class PendingActivity
     /**
      * Actor, as a byline: `->by($user)->verb('upload', $document)`.
      *
-     * Not to be confused with `Storyfeed::as($actor)`, which sets an AMBIENT
+     * Not to be confused with `Storyfeed::actor($actor)`, which sets an AMBIENT
      * actor for everything recorded inside it. This sets it on one activity.
      */
     public function by(Model|string|null $model = null): static
@@ -427,7 +427,7 @@ class PendingActivity
      * the stored Activity. The package's own `batch` works that way.
      *
      * WHO ACTED, highest first: the call site (`->actor()`, `->anonymously()`),
-     * then a scope (`Storyfeed::as()`, `Storyfeed::context()`, carried into a
+     * then a scope (`Storyfeed::actor()`, `Storyfeed::context()`, carried into a
      * job or not), then middleware, then the defaults (the verb's `->actor()`,
      * the resolver, the signed-in user, `parties.fallback`). So a middleware
      * that sets a default actor sees `hasActor()` true for anything above it,
@@ -508,7 +508,7 @@ class PendingActivity
      *
      * On the worker it publishes as `publish()` does: the story middleware,
      * then the snapshots, unless `->snapshotNow()` took them here. A
-     * `Storyfeed::as()` or `Storyfeed::context()` around this call, and the
+     * `Storyfeed::actor()` or `Storyfeed::context()` around this call, and the
      * signed-in user, go with it. A model deleted before the worker takes it
      * fails the job, unless `->deleteWhenMissingModels()` says to drop it.
      *
@@ -678,7 +678,7 @@ class PendingActivity
     }
 
     /**
-     * The scopes, which rank above middleware: `Storyfeed::as()` and
+     * The scopes, which rank above middleware: `Storyfeed::actor()` and
      * `Storyfeed::context()`, in this process or carried into a job. The
      * call site ranks above both, so neither touches a role it filled.
      */

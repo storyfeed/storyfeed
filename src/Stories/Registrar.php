@@ -32,7 +32,7 @@ use Storyfeed\Support\MiddlewareNameResolver;
  *     Story::verb('confirm', ConfirmStory::class);                          // an invokable class, every type
  *
  *     Story::for(Order::class)->verb('confirm')->name('checkout.confirm');   // story('checkout.confirm', $order)
- *     Story::name('billing.')->group(fn () => …);                            // billing.…
+ *     Story::as('billing.')->group(fn () => …);                              // billing.…
  *
  * WHAT IT IS. A front door onto {@see Verb}. Every call makes a
  * definition, registers it with the manager at once (the way `Route::get()`
@@ -73,7 +73,7 @@ class Registrar
     /** @var list<list<string|Closure>> the middleware of each open `Story::middleware()->group()` */
     protected array $middlewareScopes = [];
 
-    /** @var list<string> the prefix of each open `Story::name()->group()` */
+    /** @var list<string> the prefix of each open `Story::as()->group()` */
     protected array $namePrefixes = [];
 
     /** @var array<string, string|Closure> */
@@ -212,15 +212,21 @@ class Registrar
 
     /**
      * A name prefix for every definition named inside the group, as
-     * `Route::name('admin.')->group(fn)` does:
+     * `Route::as('admin.')->group(fn)` does:
      *
-     *     Story::name('billing.')->group(function () {
+     *     Story::as('billing.')->group(function () {
      *         Story::for(Invoice::class)->verb('send')->name('invoice.sent');   // billing.invoice.sent
      *     });
      */
-    public function name(string $prefix): NameScope
+    public function as(string $prefix): NameScope
     {
         return new NameScope($this, $prefix);
+    }
+
+    /** Alias for as(), following Laravel's name-to-as route attribute alias. */
+    public function name(string $prefix): NameScope
+    {
+        return $this->as($prefix);
     }
 
     /**
@@ -237,7 +243,7 @@ class Registrar
     /**
      * Run a group closure with the name prefix pushed.
      *
-     * @internal Use Story::name('billing.')->group(…).
+     * @internal Use Story::as('billing.')->group(…).
      */
     public function withNamePrefix(string $prefix, Closure $callback): void
     {
@@ -250,7 +256,7 @@ class Registrar
         }
     }
 
-    /** The prefix of every open `Story::name()->group()`, outermost first. */
+    /** The prefix of every open `Story::as()->group()`, outermost first. */
     protected function namePrefix(): string
     {
         return implode('', $this->namePrefixes);

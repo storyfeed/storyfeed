@@ -25,7 +25,7 @@ it('rejects missing and unbound route parameters clearly', function (string $pat
 })->with(['/scope-missing', '/scope-missing/123']);
 
 it('uses the declared party gate for actor middleware', function () {
-    Route::get('/scope-party', fn () => 'never')->middleware('storyfeed.as:Unknown');
+    Route::get('/scope-party', fn () => 'never')->middleware('storyfeed.actor:Unknown');
     Storyfeed::parties(['Webhook']);
     $this->withoutExceptionHandling();
     expect(fn () => $this->get('/scope-party'))->toThrow(UndeclaredParty::class);
@@ -35,7 +35,7 @@ it('restores both scopes when a route throws', function () {
     Route::bind('user', fn () => User::create(['name' => 'Context', 'email' => 'throw@example.test']));
     Route::get('/scope-throw/{user}', function () {
         throw new RuntimeException('route failed');
-    })->middleware([SubstituteBindings::class, 'storyfeed.context:user', 'storyfeed.as:Webhook']);
+    })->middleware([SubstituteBindings::class, 'storyfeed.context:user', 'storyfeed.actor:Webhook']);
     $this->withoutExceptionHandling();
     expect(fn () => $this->get('/scope-throw/1'))->toThrow(RuntimeException::class, 'route failed');
     $outside = Storyfeed::activity('outside')->publish();

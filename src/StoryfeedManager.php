@@ -64,7 +64,7 @@ class StoryfeedManager
     protected ?Closure $actorResolver = null;
 
     /**
-     * The innermost Storyfeed::as() actor as a transportable identity, so a
+     * The innermost Storyfeed::actor() actor as a transportable identity, so a
      * job dispatched inside the scope carries it (see QueuedActor). Null
      * outside any scope; empty inside one with nothing to carry.
      *
@@ -615,11 +615,11 @@ class StoryfeedManager
      * actor — the scoped counterpart to `parties.fallback`, and what you
      * want inside a job or console command:
      *
-     *   Storyfeed::as('System', function () {
+     *   Storyfeed::actor('System', function () {
      *       Storyfeed::record('sync', object: $invoice);
      *   });
      *
-     * Without one, it seeds a builder: Storyfeed::as('System')->verb('sync').
+     * Without one, it seeds a builder: Storyfeed::actor('System')->verb('sync').
      *
      * An explicit ->actor() still wins inside the scope, and the previous
      * resolver is always restored — including when the callback throws.
@@ -628,11 +628,11 @@ class StoryfeedManager
      *
      * @return ($callback is null ? PendingActivity : mixed)
      */
-    public function as(Model|string $actor, ?callable $callback = null): mixed
+    public function actor(Model|string $actor, ?callable $callback = null): mixed
     {
         // An undeclared name in production: everything runs as it would
         // have without the scope.
-        if (is_string($actor) && ! $this->admitsParty($actor, 'Storyfeed::as()')) {
+        if (is_string($actor) && ! $this->admitsParty($actor, 'Storyfeed::actor()')) {
             return $callback === null ? $this->activity() : $this->withoutScope($callback);
         }
 
@@ -669,7 +669,7 @@ class StoryfeedManager
      * Apply the context role inside a callback, or seed a builder without one.
      * Explicit context wins; the innermost scope is restored even on failure.
      * Returned PendingDispatch instances dispatch before the scope closes,
-     * exactly as in as(). There is no default context outside a scope.
+     * exactly as in actor(). There is no default context outside a scope.
      *
      * @return ($callback is null ? PendingActivity : mixed)
      */
@@ -736,7 +736,7 @@ class StoryfeedManager
             return null;
         }
 
-        // Party restoration uses the same name/key and recording rules as as().
+        // Party restoration uses the same name/key and recording rules as actor().
         $model = $this->restoreQueuedActor($identity);
         if (isset($identity['type'], $identity['id'])) {
             $activity->context_type = $identity['type'];
@@ -763,7 +763,7 @@ class StoryfeedManager
 
     /**
      * Declare the party names an actor may take: a verb's `->actor()` and
-     * `Storyfeed::as()`. Once any are declared, an undeclared name throws in
+     * `Storyfeed::actor()`. Once any are declared, an undeclared name throws in
      * local and testing (`storyfeed.parties.strict`), and in production is
      * ignored, so the activity keeps the actor it would otherwise have had
      * and a name taken from a request never creates a party.
@@ -844,7 +844,7 @@ class StoryfeedManager
     }
 
     /**
-     * Run the rest of a queued job as the Storyfeed::as() actor it was
+     * Run the rest of a queued job as the Storyfeed::actor() actor it was
      * dispatched under, until leaveQueuedScope() puts back what was there.
      *
      * @internal
@@ -2452,7 +2452,7 @@ class StoryfeedManager
     }
 
     /**
-     * The scope's actor, applied ahead of story middleware: `Storyfeed::as()`
+     * The scope's actor, applied ahead of story middleware: `Storyfeed::actor()`
      * in this process, or the one a job was dispatched under. Null, touching
      * nothing, outside such a scope; the rest of the ladder waits for
      * applyDefaultActor(), after the middleware.
@@ -2472,14 +2472,14 @@ class StoryfeedManager
      * Apply a transported identity without requiring its model to still exist.
      * Explicit actors and anonymity are guarded by the callers. Application
      * resolvers retain authority over a transported auth user, but not over a
-     * Storyfeed::as() actor, which outranks them at dispatch too; context
+     * Storyfeed::actor() actor, which outranks them at dispatch too; context
      * precedes worker auth and Party fallback.
      */
     public function applyDefaultActor(Activity $activity): ?Model
     {
         $identity = $this->queuedActor;
 
-        // A verb's own actor ranks below Storyfeed::as(), in this process or
+        // A verb's own actor ranks below Storyfeed::actor(), in this process or
         // carried into a job, and above everything else.
         if ($identity === null && $this->scopedActor === null && ($actor = $this->verbActor($activity)) !== null) {
             if ($actor instanceof Model) {
@@ -2899,7 +2899,7 @@ class StoryfeedManager
      * stub one in memory.
      *
      * With recording off this must not write either: `->actor('Concur')` and
-     * `Storyfeed::as('System', …)` resolve their party at association time,
+     * `Storyfeed::actor('System', …)` resolve their party at association time,
      * BEFORE publish() gets to decline, and a muted suite that still inserts
      * a feed_parties row per string actor is not muted. An existing row is
      * still found (a read); a missing one comes back as an unsaved model,

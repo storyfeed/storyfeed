@@ -16,7 +16,7 @@ use Storyfeed\StoryfeedManager;
  * Scalar identity only: no model restoration and no identity in log context.
  *
  * Two kinds travel under one key. The auth user's identity is a default the
- * worker's application resolvers may override. A Storyfeed::as() actor is
+ * worker's application resolvers may override. A Storyfeed::actor() actor is
  * marked `scoped`: the worker re-enters that scope for the job's duration,
  * as if the job had run inside the callback. "No actor" travels as no key at
  * all, never as a null actor, so an anonymous publish stays anonymous.
@@ -34,12 +34,12 @@ class QueuedActor
     public static function capture(Repository $context): void
     {
         // Dehydration receives a copy, so dispatch never changes request context.
-        // A hidden null opts out, inside a Storyfeed::as() scope too.
+        // A hidden null opts out, inside a Storyfeed::actor() scope too.
         if ($context->hasHidden(self::KEY) && $context->getHidden(self::KEY) === null) {
             return;
         }
 
-        // The innermost as() scope wins over an inherited identity and auth.
+        // The innermost actor() scope wins over an inherited identity and auth.
         // An empty identity is a scope with nothing to carry: send nothing.
         $scoped = app(StoryfeedManager::class)->scopedActor();
         if ($scoped !== null) {
@@ -73,7 +73,7 @@ class QueuedActor
     }
 
     /**
-     * A Storyfeed::as() actor as a scoped identity: a Party by name and key
+     * A Storyfeed::actor() actor as a scoped identity: a Party by name and key
      * (it may be unsaved while recording is off), a model by morph alias and
      * key. Empty when a model has no key yet, which nothing could restore.
      *

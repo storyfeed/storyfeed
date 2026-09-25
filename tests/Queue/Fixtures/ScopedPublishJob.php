@@ -32,7 +32,7 @@ class ScopedPublishJob implements ShouldQueue
             $pending->publish();
         };
 
-        isset($this->input['as']) ? Storyfeed::as($this->input['as'], $publish) : $publish();
+        isset($this->input['actor_scope']) ? Storyfeed::actor($this->input['actor_scope'], $publish) : $publish();
 
         if (isset($this->input['child'])) {
             self::dispatch($this->input['child']);

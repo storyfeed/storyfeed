@@ -71,14 +71,14 @@ it('says nothing when the request names no actor, so the default actor stands', 
     expect($activity->actor->is($this->ines))->toBeTrue();
 });
 
-it('ranks below the call site and Storyfeed::as(), and above the signed-in user', function () {
+it('ranks below the call site and Storyfeed::actor(), and above the signed-in user', function () {
     Story::resource(Delivery::class, RefundStory::class)->only('refund');
     Storyfeed::compileStories();
     $this->actingAs($this->ines);
     liveRequest(['provider' => 'Stripe']);
 
     $explicit = Storyfeed::activity('refund', $this->delivery)->actor(User::create(['name' => 'Dana', 'email' => 'dana@example.com']))->publish();
-    $scoped = Storyfeed::as('System', fn () => Storyfeed::activity('refund', $this->delivery)->publish());
+    $scoped = Storyfeed::actor('System', fn () => Storyfeed::activity('refund', $this->delivery)->publish());
     $action = Storyfeed::activity('refund', $this->delivery)->publish();
 
     expect($explicit->actor->name)->toBe('Dana')

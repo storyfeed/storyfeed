@@ -40,7 +40,7 @@ it('treats by() and actor() as the same call', function () {
 });
 
 it('does not let by() set the ambient actor', function () {
-    // Storyfeed::as() is ambient; by() is one activity. Distinct on purpose,
+    // Storyfeed::actor() is ambient; by() is one activity. Distinct on purpose,
     // because the words are close enough to be confused.
     Storyfeed::activity()->by($this->user)->verb('confirm', $this->delivery)->publish();
 

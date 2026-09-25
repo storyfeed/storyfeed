@@ -92,7 +92,7 @@ it('records an unknown actor even when another actor is available', function (st
     }
 
     $record = fn () => Storyfeed::record('confirm', anonymous: true);
-    $activity = ($source === 'scope' ? Storyfeed::as($user, $record) : $record())->fresh();
+    $activity = ($source === 'scope' ? Storyfeed::actor($user, $record) : $record())->fresh();
 
     expect($activity->exists)->toBeTrue()
         ->and($activity->actor_type)->toBeNull()

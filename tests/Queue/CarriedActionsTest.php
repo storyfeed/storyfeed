@@ -226,10 +226,10 @@ it('runs nothing and carries nothing when no job is dispatched', function () {
         ->and(app(Repository::class)->hasHidden(QueuedActor::ACTIONS))->toBeFalse();
 });
 
-it('evaluates nothing inside Storyfeed::as(), which outranks every action', function () {
+it('evaluates nothing inside Storyfeed::actor(), which outranks every action', function () {
     carriedRequest(['provider' => 'Stripe']);
 
-    Storyfeed::as('Scoped', fn () => CarriedPublishJob::dispatch($this->delivery->id));
+    Storyfeed::actor('Scoped', fn () => CarriedPublishJob::dispatch($this->delivery->id));
 
     expect(carriedPayload())->toBeNull()->and(RefundStory::$seen)->toBe([null]);
 

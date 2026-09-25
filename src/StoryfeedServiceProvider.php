@@ -124,7 +124,7 @@ class StoryfeedServiceProvider extends PackageServiceProvider
     {
         $router = $this->app->make(Router::class);
         $router->aliasMiddleware('storyfeed.context', UseContext::class);
-        $router->aliasMiddleware('storyfeed.as', UseActor::class);
+        $router->aliasMiddleware('storyfeed.actor', UseActor::class);
         $this->callAfterResolving(\Illuminate\Contracts\Http\Kernel::class, function (Kernel $kernel) {
             $kernel->addToMiddlewarePriorityAfter(SubstituteBindings::class, UseContext::class);
         });

@@ -269,8 +269,8 @@ describe('precedence: call site, then scope, then middleware, then defaults', fu
             ->and($activity->actor_id)->toBeNull();
     });
 
-    it('keeps the Storyfeed::as() and Storyfeed::context() scopes', function () {
-        $activity = Storyfeed::as('Paddle', fn () => Storyfeed::context('Depot', fn () => Storyfeed::activity('confirm', delivery())->publish()));
+    it('keeps the Storyfeed::actor() and Storyfeed::context() scopes', function () {
+        $activity = Storyfeed::actor('Paddle', fn () => Storyfeed::context('Depot', fn () => Storyfeed::activity('confirm', delivery())->publish()));
 
         expect($activity->actor->name)->toBe('Paddle')
             ->and($activity->context->name)->toBe('Depot');

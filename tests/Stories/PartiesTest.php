@@ -23,7 +23,7 @@ beforeEach(function () {
 });
 
 it('guards nothing until parties are declared', function () {
-    $activity = Storyfeed::as('Anything', fn () => Storyfeed::activity('refund', $this->delivery)->publish());
+    $activity = Storyfeed::actor('Anything', fn () => Storyfeed::activity('refund', $this->delivery)->publish());
 
     expect($activity->actor->name)->toBe('Anything')
         ->and(Storyfeed::declaredParties())->toBeNull();
@@ -32,18 +32,18 @@ it('guards nothing until parties are declared', function () {
 it('admits a declared name, matched as party keys are', function () {
     Storyfeed::parties(['Stripe', 'Paddle']);
 
-    $activity = Storyfeed::as('stripe', fn () => Storyfeed::activity('refund', $this->delivery)->publish());
+    $activity = Storyfeed::actor('stripe', fn () => Storyfeed::activity('refund', $this->delivery)->publish());
 
     expect($activity->actor->key)->toBe('stripe')
         ->and(Storyfeed::declaredParties())->toBe(['Stripe', 'Paddle']);
 });
 
-it('throws on an undeclared name in Storyfeed::as(), with or without a callback', function () {
+it('throws on an undeclared name in Storyfeed::actor(), with or without a callback', function () {
     Storyfeed::parties(['Stripe']);
-    $message = 'Storyfeed::as() names the party [Vendor X], which Storyfeed::parties() does not declare (it declares Stripe)';
+    $message = 'Storyfeed::actor() names the party [Vendor X], which Storyfeed::parties() does not declare (it declares Stripe)';
 
-    expect(fn () => Storyfeed::as('Vendor X', fn () => null))->toThrow(UndeclaredParty::class, $message)
-        ->and(fn () => Storyfeed::as('Vendor X'))->toThrow(UndeclaredParty::class, $message);
+    expect(fn () => Storyfeed::actor('Vendor X', fn () => null))->toThrow(UndeclaredParty::class, $message)
+        ->and(fn () => Storyfeed::actor('Vendor X'))->toThrow(UndeclaredParty::class, $message);
 });
 
 it('throws on an undeclared name an action chooses, naming the action', function () {
@@ -60,8 +60,8 @@ it('ignores an undeclared name in production: the activity keeps the actor it wo
     Story::resource('delivery', RefundStory::class)->only('refund');
     $this->actingAs($this->ines);
 
-    $scoped = Storyfeed::as('Vendor X', fn () => Storyfeed::activity('refund', $this->delivery)->publish());
-    $built = Storyfeed::as('Vendor Y')->verb('refund', $this->delivery)->publish();
+    $scoped = Storyfeed::actor('Vendor X', fn () => Storyfeed::activity('refund', $this->delivery)->publish());
+    $built = Storyfeed::actor('Vendor Y')->verb('refund', $this->delivery)->publish();
 
     app()->instance('request', Request::create('/', 'POST', ['provider' => 'Vendor Z']));
     $action = Storyfeed::activity('refund', $this->delivery)->publish();
@@ -77,12 +77,12 @@ it('never makes an ignored name anonymous', function () {
     config(['storyfeed.parties.strict' => false]);
     Storyfeed::parties(['Stripe']);
 
-    $activity = Storyfeed::as('Vendor X', fn () => Storyfeed::activity('refund', $this->delivery)->publish());
+    $activity = Storyfeed::actor('Vendor X', fn () => Storyfeed::activity('refund', $this->delivery)->publish());
 
     // No one signed in and no fallback: anonymous, as it would have been.
     // With a fallback party it is the fallback.
     config(['storyfeed.parties.fallback' => 'Stripe']);
-    $fallback = Storyfeed::as('Vendor X', fn () => Storyfeed::activity('refund', $this->delivery)->publish());
+    $fallback = Storyfeed::actor('Vendor X', fn () => Storyfeed::activity('refund', $this->delivery)->publish());
 
     expect($activity->actor_type)->toBeNull()
         ->and($fallback->actor->name)->toBe('Stripe');
@@ -93,7 +93,7 @@ it('keeps at most a bounded number of ignored names', function () {
     Storyfeed::parties(['Stripe']);
 
     foreach (range(1, IgnoredParties::LIMIT + 5) as $i) {
-        Storyfeed::as("Vendor {$i}", fn () => null);
+        Storyfeed::actor("Vendor {$i}", fn () => null);
     }
 
     expect(IgnoredParties::all())->toHaveCount(IgnoredParties::LIMIT);
@@ -102,7 +102,7 @@ it('keeps at most a bounded number of ignored names', function () {
 it('names what production ignored in the doctor', function () {
     config(['storyfeed.parties.strict' => false]);
     Storyfeed::parties(['Stripe']);
-    Storyfeed::as('Vendor X', fn () => null);
+    Storyfeed::actor('Vendor X', fn () => null);
 
     $finding = Storyfeed::doctor(['parties'])->withCode('parties.ignored')->first();
 
@@ -120,7 +120,7 @@ it('warns about a fixed actor the list does not declare', function () {
 });
 
 it('says when parties are in use and none are declared', function () {
-    Storyfeed::as('Stripe', fn () => Storyfeed::activity('refund', $this->delivery)->publish());
+    Storyfeed::actor('Stripe', fn () => Storyfeed::activity('refund', $this->delivery)->publish());
 
     expect(Storyfeed::doctor(['parties'])->has('parties.undeclared_list'))->toBeTrue();
 

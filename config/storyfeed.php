@@ -125,7 +125,7 @@ return [
     | commands. Null keeps those activities anonymous.
     |
     | Once Storyfeed::parties([...]) declares the names an actor may take, an
-    | undeclared name (a verb's ->actor(), Storyfeed::as()) throws when
+    | undeclared name (a verb's ->actor(), Storyfeed::actor()) throws when
     | `strict`, and is otherwise ignored: the activity keeps the actor it
     | would have had, and storyfeed:doctor names it. Null means strict in
     | local/testing only, as verbs.strict does.

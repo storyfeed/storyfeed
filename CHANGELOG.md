@@ -4,6 +4,13 @@
 
 ### Changed
 
+- **Breaking:** `Storyfeed::as()` is now `Storyfeed::actor()` (callback scope
+  or single-activity builder); the HTTP middleware alias `storyfeed.as` is
+  now `storyfeed.actor`. The old method and middleware alias are removed.
+- `Story::as('billing.')->group(...)` is the canonical story-name prefix,
+  matching Laravel's route registrar; `Story::name()` remains its alias.
+  Both forms chain and nest. Individual declarations keep `->name()`.
+
 - `Storyfeed::record(actor: $actor, anonymous: true)` now throws a
   `LogicException` instead of silently discarding the actor. Omit `actor:`
   for an anonymous activity. Sequential builder calls keep last-call-wins.

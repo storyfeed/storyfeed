@@ -54,7 +54,7 @@ class Parties extends Check
             yield Finding::info(
                 'parties.undeclared_list',
                 'Parties are in use and Storyfeed::parties() declares none, so any name a verb\'s ->actor() or '
-                .'Storyfeed::as() is given becomes one, including a name taken from a request. Declare them: '
+                .'Storyfeed::actor() is given becomes one, including a name taken from a request. Declare them: '
                 ."Storyfeed::parties(['Stripe', 'Paddle']).",
                 ['parties' => $parties->count()],
             );

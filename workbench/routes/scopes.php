@@ -6,7 +6,7 @@ use Storyfeed\Facades\Storyfeed;
 use Workbench\App\Models\User;
 
 // Deliberately listed before bindings: the provider's priority must order it.
-Route::middleware(['storyfeed.context:user', 'storyfeed.as:Webhook', SubstituteBindings::class])
+Route::middleware(['storyfeed.context:user', 'storyfeed.actor:Webhook', SubstituteBindings::class])
     ->get('/scope-probe/{user}', function (User $user) {
         $activity = Storyfeed::activity('route-probe')->publish();
 

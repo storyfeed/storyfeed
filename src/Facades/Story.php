@@ -27,7 +27,8 @@ use Storyfeed\Stories\Registrar;
  * @method static ($story is null ? \Storyfeed\Stories\Verb : \Storyfeed\Stories\BoundStory) verb(string|\Storyfeed\Contracts\FeedVerb|\BackedEnum $verb, ?string $story = null)
  * @method static \Storyfeed\Stories\Verb fallback()
  * @method static \Storyfeed\Stories\PendingResource resource(string|array<int, string> $objectType, ?string $class = null)
- * @method static \Storyfeed\Stories\NameScope name(string $prefix)
+ * @method static \Storyfeed\Stories\NameScope as(string $prefix)
+ * @method static \Storyfeed\Stories\NameScope name(string $prefix) Alias for as().
  * @method static bool has(string|list<string> $name)
  * @method static \Storyfeed\Stories\MiddlewareScope middleware(string|list<string|\Closure>|\Closure $middleware)
  * @method static \Storyfeed\Stories\Registrar aliasMiddleware(string $name, string|\Closure $class)

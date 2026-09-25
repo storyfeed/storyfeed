@@ -63,6 +63,21 @@ it('prefixes names inside Story::name()->group(), nested outermost first', funct
     ]);
 });
 
+it('nests and chains canonical as prefixes and name aliases in either order', function (string $outer, string $inner) {
+    Story::{$outer}('billing.')->{$inner}('admin.')->group(function () use ($inner, $outer) {
+        Story::{$inner}('ops.')->{$outer}('dispatch.')->group(function () {
+            Story::for(Delivery::class)->verb('ship')->name('delivery.ship');
+        });
+    });
+
+    Story::for(Delivery::class)->verb('confirm')->name('delivery.confirm');
+
+    expect(Storyfeed::storyNames())->toBe([
+        'billing.admin.ops.dispatch.delivery.ship' => 'delivery.ship',
+        'delivery.confirm' => 'delivery.confirm',
+    ]);
+})->with([['as', 'name'], ['name', 'as'], ['as', 'as'], ['name', 'name']]);
+
 it('names a bound class on its line, inside a type scope too', function () {
     Story::for(Delivery::class)->verb('ship', ShipNamed::class)->name('delivery.ship');
     Story::name('any.')->group(fn () => Story::verb('wave', ShipNamed::class)->name('wave'));

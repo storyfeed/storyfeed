@@ -72,7 +72,7 @@ it('keeps omitted actors resolving across builder and record entry points', func
 
 it('carries anonymity into composite members and overrides ambient actors', function () {
     $objects = collect([Delivery::create(['tracking_number' => 'A']), Delivery::create(['tracking_number' => 'B'])]);
-    Storyfeed::as('System', fn () => Storyfeed::activity('confirm')->objects($objects)->anonymously()->publish());
+    Storyfeed::actor('System', fn () => Storyfeed::activity('confirm')->objects($objects)->anonymously()->publish());
     expect(Activity::count())->toBe(3);
     foreach (Activity::all() as $activity) {
         expect($activity->actor_type)->toBeNull()->and($activity->actor_id)->toBeNull()

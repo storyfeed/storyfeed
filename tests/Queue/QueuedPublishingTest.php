@@ -202,10 +202,10 @@ it('runs story middleware on the worker, not at the call', function () {
         ->and(Activity::sole()->data)->toBe(['by' => 'middleware']);
 });
 
-it('publishes as the Storyfeed::as() actor and the signed-in user it was queued under', function () {
+it('publishes as the Storyfeed::actor() actor and the signed-in user it was queued under', function () {
     $user = User::create(['name' => 'Sally', 'email' => 'sally@example.com']);
 
-    Storyfeed::as('System', fn () => Storyfeed::activity('ship', queuedPublishingDelivery())->queue());
+    Storyfeed::actor('System', fn () => Storyfeed::activity('ship', queuedPublishingDelivery())->queue());
     $this->actingAs($user);
     Storyfeed::activity('ship', queuedPublishingDelivery('TN-2'))->queue();
     auth()->logout();
@@ -332,7 +332,7 @@ it('takes afterCommit from the verb, and beforeCommit() at the call overrides it
 });
 
 it('keeps the scope\'s actor for a publish that waits for the commit', function () {
-    DB::transaction(fn () => Storyfeed::as('System', fn () => Storyfeed::activity('ship', queuedPublishingDelivery())->afterCommit()->publish()));
+    DB::transaction(fn () => Storyfeed::actor('System', fn () => Storyfeed::activity('ship', queuedPublishingDelivery())->afterCommit()->publish()));
 
     expect(Activity::sole()->actor?->name)->toBe('System');
 });

@@ -16,7 +16,7 @@ use Storyfeed\Tests\Queue\Fixtures\ScopedPublishJob;
 use Workbench\App\Models\User;
 
 /*
- * A job dispatched inside Storyfeed::as() runs as that actor on the worker,
+ * A job dispatched inside Storyfeed::actor() runs as that actor on the worker,
  * as if it had run inside the callback.
  */
 
@@ -47,12 +47,12 @@ function scopedActorOf(Activity $activity): ?string
         : MorphResolver::feedable($activity->actor_type, $activity->actor_id)?->getAttribute('name');
 }
 
-it('carries a Storyfeed::as() actor in the dispatch context', function () {
+it('carries a Storyfeed::actor() actor in the dispatch context', function () {
     $user = User::create(['name' => 'Scoped user', 'email' => 'scoped@example.test']);
     $captured = [];
 
     foreach (['Stripe', $user] as $actor) {
-        Storyfeed::as($actor, function () use (&$captured) {
+        Storyfeed::actor($actor, function () use (&$captured) {
             $context = new Repository(app('events'));
             QueuedActor::capture($context);
             $captured[] = $context->getHidden(QueuedActor::KEY);
@@ -70,7 +70,7 @@ it('runs the job as the scoped party or model', function (string $connection, st
     $user = User::create(['name' => 'Scoped user', 'email' => 'model@example.test']);
     $actor = $kind === 'party' ? 'Stripe' : $user;
 
-    Storyfeed::as($actor, fn () => ScopedPublishJob::dispatch());
+    Storyfeed::actor($actor, fn () => ScopedPublishJob::dispatch());
 
     if ($connection === 'database') {
         expect(Activity::count())->toBe(0);
@@ -82,8 +82,8 @@ it('runs the job as the scoped party or model', function (string $connection, st
 
 it('dispatches inside the scope whether the callback returns the dispatch or not', function (string $form) {
     $result = $form === 'returned'
-        ? Storyfeed::as('Stripe', fn () => ScopedPublishJob::dispatch())
-        : Storyfeed::as('Stripe', function () {
+        ? Storyfeed::actor('Stripe', fn () => ScopedPublishJob::dispatch())
+        : Storyfeed::actor('Stripe', function () {
             ScopedPublishJob::dispatch();
         });
 
@@ -94,7 +94,7 @@ it('dispatches inside the scope whether the callback returns the dispatch or not
 
 it('restores a party the worker has no row for, with its own key', function () {
     $party = Party::make('Platform', key: 'system');
-    Storyfeed::as($party, fn () => ScopedPublishJob::dispatch());
+    Storyfeed::actor($party, fn () => ScopedPublishJob::dispatch());
     $party->delete();
 
     scopedActorRun();
@@ -105,7 +105,7 @@ it('restores a party the worker has no row for, with its own key', function () {
 
 it('carries a party left unsaved while recording was off', function () {
     Storyfeed::stopRecording();
-    Storyfeed::as('Stripe', fn () => ScopedPublishJob::dispatch());
+    Storyfeed::actor('Stripe', fn () => ScopedPublishJob::dispatch());
     Storyfeed::startRecording();
     expect(Party::count())->toBe(0);
 
@@ -117,7 +117,7 @@ it('carries a party left unsaved while recording was off', function () {
 it('attributes a model deleted since dispatch', function () {
     $user = User::create(['name' => 'Gone', 'email' => 'gone@example.test']);
     $id = $user->id;
-    Storyfeed::as($user, fn () => ScopedPublishJob::dispatch());
+    Storyfeed::actor($user, fn () => ScopedPublishJob::dispatch());
     $user->delete();
 
     scopedActorRun();
@@ -144,15 +144,15 @@ it('leaves the auth-only path unchanged outside any scope', function () {
 it('prefers the scoped actor to the logged-in user', function () {
     $this->actingAs(User::create(['name' => 'Request actor', 'email' => 'both@example.test']));
 
-    Storyfeed::as('Stripe', fn () => ScopedPublishJob::dispatch());
+    Storyfeed::actor('Stripe', fn () => ScopedPublishJob::dispatch());
     Auth::forgetGuards();
     scopedActorRun();
 
     expect(scopedActorOf(Activity::sole()))->toBe('Stripe');
 });
 
-it('outranks an application resolver on the worker, as as() does at dispatch', function () {
-    Storyfeed::as('Stripe', fn () => ScopedPublishJob::dispatch());
+it('outranks an application resolver on the worker, as actor() does at dispatch', function () {
+    Storyfeed::actor('Stripe', fn () => ScopedPublishJob::dispatch());
     Storyfeed::resolveActorUsing(fn () => Storyfeed::party('Application actor'));
 
     scopedActorRun();
@@ -163,15 +163,15 @@ it('outranks an application resolver on the worker, as as() does at dispatch', f
 it('lets an explicit actor in the job win', function (string $connection) {
     config()->set('queue.default', $connection);
 
-    Storyfeed::as('Stripe', fn () => ScopedPublishJob::dispatch(['actor' => 'Explicit']));
+    Storyfeed::actor('Stripe', fn () => ScopedPublishJob::dispatch(['actor' => 'Explicit']));
     $connection === 'database' && scopedActorRun();
 
     expect(scopedActorOf(Activity::sole()))->toBe('Explicit');
 })->with(['sync', 'database']);
 
-it('lets a Storyfeed::as() inside the job win, and restores the job scope after it', function () {
-    Storyfeed::as('Stripe', fn () => ScopedPublishJob::dispatch([
-        'as' => 'Inner', 'child' => ['verb' => 'child'],
+it('lets a Storyfeed::actor() inside the job win, and restores the job scope after it', function () {
+    Storyfeed::actor('Stripe', fn () => ScopedPublishJob::dispatch([
+        'actor_scope' => 'Inner', 'child' => ['verb' => 'child'],
     ]));
 
     scopedActorRun();
@@ -185,7 +185,7 @@ it('keeps an anonymous publish anonymous', function (string $connection) {
     config()->set('queue.default', $connection);
     config()->set('storyfeed.parties.fallback', 'Fallback');
 
-    Storyfeed::as('Stripe', fn () => ScopedPublishJob::dispatch(['anonymous' => true]));
+    Storyfeed::actor('Stripe', fn () => ScopedPublishJob::dispatch(['anonymous' => true]));
     $connection === 'database' && scopedActorRun();
 
     expect(Activity::sole()->actor_type)->toBeNull()->and(Activity::sole()->actor_id)->toBeNull();
@@ -205,7 +205,7 @@ it('sends nothing when there is no ambient actor, so the worker falls back as be
 
 it('puts back the worker resolver after the job, including when it throws', function (bool $throws) {
     Storyfeed::resolveActorUsing(fn () => Storyfeed::party('Application actor'));
-    Storyfeed::as('Stripe', fn () => ScopedPublishJob::dispatch(['throw' => $throws]));
+    Storyfeed::actor('Stripe', fn () => ScopedPublishJob::dispatch(['throw' => $throws]));
     ScopedPublishJob::dispatch(['verb' => 'after']);
 
     scopedActorRun();
@@ -222,7 +222,7 @@ it('leaves nothing behind in the request after a sync job, including when it thr
     $this->actingAs($user);
 
     try {
-        Storyfeed::as('Stripe', fn () => ScopedPublishJob::dispatch(['throw' => $throws]));
+        Storyfeed::actor('Stripe', fn () => ScopedPublishJob::dispatch(['throw' => $throws]));
     } catch (RuntimeException) {
         expect($throws)->toBeTrue();
     }
@@ -240,8 +240,8 @@ it('leaves nothing behind in the request after a sync job, including when it thr
 })->with(['completes' => false, 'throws' => true]);
 
 it('captures the innermost of nested scopes', function () {
-    Storyfeed::as('Outer', function () {
-        Storyfeed::as('Inner', fn () => ScopedPublishJob::dispatch(['verb' => 'inner']));
+    Storyfeed::actor('Outer', function () {
+        Storyfeed::actor('Inner', fn () => ScopedPublishJob::dispatch(['verb' => 'inner']));
         ScopedPublishJob::dispatch(['verb' => 'outer']);
     });
 
@@ -255,7 +255,7 @@ it('captures the innermost of nested scopes', function () {
 it('lets a hidden null opt out inside a scope too', function () {
     Context::addHidden(QueuedActor::KEY, null);
 
-    Storyfeed::as('Stripe', fn () => ScopedPublishJob::dispatch());
+    Storyfeed::actor('Stripe', fn () => ScopedPublishJob::dispatch());
     scopedActorRun();
 
     expect(Activity::sole()->actor_type)->toBeNull();

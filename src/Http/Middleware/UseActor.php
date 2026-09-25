@@ -12,6 +12,6 @@ class UseActor
 
     public function handle(Request $request, Closure $next, string $party): mixed
     {
-        return $this->storyfeed->as($party, fn () => $next($request));
+        return $this->storyfeed->actor($party, fn () => $next($request));
     }
 }

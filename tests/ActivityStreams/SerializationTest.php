@@ -90,7 +90,7 @@ it('serializes un-snapshotted entities as bare references', function () {
 });
 
 it('serializes a party with its own per-row type, Application winning over the Service default', function () {
-    Storyfeed::as(Party::make('Platform', type: ObjectType::Application), function () {
+    Storyfeed::actor(Party::make('Platform', type: ObjectType::Application), function () {
         Storyfeed::record('sync', Delivery::create(['tracking_number' => 'TN-1']));
     });
 
