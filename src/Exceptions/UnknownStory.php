@@ -2,9 +2,7 @@
 
 namespace Storyfeed\Exceptions;
 
-use BackedEnum;
 use LogicException;
-use Storyfeed\Contracts\FeedVerb;
 
 /**
  * Thrown when something names a Story that cannot be used.
@@ -37,20 +35,15 @@ class UnknownStory extends LogicException
     }
 
     /**
-     * story() on a verb a message class is bound to: publishing it by name
-     * would skip the class's toFeedActivity().
+     * story() or Storyfeed::route() on a name bound to a message class:
+     * publishing it by name would skip the class's toFeedActivity().
      */
-    public static function boundToMessage(string|FeedVerb|BackedEnum $verb, string $story): self
+    public static function boundToMessage(string $name, string $story): self
     {
-        $verb = match (true) {
-            $verb instanceof FeedVerb => $verb->verb(),
-            $verb instanceof BackedEnum => (string) $verb->value,
-            default => trim($verb),
-        };
         $short = class_basename($story);
 
         return new self(
-            "The verb [{$verb}] is bound to the message class [{$story}], so story('{$verb}') would skip its "
+            "The story [{$name}] is bound to the message class [{$story}], so story('{$name}') would skip its "
             ."toFeedActivity(). Construct the class and publish it:\n\n"
             ."    Storyfeed::publish(new {$short}(…));"
         );

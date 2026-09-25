@@ -7,6 +7,22 @@
 - `Storyfeed::record(actor: $actor, anonymous: true)` now throws a
   `LogicException` instead of silently discarding the actor. Omit `actor:`
   for an anonymous activity. Sequential builder calls keep last-call-wins.
+- **`story()` takes a story's name, never a verb**, as `route()` takes a
+  route's name and never its URI: `story('order.ship', $order)`. A name
+  nothing defined throws `Storyfeed\Exceptions\StoryNotFound` (`Story
+  [order.shp] not defined.`), always, whatever `storyfeed.verbs.strict`
+  says, and an object of another type than the name's key throws
+  `StoryObjectMismatch`. `story('ship', $order)` on an unnamed verb now
+  throws: name the verb (`->name('order.ship')`; `Story::resource()` names
+  its verbs by itself), or record it by its verb with
+  `Storyfeed::activity('ship', $order)` or `Act::Ship->of($order)`. It takes
+  a string-backed enum case's value as a name, as `route()` does.
+- **`Story::for(X)->verb('ship', ShipStory::class)` returns the binding**
+  (`BoundStory`), as `Story::verb('ship', ShipStory::class)` does, so it
+  can be named: `->name('order.ship')`. It used to return the scope; chain
+  a further verb with a new `Story::for(X)` line instead.
+- `UnknownStory::boundToMessage()` takes the story's name rather than a
+  verb, and its message names the story.
 
 - **Story middleware.** A publish goes through its verb's middleware, an
   `Illuminate\Pipeline` around `publish()`, registered and attached under the
@@ -481,8 +497,32 @@
 
 ### Added
 
+- **Named stories**, modelled on named routes. `->name('checkout.confirm')`
+  names a verb on a line, a bound class's line or inside an action;
+  `Story::name('billing.')->group(fn)` prefixes the names inside it, as
+  `Route::name()->group()` does, and a verb given no name stays unnamed.
+  `Story::resource(Order::class)` names every verb it defines
+  `{type}.{verb}` (`order.create`, `order.confirm_payment`): the morph alias
+  as stored, singular, so a resource story's name is its key.
+  `->names('orders')`, `->names(['ship' => 'order.dispatch'])` and
+  `->name('ship', 'order.dispatch')` override it, as on `Route::resource()`.
+  Reference a name with `story($name, $object)` or its facade twin
+  `Storyfeed::route($name, $object)`; check one with `Story::has($name)`
+  (a list checks every one). A recorded activity's `storyName()` and
+  `storyIs('order.*')` (`routeIs()`'s twin, with wildcards) look the name up
+  from the row's type and verb when read: nothing is stored, so renaming a
+  story migrates nothing. At runtime the last of two stories with one name
+  wins, as routes do; `storyfeed:cache` refuses the duplicate, naming both
+  declarations and their keys, as `route:cache` does, and refuses one key
+  given two names. `storyfeed:list` shows a Name column (and `name` in
+  `--json`) and filters with `--name=`, as route:list does. A PHPStan rule,
+  `Storyfeed\PHPStan\StoryNameRule`, reports a literal name nothing defined
+  in `story()`, `Storyfeed::route()` and `Story::has()`, reading the names
+  from the application Larastan boots; without one it says nothing.
+  `make:story --invokable` prints its binding with the name,
+  `->name('order.ship')`.
 - **Grouping periods, declared per verb.** `->groupedHourly()`, `->groupedDaily()` (the default), `->groupedWeekly()` and `->groupedMonthly()` on a verb, or `->groupedPer(Period::Week)`, `'groupedPer' => 'week'` in the array form, and a `period(): ?Period` method on a Story class. The period is the value of the Day segment of every axis key, cut in `app.timezone` at publish: `2026-09-23T14`, `2026-09-23`, `2026-W39`, `2026-09`. A verb that declares nothing hashes byte for byte as before. A week is ISO, Monday to Sunday, whatever the locale, with no config key. Resolved on the `type.verb` ladder, so `Story::fallback()->groupedWeekly()` sets it for every verb that says nothing. It compiles into the manifest as a scalar, and `storyfeed:list` shows it in a Period column (`period` in `--json`). A bounded `storyfeed:curate --window` looks back over a weekly or monthly verb's whole period plus a day, for that verb only, and the doctor's `grouping.uncurated` reach agrees.
-- **Invokable story classes**, as invokable controllers: one verb's declaration, grown too big for a line in routes/feed.php, in a class that extends nothing and declares `__invoke(Verb $verb)`, returning a Verb, a headline string or the array form, as a resource class's action does. Bind it with the line a message class uses, `Story::for(Order::class)->verb('ship', ShipStory::class)`, or `Story::verb('confirm', ConfirmStory::class)` for every type, which may give `->grouped(Group::byActors()->headline(…))` a headline that names no type. The class's shape tells the two apart, as the router checks for `__invoke`: a `Story` subclass is a message, a public `__invoke` is invokable, and a class that is both or neither fails at the line, naming the two shapes. Call sites never touch it: `story('ship', $order)` publishes as for any declared verb. It is stored as `ShipStory@__invoke`, as Laravel stores an invokable controller, so `storyfeed:cache` round-trips it, and `storyfeed:list` shows `ShipStory` in its Action column, as route:list does. `make:story ShipStory --invokable --object=Order` writes one from `stubs/story.invokable.stub`; an invokable class named for a declared verb (`ShipStory`, `ConfirmPaymentStory`) takes that verb, and `--object='*'` prints `Story::verb(…)`. `--invokable` with `--resource` is an error.
+- **Invokable story classes**, as invokable controllers: one verb's declaration, grown too big for a line in routes/feed.php, in a class that extends nothing and declares `__invoke(Verb $verb)`, returning a Verb, a headline string or the array form, as a resource class's action does. Bind it with the line a message class uses, `Story::for(Order::class)->verb('ship', ShipStory::class)`, or `Story::verb('confirm', ConfirmStory::class)` for every type, which may give `->grouped(Group::byActors()->headline(…))` a headline that names no type. The class's shape tells the two apart, as the router checks for `__invoke`: a `Story` subclass is a message, a public `__invoke` is invokable, and a class that is both or neither fails at the line, naming the two shapes. Call sites never touch it: it publishes by its name, `story('order.ship', $order)` once the line says `->name('order.ship')`, as for any named story. It is stored as `ShipStory@__invoke`, as Laravel stores an invokable controller, so `storyfeed:cache` round-trips it, and `storyfeed:list` shows `ShipStory` in its Action column, as route:list does. `make:story ShipStory --invokable --object=Order` writes one from `stubs/story.invokable.stub`; an invokable class named for a declared verb (`ShipStory`, `ConfirmPaymentStory`) takes that verb, and `--object='*'` prints `Story::verb(…)`. `--invokable` with `--resource` is an error.
 - **A `Feedable` subclass deleted through its parent is tombstoned at
   deletion time.** `FeedablePhoto extends Media implements Feedable` is
   deleted as a `Media`, so Eloquent fires the parent's events and never the

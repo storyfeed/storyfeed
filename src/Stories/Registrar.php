@@ -31,6 +31,9 @@ use Storyfeed\Support\MiddlewareNameResolver;
  *     Story::for(Task::class)->verb('complete', TaskWasCompleted::class);   // a message class
  *     Story::verb('confirm', ConfirmStory::class);                          // an invokable class, every type
  *
+ *     Story::for(Order::class)->verb('confirm')->name('checkout.confirm');   // story('checkout.confirm', $order)
+ *     Story::name('billing.')->group(fn () => …);                            // billing.…
+ *
  * WHAT IT IS. A front door onto {@see Verb}. Every call makes a
  * definition, registers it with the manager at once (the way `Route::get()`
  * returns a Route already in the collection), and hands it back to be
@@ -69,6 +72,9 @@ class Registrar
 
     /** @var list<list<string|Closure>> the middleware of each open `Story::middleware()->group()` */
     protected array $middlewareScopes = [];
+
+    /** @var list<string> the prefix of each open `Story::name()->group()` */
+    protected array $namePrefixes = [];
 
     /** @var array<string, string|Closure> */
     protected array $middlewareAliases = ['batch' => Batch::class];
@@ -140,7 +146,7 @@ class Registrar
      */
     public function resource(string|array $objectType, ?string $class = null): PendingResource
     {
-        $resource = new PendingResource($objectType, Verb::caller(), $class, $this->scopedMiddleware());
+        $resource = new PendingResource($objectType, Verb::caller(), $class, $this->scopedMiddleware(), $this->namePrefix());
 
         app(StoryfeedManager::class)->addStory($resource);
 
@@ -175,7 +181,9 @@ class Registrar
      */
     public function bind(?array $objectTypes, string|FeedVerb|BackedEnum $verb, string $story): BoundStory
     {
-        $bound = BoundStory::make($objectTypes, $verb, $story, Verb::caller())->middleware($this->scopedMiddleware());
+        $bound = BoundStory::make($objectTypes, $verb, $story, Verb::caller())
+            ->middleware($this->scopedMiddleware())
+            ->prefixName($this->namePrefix());
 
         app(StoryfeedManager::class)->addStory($bound);
 
@@ -191,7 +199,7 @@ class Registrar
      */
     public function define(array $objectTypes, string|FeedVerb|BackedEnum $verb): Verb
     {
-        $definition = Verb::for($objectTypes, $verb, Verb::caller())->scopedToType();
+        $definition = Verb::for($objectTypes, $verb, Verb::caller())->scopedToType()->prefixName($this->namePrefix());
 
         if (($middleware = $this->scopedMiddleware()) !== []) {
             $definition->middleware($middleware);
@@ -200,6 +208,52 @@ class Registrar
         app(StoryfeedManager::class)->addStory($definition);
 
         return $definition;
+    }
+
+    /**
+     * A name prefix for every definition named inside the group, as
+     * `Route::name('admin.')->group(fn)` does:
+     *
+     *     Story::name('billing.')->group(function () {
+     *         Story::for(Invoice::class)->verb('send')->name('invoice.sent');   // billing.invoice.sent
+     *     });
+     */
+    public function name(string $prefix): NameScope
+    {
+        return new NameScope($this, $prefix);
+    }
+
+    /**
+     * Whether a story has this name, or every one of these, as `Route::has()`
+     * does: a guard before referencing a name built at runtime.
+     *
+     * @param  string|list<string>  $name
+     */
+    public function has(string|array $name): bool
+    {
+        return app(StoryfeedManager::class)->hasNamedStory($name);
+    }
+
+    /**
+     * Run a group closure with the name prefix pushed.
+     *
+     * @internal Use Story::name('billing.')->group(…).
+     */
+    public function withNamePrefix(string $prefix, Closure $callback): void
+    {
+        $this->namePrefixes[] = $prefix;
+
+        try {
+            $callback();
+        } finally {
+            array_pop($this->namePrefixes);
+        }
+    }
+
+    /** The prefix of every open `Story::name()->group()`, outermost first. */
+    protected function namePrefix(): string
+    {
+        return implode('', $this->namePrefixes);
     }
 
     /**

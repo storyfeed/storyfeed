@@ -26,6 +26,8 @@ use Storyfeed\Contracts\PublishesToFeed;
 use Storyfeed\Diagnostics\Doctor;
 use Storyfeed\Diagnostics\Report;
 use Storyfeed\Exceptions\StoryMisconfigured;
+use Storyfeed\Exceptions\StoryNotFound;
+use Storyfeed\Exceptions\StoryObjectMismatch;
 use Storyfeed\Exceptions\UndeclaredParty;
 use Storyfeed\Exceptions\UnknownFeed;
 use Storyfeed\Exceptions\UnknownStory;
@@ -183,6 +185,14 @@ class StoryfeedManager
      * @var array<string, array{uses: string, request: bool, parts: array<string, string>|null}>
      */
     protected array $storyActions = [];
+
+    /**
+     * Story names, `name => type.verb`, as the router's nameList maps a name
+     * to its route. Compiled only: a name is defined in routes/feed.php.
+     *
+     * @var array<string, string>
+     */
+    protected array $storyNames = [];
 
     /**
      * The party names an actor may take, slug => name. Null, the default,
@@ -352,6 +362,102 @@ class StoryfeedManager
     public function anonymous(): PendingActivity
     {
         return $this->activity()->anonymously();
+    }
+
+    /**
+     * A pending activity for a named story, `URL::route()`'s twin, as
+     * `story()` is `route()`'s:
+     *
+     *     Storyfeed::route('order.confirm', $order)->by($user)->publish();
+     *
+     * Takes a name only, never a verb, as `route()` takes a name and never
+     * a URI. Throws StoryNotFound for a name nothing defined, always, and
+     * StoryObjectMismatch for an object of another type than the name's
+     * key: the name says `order`, so a comment can't be its object. A name
+     * bound to a message class throws too, naming the class to construct
+     * and publish.
+     *
+     * A verb that has no name is recorded by its verb:
+     * `Storyfeed::activity('confirm', $order)` or `Act::Confirm->of($order)`.
+     */
+    public function route(string|BackedEnum $name, Model|string|null $object = null): PendingActivity
+    {
+        // As UrlGenerator::route() takes a string-backed enum's value.
+        if ($name instanceof BackedEnum) {
+            if (! is_string($name->value)) {
+                throw new InvalidArgumentException('Attribute [name] expects a string backed enum.');
+            }
+
+            $name = $name->value;
+        }
+
+        $key = $this->namedStory($name) ?? throw StoryNotFound::named($name);
+        [$type, $verb] = explode('.', $key, 2);
+
+        if ($type !== '*' && $object !== null
+            && ($given = $object instanceof Model ? $object->getMorphClass() : (new Party)->getMorphClass()) !== $type) {
+            throw StoryObjectMismatch::forObject($name, $key, $given);
+        }
+
+        if (($message = $this->messageFor($verb, $type === '*' ? null : $type)) !== null) {
+            throw UnknownStory::boundToMessage($name, $message);
+        }
+
+        return $this->activity($verb, $object);
+    }
+
+    /**
+     * Whether a story has this name, or every one of these: `Route::has()`'s
+     * twin, behind `Story::has()`.
+     *
+     * @param  string|list<string>  $name
+     */
+    public function hasNamedStory(string|array $name): bool
+    {
+        $this->ensureStoriesCompiled();
+
+        foreach ((array) $name as $value) {
+            if (! array_key_exists($value, $this->storyNames)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /** The `type.verb` key a story name names, or null for a name nothing defined. */
+    public function namedStory(string $name): ?string
+    {
+        $this->ensureStoriesCompiled();
+
+        return $this->storyNames[$name] ?? null;
+    }
+
+    /**
+     * The name of the story a type and verb were published under, looked up
+     * from the key and never stored: `order.confirm`, then `*.confirm` for
+     * a name defined for every type. Null for a key nothing named, as an
+     * unnamed route has no name.
+     */
+    public function storyNameFor(?string $type, string $verb): ?string
+    {
+        $this->ensureStoriesCompiled();
+
+        $names = array_flip($this->storyNames);
+
+        return ($type === null ? null : $names["{$type}.{$verb}"] ?? null) ?? $names["*.{$verb}"] ?? null;
+    }
+
+    /**
+     * Every story name, `name => type.verb`.
+     *
+     * @return array<string, string>
+     */
+    public function storyNames(): array
+    {
+        $this->ensureStoriesCompiled();
+
+        return $this->storyNames;
     }
 
     /**
@@ -1363,6 +1469,7 @@ class StoryfeedManager
         $this->storyPeriods = $compiled['periods'];
         $this->storyMiddleware = $compiled['middleware'];
         $this->storyActions = $compiled['actions'];
+        $this->storyNames = $compiled['names'];
 
         $this->applied = $compiled;
     }
@@ -1386,7 +1493,7 @@ class StoryfeedManager
 
         foreach (CompileStories::REGISTRIES as $registry) {
             // Held by TombstoneRules, or replaced whole by the next compile.
-            if (in_array($registry, ['missing', 'forget', 'retention', 'keepLatest', 'periods', 'middleware', 'missingGrammar', 'actors', 'actions'], true)) {
+            if (in_array($registry, ['missing', 'forget', 'retention', 'keepLatest', 'periods', 'middleware', 'missingGrammar', 'actors', 'actions', 'names'], true)) {
                 continue;
             }
 
@@ -1447,7 +1554,7 @@ class StoryfeedManager
      * with the Story facade (2026-09-23): actorless grammar, nouns and object
      * types.
      *
-     * @param  array{grammar: array<string, string|Closure|FeedHeadline>, aggregateGrammar: array<string, string>, actorlessGrammar?: array<string, string|Closure|FeedHeadline>, icons: array<string, string>, glyphIntents?: array<string, string>, nouns?: array<string, string|FeedNoun>, objectTypes?: array<string, ObjectType|string>, verbs: array<string, mixed>, missing?: array<string, list<string>>, missingGrammar?: array<string, string|Closure|FeedHeadline>, forget?: array<string, bool>, retention?: array<string, string>, keepLatest?: array<string, array{per: list<string>, within: string|null}>, periods?: array<string, string>, middleware?: array<string, array{middleware: list<string|Closure>, excluded: list<string>}>, actors?: array<string, string>, actions?: array<string, array{uses: string, request: bool, parts: array<string, string>|null}>}  $compiled
+     * @param  array{grammar: array<string, string|Closure|FeedHeadline>, aggregateGrammar: array<string, string>, actorlessGrammar?: array<string, string|Closure|FeedHeadline>, icons: array<string, string>, glyphIntents?: array<string, string>, nouns?: array<string, string|FeedNoun>, objectTypes?: array<string, ObjectType|string>, verbs: array<string, mixed>, missing?: array<string, list<string>>, missingGrammar?: array<string, string|Closure|FeedHeadline>, forget?: array<string, bool>, retention?: array<string, string>, keepLatest?: array<string, array{per: list<string>, within: string|null}>, periods?: array<string, string>, middleware?: array<string, array{middleware: list<string|Closure>, excluded: list<string>}>, actors?: array<string, string>, actions?: array<string, array{uses: string, request: bool, parts: array<string, string>|null}>, names?: array<string, string>}  $compiled
      * @param  list<string>  $stories  the Story classes the manifest was compiled from
      */
     public function useCompiledStories(array $compiled, array $stories = []): static
@@ -1467,6 +1574,7 @@ class StoryfeedManager
         $compiled['middleware'] ??= [];
         $compiled['actors'] ??= [];
         $compiled['actions'] ??= [];
+        $compiled['names'] ??= [];
 
         $this->compiled = $compiled;
         $this->storiesCompiled = false;
@@ -1538,7 +1646,7 @@ class StoryfeedManager
 
     /**
      * The message class a verb is bound to, for this object type or, with
-     * none, for any: `story()` refuses such a verb, so the class's
+     * none, for any: `story()` refuses a name bound to it, so the class's
      * toFeedActivity() is never bypassed. Null for a verb only lines and
      * resource classes define.
      *

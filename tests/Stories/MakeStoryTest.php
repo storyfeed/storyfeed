@@ -575,7 +575,7 @@ it('writes an invokable class for --invokable, bound to the --object type', func
     $output = makeStory(['name' => 'ConfirmParcel', '--invokable' => true, '--verb' => 'confirm', '--object' => Delivery::class]);
     $source = file_get_contents(storyPath('ConfirmParcel'));
 
-    expect(bindingIn($output))->toBe('Story::for(\\'.Delivery::class."::class)->verb('confirm', \App\Stories\ConfirmParcel::class);")
+    expect(bindingIn($output))->toBe('Story::for(\\'.Delivery::class."::class)->verb('confirm', \App\Stories\ConfirmParcel::class)->name('delivery.confirm');")
         ->and($source)->toMatch('/^class ConfirmParcel\R/m')
         ->not->toContain('extends')
         ->toContain('public function __invoke(Verb $verb): Verb')
@@ -589,7 +589,7 @@ it("binds an invokable class for every type with --object='*'", function () {
 
     // The verb is the class name, as a resource class's method names its verb.
     expect($output)->toContain("Bound to 'confirm', the declared verb the class is named for.")
-        ->and(bindingIn($output))->toBe("Story::verb('confirm', \App\Stories\ConfirmStory::class);");
+        ->and(bindingIn($output))->toBe("Story::verb('confirm', \App\Stories\ConfirmStory::class)->name('confirm');");
 });
 
 it('comments out both headlines of an invokable class when the past tense is uncertain', function () {
@@ -647,7 +647,7 @@ describe('with a terminal, it asks what the story will describe first', function
             ->expectsChoice('Which verb does this story record?', 'ship', array_keys(Storyfeed::registeredVerbs()))
             ->expectsChoice("How is 'ship' written in the past tense?", 'shipped', ['shiped', 'shipped', 'None of these — leave the headline commented'])
             ->expectsQuestion('Which model is the object of this story?', '*')
-            ->expectsOutputToContain("Story::verb('ship', \App\Stories\ShipParcel::class);")
+            ->expectsOutputToContain("Story::verb('ship', \App\Stories\ShipParcel::class)->name('ship');")
             ->assertSuccessful();
 
         expect(file_get_contents(storyPath('ShipParcel')))->toContain("->anonymousHeadline(':object was shipped')");

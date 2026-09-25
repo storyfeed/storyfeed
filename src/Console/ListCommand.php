@@ -15,8 +15,8 @@ use Storyfeed\StoryfeedManager;
 use Storyfeed\Support\ManifestClosure;
 
 /**
- * Every definition, the way `route:list` shows every route: type, verb, the
- * action it came from (`OrderStory@confirmPayment`, as route:list shows
+ * Every definition, the way `route:list` shows every route: type, verb, its
+ * name (what `story()` references it by), the action it came from (`OrderStory@confirmPayment`, as route:list shows
  * `Controller@method`), what it says with and without an actor, its icon
  * and intent, its group headlines, the period they group per, what it
  * keeps the latest of, the `file:line` it was written on, and its story
@@ -24,6 +24,7 @@ use Storyfeed\Support\ManifestClosure;
  *
  *     php artisan storyfeed:list
  *     php artisan storyfeed:list --type=order --verb=place
+ *     php artisan storyfeed:list --name=billing.
  *     php artisan storyfeed:list -v          # with the middleware column
  *     php artisan storyfeed:list --json
  *
@@ -40,6 +41,7 @@ class ListCommand extends Command
     protected $signature = 'storyfeed:list
         {--type= : Only definitions for this object type (a morph alias or model class)}
         {--verb= : Only definitions for this verb}
+        {--name= : Only definitions whose name contains this}
         {--json : Emit the definitions as JSON}';
 
     protected $description = 'List every story definition, with its source file and line';
@@ -55,7 +57,7 @@ class ListCommand extends Command
         }
 
         if ($rows === []) {
-            $this->components->info($this->option('type') || $this->option('verb')
+            $this->components->info($this->option('type') || $this->option('verb') || $this->option('name')
                 ? 'No definitions match.'
                 : 'Nothing is defined yet. Define what activities say in routes/feed.php (php artisan storyfeed:install creates it).');
 
@@ -65,10 +67,11 @@ class ListCommand extends Command
         $middleware = $this->output->isVerbose();
 
         $this->table(
-            ['Type', 'Verb', 'Action', 'Headline', 'Anonymous headline', 'Icon', 'Intent', 'Groups', 'Period', 'Keep latest', 'Source', ...($middleware ? ['Middleware'] : [])],
+            ['Type', 'Verb', 'Name', 'Action', 'Headline', 'Anonymous headline', 'Icon', 'Intent', 'Groups', 'Period', 'Keep latest', 'Source', ...($middleware ? ['Middleware'] : [])],
             array_map(fn (array $row) => [
                 $row['type'],
                 $row['verb'],
+                $row['name'] ?? '',
                 $row['action'] ?? '',
                 $row['headline'] ?? '',
                 $row['anonymous_headline'] ?? '',
@@ -92,7 +95,7 @@ class ListCommand extends Command
     }
 
     /**
-     * @return list<array{type: string, verb: string, action: string|null, headline: string|null, anonymous_headline: string|null, icon: string|null, intent: string|null, groups: array<string, string|null>, keep_latest: string|null, period: string|null, source: string, middleware: list<string>}>
+     * @return list<array{type: string, verb: string, name: string|null, action: string|null, headline: string|null, anonymous_headline: string|null, icon: string|null, intent: string|null, groups: array<string, string|null>, keep_latest: string|null, period: string|null, source: string, middleware: list<string>}>
      */
     protected function rows(StoryfeedManager $storyfeed): array
     {
@@ -113,7 +116,7 @@ class ListCommand extends Command
     }
 
     /**
-     * @return array{type: string, verb: string, action: string|null, headline: string|null, anonymous_headline: string|null, icon: string|null, intent: string|null, groups: array<string, string|null>, keep_latest: string|null, period: string|null, source: string, middleware: list<string>}
+     * @return array{type: string, verb: string, name: string|null, action: string|null, headline: string|null, anonymous_headline: string|null, icon: string|null, intent: string|null, groups: array<string, string|null>, keep_latest: string|null, period: string|null, source: string, middleware: list<string>}
      */
     protected function row(Verb $definition, string $type, StoryfeedManager $storyfeed): array
     {
@@ -127,6 +130,7 @@ class ListCommand extends Command
         return [
             'type' => $type,
             'verb' => $definition->verb,
+            'name' => $definition->names()["{$type}.{$definition->verb}"] ?? null,
             'action' => $this->action($definition),
             'headline' => $this->describe($definition->template()),
             'anonymous_headline' => $this->describe($definition->anonymousTemplate()),
@@ -213,19 +217,22 @@ class ListCommand extends Command
     }
 
     /**
-     * @param  list<array{type: string, verb: string, action: string|null, headline: string|null, anonymous_headline: string|null, icon: string|null, intent: string|null, groups: array<string, string|null>, keep_latest: string|null, period: string|null, source: string, middleware: list<string>}>  $rows
-     * @return list<array{type: string, verb: string, action: string|null, headline: string|null, anonymous_headline: string|null, icon: string|null, intent: string|null, groups: array<string, string|null>, keep_latest: string|null, period: string|null, source: string, middleware: list<string>}>
+     * @param  list<array{type: string, verb: string, name: string|null, action: string|null, headline: string|null, anonymous_headline: string|null, icon: string|null, intent: string|null, groups: array<string, string|null>, keep_latest: string|null, period: string|null, source: string, middleware: list<string>}>  $rows
+     * @return list<array{type: string, verb: string, name: string|null, action: string|null, headline: string|null, anonymous_headline: string|null, icon: string|null, intent: string|null, groups: array<string, string|null>, keep_latest: string|null, period: string|null, source: string, middleware: list<string>}>
      */
     protected function filter(array $rows): array
     {
         $type = $this->option('type');
         $verb = $this->option('verb');
+        $name = $this->option('name');
 
         if (is_string($type) && class_exists($type) && is_a($type, Model::class, true)) {
             $type = (new $type)->getMorphClass();
         }
 
         return array_values(array_filter($rows, fn (array $row) => (! is_string($type) || $type === '' || $row['type'] === $type)
-            && (! is_string($verb) || $verb === '' || $row['verb'] === $verb)));
+            && (! is_string($verb) || $verb === '' || $row['verb'] === $verb)
+            // As route:list's --name: a part of the name.
+            && (! is_string($name) || $name === '' || ($row['name'] !== null && str_contains($row['name'], $name)))));
     }
 }

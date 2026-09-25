@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Str;
 use Storyfeed\Events\ActivityDeleted;
 use Storyfeed\Events\Snapshots\ActivitySnapshot;
 use Storyfeed\Models\Builders\ActivityBuilder;
@@ -215,6 +216,31 @@ class Activity extends Model
     public function cachedInstrument(): BelongsTo
     {
         return $this->belongsTo($this->snapshotModel(), 'cached_instrument_id');
+    }
+
+    /**
+     * The name of the story this activity was published under, as
+     * `Route::currentRouteName()` gives a request's: looked up from its
+     * `object_type` and `verb` when read, never stored, so renaming a story
+     * costs nothing. Null when nothing names its key.
+     */
+    public function storyName(): ?string
+    {
+        return app(StoryfeedManager::class)->storyNameFor($this->object_type, $this->verb);
+    }
+
+    /**
+     * Whether the story's name matches a pattern, `request()->routeIs()`'s
+     * twin (Illuminate/Routing/Route.php, named()): `storyIs('order.*')`.
+     * False for an activity whose key has no name.
+     */
+    public function storyIs(string ...$patterns): bool
+    {
+        if (($name = $this->storyName()) === null) {
+            return false;
+        }
+
+        return array_any($patterns, fn (string $pattern) => Str::is($pattern, $name));
     }
 
     /** @return HasMany<Model, $this> */

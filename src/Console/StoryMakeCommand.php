@@ -3,6 +3,7 @@
 namespace Storyfeed\Console;
 
 use Illuminate\Console\GeneratorCommand;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\Str;
 use Storyfeed\Diagnostics\Finding;
@@ -166,7 +167,7 @@ class StoryMakeCommand extends GeneratorCommand
         $shape = select(
             label: 'What will this story describe?',
             options: self::SHAPES,
-            hint: "The first is published with Storyfeed::publish(new OrderShipped(\$order)), the others with story('ship', \$order).",
+            hint: "The first is published with Storyfeed::publish(new OrderShipped(\$order)), the others by name, with story('order.ship', \$order).",
         );
 
         if ($shape !== 'message') {
@@ -479,9 +480,12 @@ class StoryMakeCommand extends GeneratorCommand
      */
     protected function invokable(string $stub, string $name, string $verb, string $object): string
     {
+        // Named as a resource names its verbs, `{type}.{verb}`, so it is
+        // published with story('order.ship', $order) like one; for every
+        // type, by its verb.
         $this->bindings[] = $object === '*'
-            ? "Story::verb('{$verb}', \\{$name}::class);"
-            : 'Story::for('.$this->objectType($object).")->verb('{$verb}', \\{$name}::class);";
+            ? "Story::verb('{$verb}', \\{$name}::class)->name('{$verb}');"
+            : 'Story::for('.$this->objectType($object).")->verb('{$verb}', \\{$name}::class)->name('{$this->morphAlias($object)}.{$verb}');";
 
         $stub = str_replace('{{ verb }}', $verb, $stub);
 
@@ -678,6 +682,16 @@ class StoryMakeCommand extends GeneratorCommand
         $class = $this->modelClass($object);
 
         return $class !== null ? "\\{$class}::class" : "'".Str::snake(class_basename($object))."'";
+    }
+
+    /** The alias the object's type is stored under: its model's morph class, else the snake-cased name. */
+    protected function morphAlias(string $object): string
+    {
+        $class = $this->modelClass($object);
+
+        return $class !== null && is_a($class, Model::class, true)
+            ? (new $class)->getMorphClass()
+            : Str::snake(class_basename($object));
     }
 
     /** The model class an object names, if one exists. */

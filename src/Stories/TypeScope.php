@@ -58,20 +58,19 @@ final class TypeScope
      * this scope, so more `->verb()` calls chain.
      *
      * With a class, message or invokable, binds it to the verb, as a route
-     * binds a controller, and returns this scope:
-     * `->verb('complete', TaskWasCompleted::class)`.
+     * binds a controller, and returns the binding, as `Story::verb()` does,
+     * to take a name or middleware:
+     * `->verb('ship', ShipStory::class)->name('order.ship')`.
      *
      * @template TConfigure of (Closure(Verb): mixed)|string|null
      *
      * @param  TConfigure  $configure
-     * @return (TConfigure is null ? Verb : self)
+     * @return (TConfigure is null ? Verb : (TConfigure is string ? BoundStory : self))
      */
-    public function verb(string|FeedVerb|BackedEnum $verb, Closure|string|null $configure = null): Verb|self
+    public function verb(string|FeedVerb|BackedEnum $verb, Closure|string|null $configure = null): Verb|BoundStory|self
     {
         if (is_string($configure)) {
-            $this->manager->bind($this->objectTypes, $verb, $configure);
-
-            return $this;
+            return $this->manager->bind($this->objectTypes, $verb, $configure);
         }
 
         $definition = $this->manager->define($this->objectTypes, $verb);

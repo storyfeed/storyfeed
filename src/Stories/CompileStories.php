@@ -52,12 +52,13 @@ use Storyfeed\StoryfeedManager;
  *     middleware: array<string, array{middleware: list<string|Closure>, excluded: list<string>}>,
  *     actors: array<string, string>,
  *     actions: array<string, array{uses: string, request: bool, parts: array<string, string>|null}>,
+ *     names: array<string, string>,
  * }
  */
 class CompileStories
 {
     /** The registries a compile produces, in the order they are applied. */
-    public const REGISTRIES = ['grammar', 'aggregateGrammar', 'actorlessGrammar', 'icons', 'glyphIntents', 'nouns', 'objectTypes', 'verbs', 'missing', 'missingGrammar', 'forget', 'retention', 'keepLatest', 'periods', 'middleware', 'actors', 'actions'];
+    public const REGISTRIES = ['grammar', 'aggregateGrammar', 'actorlessGrammar', 'icons', 'glyphIntents', 'nouns', 'objectTypes', 'verbs', 'missing', 'missingGrammar', 'forget', 'retention', 'keepLatest', 'periods', 'middleware', 'actors', 'actions', 'names'];
 
     /**
      * @param  array<int, Verb>  $definitions
@@ -82,6 +83,7 @@ class CompileStories
         $middleware = [];
         $actors = [];
         $actions = [];
+        $names = [];
 
         /** @var array<string, string> $owners registry:key => the story that authored it */
         $owners = [];
@@ -99,6 +101,13 @@ class CompileStories
             if (($uses = $definition->action()) !== null && ! str_contains($uses, '@')
                 && ($classVerbs[$uses] ??= $verb) !== $verb) {
                 throw StoryMisconfigured::storyBoundTwice($uses, [$classVerbs[$uses], $verb]);
+            }
+
+            // `name → type.verb`, as the router's nameList maps a name to its
+            // route: the last declaration of a name wins, as it does there,
+            // and storyfeed:cache refuses the duplicate (see assertNamesCacheable()).
+            foreach ($definition->names() as $key => $name) {
+                $names[$name] = $key;
             }
 
             foreach ($definition->objectTypes as $alias) {
@@ -260,7 +269,54 @@ class CompileStories
             'middleware' => $middleware,
             'actors' => $actors,
             'actions' => $actions,
+            'names' => $names,
         ];
+    }
+
+    /**
+     * What `storyfeed:cache` refuses and a request lets pass: two stories
+     * with one name, where the last would win silently, as `route:cache`
+     * refuses two routes with one name
+     * (Illuminate/Routing/AbstractRouteCollection.php,
+     * addToSymfonyRoutesCollection()). And one key with two names, since a
+     * row's name is looked up from its key and only one could be it.
+     *
+     * The same name on the same key twice is one name, not a duplicate:
+     * lines for one key merge into one verb.
+     *
+     * @param  array<int, Verb>  $definitions
+     */
+    public function assertNamesCacheable(array $definitions): void
+    {
+        /** @var array<string, array{0: string, 1: string}> $byName name => [key, source] */
+        $byName = [];
+
+        /** @var array<string, array{0: string, 1: string}> $byKey key => [name, source] */
+        $byKey = [];
+
+        foreach ($definitions as $definition) {
+            foreach ($definition->names() as $key => $name) {
+                $this->assertNameCacheable($byName, $byKey, $name, $key, $definition->source);
+            }
+        }
+    }
+
+    /**
+     * @param  array<string, array{0: string, 1: string}>  $byName
+     * @param  array<string, array{0: string, 1: string}>  $byKey
+     */
+    protected function assertNameCacheable(array &$byName, array &$byKey, string $name, string $key, string $source): void
+    {
+        if (isset($byName[$name]) && $byName[$name][0] !== $key) {
+            throw StoryMisconfigured::duplicateName($name, $key, $source, ...$byName[$name]);
+        }
+
+        if (isset($byKey[$key]) && $byKey[$key][0] !== $name) {
+            throw StoryMisconfigured::keyNamedTwice($key, $name, $source, ...$byKey[$key]);
+        }
+
+        $byName[$name] ??= [$key, $source];
+        $byKey[$key] ??= [$name, $source];
     }
 
     /**

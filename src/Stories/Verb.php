@@ -107,6 +107,15 @@ final class Verb
     /** Made by `Story::for(…)`: its group headlines are keyed per type. */
     protected bool $typeScoped = false;
 
+    /** What `->name()` was given, or null: unnamed, as a route is until named. */
+    protected ?string $name = null;
+
+    /** @var array<string, string> a resource's name for each of its types, `alias => name` */
+    protected array $typeNames = [];
+
+    /** The prefix of every open `Story::name('billing.')->group()`, outermost first. */
+    protected string $namePrefix = '';
+
     /**
      * @param  array<int, string>  $objectTypes  morph aliases; ['*'] for object-less
      */
@@ -260,7 +269,7 @@ final class Verb
     }
 
     /** The keys the array form accepts. */
-    public const ARRAY_KEYS = ['headline', 'anonymousHeadline', 'icon', 'intent', 'type', 'noun', 'activityStreamsType', 'missing', 'missingHeadline', 'forgetWhenMissing', 'keepFor', 'keepForever', 'keepLatest', 'groupedPer', 'middleware', 'withoutMiddleware', 'actor', 'groups'];
+    public const ARRAY_KEYS = ['name', 'headline', 'anonymousHeadline', 'icon', 'intent', 'type', 'noun', 'activityStreamsType', 'missing', 'missingHeadline', 'forgetWhenMissing', 'keepFor', 'keepForever', 'keepLatest', 'groupedPer', 'middleware', 'withoutMiddleware', 'actor', 'groups'];
 
     /**
      * Configure from the array form: what an action returning an array
@@ -279,6 +288,10 @@ final class Verb
         }
 
         $definition = $this;
+
+        if (isset($spec['name'])) {
+            $definition = $definition->name((string) $spec['name']);
+        }
 
         if (isset($spec['headline'])) {
             /** @var string|Closure|FeedHeadline $headline */
@@ -820,6 +833,86 @@ final class Verb
         $this->actor = is_string($actor) && trim($actor) === '' ? null : $actor;
 
         return $this;
+    }
+
+    /**
+     * Name the story, as `->name()` names a route: `story('checkout.confirm',
+     * $order)` and `Storyfeed::route()` reference it by this name, and an
+     * undefined name always throws. A name is optional; an unnamed verb is
+     * recorded by its verb (`Storyfeed::activity('confirm', $order)`).
+     *
+     *     Story::for(Order::class)->verb('confirm')->name('checkout.confirm');
+     *
+     * Appends to a name already given, as `Route::name()` does, which is how
+     * `Story::name('billing.')->group()` prefixes the names inside it. A
+     * name names one key, so a definition for several types can't take one:
+     * name each type's verb.
+     */
+    public function name(string $name): self
+    {
+        if (count($this->objectTypes) > 1) {
+            throw StoryMisconfigured::nameSpansTypes($this->source, $this->key(), $name);
+        }
+
+        if ($this->verb === '*') {
+            throw StoryMisconfigured::namedFallback($this->source, $this->key(), $name);
+        }
+
+        $this->name = ($this->name ?? '').$name;
+
+        return $this;
+    }
+
+    /**
+     * The prefix of the enclosing `Story::name()` groups.
+     *
+     * @internal
+     */
+    public function prefixName(string $prefix): self
+    {
+        $this->namePrefix = $prefix.$this->namePrefix;
+
+        return $this;
+    }
+
+    /**
+     * Name each type's story: what `Story::resource()` does for every verb.
+     *
+     * @param  array<string, string>  $names  alias => name
+     *
+     * @internal
+     */
+    public function nameTypes(array $names): self
+    {
+        $this->typeNames = $names;
+
+        return $this;
+    }
+
+    /** The story's name, prefixed by its groups, or null when it has none. */
+    public function getName(): ?string
+    {
+        return $this->name === null ? null : $this->namePrefix.$this->name;
+    }
+
+    /**
+     * Every name this definition gives, keyed by the `type.verb` it names.
+     *
+     * @return array<string, string>
+     */
+    public function names(): array
+    {
+        if ($this->name !== null) {
+            return ["{$this->objectTypes[0]}.{$this->verb}" => $this->namePrefix.$this->name];
+        }
+
+        $names = [];
+
+        foreach ($this->typeNames as $type => $name) {
+            $names["{$type}.{$this->verb}"] = $this->namePrefix.$name;
+        }
+
+        return $names;
     }
 
     public function groups(Group ...$groups): self

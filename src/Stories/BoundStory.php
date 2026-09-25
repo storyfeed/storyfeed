@@ -29,8 +29,9 @@ use Storyfeed\Exceptions\StoryMisconfigured;
  * `__invoke(Verb $verb)`: a resource class's action (see ResourceClass) for
  * exactly one verb, taking and returning what an action does. It is
  * `Class@__invoke` wherever an action is named, as Laravel stores an
- * invokable controller, and nothing constructs it at a call site:
- * `story('ship', $order)` publishes it like any declared verb. Bound
+ * invokable controller, and nothing constructs it at a call site: it
+ * publishes like any declared verb, by its name when the line gives one
+ * (`->name('order.ship')`, then `story('order.ship', $order)`). Bound
  * outside a group it defines the verb for every type, which is what lets it
  * write the `Group::byActors()` headline a resource class can't.
  *
@@ -53,6 +54,10 @@ final class BoundStory
 
     /** @var list<array{0: 'batched', 1: string|DateInterval|null}|array{0: 'unbatched'}> in the order called */
     private array $shortcuts = [];
+
+    private ?string $name = null;
+
+    private string $namePrefix = '';
 
     /**
      * @param  array<int, string>|null  $objectTypes  the scope's types; null outside one, where a message class's own stand
@@ -117,6 +122,27 @@ final class BoundStory
         return $this;
     }
 
+    /**
+     * Name the story, as a route bound to a controller is named:
+     * `Story::for(Order::class)->verb('ship', ShipStory::class)->name('order.ship')`.
+     *
+     * @see Verb::name()
+     */
+    public function name(string $name): self
+    {
+        $this->name = ($this->name ?? '').$name;
+
+        return $this;
+    }
+
+    /** @internal */
+    public function prefixName(string $prefix): self
+    {
+        $this->namePrefix = $prefix.$this->namePrefix;
+
+        return $this;
+    }
+
     /** @see Verb::batched() */
     public function batched(string|DateInterval|null $within = null): self
     {
@@ -145,6 +171,12 @@ final class BoundStory
 
         foreach ($this->shortcuts as $shortcut) {
             $shortcut[0] === 'batched' ? $definition->batched($shortcut[1]) : $definition->unbatched();
+        }
+
+        $definition->prefixName($this->namePrefix);
+
+        if ($this->name !== null) {
+            $definition->name($this->name);
         }
 
         return $definition;

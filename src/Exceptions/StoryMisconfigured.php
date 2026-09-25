@@ -66,6 +66,46 @@ class StoryMisconfigured extends LogicException
         );
     }
 
+    public static function nameSpansTypes(string $source, string $keys, string $name): self
+    {
+        return new self(
+            "->name('{$name}') at {$source} names [{$keys}], more than one key. A story name names one key, "
+            .'as a route name names one route: define the verb for each type, and name each.'
+        );
+    }
+
+    public static function namedFallback(string $source, string $keys, string $name): self
+    {
+        return new self(
+            "->name('{$name}') at {$source} names the fallback [{$keys}], which has no verb to record. Name a verb."
+        );
+    }
+
+    /**
+     * Two declarations share a name. `storyfeed:cache` refuses, as
+     * `route:cache` does (Illuminate/Routing/AbstractRouteCollection.php):
+     * at runtime the last one would win without a word.
+     */
+    public static function duplicateName(string $name, string $key, string $source, string $firstKey, string $firstSource): self
+    {
+        return new self(
+            "Unable to prepare story [{$key}] ({$source}) for caching. Another story has already been assigned name [{$name}]: "
+            ."[{$firstKey}] ({$firstSource})."
+        );
+    }
+
+    /**
+     * One key given two names. A row's name is looked up from its key, so
+     * one of them would never be the name a recorded activity reads as.
+     */
+    public static function keyNamedTwice(string $key, string $name, string $source, string $firstName, string $firstSource): self
+    {
+        return new self(
+            "Unable to prepare story [{$key}] ({$source}) for caching. It is named [{$name}], and already named "
+            ."[{$firstName}] ({$firstSource}). A key has one name, because \$activity->storyName() is looked up from it."
+        );
+    }
+
     public static function verbDefinedTwice(string $key, string $first, string $second): self
     {
         return new self(

@@ -129,14 +129,14 @@ it('refuses a class that is neither, naming both shapes', function () {
 });
 
 it('publishes through story(), never constructing the class at the call site', function () {
-    Story::for(Delivery::class)->verb('ship', ShipDelivery::class);
-    Story::verb('confirm', ConfirmAnything::class);
+    Story::for(Delivery::class)->verb('ship', ShipDelivery::class)->name('delivery.ship');
+    Story::verb('confirm', ConfirmAnything::class)->name('confirm');
     $user = User::create(['name' => 'Sally', 'email' => 'sally@example.com']);
 
     Storyfeed::compileStories();
     $runs = ShipDelivery::$runs;
 
-    $shipped = story('ship', Delivery::create(['tracking_number' => 'TN-1']))->by($user)->publish();
+    $shipped = story('delivery.ship', Delivery::create(['tracking_number' => 'TN-1']))->by($user)->publish();
     $confirmed = story('confirm', Customer::create(['name' => 'Ada']))->by($user)->publish();
 
     expect($shipped->verb)->toBe('ship')

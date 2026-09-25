@@ -54,16 +54,21 @@ final class PendingResource
     /** @var list<string> */
     private array $excludedMiddleware = [];
 
+    /** @var string|array<string, string>|null what `names()` gave: a prefix, or names by verb */
+    private string|array|null $names = null;
+
     /**
      * @param  string|array<int, string>  $objectType  a model class, a morph alias, or a list
      * @param  class-string|null  $class  the resource Story class
      * @param  list<string|Closure>  $middleware  an enclosing `Story::middleware()->group()`'s
+     * @param  string  $namePrefix  an enclosing `Story::name()->group()`'s
      */
     public function __construct(
         public readonly string|array $objectType,
         public readonly string $source,
         public readonly ?string $class = null,
         private array $middleware = [],
+        private readonly string $namePrefix = '',
     ) {
         if ($class !== null && ! class_exists($class)) {
             throw StoryMisconfigured::notAResourceClass($source, $class);
@@ -90,6 +95,36 @@ final class PendingResource
     public function except(string|array ...$verbs): self
     {
         $this->filters[] = ['except', $this->validate($verbs)];
+
+        return $this;
+    }
+
+    /**
+     * The names of the resource's stories, as `Route::resource()->names()`
+     * sets its routes' (Illuminate/Routing/ResourceRegistrar.php,
+     * getResourceRouteName()). By default each is `{type}.{verb}`, the
+     * morph alias as stored, so a name is the key: `order.create`,
+     * `order.confirm_payment`. A string replaces the prefix, and an array
+     * names verbs one by one:
+     *
+     *     Story::resource(Order::class)->names('orders');                  // orders.create, …
+     *     Story::resource(Order::class)->names(['update' => 'order.edit']);
+     *
+     * @param  string|array<string, string>  $names
+     */
+    public function names(string|array $names): self
+    {
+        $this->names = $names;
+
+        return $this;
+    }
+
+    /**
+     * Name one verb, as `Route::resource()->name('index', …)` does.
+     */
+    public function name(string $verb, string $name): self
+    {
+        $this->names = [...(is_array($this->names) ? $this->names : []), $verb => $name];
 
         return $this;
     }
@@ -151,8 +186,10 @@ final class PendingResource
                 $class = $this->class;
                 $uses = ResourceClass::uses($class, $actions[$verb]['method']);
 
-                $definitions[] = ResourceClass::run($class, $actions[$verb]['method'], $this->withMiddleware(Verb::for($this->objectType, $verb, $uses)))
-                    ->fromAction($uses, $actions[$verb]['request']);
+                array_push($definitions, ...$this->named(
+                    ResourceClass::run($class, $actions[$verb]['method'], $this->withMiddleware(Verb::for($this->objectType, $verb, $uses)))
+                        ->fromAction($uses, $actions[$verb]['request']),
+                ));
 
                 continue;
             }
@@ -169,7 +206,7 @@ final class PendingResource
                 $definition->missing();
             }
 
-            $definitions[] = $definition;
+            array_push($definitions, ...$this->named($definition));
         }
 
         if ($this->noun !== null) {
@@ -177,6 +214,35 @@ final class PendingResource
         }
 
         return $definitions;
+    }
+
+    /**
+     * The definition, named for each of its types: `Route::resource()`
+     * names every route it makes, so a resource over two types names each
+     * one's verb for its own type. An action that named its verb keeps it.
+     *
+     * @return list<Verb>
+     */
+    private function named(Verb $definition): array
+    {
+        if ($definition->names() === []) {
+            $definition->prefixName($this->namePrefix)->nameTypes(array_combine(
+                $definition->objectTypes,
+                array_map(fn (string $type) => $this->resourceName($type, $definition->verb), $definition->objectTypes),
+            ));
+        }
+
+        return [$definition];
+    }
+
+    /** `order.create`; `orders.create` under `names('orders')`; or what `names([…])` gave the verb. */
+    private function resourceName(string $type, string $verb): string
+    {
+        return match (true) {
+            is_array($this->names) && isset($this->names[$verb]) => $this->names[$verb],
+            is_string($this->names) => "{$this->names}.{$verb}",
+            default => "{$type}.{$verb}",
+        };
     }
 
     private function withMiddleware(Verb $definition): Verb

@@ -2,7 +2,6 @@
 
 use Illuminate\Database\Eloquent\Model;
 use Storyfeed\Contracts\FeedVerb;
-use Storyfeed\Exceptions\UnknownStory;
 use Storyfeed\PendingActivity;
 use Storyfeed\StoryfeedManager;
 
@@ -26,26 +25,25 @@ if (! function_exists('storyfeed')) {
 
 if (! function_exists('story')) {
     /**
-     * A pending activity for a verb. The verb is the public handle, as a
-     * route's name is, so this is the feed's `route()`: call sites name the
-     * verb and never the Story class that declares it.
+     * A pending activity for a named story: the feed's `route()`. The name
+     * is the handle call sites use, as a route's name is, and the key
+     * `type.verb` it names plays the URI's part.
      *
-     *   story('ship', $order)->by($user)->publish();
-     *   story(Act::Ship)->by($user)->objects($orders)->publish();
+     *     story('order.ship', $order)->by($user)->publish();
      *
-     * A verb bound to a message class throws: the class is constructed and
+     * Takes a name only. A name nothing defined throws StoryNotFound, always,
+     * as `route()` throws RouteNotFoundException; an object of another type
+     * than the name's throws StoryObjectMismatch. `Story::resource()` names
+     * its verbs `{type}.{verb}`; anything else is named with `->name()`.
+     * An unnamed verb is recorded by its verb:
+     * `Storyfeed::activity('ship', $order)` or `Act::Ship->of($order)`.
+     *
+     * A name bound to a message class throws: the class is constructed and
      * published, `Storyfeed::publish(new OrderShipped($order))`, so its
      * toFeedActivity() always runs.
      */
-    function story(string|FeedVerb|BackedEnum $verb, Model|string|null $object = null): PendingActivity
+    function story(string|BackedEnum $name, Model|string|null $object = null): PendingActivity
     {
-        $storyfeed = app(StoryfeedManager::class);
-        $type = $object instanceof Model ? $object->getMorphClass() : null;
-
-        if (($message = $storyfeed->messageFor($verb, $type)) !== null) {
-            throw UnknownStory::boundToMessage($verb, $message);
-        }
-
-        return $storyfeed->activity($verb, $object);
+        return app(StoryfeedManager::class)->route($name, $object);
     }
 }

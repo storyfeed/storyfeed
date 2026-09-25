@@ -6,6 +6,7 @@ use Illuminate\Console\Command;
 use RuntimeException;
 use Storyfeed\Exceptions\StoryMisconfigured;
 use Storyfeed\Stories\BoundStory;
+use Storyfeed\Stories\CompileStories;
 use Storyfeed\Stories\DefinitionsFile;
 use Storyfeed\Stories\Story;
 use Storyfeed\Stories\StoryManifest;
@@ -62,6 +63,10 @@ class CacheCommand extends Command
         try {
             $definitions = $storyfeed->storyDefinitions();
             $compiled = $storyfeed->compiledStories();
+
+            // A duplicate name passes at runtime, where the last one wins,
+            // and fails here, as route:cache refuses one.
+            (new CompileStories)->assertNamesCacheable($definitions);
         } catch (StoryMisconfigured $e) {
             // Writing nothing is the whole point: a broken Story must not be
             // able to leave a half-manifest that boots.
