@@ -19,18 +19,20 @@ use Storyfeed\Support\ManifestClosure;
  * name (what `story()` references it by), the action it came from (`OrderStory@confirmPayment`, as route:list shows
  * `Controller@method`), what it says with and without an actor, its icon
  * and intent, its group headlines, the period they group per, what it
- * keeps the latest of, the `file:line` it was written on, and its story
- * middleware.
+ * keeps the latest of, the `file:line` it was written on, its story
+ * middleware and its role constraints.
  *
  *     php artisan storyfeed:list
  *     php artisan storyfeed:list --type=order --verb=place
  *     php artisan storyfeed:list --name=billing.
- *     php artisan storyfeed:list -v          # with the middleware column
+ *     php artisan storyfeed:list -v          # with the middleware and where columns
  *     php artisan storyfeed:list --json
  *
  * Middleware is shown resolved, as route:list shows it: the `default` group
  * expanded, aliases as their classes with any arguments, exclusions gone. As
  * route:list does, the table shows it with `-v`; `--json` always has it.
+ * So are the role constraints (`actor: user, storyfeed.party`), as the
+ * types a row stores.
  *
  * It lists DEFINITIONS (lines, resource classes, message classes),
  * not the hand-written registries, which have no source to show. Reads
@@ -67,7 +69,7 @@ class ListCommand extends Command
         $middleware = $this->output->isVerbose();
 
         $this->table(
-            ['Type', 'Verb', 'Name', 'Action', 'Headline', 'Anonymous headline', 'Icon', 'Intent', 'Groups', 'Period', 'Keep latest', 'Source', ...($middleware ? ['Middleware'] : [])],
+            ['Type', 'Verb', 'Name', 'Action', 'Headline', 'Anonymous headline', 'Icon', 'Intent', 'Groups', 'Period', 'Keep latest', 'Source', ...($middleware ? ['Middleware', 'Where'] : [])],
             array_map(fn (array $row) => [
                 $row['type'],
                 $row['verb'],
@@ -85,7 +87,7 @@ class ListCommand extends Command
                 $row['period'] ?? '',
                 $row['keep_latest'] ?? '',
                 $row['source'],
-                ...($middleware ? [implode("\n", $row['middleware'])] : []),
+                ...($middleware ? [implode("\n", $row['middleware']), implode("\n", $row['where'])] : []),
             ], $rows),
         );
 
@@ -95,7 +97,7 @@ class ListCommand extends Command
     }
 
     /**
-     * @return list<array{type: string, verb: string, name: string|null, action: string|null, headline: string|null, anonymous_headline: string|null, icon: string|null, intent: string|null, groups: array<string, string|null>, keep_latest: string|null, period: string|null, source: string, middleware: list<string>}>
+     * @return list<array{type: string, verb: string, name: string|null, action: string|null, headline: string|null, anonymous_headline: string|null, icon: string|null, intent: string|null, groups: array<string, string|null>, keep_latest: string|null, period: string|null, source: string, middleware: list<string>, where: list<string>}>
      */
     protected function rows(StoryfeedManager $storyfeed): array
     {
@@ -116,7 +118,7 @@ class ListCommand extends Command
     }
 
     /**
-     * @return array{type: string, verb: string, name: string|null, action: string|null, headline: string|null, anonymous_headline: string|null, icon: string|null, intent: string|null, groups: array<string, string|null>, keep_latest: string|null, period: string|null, source: string, middleware: list<string>}
+     * @return array{type: string, verb: string, name: string|null, action: string|null, headline: string|null, anonymous_headline: string|null, icon: string|null, intent: string|null, groups: array<string, string|null>, keep_latest: string|null, period: string|null, source: string, middleware: list<string>, where: list<string>}
      */
     protected function row(Verb $definition, string $type, StoryfeedManager $storyfeed): array
     {
@@ -141,6 +143,7 @@ class ListCommand extends Command
             'keep_latest' => $this->keepLatest($definition),
             'source' => $definition->source,
             'middleware' => $this->middleware($definition, $type, $storyfeed),
+            'where' => $this->wheres($definition, $type, $storyfeed),
         ];
     }
 
@@ -162,6 +165,26 @@ class ListCommand extends Command
         return array_map(
             fn (string|Closure $middleware) => $middleware instanceof Closure ? 'Closure ('.ManifestClosure::location($middleware).')' : $middleware,
             $middleware,
+        );
+    }
+
+    /**
+     * The types each constrained role may be, `actor: user, storyfeed.party`:
+     * its own declaration when it made one, and otherwise what the type →
+     * verb ladder gives its key, as middleware is shown.
+     *
+     * @return list<string>
+     */
+    protected function wheres(Verb $definition, string $type, StoryfeedManager $storyfeed): array
+    {
+        $wheres = $definition->wheres() !== [] || $definition->verb === '*'
+            ? $definition->wheres()
+            : $storyfeed->wheres($type === '*' ? null : $type, $definition->verb);
+
+        return array_map(
+            fn (string $role, array $types) => "{$role}: ".implode(', ', $types),
+            array_keys($wheres),
+            $wheres,
         );
     }
 
@@ -217,8 +240,8 @@ class ListCommand extends Command
     }
 
     /**
-     * @param  list<array{type: string, verb: string, name: string|null, action: string|null, headline: string|null, anonymous_headline: string|null, icon: string|null, intent: string|null, groups: array<string, string|null>, keep_latest: string|null, period: string|null, source: string, middleware: list<string>}>  $rows
-     * @return list<array{type: string, verb: string, name: string|null, action: string|null, headline: string|null, anonymous_headline: string|null, icon: string|null, intent: string|null, groups: array<string, string|null>, keep_latest: string|null, period: string|null, source: string, middleware: list<string>}>
+     * @param  list<array{type: string, verb: string, name: string|null, action: string|null, headline: string|null, anonymous_headline: string|null, icon: string|null, intent: string|null, groups: array<string, string|null>, keep_latest: string|null, period: string|null, source: string, middleware: list<string>, where: list<string>}>  $rows
+     * @return list<array{type: string, verb: string, name: string|null, action: string|null, headline: string|null, anonymous_headline: string|null, icon: string|null, intent: string|null, groups: array<string, string|null>, keep_latest: string|null, period: string|null, source: string, middleware: list<string>, where: list<string>}>
      */
     protected function filter(array $rows): array
     {

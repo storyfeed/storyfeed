@@ -51,6 +51,8 @@ use Storyfeed\Exceptions\StoryMisconfigured;
  */
 final class BoundStory
 {
+    use CreatesRoleConstraints;
+
     /** @var list<string|Closure> */
     private array $middleware = [];
 
@@ -63,6 +65,9 @@ final class BoundStory
     private ?string $name = null;
 
     private string $namePrefix = '';
+
+    /** @var array<string, list<string>> */
+    private array $wheres = [];
 
     /** Where a queued publish goes, as the line says, checked as it is said. */
     private ?Verb $placement = null;
@@ -151,6 +156,32 @@ final class BoundStory
         return $this;
     }
 
+    /**
+     * @param  string|list<string>  ...$types
+     *
+     * @see Verb::whereRole()
+     */
+    public function whereRole(string $role, string|array ...$types): static
+    {
+        $this->wheres[$role] = Verb::roleTypes($role, $types, "->whereRole('{$role}', …) on the {$this->class} binding at {$this->source}");
+
+        return $this;
+    }
+
+    /**
+     * An enclosing group's constraints, beneath the line's own.
+     *
+     * @param  array<string, list<string>>  $wheres
+     *
+     * @internal
+     */
+    public function whereRoles(array $wheres): self
+    {
+        $this->wheres = [...$wheres, ...$this->wheres];
+
+        return $this;
+    }
+
     /** @see Verb::batched() */
     public function batched(string|DateInterval|null $within = null): self
     {
@@ -234,7 +265,7 @@ final class BoundStory
             $shortcut[0] === 'batched' ? $definition->batched($shortcut[1]) : $definition->unbatched();
         }
 
-        $definition->prefixName($this->namePrefix);
+        $definition->prefixName($this->namePrefix)->whereRoles($this->wheres);
 
         if ($this->name !== null) {
             $definition->name($this->name);

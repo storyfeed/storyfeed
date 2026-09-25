@@ -156,6 +156,15 @@ class StoryfeedManager
     protected array $storyKeepLatest = [];
 
     /**
+     * The types each constrained role of a verb may be (`->whereActor()`,
+     * `->whereRole()`), as morph aliases, on the type → verb ladder.
+     * Story-compiled only.
+     *
+     * @var array<string, array<string, list<string>>>
+     */
+    protected array $storyWheres = [];
+
+    /**
      * The calendar period a verb's groups live in (`->groupedWeekly()` and
      * the rest), as a Period's value, on the type → verb ladder.
      * Story-compiled only.
@@ -1509,6 +1518,7 @@ class StoryfeedManager
         $this->storyMiddleware = $compiled['middleware'];
         $this->storyActions = $compiled['actions'];
         $this->storyNames = $compiled['names'];
+        $this->storyWheres = $compiled['wheres'];
 
         $this->applied = $compiled;
     }
@@ -1532,7 +1542,7 @@ class StoryfeedManager
 
         foreach (CompileStories::REGISTRIES as $registry) {
             // Held by TombstoneRules, or replaced whole by the next compile.
-            if (in_array($registry, ['missing', 'forget', 'retention', 'keepLatest', 'periods', 'queue', 'middleware', 'missingGrammar', 'actors', 'actions', 'names'], true)) {
+            if (in_array($registry, ['missing', 'forget', 'retention', 'keepLatest', 'periods', 'queue', 'middleware', 'missingGrammar', 'actors', 'actions', 'names', 'wheres'], true)) {
                 continue;
             }
 
@@ -1593,7 +1603,7 @@ class StoryfeedManager
      * with the Story facade (2026-09-23): actorless grammar, nouns and object
      * types.
      *
-     * @param  array{grammar: array<string, string|Closure|FeedHeadline>, aggregateGrammar: array<string, string>, actorlessGrammar?: array<string, string|Closure|FeedHeadline>, icons: array<string, string>, glyphIntents?: array<string, string>, nouns?: array<string, string|FeedNoun>, objectTypes?: array<string, ObjectType|string>, verbs: array<string, mixed>, missing?: array<string, list<string>>, missingGrammar?: array<string, string|Closure|FeedHeadline>, forget?: array<string, bool>, retention?: array<string, string>, keepLatest?: array<string, array{per: list<string>, within: string|null}>, periods?: array<string, string>, queue?: array<string, array{connection?: string, queue?: string, delay?: int, afterCommit?: bool, deleteWhenMissingModels?: bool}>, middleware?: array<string, array{middleware: list<string|Closure>, excluded: list<string>}>, actors?: array<string, string>, actions?: array<string, array{uses: string, request: bool, parts: array<string, string>|null}>, names?: array<string, string>}  $compiled
+     * @param  array{grammar: array<string, string|Closure|FeedHeadline>, aggregateGrammar: array<string, string>, actorlessGrammar?: array<string, string|Closure|FeedHeadline>, icons: array<string, string>, glyphIntents?: array<string, string>, nouns?: array<string, string|FeedNoun>, objectTypes?: array<string, ObjectType|string>, verbs: array<string, mixed>, missing?: array<string, list<string>>, missingGrammar?: array<string, string|Closure|FeedHeadline>, forget?: array<string, bool>, retention?: array<string, string>, keepLatest?: array<string, array{per: list<string>, within: string|null}>, periods?: array<string, string>, queue?: array<string, array{connection?: string, queue?: string, delay?: int, afterCommit?: bool, deleteWhenMissingModels?: bool}>, middleware?: array<string, array{middleware: list<string|Closure>, excluded: list<string>}>, actors?: array<string, string>, actions?: array<string, array{uses: string, request: bool, parts: array<string, string>|null}>, names?: array<string, string>, wheres?: array<string, array<string, list<string>>>}  $compiled
      * @param  list<string>  $stories  the Story classes the manifest was compiled from
      */
     public function useCompiledStories(array $compiled, array $stories = []): static
@@ -1615,6 +1625,7 @@ class StoryfeedManager
         $compiled['actors'] ??= [];
         $compiled['actions'] ??= [];
         $compiled['names'] ??= [];
+        $compiled['wheres'] ??= [];
 
         $this->compiled = $compiled;
         $this->storiesCompiled = false;
@@ -2755,6 +2766,34 @@ class StoryfeedManager
         $this->ensureStoriesCompiled();
 
         return $this->resolve($this->storyKeepLatest, $type, $verb);
+    }
+
+    /**
+     * The types each constrained role of this type and verb may be, as the
+     * most specific declaration on the type → verb ladder says; empty when
+     * none reaches it.
+     *
+     * @return array<string, list<string>>
+     *
+     * @internal
+     */
+    public function wheres(?string $type, string $verb): array
+    {
+        $this->ensureStoriesCompiled();
+
+        return $this->resolve($this->storyWheres, $type, $verb) ?? [];
+    }
+
+    /**
+     * Every role constraint, keyed `type.verb` (wildcards allowed).
+     *
+     * @return array<string, array<string, list<string>>>
+     */
+    public function storyWheres(): array
+    {
+        $this->ensureStoriesCompiled();
+
+        return $this->storyWheres;
     }
 
     /**

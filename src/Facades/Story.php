@@ -23,14 +23,21 @@ use Storyfeed\Stories\Registrar;
  * or invokable class, `Story::verb('x', X::class)`, returns the binding, which takes only
  * middleware — the class says the rest.
  *
- * @method static \Storyfeed\Stories\TypeScope for(string|array<int, string> $objectType)
+ * @method static \Storyfeed\Stories\PendingGroup for(string|array<int, string> $objectType)
  * @method static ($story is null ? \Storyfeed\Stories\Verb : \Storyfeed\Stories\BoundStory) verb(string|\Storyfeed\Contracts\FeedVerb|\BackedEnum $verb, ?string $story = null)
  * @method static \Storyfeed\Stories\Verb fallback()
  * @method static \Storyfeed\Stories\PendingResource resource(string|array<int, string> $objectType, ?string $class = null)
- * @method static \Storyfeed\Stories\NameScope as(string $prefix)
- * @method static \Storyfeed\Stories\NameScope name(string $prefix) Alias for as().
+ * @method static void resources(array<string, class-string|null> $resources, array<string, mixed> $options = [])
+ * @method static \Storyfeed\Stories\PendingGroup as(string $prefix)
+ * @method static \Storyfeed\Stories\PendingGroup name(string $prefix) Alias for as().
  * @method static bool has(string|list<string> $name)
- * @method static \Storyfeed\Stories\MiddlewareScope middleware(string|list<string|\Closure>|\Closure $middleware)
+ * @method static \Storyfeed\Stories\PendingGroup middleware(string|list<string|\Closure>|\Closure $middleware)
+ * @method static \Storyfeed\Stories\PendingGroup withoutMiddleware(string|list<string> $middleware)
+ * @method static \Storyfeed\Stories\PendingGroup whereRole(string $role, string|list<string> ...$types)
+ * @method static \Storyfeed\Stories\PendingGroup whereActor(string|list<string> ...$types)
+ * @method static \Storyfeed\Stories\PendingGroup whereObject(string|list<string> ...$types)
+ * @method static \Storyfeed\Stories\PendingGroup whereTarget(string|list<string> ...$types)
+ * @method static \Storyfeed\Stories\PendingGroup whereContext(string|list<string> ...$types)
  * @method static \Storyfeed\Stories\Registrar aliasMiddleware(string $name, string|\Closure $class)
  * @method static \Storyfeed\Stories\Registrar middlewareGroup(string $name, list<string|\Closure> $middleware)
  * @method static \Storyfeed\Stories\Registrar pushMiddlewareToGroup(string $group, string|\Closure $middleware)

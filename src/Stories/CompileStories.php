@@ -54,12 +54,13 @@ use Storyfeed\StoryfeedManager;
  *     actors: array<string, string>,
  *     actions: array<string, array{uses: string, request: bool, parts: array<string, string>|null}>,
  *     names: array<string, string>,
+ *     wheres: array<string, array<string, list<string>>>,
  * }
  */
 class CompileStories
 {
     /** The registries a compile produces, in the order they are applied. */
-    public const REGISTRIES = ['grammar', 'aggregateGrammar', 'actorlessGrammar', 'icons', 'glyphIntents', 'nouns', 'objectTypes', 'verbs', 'missing', 'missingGrammar', 'forget', 'retention', 'keepLatest', 'periods', 'queue', 'middleware', 'actors', 'actions', 'names'];
+    public const REGISTRIES = ['grammar', 'aggregateGrammar', 'actorlessGrammar', 'icons', 'glyphIntents', 'nouns', 'objectTypes', 'verbs', 'missing', 'missingGrammar', 'forget', 'retention', 'keepLatest', 'periods', 'queue', 'middleware', 'actors', 'actions', 'names', 'wheres'];
 
     /**
      * @param  array<int, Verb>  $definitions
@@ -86,6 +87,7 @@ class CompileStories
         $actors = [];
         $actions = [];
         $names = [];
+        $wheres = [];
 
         /** @var array<string, string> $owners registry:key => the story that authored it */
         $owners = [];
@@ -207,6 +209,18 @@ class CompileStories
                     $middleware[$key] = $declared;
                 }
 
+                // The types each constrained role may be, as morph aliases,
+                // checked at every publish: route:cache keeps a route's
+                // `wheres` the same way. Identical constraints from two lines
+                // (a group around both) are one declaration.
+                if (($constraints = $definition->wheres()) !== []) {
+                    if (! isset($wheres[$key]) || $wheres[$key] !== $constraints) {
+                        $this->claim($owners, 'wheres', $key, $source);
+                    }
+
+                    $wheres[$key] = $constraints;
+                }
+
                 // A fixed actor. An action that takes the request chooses its
                 // actor at each publish, so what the blank one gave is moot.
                 if (! $definition->takesRequest() && ($actor = $definition->actorGiven()) !== null) {
@@ -281,6 +295,7 @@ class CompileStories
             'actors' => $actors,
             'actions' => $actions,
             'names' => $names,
+            'wheres' => $wheres,
         ];
     }
 

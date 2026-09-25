@@ -55,6 +55,7 @@ class Doctor
         Checks\InheritedDeletes::class,
         Checks\Retention::class,
         Checks\KeepLatest::class,
+        Checks\RoleConstraints::class,
         Checks\RequestActions::class,
     ];
 

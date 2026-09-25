@@ -50,7 +50,7 @@ use Storyfeed\Support\ManifestClosure;
  */
 final class Verb
 {
-    use Conditionable;
+    use Conditionable, CreatesRoleConstraints;
 
     /** What `keepForever()` compiles to. */
     public const FOREVER = 'forever';
@@ -118,6 +118,9 @@ final class Verb
 
     /** The prefix of every open `Story::name('billing.')->group()`, outermost first. */
     protected string $namePrefix = '';
+
+    /** @var array<string, list<string>> the morph aliases each constrained role may be, `role => aliases` */
+    protected array $wheres = [];
 
     /**
      * @param  array<int, string>  $objectTypes  morph aliases; ['*'] for object-less
@@ -272,7 +275,7 @@ final class Verb
     }
 
     /** The keys the array form accepts. */
-    public const ARRAY_KEYS = ['name', 'headline', 'anonymousHeadline', 'icon', 'intent', 'type', 'noun', 'activityStreamsType', 'missing', 'missingHeadline', 'forgetWhenMissing', 'keepFor', 'keepForever', 'keepLatest', 'groupedPer', 'middleware', 'withoutMiddleware', 'actor', 'groups'];
+    public const ARRAY_KEYS = ['name', 'headline', 'anonymousHeadline', 'icon', 'intent', 'type', 'noun', 'activityStreamsType', 'missing', 'missingHeadline', 'forgetWhenMissing', 'keepFor', 'keepForever', 'keepLatest', 'groupedPer', 'middleware', 'withoutMiddleware', 'actor', 'where', 'groups'];
 
     /**
      * Configure from the array form: what an action returning an array
@@ -390,6 +393,18 @@ final class Verb
             /** @var Model|string $actor */
             $actor = $spec['actor'];
             $definition = $definition->actor($actor);
+        }
+
+        // The route action's `where` key: `'where' => ['actor' => User::class]`.
+        if (isset($spec['where'])) {
+            if (! is_array($spec['where'])) {
+                throw new InvalidArgumentException("The array form's 'where' key in [{$name}] takes role => types, like ['actor' => User::class].");
+            }
+
+            foreach ($spec['where'] as $role => $types) {
+                /** @var string|list<string> $types */
+                $definition->whereRole((string) $role, $types);
+            }
         }
 
         /** @var array<int, Group> $groups */
@@ -917,6 +932,110 @@ final class Verb
     }
 
     /**
+     * The types a role may be, as `->where()` constrains a route parameter:
+     * a publish that fills the role with anything else throws
+     * StoryRoleMismatch, naming the verb, the role, what was expected and
+     * what was given, the way a route whose constraint fails doesn't match.
+     *
+     *     Story::for(Order::class)->verb('refund')->whereActor(User::class);
+     *     Story::verb('import')->whereRole('origin', Warehouse::class, Supplier::class);
+     *     Story::verb('sync')->whereActor('party');      // a Party, which lives only in the feed
+     *
+     * A model class compares by its `getMorphClass()`, never its class name,
+     * and a string is a morph alias. `'party'` (or the Party model) names
+     * the package's Party, which a string actor at the call site is. An
+     * empty role never violates one: an anonymous actor is unknown, not
+     * something else, and a role left out isn't said. Saying a role again
+     * replaces its types, as `->where()` replaces a parameter's pattern.
+     *
+     * Checked at every publish, whatever put the role there (the call
+     * site, a scope, a middleware or the default actor), and by the doctor
+     * over the rows already stored.
+     *
+     * @param  string|list<string>  ...$types  model classes, morph aliases, or `'party'`
+     */
+    public function whereRole(string $role, string|array ...$types): static
+    {
+        $this->wheres[$role] = self::roleTypes($role, $types, "->where{$this->roleMethod($role)}() on [{$this->key()}]");
+
+        return $this;
+    }
+
+    /**
+     * Constraints an enclosing group gave, beneath the verb's own, as a
+     * route group's `where` sits beneath the route's.
+     *
+     * @param  array<string, list<string>>  $wheres  already resolved
+     *
+     * @internal
+     */
+    public function whereRoles(array $wheres): self
+    {
+        $this->wheres = [...$wheres, ...$this->wheres];
+
+        return $this;
+    }
+
+    /**
+     * The types each constrained role may be, as morph aliases; empty when
+     * nothing is constrained.
+     *
+     * @return array<string, list<string>>
+     */
+    public function wheres(): array
+    {
+        return $this->wheres;
+    }
+
+    /**
+     * A role's types as the morph aliases a row stores, checked at the line
+     * that names them.
+     *
+     * @param  array<int, string|array<int, string>>  $types
+     * @return list<string>
+     *
+     * @internal
+     */
+    public static function roleTypes(string $role, array $types, string $where): array
+    {
+        if (! in_array($role, ActivityRoles::STORED, true)) {
+            throw new InvalidArgumentException("{$where} names [{$role}], which is not a role. The roles are ".implode(', ', ActivityRoles::STORED).'.');
+        }
+
+        $types = array_merge(...array_map(fn (string|array $type) => array_values((array) $type), $types));
+
+        if ($types === []) {
+            throw new InvalidArgumentException("{$where} was given no types for the {$role}. Name at least one: a model class, a morph alias, or 'party'.");
+        }
+
+        $aliases = [];
+
+        foreach ($types as $type) {
+            $type = trim($type);
+
+            $aliases[] = match (true) {
+                $type === 'party' => (string) config('storyfeed.morph_alias', 'storyfeed.party'),
+                $type === '' || $type === '*' => throw new InvalidArgumentException(
+                    "{$where} was given [{$type}] for the {$role}. Name a model class, a morph alias, or 'party'; to allow any type, leave the {$role} unconstrained.",
+                ),
+                class_exists($type) && is_a($type, Model::class, true) => (new $type)->getMorphClass(),
+                class_exists($type) || str_contains($type, '\\') => throw new InvalidArgumentException(
+                    "{$where} was given [{$type}] for the {$role}, which is not an Eloquent model. Name a model class, a morph alias, or 'party'.",
+                ),
+                default => $type,
+            };
+        }
+
+        return array_values(array_unique($aliases));
+    }
+
+    /** `Actor` for `->whereActor()`, or `Role('origin', …)` for the rest. */
+    private function roleMethod(string $role): string
+    {
+        return in_array($role, ['actor', 'object', 'target', 'context'], true) ? ucfirst($role) : "Role('{$role}', …)";
+    }
+
+    /**
      * Name the story, as `->name()` names a route: `story('checkout.confirm',
      * $order)` and `Storyfeed::route()` reference it by this name, and an
      * undefined name always throws. A name is optional; an unnamed verb is
@@ -1302,6 +1421,11 @@ final class Verb
                 $this->queueing,
             ),
             'groups' => $this->groups,
+            'wheres' => $this->wheres === [] ? null : array_map(
+                fn (string $role, array $types) => $role.'='.implode(',', $types),
+                array_keys($this->wheres),
+                $this->wheres,
+            ),
         ]);
     }
 

@@ -9,8 +9,8 @@ use Storyfeed\FeedHeadline;
 use Storyfeed\FeedNoun;
 use Storyfeed\Grouping\Group;
 use Storyfeed\Grouping\GroupBuilder;
+use Storyfeed\Stories\PendingGroup;
 use Storyfeed\Stories\Registrar;
-use Storyfeed\Stories\TypeScope;
 use Storyfeed\Stories\Verb;
 use Storyfeed\StoryfeedManager;
 use Workbench\App\Enums\ActivityVerb;
@@ -121,7 +121,7 @@ it('resolves for() through the morph map, and takes aliases and lists', function
 it('scopes only the calls inside group(), and hands the closure the scope', function () {
     $received = null;
 
-    Story::for(Delivery::class)->group(function (TypeScope $delivery) use (&$received) {
+    Story::for(Delivery::class)->group(function (PendingGroup $delivery) use (&$received) {
         $received = $delivery;
         Story::verb('confirm')->headline('inside');
         $delivery->verb('ship')->headline('through the scope');
@@ -129,7 +129,7 @@ it('scopes only the calls inside group(), and hands the closure the scope', func
 
     Story::verb('confirm')->headline('outside');
 
-    expect($received)->toBeInstanceOf(TypeScope::class)
+    expect($received)->toBeInstanceOf(PendingGroup::class)
         ->and(Storyfeed::registeredGrammar())->toMatchArray([
             'delivery.confirm' => 'inside',
             'delivery.ship' => 'through the scope',
@@ -159,7 +159,7 @@ it('chains verbs with a closure and returns the builder without one', function (
         ->verb('ship', fn (Verb $verb) => $verb->headline(':actor shipped :object'))
         ->fallback(fn (Verb $fallback) => $fallback->icon('bi-box'));
 
-    expect($scope)->toBeInstanceOf(TypeScope::class)
+    expect($scope)->toBeInstanceOf(PendingGroup::class)
         ->and(Story::for(Delivery::class)->verb('upload'))->toBeInstanceOf(Verb::class)
         ->and(Storyfeed::registeredGrammar())->toMatchArray([
             'delivery.confirm' => ':actor confirmed :object',

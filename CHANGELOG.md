@@ -4,6 +4,22 @@
 
 ### Changed
 
+- **Story group attributes chain onto one `PendingGroup`**, as a
+  RouteRegistrar's do. `Story::for()`, `Story::middleware()`,
+  `Story::withoutMiddleware()` (new), `Story::as()` / `Story::name()` and the
+  role constraints each start one, the rest chain in any order, and
+  `->group(fn)` applies them: `Story::for(Order::class)->middleware('audit')
+  ->as('billing.')->group(fn () => …)`. Nested groups merge as
+  `RouteGroup::merge()` does: names concatenate, middleware and exclusions
+  append, and an inner role constraint replaces the outer one for its role.
+  Without `group()` the chain defines directly
+  (`Story::middleware('audit')->resource(Invoice::class)`). Every existing
+  entry point keeps working. **Breaking:** the classes `Stories\TypeScope`,
+  `Stories\NameScope` and `Stories\MiddlewareScope` are removed; type-hint
+  a group closure's argument as `Stories\PendingGroup`. The internal
+  `Registrar::scoped()`, `withNamePrefix()` and `withMiddleware()` are
+  replaced by `Registrar::group()`.
+
 - **Breaking:** `Storyfeed::as()` is now `Storyfeed::actor()` (callback scope
   or single-activity builder); the HTTP middleware alias `storyfeed.as` is
   now `storyfeed.actor`. The old method and middleware alias are removed.
@@ -503,6 +519,22 @@
   participant rows and the `forceDelete` that follows it must still be atomic.
 
 ### Added
+
+- **Role constraints**, as route constraints: `->whereActor()`,
+  `->whereObject()`, `->whereTarget()`, `->whereContext()` and
+  `->whereRole('origin', A::class, B::class)` on a verb, a bound class, a
+  resource, a group, and the array form (`'where' => ['actor' =>
+  User::class]`). Model classes compare by `getMorphClass()`; `'party'` (or
+  the Party model) allows a Party. A publish that fills a role with another
+  type throws `Storyfeed\Exceptions\StoryRoleMismatch`, naming the verb,
+  role, expected and given types; an anonymous actor or an empty role never
+  does. They compile into the manifest (`wheres`), show in `storyfeed:list`
+  (`--json`, and a Where column with `-v`), and the doctor's
+  `role_constraints.violated` warns about stored rows that break one.
+- **`Story::resources([Model::class => StoryClass::class, …], $options)`**,
+  as `Route::resources()`: several resources in one call, a null class for
+  the four lifecycle verbs alone. Options by `Route::resource()`'s names:
+  `only`, `except`, `middleware`, `excluded_middleware`, `wheres`.
 
 - **Named stories**, modelled on named routes. `->name('checkout.confirm')`
   names a verb on a line, a bound class's line or inside an action;

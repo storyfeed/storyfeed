@@ -4,6 +4,7 @@ namespace Storyfeed\Stories;
 
 use BackedEnum;
 use Closure;
+use InvalidArgumentException;
 use Storyfeed\Contracts\FeedVerb;
 use Storyfeed\Exceptions\StoryMisconfigured;
 use Storyfeed\Middleware\Batch;
@@ -28,8 +29,10 @@ use Storyfeed\Support\MiddlewareNameResolver;
  *
  *     Story::resource(Document::class)->except('restore');   // created, updated, deleted
  *     Story::resource(Order::class, OrderStory::class);      // the four, plus each OrderStory action
+ *     Story::resources([Order::class => OrderStory::class, Document::class => null]);
  *     Story::for(Task::class)->verb('complete', TaskWasCompleted::class);   // a message class
  *     Story::verb('confirm', ConfirmStory::class);                          // an invokable class, every type
+ *     Story::for(Order::class)->verb('refund')->whereActor(User::class, 'party');   // who may refund
  *
  *     Story::for(Order::class)->verb('confirm')->name('checkout.confirm');   // story('checkout.confirm', $order)
  *     Story::as('billing.')->group(fn () => …);                              // billing.…
@@ -41,9 +44,15 @@ use Storyfeed\Support\MiddlewareNameResolver;
  * message class, compiles through CompileStories, so they produce the same
  * registries and the same compile-time guards apply to all of them.
  *
- * SCOPES ARE A STACK, pushed by `Story::for(…)->group(fn)` and popped in
- * `finally`, which is how Laravel's router does route groups. Scopes don't
+ * GROUPS ARE A STACK, as the router's are. `Story::for()`, `middleware()`,
+ * `withoutMiddleware()`, `as()` / `name()` and the `where…()` role
+ * constraints each start a PendingGroup, the rest chain onto it in any
+ * order, and `->group(fn)` pushes it, merged into the enclosing group
+ * (see mergeWithLastGroup()), and pops it in `finally`. Object types don't
  * nest: a verb has one object-type scope.
+ *
+ *     Story::for(Order::class)->middleware('audit')->as('billing.')->group(fn () => …);
+ *     Story::whereActor(User::class)->group(fn () => …);
  *
  * `Storyfeed::` stays the facade for recording and reading; this one only
  * defines. One facade per concern, as `Route`, `Schedule` and `Broadcast` are.
@@ -67,14 +76,16 @@ class Registrar
     /** The group every verb's middleware starts from. */
     public const DEFAULT_GROUP = 'default';
 
-    /** @var list<array<int, string>> the object types of each open group() */
-    protected array $scopes = [];
+    /** The options `Story::resources()` takes, by `Route::resource()`'s names. */
+    public const RESOURCE_OPTIONS = ['only', 'except', 'middleware', 'excluded_middleware', 'wheres'];
 
-    /** @var list<list<string|Closure>> the middleware of each open `Story::middleware()->group()` */
-    protected array $middlewareScopes = [];
-
-    /** @var list<string> the prefix of each open `Story::as()->group()` */
-    protected array $namePrefixes = [];
+    /**
+     * The open groups, innermost last, each already merged into the one
+     * around it, as the router's `$groupStack` is.
+     *
+     * @var list<array{types: array<int, string>|null, middleware: list<string|Closure>, excluded_middleware: list<string>, as: string, where: array<string, list<string>>, group: PendingGroup}>
+     */
+    protected array $groupStack = [];
 
     /** @var array<string, string|Closure> */
     protected array $middlewareAliases = ['batch' => Batch::class];
@@ -88,13 +99,9 @@ class Registrar
      *
      * @param  string|array<int, string>  $objectType
      */
-    public function for(string|array $objectType): TypeScope
+    public function for(string|array $objectType): PendingGroup
     {
-        if ($this->scopes !== []) {
-            throw StoryMisconfigured::nestedScope();
-        }
-
-        return new TypeScope($this, array_values((array) $objectType));
+        return (new PendingGroup($this))->for($objectType);
     }
 
     /**
@@ -118,10 +125,10 @@ class Registrar
     public function verb(string|FeedVerb|BackedEnum $verb, ?string $story = null): Verb|BoundStory
     {
         if ($story !== null) {
-            return $this->bind(end($this->scopes) ?: null, $verb, $story);
+            return $this->bind($this->groupTypes(), $verb, $story);
         }
 
-        return $this->define(end($this->scopes) ?: ['*'], $verb);
+        return $this->define($this->groupTypes() ?? ['*'], $verb);
     }
 
     /**
@@ -130,7 +137,7 @@ class Registrar
      */
     public function fallback(): Verb
     {
-        return $this->define(end($this->scopes) ?: ['*'], '*');
+        return $this->define($this->groupTypes() ?? ['*'], '*');
     }
 
     /**
@@ -146,7 +153,11 @@ class Registrar
      */
     public function resource(string|array $objectType, ?string $class = null): PendingResource
     {
-        $resource = new PendingResource($objectType, Verb::caller(), $class, $this->scopedMiddleware(), $this->namePrefix());
+        $group = $this->currentGroup();
+
+        $resource = (new PendingResource($objectType, Verb::caller(), $class, $group['middleware'], $group['as']))
+            ->withoutMiddleware($group['excluded_middleware'])
+            ->whereRoles($group['where']);
 
         app(StoryfeedManager::class)->addStory($resource);
 
@@ -154,20 +165,64 @@ class Registrar
     }
 
     /**
-     * Run a group closure with the scope's object types pushed.
+     * Several resources in one call, `model => resource class` (or null for
+     * the four lifecycle verbs alone), as `Route::resources()` registers
+     * several controllers (Illuminate/Routing/Router.php, resources()).
+     * The options apply to each, and are PendingResource's methods by
+     * the names `Route::resource()` takes them: `only`, `except`,
+     * `middleware`, `excluded_middleware` and `wheres` (role => types).
      *
-     * @param  array<int, string>  $objectTypes
+     *     Story::resources([
+     *         Order::class => OrderStory::class,
+     *         Document::class => null,
+     *     ], ['except' => ['restore']]);
      *
-     * @internal Use Story::for(…)->group(…).
+     * @param  array<string, class-string|null>  $resources
+     * @param  array<string, mixed>  $options
      */
-    public function scoped(array $objectTypes, Closure $callback, TypeScope $scope): void
+    public function resources(array $resources, array $options = []): void
     {
-        $this->scopes[] = $objectTypes;
+        $unknown = array_diff(array_keys($options), self::RESOURCE_OPTIONS);
 
-        try {
-            $callback($scope);
-        } finally {
-            array_pop($this->scopes);
+        if ($unknown !== []) {
+            throw new InvalidArgumentException(
+                'Story::resources() has no ['.implode('], [', $unknown).'] option. It takes '.implode(', ', self::RESOURCE_OPTIONS).'.',
+            );
+        }
+
+        foreach ($resources as $objectType => $class) {
+            $resource = $this->resource($objectType, $class);
+
+            if (isset($options['only'])) {
+                /** @var string|list<string> $only */
+                $only = $options['only'];
+                $resource->only($only);
+            }
+
+            if (isset($options['except'])) {
+                /** @var string|list<string> $except */
+                $except = $options['except'];
+                $resource->except($except);
+            }
+
+            if (isset($options['middleware'])) {
+                /** @var string|list<string|Closure>|Closure $middleware */
+                $middleware = $options['middleware'];
+                $resource->middleware($middleware);
+            }
+
+            if (isset($options['excluded_middleware'])) {
+                /** @var string|list<string> $excluded */
+                $excluded = $options['excluded_middleware'];
+                $resource->withoutMiddleware($excluded);
+            }
+
+            /** @var array<string, string|list<string>> $wheres */
+            $wheres = $options['wheres'] ?? [];
+
+            foreach ($wheres as $role => $types) {
+                $resource->whereRole($role, $types);
+            }
         }
     }
 
@@ -181,9 +236,13 @@ class Registrar
      */
     public function bind(?array $objectTypes, string|FeedVerb|BackedEnum $verb, string $story): BoundStory
     {
+        $group = $this->currentGroup();
+
         $bound = BoundStory::make($objectTypes, $verb, $story, Verb::caller())
-            ->middleware($this->scopedMiddleware())
-            ->prefixName($this->namePrefix());
+            ->middleware($group['middleware'])
+            ->withoutMiddleware($group['excluded_middleware'])
+            ->whereRoles($group['where'])
+            ->prefixName($group['as']);
 
         app(StoryfeedManager::class)->addStory($bound);
 
@@ -199,10 +258,19 @@ class Registrar
      */
     public function define(array $objectTypes, string|FeedVerb|BackedEnum $verb): Verb
     {
-        $definition = Verb::for($objectTypes, $verb, Verb::caller())->scopedToType()->prefixName($this->namePrefix());
+        $group = $this->currentGroup();
 
-        if (($middleware = $this->scopedMiddleware()) !== []) {
-            $definition->middleware($middleware);
+        $definition = Verb::for($objectTypes, $verb, Verb::caller())
+            ->scopedToType()
+            ->prefixName($group['as'])
+            ->whereRoles($group['where']);
+
+        if ($group['middleware'] !== []) {
+            $definition->middleware($group['middleware']);
+        }
+
+        if ($group['excluded_middleware'] !== []) {
+            $definition->withoutMiddleware($group['excluded_middleware']);
         }
 
         app(StoryfeedManager::class)->addStory($definition);
@@ -218,13 +286,13 @@ class Registrar
      *         Story::for(Invoice::class)->verb('send')->name('invoice.sent');   // billing.invoice.sent
      *     });
      */
-    public function as(string $prefix): NameScope
+    public function as(string $prefix): PendingGroup
     {
-        return new NameScope($this, $prefix);
+        return (new PendingGroup($this))->as($prefix);
     }
 
     /** Alias for as(), following Laravel's name-to-as route attribute alias. */
-    public function name(string $prefix): NameScope
+    public function name(string $prefix): PendingGroup
     {
         return $this->as($prefix);
     }
@@ -241,28 +309,6 @@ class Registrar
     }
 
     /**
-     * Run a group closure with the name prefix pushed.
-     *
-     * @internal Use Story::as('billing.')->group(…).
-     */
-    public function withNamePrefix(string $prefix, Closure $callback): void
-    {
-        $this->namePrefixes[] = $prefix;
-
-        try {
-            $callback();
-        } finally {
-            array_pop($this->namePrefixes);
-        }
-    }
-
-    /** The prefix of every open `Story::as()->group()`, outermost first. */
-    protected function namePrefix(): string
-    {
-        return implode('', $this->namePrefixes);
-    }
-
-    /**
      * Middleware for every definition made inside the group, ahead of each
      * one's own, as `Route::middleware([...])->group(fn)` does:
      *
@@ -272,9 +318,73 @@ class Registrar
      *
      * @param  string|list<string|Closure>|Closure  $middleware
      */
-    public function middleware(string|array|Closure $middleware): MiddlewareScope
+    public function middleware(string|array|Closure $middleware): PendingGroup
     {
-        return new MiddlewareScope($this, Verb::middlewareList($middleware));
+        return (new PendingGroup($this))->middleware($middleware);
+    }
+
+    /**
+     * Middleware taken out of every definition made inside the group, as
+     * `Route::withoutMiddleware([...])->group(fn)` does.
+     *
+     * @param  string|list<string>  $middleware
+     */
+    public function withoutMiddleware(string|array $middleware): PendingGroup
+    {
+        return (new PendingGroup($this))->withoutMiddleware($middleware);
+    }
+
+    /**
+     * The types a role may be, for every definition made inside the group,
+     * as `Route::where([...])->group(fn)` constrains its routes' parameters.
+     *
+     * @param  string|list<string>  ...$types
+     *
+     * @see Verb::whereRole()
+     */
+    public function whereRole(string $role, string|array ...$types): PendingGroup
+    {
+        return (new PendingGroup($this))->whereRole($role, ...$types);
+    }
+
+    /**
+     * @param  string|list<string>  ...$types
+     *
+     * @see Verb::whereRole()
+     */
+    public function whereActor(string|array ...$types): PendingGroup
+    {
+        return $this->whereRole('actor', ...$types);
+    }
+
+    /**
+     * @param  string|list<string>  ...$types
+     *
+     * @see Verb::whereRole()
+     */
+    public function whereObject(string|array ...$types): PendingGroup
+    {
+        return $this->whereRole('object', ...$types);
+    }
+
+    /**
+     * @param  string|list<string>  ...$types
+     *
+     * @see Verb::whereRole()
+     */
+    public function whereTarget(string|array ...$types): PendingGroup
+    {
+        return $this->whereRole('target', ...$types);
+    }
+
+    /**
+     * @param  string|list<string>  ...$types
+     *
+     * @see Verb::whereRole()
+     */
+    public function whereContext(string|array ...$types): PendingGroup
+    {
+        return $this->whereRole('context', ...$types);
     }
 
     /**
@@ -364,30 +474,112 @@ class Registrar
     }
 
     /**
-     * Run a group closure with the middleware pushed.
+     * Run a group closure with its attributes merged into the enclosing
+     * group's and pushed, then popped in `finally`: `Router::group()`,
+     * `updateGroupStack()` and `mergeWithLastGroup()`.
      *
-     * @param  list<string|Closure>  $middleware
+     * @param  Closure(PendingGroup): mixed  $callback
      *
-     * @internal Use Story::middleware([...])->group(…).
+     * @internal Use Story::for(…)->group(…), Story::middleware(…)->group(…), …
      */
-    public function withMiddleware(array $middleware, Closure $callback): void
+    public function group(PendingGroup $group, Closure $callback): void
     {
-        $this->middlewareScopes[] = $middleware;
+        $this->groupStack[] = [...$this->mergeWithLastGroup($group->attributes()), 'group' => $group];
 
         try {
-            $callback();
+            $callback($group);
         } finally {
-            array_pop($this->middlewareScopes);
+            array_pop($this->groupStack);
         }
     }
 
     /**
-     * The middleware of every open `Story::middleware()->group()`, outermost first.
+     * Run a definition call with a pending group's attributes, as
+     * `Route::middleware('auth')->get(…)` gives one route a registrar's
+     * attributes: in a group of its own, unless that group is already open
+     * (its closure calling `$group->verb()`), so nothing applies twice.
      *
-     * @return list<string|Closure>
+     * @template TResult
+     *
+     * @param  Closure(): TResult  $callback
+     * @return TResult
+     *
+     * @internal
      */
-    protected function scopedMiddleware(): array
+    public function within(PendingGroup $group, Closure $callback): mixed
     {
-        return array_merge(...$this->middlewareScopes);
+        if ($this->groupStack !== [] && end($this->groupStack)['group'] === $group) {
+            return $callback();
+        }
+
+        $result = null;
+
+        $this->group($group, function () use ($callback, &$result) {
+            $result = $callback();
+        });
+
+        return $result;
+    }
+
+    /**
+     * Refuse a second object-type scope inside the first.
+     *
+     * @internal
+     */
+    public function assertNotTypeScoped(): void
+    {
+        if ($this->groupTypes() !== null) {
+            throw StoryMisconfigured::nestedScope();
+        }
+    }
+
+    /**
+     * A group's attributes merged into the enclosing group's, as
+     * `RouteGroup::merge()` merges them: the prefix concatenates (formatAs),
+     * middleware and exclusions append (array_merge_recursive), and a role
+     * constraint replaces the enclosing one for its role (formatWhere). The
+     * types don't merge: a verb has one type scope.
+     *
+     * @param  array{types: array<int, string>|null, middleware: list<string|Closure>, excluded_middleware: list<string>, as: string, where: array<string, list<string>>}  $new
+     * @return array{types: array<int, string>|null, middleware: list<string|Closure>, excluded_middleware: list<string>, as: string, where: array<string, list<string>>}
+     */
+    protected function mergeWithLastGroup(array $new): array
+    {
+        $old = $this->currentGroup();
+
+        if ($new['types'] !== null && $old['types'] !== null) {
+            throw StoryMisconfigured::nestedScope();
+        }
+
+        return [
+            'types' => $new['types'] ?? $old['types'],
+            'middleware' => [...$old['middleware'], ...$new['middleware']],
+            'excluded_middleware' => [...$old['excluded_middleware'], ...$new['excluded_middleware']],
+            'as' => $old['as'].$new['as'],
+            'where' => [...$old['where'], ...$new['where']],
+        ];
+    }
+
+    /**
+     * The innermost open group's attributes, merged; empty ones outside any.
+     *
+     * @return array{types: array<int, string>|null, middleware: list<string|Closure>, excluded_middleware: list<string>, as: string, where: array<string, list<string>>}
+     */
+    protected function currentGroup(): array
+    {
+        if ($this->groupStack === []) {
+            return ['types' => null, 'middleware' => [], 'excluded_middleware' => [], 'as' => '', 'where' => []];
+        }
+
+        $group = end($this->groupStack);
+        unset($group['group']);
+
+        return $group;
+    }
+
+    /** @return array<int, string>|null the open group's object types, or null outside one */
+    protected function groupTypes(): ?array
+    {
+        return $this->currentGroup()['types'];
     }
 }

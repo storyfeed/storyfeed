@@ -35,6 +35,8 @@ use Storyfeed\FeedNoun;
  */
 final class PendingResource
 {
+    use CreatesRoleConstraints;
+
     /** The verbs, and what each says by default. */
     public const VERBS = [
         'create' => [':actor created :object', ':object was created', 'plus'],
@@ -53,6 +55,9 @@ final class PendingResource
 
     /** @var list<string> */
     private array $excludedMiddleware = [];
+
+    /** @var array<string, list<string>> */
+    private array $wheres = [];
 
     /** @var string|array<string, string>|null what `names()` gave: a prefix, or names by verb */
     private string|array|null $names = null;
@@ -155,6 +160,35 @@ final class PendingResource
     }
 
     /**
+     * The types a role may be, for every verb of the resource, as
+     * `Route::resource()->where()` constrains every route's parameters.
+     *
+     * @param  string|list<string>  ...$types
+     *
+     * @see Verb::whereRole()
+     */
+    public function whereRole(string $role, string|array ...$types): static
+    {
+        $this->wheres[$role] = Verb::roleTypes($role, $types, "Story::resource()->whereRole('{$role}', …) at {$this->source}");
+
+        return $this;
+    }
+
+    /**
+     * An enclosing group's constraints, beneath the resource's own.
+     *
+     * @param  array<string, list<string>>  $wheres
+     *
+     * @internal
+     */
+    public function whereRoles(array $wheres): self
+    {
+        $this->wheres = [...$wheres, ...$this->wheres];
+
+        return $this;
+    }
+
+    /**
      * The type's noun, `'order|orders'`, which is what lets a group of these
      * say "5 orders". The same as `Story::for(Order::class)->noun(…)`.
      */
@@ -247,7 +281,7 @@ final class PendingResource
 
     private function withMiddleware(Verb $definition): Verb
     {
-        return $definition->middleware($this->middleware)->withoutMiddleware($this->excludedMiddleware);
+        return $definition->middleware($this->middleware)->withoutMiddleware($this->excludedMiddleware)->whereRoles($this->wheres);
     }
 
     /**

@@ -27,6 +27,7 @@ use Storyfeed\Contracts\FeedVerb;
 use Storyfeed\Events\ActivityPublished;
 use Storyfeed\Events\Snapshots\ActivitySnapshot;
 use Storyfeed\Exceptions\IncompleteActivity;
+use Storyfeed\Exceptions\StoryRoleMismatch;
 use Storyfeed\Exceptions\UnauthoredActivity;
 use Storyfeed\Exceptions\UnknownVerb;
 use Storyfeed\Models\Activity;
@@ -530,6 +531,7 @@ class PendingActivity
         if ($manager instanceof StoryfeedFake) {
             $this->applyScopes($manager);
             $this->resolveDefaultActor($manager);
+            $this->assertRoleTypes($manager);
             $this->captureOnFake($manager, queued: true);
 
             return;
@@ -704,6 +706,8 @@ class PendingActivity
     private function persist(StoryfeedManager $manager): Activity
     {
         $this->resolveDefaultActor($manager);
+
+        $this->assertRoleTypes($manager);
 
         if ($manager instanceof StoryfeedFake) {
             return $this->captureOnFake($manager);
@@ -1130,6 +1134,33 @@ class PendingActivity
         }
 
         throw UnauthoredActivity::make($type, $verb);
+    }
+
+    /**
+     * The verb's role constraints (`->whereActor()`, `->whereRole()`), held
+     * against the roles as they are about to be stored, whoever filled
+     * them: a route's `->where()` checked as it matches. Compared by morph
+     * alias, never class. An empty role is never a violation: an anonymous
+     * actor is unknown, not the wrong type. A composite's object is each
+     * of its members.
+     */
+    private function assertRoleTypes(StoryfeedManager $manager): void
+    {
+        $type = $this->activity->object_type;
+        $type = is_string($type) && $type !== '' ? $type : null;
+        $verb = (string) $this->activity->verb;
+
+        foreach ($manager->wheres($type, $verb) as $role => $allowed) {
+            $given = $role === 'object' && $this->objects !== []
+                ? array_map(fn (Model $member) => $member->getMorphClass(), $this->objects)
+                : [$this->activity->getAttribute("{$role}_type")];
+
+            foreach ($given as $morph) {
+                if (is_string($morph) && $morph !== '' && ! in_array($morph, $allowed, true)) {
+                    throw StoryRoleMismatch::forRole($verb, ($type ?? '*').".{$verb}", $role, $allowed, $morph);
+                }
+            }
+        }
     }
 
     /** A string names a Party — a participant that lives only in the feed. */
