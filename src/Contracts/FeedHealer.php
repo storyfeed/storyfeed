@@ -2,7 +2,7 @@
 
 namespace Storyfeed\Contracts;
 
-use Storyfeed\Healing\StoryRetirement;
+use Storyfeed\Healing\ActivityRetirement;
 
 /** App-owned policy for permanent source absence; never infers missing stories. */
 interface FeedHealer
@@ -13,7 +13,7 @@ interface FeedHealer
     /**
      * Describe retirements without writing anything, including during iteration.
      *
-     * @return iterable<StoryRetirement>
+     * @return iterable<ActivityRetirement>
      */
     public function candidates(): iterable;
 }

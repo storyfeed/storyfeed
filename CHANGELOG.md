@@ -11,6 +11,18 @@
   Declare them fluently in `routes/feed.php`; these forms will be removed
   before v1. They still work without runtime deprecation notices.
   `Storyfeed::verbs()` (including verb-enum registration) remains supported.
+- `storyfeed:heal --dry-run`. Use `--pretend`, as `migrate`, `model:prune`
+  and `storyfeed:prune` do. `--dry-run` still previews, and prints a one-line
+  deprecation notice.
+- `Storyfeed\Testing\GrammarCoverage`, renamed `HeadlineCoverage`, with
+  `assertCoversAggregates()` renamed `assertCoversGroups()` and
+  `assertCoversPossibleAggregates()` renamed `assertCoversPossibleGroups()`.
+  The old class keeps the old method names. Failures now read "group headline
+  coverage is incomplete".
+- `Storyfeed\Healing\StoryRetirement`, renamed `ActivityRetirement`: it
+  retires an activity, and a Story is the blueprint. The old name is an alias
+  of the same class.
+- These three will be removed before v1, alongside the registry arrays.
 
 ### Removed
 

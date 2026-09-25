@@ -10,7 +10,7 @@ use Workbench\App\Stories\DeliveryWasConfirmed;
 
 /*
  * Strict grammar: the earliest place "the feed stopped keeping up with the app"
- * can be caught. GrammarCoverage catches it in CI and doctor catches it at
+ * can be caught. HeadlineCoverage catches it in CI and doctor catches it at
  * runtime, but both need someone to look; this fires where the publish call is
  * written.
  *

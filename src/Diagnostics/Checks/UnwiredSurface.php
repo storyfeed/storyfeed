@@ -134,7 +134,7 @@ class UnwiredSurface extends Check
             yield $this->unaliased($model);
         }
 
-        // Fake-aware, like GrammarCoverage. Under Storyfeed::fake() nothing
+        // Fake-aware, like HeadlineCoverage. Under Storyfeed::fake() nothing
         // reaches the table, so a database read would report every declared model
         // as never appearing — and this assertion's two siblings work fine in
         // faked tests, so someone reaching for all three together gets one

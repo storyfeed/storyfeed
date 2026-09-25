@@ -7,7 +7,7 @@ use Storyfeed\Facades\Storyfeed;
 use Storyfeed\Grouping\Group;
 use Storyfeed\Stories\Verb;
 use Storyfeed\StoryfeedManager;
-use Storyfeed\Testing\GrammarCoverage;
+use Storyfeed\Testing\HeadlineCoverage;
 use Storyfeed\Testing\StorySurface;
 use Workbench\App\Enums\ActivityVerb;
 use Workbench\App\Models\Courier;
@@ -198,7 +198,7 @@ it('names a model that never appears, and does not conflate that with publishing
 });
 
 it('works under Storyfeed::fake(), like its two sibling assertions', function () {
-    // The gap the Newsroom hit: GrammarCoverage has been fake-aware from the
+    // The gap the Newsroom hit: HeadlineCoverage has been fake-aware from the
     // start, so reaching for all three coverage assertions in one faked test gave
     // two passes and one inexplicable refusal. A namespace where two of three
     // work under fake() is worse than one where none do — the inconsistency is
@@ -214,7 +214,7 @@ it('works under Storyfeed::fake(), like its two sibling assertions', function ()
 
     // Nothing reached the table, and this still returns a real verdict.
     StorySurface::assertNoUnwiredSurface();
-    GrammarCoverage::assertCoversRecorded();
+    HeadlineCoverage::assertCoversRecorded();
 });
 
 it('still names unwired surface when faked', function () {

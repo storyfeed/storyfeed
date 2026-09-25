@@ -7,7 +7,7 @@ use Storyfeed\Grouping\Axis;
 use Storyfeed\Grouping\Group;
 use Storyfeed\Grouping\GroupBuilder;
 use Storyfeed\StoryfeedManager;
-use Storyfeed\Testing\GrammarCoverage;
+use Storyfeed\Testing\HeadlineCoverage;
 use Workbench\App\Models\Customer;
 use Workbench\App\Models\Delivery;
 use Workbench\App\Models\User;
@@ -91,7 +91,7 @@ it('replaces a hand-partitioned matrix with one derived assertion', function () 
         'repeat.upload' => ':actor uploaded :count files',
     ]);
 
-    GrammarCoverage::assertCoversPossibleAggregates();
+    HeadlineCoverage::assertCoversPossibleGroups();
 });
 
 it('sees group headlines filed under a type, the way a Story class writes them', function () {
@@ -109,7 +109,7 @@ it('sees group headlines filed under a type, the way a Story class writes them',
             ->object(':actor uploaded :object :count times'));
     Story::verb('upload')->grouped(Group::byTargets()->headline(':actor uploaded :objects to :targets'));
 
-    GrammarCoverage::assertCoversPossibleAggregates();
+    HeadlineCoverage::assertCoversPossibleGroups();
 });
 
 it('sees them reading from the table too, without a fake', function () {
@@ -123,7 +123,7 @@ it('sees them reading from the table too, without a fake', function () {
             ->object(':actor uploaded :object :count times'));
     Story::verb('upload')->grouped(Group::byTargets()->headline(':actor uploaded :objects to :targets'));
 
-    GrammarCoverage::assertCoversPossibleAggregates();
+    HeadlineCoverage::assertCoversPossibleGroups();
 });
 
 it('does not let one type\'s group headline stand in for another\'s', function () {
@@ -141,7 +141,7 @@ it('does not let one type\'s group headline stand in for another\'s', function (
     Story::verb('upload')->grouped(Group::byTargets()->headline(':actor uploaded :objects to :targets'));
 
     try {
-        GrammarCoverage::assertCoversPossibleAggregates();
+        HeadlineCoverage::assertCoversPossibleGroups();
         $this->fail('Expected the coverage assertion to fail.');
     } catch (AssertionFailedError $e) {
         expect($e->getMessage())
@@ -157,10 +157,10 @@ it('checks a matrix per object type when given the types', function () {
         ->grouped(Group::repeat()->headline(':actor uploaded :count deliveries'));
     Story::verb('upload')->grouped(Group::byTargets()->headline(':actor uploaded :objects to :targets'));
 
-    GrammarCoverage::assertCoversAggregateMatrix(['repeat', 'targets'], ['upload'], objectTypes: [Delivery::class]);
+    HeadlineCoverage::assertCoversAggregateMatrix(['repeat', 'targets'], ['upload'], objectTypes: [Delivery::class]);
 
     try {
-        GrammarCoverage::assertCoversAggregateMatrix(['repeat', 'targets'], ['upload'], objectTypes: [Delivery::class, 'customer']);
+        HeadlineCoverage::assertCoversAggregateMatrix(['repeat', 'targets'], ['upload'], objectTypes: [Delivery::class, 'customer']);
         $this->fail('Expected the coverage assertion to fail.');
     } catch (AssertionFailedError $e) {
         expect($e->getMessage())->toContain('repeat.customer.upload (no aggregate headline)')
@@ -178,7 +178,7 @@ it('fails naming the missing cells, and names what it could not check', function
         ->publish();
 
     try {
-        GrammarCoverage::assertCoversPossibleAggregates();
+        HeadlineCoverage::assertCoversPossibleGroups();
         $this->fail('Expected the coverage assertion to fail.');
     } catch (AssertionFailedError $e) {
         expect($e->getMessage())
@@ -199,7 +199,7 @@ it('refuses to pass vacuously when nothing was published', function () {
     Storyfeed::fake();
 
     try {
-        GrammarCoverage::assertCoversPossibleAggregates();
+        HeadlineCoverage::assertCoversPossibleGroups();
         $this->fail('Expected the coverage assertion to fail.');
     } catch (AssertionFailedError $e) {
         expect($e->getMessage())->toContain('proves nothing');

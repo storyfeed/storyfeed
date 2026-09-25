@@ -10,6 +10,7 @@ use Storyfeed\Actions\PruneActivities;
 use Storyfeed\Contracts\FeedHealer;
 use Storyfeed\Events\ActivityDeleted;
 use Storyfeed\Facades\Storyfeed;
+use Storyfeed\Healing\ActivityRetirement;
 use Storyfeed\Healing\HealFeed;
 use Storyfeed\Healing\HealOutcome;
 use Storyfeed\Healing\StoryRetirement;
@@ -34,9 +35,9 @@ function healingStory(int $sourceId = 1): Activity
     return $story->publish();
 }
 
-function healingRetirement(Activity $activity): StoryRetirement
+function healingRetirement(Activity $activity): ActivityRetirement
 {
-    return new StoryRetirement(
+    return new ActivityRetirement(
         label: 'Absent asset',
         activityId: $activity->id,
         whenAbsent: fn (Activity $live): bool => $live->verb === 'asset.published'
@@ -177,7 +178,7 @@ it('does not recreate a removed story after pruning erases its evidence', functi
 });
 
 it('never treats a missing activity as an instruction, even when explicitly named', function () {
-    registerRetirements([new StoryRetirement('Missing', 987654, function () {
+    registerRetirements([new ActivityRetirement('Missing', 987654, function () {
         throw new RuntimeException('There is no live row to evaluate.');
     })]);
 
@@ -202,7 +203,7 @@ it('requests a row lock before evaluating policy inside the write transaction', 
         }
     };
     $connection->setQueryGrammar($grammar);
-    registerRetirements([new StoryRetirement('Locked', $activity->id, function (Activity $live) use ($connection, $grammar) {
+    registerRetirements([new ActivityRetirement('Locked', $activity->id, function (Activity $live) use ($connection, $grammar) {
         expect($grammar->lockedRead)->toBeTrue()
             ->and($connection->transactionLevel())->toBeGreaterThan(0);
 
@@ -218,7 +219,7 @@ it('requests a row lock before evaluating policy inside the write transaction', 
 
 it('evaluates preview policy without a transaction or lock', function () {
     $activity = healingStory();
-    registerRetirements([new StoryRetirement('Preview', $activity->id, function () {
+    registerRetirements([new ActivityRetirement('Preview', $activity->id, function () {
         expect(DB::transactionLevel())->toBe(0);
 
         return true;
@@ -259,7 +260,7 @@ it('streams an earlier committed retirement with its token if a later policy fai
     $second = healingStory(2);
     registerRetirements([
         healingRetirement($first),
-        new StoryRetirement('Fail', $second->id, fn () => throw new RuntimeException('Policy failed')),
+        new ActivityRetirement('Fail', $second->id, fn () => throw new RuntimeException('Policy failed')),
     ]);
     $results = [];
 
@@ -278,13 +279,35 @@ it('streams an earlier committed retirement with its token if a later policy fai
         ->and(SyncToken::current())->not->toBeNull();
 });
 
+it('keeps --dry-run as a deprecated alias of --pretend', function () {
+    $activity = healingStory();
+    registerRetirements([healingRetirement($activity)]);
+
+    $this->artisan('storyfeed:heal', ['--dry-run' => true])
+        ->expectsOutputToContain('--dry-run is deprecated')
+        ->expectsOutputToContain('Would retire: 1; unchanged: 0.')
+        ->assertSuccessful();
+    expect($activity->fresh()->trashed())->toBeFalse();
+});
+
+it('keeps StoryRetirement as a deprecated alias of ActivityRetirement', function () {
+    $activity = healingStory();
+    registerRetirements([new StoryRetirement('Old name', $activity->id, fn (): bool => true)]);
+
+    $results = runRetirements();
+
+    expect($results[0]->candidate)->toBeInstanceOf(ActivityRetirement::class)
+        ->and($results[0]->outcome)->toBe(HealOutcome::Retired)
+        ->and($activity->fresh()->trashed())->toBeTrue();
+});
+
 it('selects registered healers and prints preview policy metadata', function () {
     $first = healingStory();
     $second = healingStory(2);
     registerRetirements([healingRetirement($first)], 'assets');
     registerRetirements([healingRetirement($second)], 'other');
 
-    $this->artisan('storyfeed:heal', ['--dry-run' => true, '--only' => ['assets']])
+    $this->artisan('storyfeed:heal', ['--pretend' => true, '--only' => ['assets']])
         ->expectsOutputToContain('sync_token')
         ->expectsOutputToContain('source permanently absent')
         ->expectsOutputToContain('Would retire: 1; unchanged: 0.')

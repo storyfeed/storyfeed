@@ -502,7 +502,7 @@ return [
     | production always publishes.
     |
     | This is the earliest place the "grammar was authored once and never grew"
-    | failure can be caught — GrammarCoverage catches it in CI and doctor
+    | failure can be caught — HeadlineCoverage catches it in CI and doctor
     | catches it at runtime, but both need someone to look. This fires where
     | the publish call is written.
     */

@@ -5,7 +5,7 @@ use Storyfeed\Facades\Storyfeed;
 use Storyfeed\Grouping\Group;
 use Storyfeed\Stories\Verb;
 use Storyfeed\StoryfeedManager;
-use Storyfeed\Testing\GrammarCoverage;
+use Storyfeed\Testing\HeadlineCoverage;
 use Workbench\App\Enums\ActivityVerb;
 use Workbench\App\Models\Delivery;
 use Workbench\App\Models\User;
@@ -80,7 +80,7 @@ it('compiles a message class and the equivalent line to identical registries', f
     }
 });
 
-it('satisfies GrammarCoverage from stories alone', function () {
+it('satisfies HeadlineCoverage from stories alone', function () {
     Story::verb(ActivityVerb::Confirm, DeliveryWasConfirmed::class);
     Storyfeed::fake();
 
@@ -90,5 +90,5 @@ it('satisfies GrammarCoverage from stories alone', function () {
 
     // The proof that compile-to-registries is the right architecture:
     // assertCoversRecorded() needed no changes at all.
-    GrammarCoverage::assertCoversRecorded();
+    HeadlineCoverage::assertCoversRecorded();
 });

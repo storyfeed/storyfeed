@@ -10,24 +10,31 @@ use Symfony\Component\Console\Formatter\OutputFormatter;
 class HealCommand extends Command
 {
     protected $signature = 'storyfeed:heal
-        {--dry-run : Preview permanent-source retirements without writing rows}
+        {--pretend : Preview permanent-source retirements without writing rows}
+        {--dry-run : Deprecated: use --pretend}
         {--only=* : Run only the named healers}';
 
     protected $description = 'Retire stories for permanently absent sources; writes bump sync_token and require clients to resync';
 
     public function handle(HealFeed $healing): int
     {
-        $dryRun = (bool) $this->option('dry-run');
+        $pretend = (bool) $this->option('pretend');
         $only = $this->option('only');
 
-        $this->warn($dryRun
-            ? 'Dry run: preview only. Applying retirements rewrites history and bumps sync_token; accumulating clients must resync.'
-            : 'Healing rewrites history and bumps sync_token; accumulating clients must resync. Prefer a quiet period and preview with --dry-run.');
+        // Symfony can't hide an option, so --dry-run stays listed, labelled.
+        if ($this->option('dry-run')) {
+            $this->warn('--dry-run is deprecated and will be removed before v1; use --pretend.');
+            $pretend = true;
+        }
+
+        $this->warn($pretend
+            ? 'Preview only. Applying retirements rewrites history and bumps sync_token; accumulating clients must resync.'
+            : 'Healing rewrites history and bumps sync_token; accumulating clients must resync. Prefer a quiet period and preview with --pretend.');
 
         $retired = 0;
         $unchanged = 0;
 
-        foreach ($healing->run($dryRun, $only === [] ? null : $only) as $result) {
+        foreach ($healing->run($pretend, $only === [] ? null : $only) as $result) {
             $result->outcome === HealOutcome::Retired ? $retired++ : $unchanged++;
             $meta = $result->candidate->meta === [] ? '' : json_encode($result->candidate->meta, JSON_THROW_ON_ERROR);
 
@@ -39,7 +46,7 @@ class HealCommand extends Command
             ])));
         }
 
-        $this->info(($dryRun ? 'Would retire: ' : 'Retired: ')."{$retired}; unchanged: {$unchanged}.");
+        $this->info(($pretend ? 'Would retire: ' : 'Retired: ')."{$retired}; unchanged: {$unchanged}.");
 
         return self::SUCCESS;
     }

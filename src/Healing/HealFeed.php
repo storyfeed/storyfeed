@@ -52,7 +52,7 @@ final class HealFeed
         }
     }
 
-    private function retire(StoryRetirement $candidate, bool $dryRun): HealOutcome
+    private function retire(ActivityRetirement $candidate, bool $dryRun): HealOutcome
     {
         $reconcile = function () use ($candidate, $dryRun): HealOutcome {
             $model = config('storyfeed.models.activity', Activity::class);

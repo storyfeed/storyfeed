@@ -10,7 +10,7 @@ use Storyfeed\StoryfeedManager;
  * Assertions about the app's feed SURFACE, so "the feed stopped keeping up" is
  * caught in CI rather than in a dashboard nobody opens.
  *
- * The distinction from GrammarCoverage: that asserts everything PUBLISHED is
+ * The distinction from HeadlineCoverage: that asserts everything PUBLISHED is
  * authored. This asserts everything DECLARED actually publishes. A module can
  * pass the first perfectly by publishing nothing at all.
  */

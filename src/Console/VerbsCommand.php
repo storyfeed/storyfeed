@@ -49,7 +49,7 @@ class VerbsCommand extends Command
      * Instead, list the registered keys whose verb segment matches —
      * "task.create, *.create" — so the catalog shows where coverage comes
      * from. A bare `*.*` catch-all is shown as itself: real, but vacuous
-     * (GrammarCoverage deliberately doesn't count it).
+     * (HeadlineCoverage deliberately doesn't count it).
      *
      * @param  array<string, mixed>  $registry
      */

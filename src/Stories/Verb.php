@@ -1458,7 +1458,7 @@ final class Verb
 
     /**
      * The (objectType, verb) pairs this definition authors — the shape
-     * GrammarCoverage speaks.
+     * HeadlineCoverage speaks.
      *
      * @return array<int, array{0: string|null, 1: string}>
      */

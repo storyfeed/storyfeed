@@ -7,7 +7,7 @@ final readonly class HealResult
 {
     public function __construct(
         public string $healer,
-        public StoryRetirement $candidate,
+        public ActivityRetirement $candidate,
         public HealOutcome $outcome,
     ) {}
 }

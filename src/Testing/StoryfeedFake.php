@@ -34,7 +34,7 @@ use Storyfeed\Support\ActivityRoles;
  *
  * Registries (grammar, icons, verbs, object types) are inherited from the
  * real manager, so anything a service provider registered still resolves —
- * which is what lets GrammarCoverage assert against recorded activities.
+ * which is what lets HeadlineCoverage assert against recorded activities.
  */
 class StoryfeedFake extends StoryfeedManager
 {
@@ -280,7 +280,7 @@ class StoryfeedFake extends StoryfeedManager
 
     /**
      * The distinct (object type, verb) pairs recorded — the input for
-     * GrammarCoverage.
+     * HeadlineCoverage.
      *
      * @return array<int, array{0: string|null, 1: string}>
      */
@@ -298,7 +298,7 @@ class StoryfeedFake extends StoryfeedManager
      * `surface` check when running faked.
      *
      * Exists so `StorySurface::assertNoUnwiredSurface()` works in the same tests
-     * as its two siblings. `GrammarCoverage` has been fake-aware from the start,
+     * as its two siblings. `HeadlineCoverage` has been fake-aware from the start,
      * and a namespace where two of three assertions work under `fake()` is worse
      * than one where none do: the inconsistency is what sends someone to the
      * wrong conclusion about which tool is broken.

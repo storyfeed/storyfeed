@@ -1114,7 +1114,7 @@ class PendingActivity
      *
      * This is the sharpest answer to the failure this package keeps hearing
      * about — the grammar gets authored once, new modules ship, and nothing
-     * tells you the feed has fallen behind. GrammarCoverage catches it at suite
+     * tells you the feed has fallen behind. HeadlineCoverage catches it at suite
      * level and doctor catches it at runtime, but both require someone to look.
      * This one fires at the moment the publish call is written.
      *

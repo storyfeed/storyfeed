@@ -297,7 +297,7 @@ class NodePresenter
      * Dashboard" rendered over ten uploads by two people (found live by the
      * Newsroom). Unsafe fallbacks yield a null template — the renderer's
      * generic group treatment beats a wrong sentence. `storyfeed:doctor` and
-     * GrammarCoverage surface the missing entry.
+     * HeadlineCoverage surface the missing entry.
      *
      * @param  array<string, int>  $distinct  the node's published distinct
      *                                        block, keyed by PLURAL role
