@@ -15,7 +15,7 @@ class VerbsCommand extends Command
 {
     protected $signature = 'storyfeed:verbs {--used : Compare against verbs actually recorded in the feed}';
 
-    protected $description = 'List registered verbs, their AS2.0 types, and grammar/icon coverage';
+    protected $description = 'List registered verbs, their AS2.0 types, and headline/icon coverage';
 
     public function handle(StoryfeedManager $storyfeed): int
     {
@@ -35,7 +35,7 @@ class VerbsCommand extends Command
             ];
         }
 
-        $this->table(['Verb', 'AS2.0 type', 'Grammar', 'Icon', 'Source'], $rows);
+        $this->table(['Verb', 'AS2.0 type', 'Headline', 'Icon', 'Source'], $rows);
 
         return $this->option('used')
             ? $this->reportDrift()

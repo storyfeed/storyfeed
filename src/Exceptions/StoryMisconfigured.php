@@ -40,8 +40,8 @@ class StoryMisconfigured extends LogicException
     public static function unknownAxis(string $story, string $axis, array $registered): self
     {
         return new self(
-            "Story [{$story}] declares a group on axis [{$axis}], which is not registered — its aggregate "
-            .'grammar would never resolve. Register the axis with Storyfeed::axes([Axis::make(...)]) first. '
+            "Story [{$story}] declares a group on axis [{$axis}], which is not registered — its group "
+            .'headline would never resolve. Register the axis with Storyfeed::axes([Axis::make(...)]) first. '
             .'Registered axes: '.implode(', ', $registered).'.'
         );
     }
@@ -181,7 +181,7 @@ class StoryMisconfigured extends LogicException
     public static function missingParentGrammar(string $story, string $verb): self
     {
         return new self(
-            "Story [{$story}] declares a composite group, so its PARENT activity needs singular grammar at "
+            "Story [{$story}] declares a composite group, so its PARENT activity needs a single-activity headline at "
             ."['*.{$verb}'] as well — a composite parent has no object of its own, so [{$verb}]'s normal "
             .'type.verb key never resolves for it. Add ->parentHeadline() to the composite group. '
             .'Do NOT reach for `*.*`: a catch-all silently covers every future gap and makes every coverage '

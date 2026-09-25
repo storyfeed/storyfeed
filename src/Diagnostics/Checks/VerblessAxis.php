@@ -88,7 +88,7 @@ class VerblessAxis extends Check
     {
         return Finding::warning(
             'axes.verbless_no_grammar',
-            "Group nodes on `{$axis->name}` have no aggregate sentence that could be true of them: the axis "
+            "Group nodes on `{$axis->name}` have no group headline that could be true of them: the axis "
             .'recipe omits `v`, so its groups may span several verbs, and no verb-agnostic key '
             ."(`{$axis->name}.*` or `*.*`) is registered. They fall to the head member's SINGULAR headline "
             .'wherever the token check admits it — and that check cannot see the verb, which lives in the '
@@ -116,7 +116,7 @@ class VerblessAxis extends Check
     {
         return Finding::warning(
             'axes.verbless_per_verb_grammar',
-            "Aggregate template `{$key}` names a verb that `{$axis->name}` does not pin — the recipe omits `v`, so a "
+            "Group headline `{$key}` names a verb that `{$axis->name}` does not pin — the recipe omits `v`, so a "
             .'group on this axis may span several verbs and the template is resolved from whichever member sorts '
             .'first. This sentence renders over members that did something else'
             .($agnostic === null ? '' : ", or `{$agnostic}` renders instead, depending on the head")

@@ -50,7 +50,7 @@ class Coverage extends Check
                 // glyph is an absence, not a sentence that reads wrong.
                 yield Finding::error(
                     'grammar.missing',
-                    "No grammar entry resolves for `{$label}` — headlines will be null.",
+                    "No headline resolves for `{$label}` — headlines will be null.",
                     $subject,
                     Fix::make('grammar', $key, array_map(fn (string $role) => ":{$role}", ActivityRoles::PAYLOAD)),
                 );

@@ -77,7 +77,7 @@ class HeadlineCoverage
         Assert::assertSame(
             [],
             $missing,
-            "Storyfeed grammar coverage is incomplete:\n  - ".implode("\n  - ", $missing)
+            "Storyfeed headline coverage is incomplete:\n  - ".implode("\n  - ", $missing)
             ."\n\nRegister the missing entries with Storyfeed::grammar() / Storyfeed::icons().",
         );
     }
@@ -100,7 +100,7 @@ class HeadlineCoverage
 
         Assert::assertNotEmpty(
             $pairs,
-            'No activities were published, so grammar coverage proves nothing.',
+            'No activities were published, so headline coverage proves nothing.',
         );
 
         self::assertCovers($pairs, $allowWildcard);
@@ -122,7 +122,7 @@ class HeadlineCoverage
 
         Assert::assertNotEmpty(
             $pairs,
-            'No activities have been published, so grammar coverage proves nothing.',
+            'No activities have been published, so headline coverage proves nothing.',
         );
 
         self::assertCovers($pairs, $allowWildcard);
@@ -168,7 +168,7 @@ class HeadlineCoverage
 
         Assert::assertNotEmpty(
             $pairs,
-            'No activities are grouped on an aggregate axis, so group headline coverage proves nothing.',
+            'No activities are grouped on a registered axis, so group headline coverage proves nothing.',
         );
 
         $missing = [];
@@ -199,7 +199,7 @@ class HeadlineCoverage
                 ? "{$pair->axis}.{$pair->verb}"
                 : "{$pair->axis}.{$objectType}.{$pair->verb}";
 
-            $missing[] = "{$key} (no aggregate headline)";
+            $missing[] = "{$key} (no group headline)";
         }
 
         Assert::assertSame(
@@ -237,8 +237,8 @@ class HeadlineCoverage
      */
     public static function assertCoversAggregateMatrix(array $axes, array $verbs, bool $allowWildcard = false, array $objectTypes = []): void
     {
-        Assert::assertNotEmpty($axes, 'No axes given, so aggregate matrix coverage proves nothing.');
-        Assert::assertNotEmpty($verbs, 'No verbs given, so aggregate matrix coverage proves nothing.');
+        Assert::assertNotEmpty($axes, 'No axes given, so group headline coverage proves nothing.');
+        Assert::assertNotEmpty($verbs, 'No verbs given, so group headline coverage proves nothing.');
 
         $storyfeed = app(StoryfeedManager::class);
 
@@ -253,7 +253,7 @@ class HeadlineCoverage
             foreach ($verbs as $verb) {
                 foreach ($types !== [] && $storyfeed->pinsType($axis, 'object') ? $types : [null] as $type) {
                     if (! self::covered($storyfeed->aggregateTemplateKey($axis, $verb, $type), $allowWildcard)) {
-                        $missing[] = ($type === null ? "{$axis}.{$verb}" : "{$axis}.{$type}.{$verb}").' (no aggregate headline)';
+                        $missing[] = ($type === null ? "{$axis}.{$verb}" : "{$axis}.{$type}.{$verb}").' (no group headline)';
                     }
                 }
             }
@@ -338,7 +338,7 @@ class HeadlineCoverage
 
                 $key = $objectType === null ? "{$axis}.{$verb}" : "{$axis}.{$objectType}.{$verb}";
 
-                $missing[] = "{$key} (no aggregate headline)";
+                $missing[] = "{$key} (no group headline)";
             }
         }
 

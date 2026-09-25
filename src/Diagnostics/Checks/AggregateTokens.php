@@ -40,7 +40,7 @@ class AggregateTokens extends Check
             if ($allowed === null) {
                 yield Finding::info(
                     'tokens.unregistered_axis',
-                    "Note: aggregate grammar key `{$key}` references axis `{$axis}`, which is not registered — "
+                    "Note: group headline key `{$key}` references axis `{$axis}`, which is not registered — "
                     .'it will never resolve. Registered axes: '.implode(', ', array_keys($storyfeed->registeredAxes())).'.',
                     ['key' => (string) $key, 'axis' => $axis],
                 );
@@ -53,7 +53,7 @@ class AggregateTokens extends Check
             foreach (array_diff(array_unique($matches[0]), $allowed) as $token) {
                 yield Finding::warning(
                     'tokens.unpinned',
-                    "Aggregate template `{$key}` references `{$token}`, which "
+                    "Group headline `{$key}` references `{$token}`, which "
                     .($axis === '*' ? 'not every axis pins' : "the {$axis} axis does not pin")
                     .' — groups on that axis may span many values, so the headline can lie. '
                     .'Allowed here: '.implode(' ', $allowed).'.',

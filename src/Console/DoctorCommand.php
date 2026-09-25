@@ -35,7 +35,7 @@ class DoctorCommand extends Command
         {--list : List the available check names}
         {--fail-on= : Exit non-zero when findings reach this severity (warning|error)}';
 
-    protected $description = 'Audit grammar/icon/mapping coverage and feed health';
+    protected $description = 'Audit headline/icon/mapping coverage and feed health';
 
     public function handle(StoryfeedManager $storyfeed): int
     {

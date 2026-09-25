@@ -33,7 +33,7 @@ it('says a verbless axis can never carry an aggregate sentence, with no activiti
         ->and($finding->subject)->toBe(['axis' => 'photo'])
         // The message says the CONSEQUENCE, and names the one the reader will
         // actually meet — the singular fallback admitted over a mixed group.
-        ->and($finding->message)->toContain('no aggregate sentence that could be true of them')
+        ->and($finding->message)->toContain('no group headline that could be true of them')
         ->and($finding->message)->toContain('bare count')
         ->and($finding->message)->toContain('cannot see the verb');
 });

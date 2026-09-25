@@ -39,10 +39,10 @@ class ActorlessCoverage extends Check
             yield new Finding(
                 'actorless.missing',
                 Severity::Info,
-                "`{$key}` occurs with a null actor but has no actorless template. "
+                "`{$key}` occurs with a null actor but has no anonymous headline. "
                 .'Add ->anonymousHeadline() to its definition (or Storyfeed::actorlessGrammar()) to author a sentence without an actor slot, '
                 .'or give the actor an optional segment: \'[:actor ]confirmed :object\'. '
-                .'These rows currently use the ordinary grammar and renderer fallback.',
+                .'These rows currently use the ordinary headline and renderer fallback.',
                 ['verb' => $verb, 'type' => $type],
                 Fix::make('actorlessGrammar', $key),
             );

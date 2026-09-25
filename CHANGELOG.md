@@ -32,6 +32,14 @@
 
 ### Changed
 
+- Coverage, doctor and exception messages say "headline" and "group headline"
+  where they said "grammar" and "aggregate": single-activity failures now read
+  "Storyfeed headline coverage is incomplete", a missing group entry reads
+  `actors.upload (no group headline)`, and doctor reads "No headline resolves
+  for …" / "No group headline resolves for …". `storyfeed:verbs` and
+  `storyfeed:stories` label their columns `Headline` and `Group headlines`.
+  Method, config and finding names (`grammar.missing`, `aggregates.missing`)
+  are unchanged.
 - **Read modes re-cut: `live` is today's feed, `summary` is the digest.**
   `->live()` now reads what `->summary()` used to (each activity under its
   curated winning axis) and is the default (`grouping.default => 'live'`).

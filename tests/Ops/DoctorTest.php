@@ -12,7 +12,7 @@ it('reports missing grammar and icons for emitted verbs', function () {
     Storyfeed::activity('confirm', Delivery::create(['tracking_number' => 'TN-1']))->publish();
 
     $this->artisan('storyfeed:doctor')
-        ->expectsOutputToContain('No grammar entry resolves for `delivery.confirm`')
+        ->expectsOutputToContain('No headline resolves for `delivery.confirm`')
         ->expectsOutputToContain('No icon resolves for `delivery.confirm`')
         ->assertSuccessful();
 });
@@ -58,13 +58,13 @@ it('reports missing aggregate grammar for axes actually in use', function () {
     }
 
     $this->artisan('storyfeed:doctor')
-        ->expectsOutputToContain('No aggregate grammar resolves for `actors.upload`')
+        ->expectsOutputToContain('No group headline resolves for `actors.upload`')
         ->assertSuccessful();
 
     Storyfeed::aggregateGrammar(['actors.upload' => ':actors uploaded :count files to :target']);
 
     $this->artisan('storyfeed:doctor')
-        ->doesntExpectOutputToContain('No aggregate grammar resolves for `actors.upload`')
+        ->doesntExpectOutputToContain('No group headline resolves for `actors.upload`')
         ->assertSuccessful();
 });
 
@@ -91,9 +91,9 @@ it('warns when an aggregate template references a token its axis does not pin', 
     ]);
 
     $this->artisan('storyfeed:doctor')
-        ->expectsOutputToContain('Aggregate template `repeat.revise` references `:object`')
-        ->doesntExpectOutputToContain('Aggregate template `object.revise`')
-        ->doesntExpectOutputToContain('Aggregate template `*.upload`')
+        ->expectsOutputToContain('Group headline `repeat.revise` references `:object`')
+        ->doesntExpectOutputToContain('Group headline `object.revise`')
+        ->doesntExpectOutputToContain('Group headline `*.upload`')
         ->assertSuccessful();
 });
 
@@ -104,7 +104,7 @@ it('warns on :context outside a context-pinning axis — stricter than the old h
     Storyfeed::aggregateGrammar(['actors.upload' => ':actors uploaded :count files in :context']);
 
     $this->artisan('storyfeed:doctor')
-        ->expectsOutputToContain('Aggregate template `actors.upload` references `:context`')
+        ->expectsOutputToContain('Group headline `actors.upload` references `:context`')
         ->assertSuccessful();
 });
 
@@ -128,13 +128,13 @@ it('audits the fallback axis for aggregate coverage — a missing repeat.* key i
 
     $this->artisan('storyfeed:doctor')
         // Named for the type, as the repeat axis pins it: `Story::for(Delivery::class)`.
-        ->expectsOutputToContain('No aggregate grammar resolves for `repeat.delivery.archive`')
+        ->expectsOutputToContain('No group headline resolves for `repeat.delivery.archive`')
         ->assertSuccessful();
 
     Storyfeed::aggregateGrammar(['repeat.archive' => ':actor archived :count deliveries']);
 
     $this->artisan('storyfeed:doctor')
-        ->doesntExpectOutputToContain('No aggregate grammar resolves for `repeat.delivery.archive`')
+        ->doesntExpectOutputToContain('No group headline resolves for `repeat.delivery.archive`')
         ->assertSuccessful();
 });
 
@@ -145,7 +145,7 @@ it('does not flag fallback verbs that only ever appear as singletons', function 
     Storyfeed::activity('confirm', Delivery::create(['tracking_number' => 'TN-1']))->publish();
 
     $this->artisan('storyfeed:doctor')
-        ->doesntExpectOutputToContain('No aggregate grammar resolves for `repeat.confirm`')
+        ->doesntExpectOutputToContain('No group headline resolves for `repeat.confirm`')
         ->assertSuccessful();
 });
 
@@ -189,11 +189,11 @@ it('can produce a coverage finding for EVERY registered axis', function () {
     ])->publish();
 
     $this->artisan('storyfeed:doctor')
-        ->expectsOutputToContain('No aggregate grammar resolves for `actors.alpha`')
-        ->expectsOutputToContain('No aggregate grammar resolves for `targets.beta`')
-        ->expectsOutputToContain('No aggregate grammar resolves for `object.delivery.gamma`')
-        ->expectsOutputToContain('No aggregate grammar resolves for `repeat.delivery.delta`')
-        ->expectsOutputToContain('No aggregate grammar resolves for `composite.epsilon`')
+        ->expectsOutputToContain('No group headline resolves for `actors.alpha`')
+        ->expectsOutputToContain('No group headline resolves for `targets.beta`')
+        ->expectsOutputToContain('No group headline resolves for `object.delivery.gamma`')
+        ->expectsOutputToContain('No group headline resolves for `repeat.delivery.delta`')
+        ->expectsOutputToContain('No group headline resolves for `composite.epsilon`')
         ->assertSuccessful();
 });
 
@@ -209,7 +209,7 @@ it('accepts plural tokens on every axis, singular still pinned-only', function (
         ->doesntExpectOutputToContain('`targets.add`')
         ->doesntExpectOutputToContain('`repeat.complete`')
         ->doesntExpectOutputToContain('`*.archive`')
-        ->expectsOutputToContain('Aggregate template `repeat.revise` references `:object`')
+        ->expectsOutputToContain('Group headline `repeat.revise` references `:object`')
         ->assertSuccessful();
 });
 

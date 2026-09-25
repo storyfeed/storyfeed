@@ -56,7 +56,7 @@ class StoriesCommand extends Command
         }
 
         $this->table(
-            ['Story / source', 'Verb', 'Object', 'Grammar', 'Icon', 'Aggregates', 'Last recorded', 'Status'],
+            ['Story / source', 'Verb', 'Object', 'Headline', 'Icon', 'Group headlines', 'Last recorded', 'Status'],
             array_map(fn (array $row) => [
                 // Basename in the table, FQCN in --json: a 40-character
                 // namespace wraps the row and buries the columns that matter.

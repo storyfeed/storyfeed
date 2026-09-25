@@ -94,7 +94,7 @@ class DemoCommand extends Command
         if (! config('storyfeed.demo.enabled', false)) {
             $this->newLine();
             $this->components->warn(
-                'storyfeed.demo.enabled is off, so the demo grammar is not registered at boot — '
+                'storyfeed.demo.enabled is off, so the demo headlines are not registered at boot — '
                 .'the seeded feed will render with empty headlines. Turn it on in the environment '
                 .'doing the demo (config/storyfeed.php).',
             );

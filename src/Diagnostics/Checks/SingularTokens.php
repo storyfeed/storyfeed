@@ -148,7 +148,7 @@ class SingularTokens extends Check
         if ($role === 'actor') {
             return Finding::info(
                 'roles.always_anonymous',
-                "Note: grammar `{$key}` names `:actor`, and none of the {$entry['total']} activities it renders "
+                "Note: headline `{$key}` names `:actor`, and none of the {$entry['total']} activities it renders "
                 .'carry one — every one of them is anonymous, which is a documented state rather than a bug, so '
                 ."the sentence still reads. {$where}",
                 $subject,
@@ -160,7 +160,7 @@ class SingularTokens extends Check
         // dashboard for weeks while a warning floor nobody gated on said so.
         return Finding::error(
             'roles.never_carried',
-            "Grammar `{$key}` names `:{$role}`, but none of the {$entry['total']} activities it renders carry a "
+            "Headline `{$key}` names `:{$role}`, but none of the {$entry['total']} activities it renders carry a "
             ."{$role} — every one of those headlines renders the absent placeholder as content, and a reader "
             ."cannot tell \"the {$role} is unknown\" from \"this sentence should never have named one\". Drop the "
             ."clause, or start recording the {$role}. {$where}",

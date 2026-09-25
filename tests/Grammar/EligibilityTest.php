@@ -145,8 +145,8 @@ it('does not let one type\'s group headline stand in for another\'s', function (
         $this->fail('Expected the coverage assertion to fail.');
     } catch (AssertionFailedError $e) {
         expect($e->getMessage())
-            ->toContain('repeat.customer.upload (no aggregate headline)')
-            ->toContain('object.customer.upload (no aggregate headline)')
+            ->toContain('repeat.customer.upload (no group headline)')
+            ->toContain('object.customer.upload (no group headline)')
             ->not->toContain('delivery.upload')
             ->not->toContain('targets.upload');
     }
@@ -163,7 +163,7 @@ it('checks a matrix per object type when given the types', function () {
         HeadlineCoverage::assertCoversAggregateMatrix(['repeat', 'targets'], ['upload'], objectTypes: [Delivery::class, 'customer']);
         $this->fail('Expected the coverage assertion to fail.');
     } catch (AssertionFailedError $e) {
-        expect($e->getMessage())->toContain('repeat.customer.upload (no aggregate headline)')
+        expect($e->getMessage())->toContain('repeat.customer.upload (no group headline)')
             ->not->toContain('targets.');
     }
 });
@@ -182,9 +182,9 @@ it('fails naming the missing cells, and names what it could not check', function
         $this->fail('Expected the coverage assertion to fail.');
     } catch (AssertionFailedError $e) {
         expect($e->getMessage())
-            ->toContain('targets.upload (no aggregate headline)')
+            ->toContain('targets.upload (no group headline)')
             // The object axis pins the type, so the missing key is the type's own.
-            ->toContain('object.delivery.upload (no aggregate headline)')
+            ->toContain('object.delivery.upload (no group headline)')
             // Points at the command that prints the fix.
             ->toContain('storyfeed:doctor --stubs')
             // States its own limit rather than implying completeness.

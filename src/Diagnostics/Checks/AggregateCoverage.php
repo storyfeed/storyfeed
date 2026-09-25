@@ -146,7 +146,7 @@ class AggregateCoverage extends Check
 
             yield Finding::error(
                 'aggregates.missing',
-                "No aggregate grammar resolves for `{$key}` — those group nodes fall back "
+                "No group headline resolves for `{$key}` — those group nodes fall back "
                 .'to the singular headline only when its tokens are safe for the axis, and otherwise render '
                 .'with NO headline at all. Register one with Storyfeed::aggregateGrammar().',
                 [
@@ -175,7 +175,7 @@ class AggregateCoverage extends Check
     {
         return Finding::info(
             'aggregates.latent',
-            "`{$key}` clusters and has no aggregate grammar, but no registered feed reads the "
+            "`{$key}` clusters and has no group headline, but no registered feed reads the "
             ."`{$axis}` axis — the registry declares {$reach->modes()}, and only live() renders "
             .'curated group nodes. No stub is offered; this becomes a real gap the '
             .'moment a surface reads it, and a call site can override a declared mode without touching '

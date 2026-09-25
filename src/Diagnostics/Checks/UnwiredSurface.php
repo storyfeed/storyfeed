@@ -192,7 +192,7 @@ class UnwiredSurface extends Check
             yield Finding::warning(
                 'surface.unwired',
                 "[{$model}] implements Feedable, declaring that it appears in the feed, but `{$alias}` has never "
-                .'appeared in any role on any activity and no grammar is authored for it. Either something should '
+                .'appeared in any role on any activity and no headline is authored for it. Either something should '
                 .'be publishing about it and nothing does, or the contract is left over from something removed. '
                 ."Aliases that ARE recorded: {$this->recordedSummary($recordedTypes)}. Soft-deleted activities "
                 .'are not counted.',

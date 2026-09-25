@@ -17,7 +17,7 @@ class UnknownStory extends LogicException
     public static function unregistered(string $story): self
     {
         return new self(
-            "Story [{$story}] is not registered, so its verb and grammar were never compiled. "
+            "Story [{$story}] is not registered, so its verb and headlines were never compiled. "
             ."Bind it to its verb in routes/feed.php:\n\n"
             ."    Story::for(Order::class)->verb('ship', {$story}::class);\n\n"
             .'Publishing it anyway would record an activity nobody authored a headline for.'

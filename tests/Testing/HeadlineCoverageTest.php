@@ -106,7 +106,7 @@ it('asserts aggregate grammar for the axes curation actually selected', function
     }
 
     expect(fn () => HeadlineCoverage::assertCoversGroups())
-        ->toThrow(AssertionFailedError::class, 'actors.upload (no aggregate headline)');
+        ->toThrow(AssertionFailedError::class, 'actors.upload (no group headline)');
 
     Storyfeed::aggregateGrammar(['actors.upload' => ':actors uploaded :count files to :target']);
 
@@ -127,7 +127,7 @@ it('asserts a declared aggregate matrix proactively', function () {
     // assertCoversGroups() only sees combinations the data produced;
     // the matrix form asserts what COULD occur.
     expect(fn () => HeadlineCoverage::assertCoversAggregateMatrix(['actors', 'targets'], ['upload', 'comment']))
-        ->toThrow(AssertionFailedError::class, 'targets.upload (no aggregate headline)');
+        ->toThrow(AssertionFailedError::class, 'targets.upload (no group headline)');
 
     Storyfeed::aggregateGrammar([
         'actors.comment' => ':actors commented on :target',
