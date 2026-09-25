@@ -18,6 +18,12 @@ use Workbench\App\Models\Delivery;
  * name instead of asking. Nothing here writes a placeholder.
  */
 
+const STORY_SHAPES = [
+    'message' => 'One activity, published with its data   like an event',
+    'resource' => 'Every activity for one model            like a resource controller',
+    'invokable' => 'A single verb                           like a single action controller',
+];
+
 function storyPath(string $class): string
 {
     return app()->path("Stories/{$class}.php");
@@ -60,7 +66,7 @@ function makeStoryFails(array $parameters): string
 /** The binding line in make:story's output, e.g. `Story::for(…)->verb('x', …);`. */
 function bindingIn(string $output): string
 {
-    preg_match('/^\s*(Story::(?:for|resource)\(.*\);)\s*$/m', $output, $match);
+    preg_match('/^\s*(Story::(?:for|resource|verb)\(.*\);)\s*$/m', $output, $match);
 
     return $match[1] ?? '';
 }
@@ -155,25 +161,25 @@ it('splits on Was as a whole word only', function () {
 });
 
 it('takes --verb over any reading of the class name', function () {
-    $output = makeStory(['name' => 'DishWentLive', '--verb' => 'publish', '--model' => 'MenuItem']);
+    $output = makeStory(['name' => 'DishWentLive', '--verb' => 'publish', '--object' => 'MenuItem']);
 
     expect(bindingIn($output))->toEndWith("->verb('publish', \\App\\Stories\\DishWentLive::class);")
         ->and(file_get_contents(storyPath('DishWentLive')))->toContain(':actor published :object');
 });
 
 it('fails without a terminal when the name does not follow the convention', function () {
-    expect(makeStoryFails(['name' => 'ConfirmDelivery', '--model' => Delivery::class]))
+    expect(makeStoryFails(['name' => 'ConfirmDelivery', '--object' => Delivery::class]))
         ->toContain('ConfirmDelivery does not follow the {Object}Was{Verbed} convention, so the verb cannot be read from it. Pass --verb.');
 
     expect(makeStoryFails(['name' => 'ConfirmDelivery', '--verb' => 'confirm']))
-        ->toContain('ConfirmDelivery does not name the model the story is about. Pass --model.');
+        ->toContain("ConfirmDelivery does not name the model the story is about. Pass --object ('*' for every type).");
 });
 
 describe('with a terminal, it asks', function () {
     it('offers the declared vocabulary when the name spells no verb', function () {
         Storyfeed::verbs(['upload' => 'Add', 'publish' => 'Update'], merge: false);
 
-        $this->artisan('make:story', ['name' => 'DishWentLive', '--model' => 'Dish'])
+        $this->artisan('make:story', ['name' => 'DishWentLive', '--object' => 'Dish'])
             ->expectsChoice('Which verb does this story record?', 'publish', array_keys(Storyfeed::registeredVerbs()))
             ->expectsOutputToContain("Story::for('dish')->verb('publish', \\App\\Stories\\DishWentLive::class);")
             ->assertSuccessful();
@@ -204,7 +210,7 @@ describe('with a terminal, it asks', function () {
     it('asks for free text when the app declares no verbs at all', function () {
         Storyfeed::verbs([], merge: false);
 
-        $this->artisan('make:story', ['name' => 'DishWentLive', '--model' => 'MenuItem'])
+        $this->artisan('make:story', ['name' => 'DishWentLive', '--object' => 'MenuItem'])
             ->expectsQuestion('Which verb does this story record?', 'publish')
             ->expectsOutputToContain("->verb('publish', ")
             ->assertSuccessful();
@@ -218,7 +224,7 @@ describe('with a terminal, it asks', function () {
     });
 
     it('asks how a verb is spelled in the past tense when appending is not certain', function () {
-        $this->artisan('make:story', ['name' => 'DishWentLive', '--verb' => 'ship', '--model' => 'Dish'])
+        $this->artisan('make:story', ['name' => 'DishWentLive', '--verb' => 'ship', '--object' => 'Dish'])
             ->expectsChoice("How is 'ship' written in the past tense?", 'shipped', [
                 'shiped', 'shipped', 'None of these — leave the headline commented',
             ])
@@ -231,14 +237,14 @@ describe('with a terminal, it asks', function () {
 
     it('does not ask for a past tense that appending spells for certain', function () {
         // No expectsChoice: an unexpected prompt fails the test.
-        $this->artisan('make:story', ['name' => 'DishWentLive', '--verb' => 'place', '--model' => 'Dish'])
+        $this->artisan('make:story', ['name' => 'DishWentLive', '--verb' => 'place', '--object' => 'Dish'])
             ->assertSuccessful();
 
         expect(file_get_contents(storyPath('DishWentLive')))->toContain("return ':actor placed :object';");
     });
 
     it('leaves the headline commented when no offered spelling is right', function () {
-        $this->artisan('make:story', ['name' => 'DishWentLive', '--verb' => 'ship', '--model' => 'Dish'])
+        $this->artisan('make:story', ['name' => 'DishWentLive', '--verb' => 'ship', '--object' => 'Dish'])
             ->expectsChoice("How is 'ship' written in the past tense?", 'None of these — leave the headline commented', [
                 'shiped', 'shipped', 'None of these — leave the headline commented',
             ])
@@ -250,13 +256,14 @@ describe('with a terminal, it asks', function () {
     it('asks for the name when none is given', function () {
         $this->artisan('make:story')
             ->expectsQuestion('What should the story be named?', 'DeliveryWasConfirmed')
+            ->expectsChoice('What will this story describe?', 'message', STORY_SHAPES)
             ->expectsOutputToContain("Story::for('delivery')->verb('confirm', ")
             ->assertSuccessful();
     });
 });
 
 it('writes an uncertain past tense commented out beneath the reason, without a terminal', function () {
-    $output = makeStory(['name' => 'DishWentLive', '--verb' => 'ship', '--model' => 'Dish']);
+    $output = makeStory(['name' => 'DishWentLive', '--verb' => 'ship', '--object' => 'Dish']);
     $class = file_get_contents(storyPath('DishWentLive'));
 
     expect($output)->toContain("Wrote the headline commented out: 'ship' has no certain past tense.")
@@ -272,7 +279,7 @@ it('writes an uncertain past tense commented out beneath the reason, without a t
 });
 
 it('offers each uncertain spelling of a grouping that can hold other kinds of thing as a routes/feed.php line', function () {
-    makeStory(['name' => 'DishWentLive', '--verb' => 'ship', '--model' => 'Dish']);
+    makeStory(['name' => 'DishWentLive', '--verb' => 'ship', '--object' => 'Dish']);
     $class = file_get_contents(storyPath('DishWentLive'));
 
     expect($class)->toContain(implode(PHP_EOL, [
@@ -546,4 +553,127 @@ it('guesses the model from a resource class name, in the printed line', function
     $this->artisan('make:story', ['name' => 'InvoiceStory', '--resource' => true])
         ->expectsOutputToContain('Story::resource(\App\Models\Invoice::class, \App\Stories\InvoiceStory::class);')
         ->assertSuccessful();
+});
+
+// ── the three shapes, chosen as make:controller chooses its stub ────────
+
+it('writes a resource class for --model alone, as make:controller --model does', function () {
+    $output = makeStory(['name' => 'ParcelStory', '--model' => Delivery::class]);
+
+    expect(bindingIn($output))->toBe('Story::resource(\\'.Delivery::class.'::class, \App\Stories\ParcelStory::class);')
+        ->and(file_get_contents(storyPath('ParcelStory')))->toContain('public function create(Verb $verb): Verb');
+});
+
+it('writes a message class for --object alone', function () {
+    $output = makeStory(['name' => 'ParcelWasConfirmed', '--object' => Delivery::class]);
+
+    expect(bindingIn($output))->toBe('Story::for(\\'.Delivery::class."::class)->verb('confirm', \App\Stories\ParcelWasConfirmed::class);")
+        ->and(file_get_contents(storyPath('ParcelWasConfirmed')))->toContain('extends Story');
+});
+
+it('writes an invokable class for --invokable, bound to the --object type', function () {
+    $output = makeStory(['name' => 'ConfirmParcel', '--invokable' => true, '--verb' => 'confirm', '--object' => Delivery::class]);
+    $source = file_get_contents(storyPath('ConfirmParcel'));
+
+    expect(bindingIn($output))->toBe('Story::for(\\'.Delivery::class."::class)->verb('confirm', \App\Stories\ConfirmParcel::class);")
+        ->and($source)->toMatch('/^class ConfirmParcel\R/m')
+        ->not->toContain('extends')
+        ->toContain('public function __invoke(Verb $verb): Verb')
+        ->toContain("->headline(':actor confirmed :object')")
+        ->toContain("->anonymousHeadline(':object was confirmed')")
+        ->toContain("->icon('activity')");
+});
+
+it("binds an invokable class for every type with --object='*'", function () {
+    $output = makeStory(['name' => 'ConfirmStory', '--invokable' => true, '--object' => '*']);
+
+    // The verb is the class name, as a resource class's method names its verb.
+    expect($output)->toContain("Bound to 'confirm', the declared verb the class is named for.")
+        ->and(bindingIn($output))->toBe("Story::verb('confirm', \App\Stories\ConfirmStory::class);");
+});
+
+it('comments out both headlines of an invokable class when the past tense is uncertain', function () {
+    makeStory(['name' => 'ShipParcel', '--invokable' => true, '--verb' => 'ship', '--object' => Delivery::class]);
+
+    expect(file_get_contents(storyPath('ShipParcel')))->toContain(implode(PHP_EOL, [
+        "            // make:story cannot spell 'ship' in the past tense for certain. Uncomment the right line.",
+        "            // ->headline(':actor shiped :object')",
+        "            // ->headline(':actor shipped :object')",
+        "            // ->anonymousHeadline(':object was shiped')",
+        "            // ->anonymousHeadline(':object was shipped')",
+    ]))->toContain("            ->icon('activity');");
+});
+
+it('lets --model win over --invokable, and says so', function () {
+    $output = makeStory(['name' => 'ParcelStory', '--model' => Delivery::class, '--invokable' => true]);
+
+    expect($output)->toContain('--invokable was ignored: --model writes a resource class.')
+        ->and(bindingIn($output))->toStartWith('Story::resource(')
+        ->and(file_get_contents(storyPath('ParcelStory')))->not->toContain('__invoke');
+});
+
+it('refuses --invokable with --resource', function () {
+    expect(makeStoryFails(['name' => 'ParcelStory', '--resource' => true, '--invokable' => true]))
+        ->toContain('--invokable and --resource write different classes');
+});
+
+it('generates an invokable class that binds and publishes, end to end', function () {
+    $output = makeStory(['name' => 'ConfirmStory', '--invokable' => true, '--object' => '*']);
+
+    require_once storyPath('ConfirmStory');
+    eval('use Storyfeed\Facades\Story; '.bindingIn($output));
+
+    $activity = story('confirm', Delivery::create(['tracking_number' => 'TN-9']))->publish();
+
+    expect($activity->verb)->toBe('confirm')
+        ->and(Storyfeed::template('delivery', 'confirm'))->toBe(':actor confirmed :object')
+        ->and(Storyfeed::storyActions())->toHaveKey('*.confirm', 'App\Stories\ConfirmStory@__invoke');
+});
+
+describe('with a terminal, it asks what the story will describe first', function () {
+    it('asks the type after the name, then only the model for a resource', function () {
+        $this->artisan('make:story')
+            ->expectsQuestion('What should the story be named?', 'ParcelStory')
+            ->expectsChoice('What will this story describe?', 'resource', STORY_SHAPES)
+            ->expectsQuestion('What model is this resource story for?', Delivery::class)
+            ->expectsOutputToContain('Story::resource(\\'.Delivery::class.'::class, \App\Stories\ParcelStory::class);')
+            ->assertSuccessful();
+    });
+
+    it('asks the verb, the past tense and the object, offering every type, for an invokable', function () {
+        $this->artisan('make:story')
+            ->expectsQuestion('What should the story be named?', 'ShipParcel')
+            ->expectsChoice('What will this story describe?', 'invokable', STORY_SHAPES)
+            ->expectsChoice('Which verb does this story record?', 'ship', array_keys(Storyfeed::registeredVerbs()))
+            ->expectsChoice("How is 'ship' written in the past tense?", 'shipped', ['shiped', 'shipped', 'None of these — leave the headline commented'])
+            ->expectsQuestion('Which model is the object of this story?', '*')
+            ->expectsOutputToContain("Story::verb('ship', \App\Stories\ShipParcel::class);")
+            ->assertSuccessful();
+
+        expect(file_get_contents(storyPath('ShipParcel')))->toContain("->anonymousHeadline(':object was shipped')");
+    });
+
+    it('asks the object as --object for a message, never --model', function () {
+        $this->artisan('make:story')
+            ->expectsQuestion('What should the story be named?', 'ConfirmParcel')
+            ->expectsChoice('What will this story describe?', 'message', STORY_SHAPES)
+            ->expectsChoice('Which verb does this story record?', 'confirm', array_keys(Storyfeed::registeredVerbs()))
+            ->expectsQuestion('Which model is the object of this story?', Delivery::class)
+            ->expectsOutputToContain('Story::for(\\'.Delivery::class."::class)->verb('confirm', \App\Stories\ConfirmParcel::class);")
+            ->assertSuccessful();
+
+        expect(file_get_contents(storyPath('ConfirmParcel')))->toContain('extends Story');
+    });
+
+    it('skips the type question when an option chose one', function (array $options, string $binding) {
+        // No expectsChoice for the type: an unexpected prompt fails the test.
+        $this->artisan('make:story', $options)
+            ->expectsQuestion('What should the story be named?', 'ConfirmStory')
+            ->expectsOutputToContain($binding)
+            ->assertSuccessful();
+    })->with([
+        '--model' => [['--model' => Delivery::class], 'Story::resource('],
+        '--resource' => [['--resource' => true], 'Story::resource(\App\Models\Confirm::class'],
+        '--invokable' => [['--invokable' => true, '--object' => '*'], "Story::verb('confirm', "],
+    ]);
 });

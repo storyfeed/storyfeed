@@ -171,6 +171,14 @@ class StoryMisconfigured extends LogicException
     {
         $given = $given === null ? 'declares no return type' : "returns [{$given}]";
 
+        if (str_ends_with($uses, '@__invoke')) {
+            return new self(
+                "[{$uses}] is an invokable story class's action, and it {$given}. It returns "
+                .'Storyfeed\Stories\Verb, string (the headline) or array (the array form): '
+                .'public function __invoke(Verb $verb): Verb { return $verb->headline(...); }'
+            );
+        }
+
         return new self(
             "[{$uses}] is a public method of a resource Story class, so it is an action, and it {$given}. "
             .'An action returns Storyfeed\Stories\Verb, string (the headline) or array (the array form). '
@@ -235,13 +243,23 @@ class StoryMisconfigured extends LogicException
 
     public static function notAOneVerbStory(string $source, string $class): self
     {
-        $hint = class_exists($class) && ! is_a($class, Story::class, true)
+        $hint = class_exists($class)
             ? " A resource Story class is bound with Story::resource(Order::class, {$class}::class)."
-            : '';
+            : ' No such class exists.';
 
         return new self(
-            "The verb at {$source} binds [{$class}], which is not a message class (one that extends "
-            .'Storyfeed\Stories\Story).'.$hint
+            "The verb at {$source} binds [{$class}], which is neither a message class (one that extends "
+            .'Storyfeed\Stories\Story) nor an invokable one (one with a public __invoke(Verb $verb) method).'.$hint
+        );
+    }
+
+    public static function bothStoryShapes(string $source, string $class): self
+    {
+        return new self(
+            "The verb at {$source} binds [{$class}], which is both a message class (it extends "
+            .'Storyfeed\Stories\Story) and an invokable one (it has a public __invoke method). Make it one: '
+            .'drop __invoke to publish it with Storyfeed::publish(new '.class_basename($class).'(…)), or extend '
+            .'nothing to keep __invoke(Verb $verb) and publish with story().'
         );
     }
 

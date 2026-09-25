@@ -78,24 +78,44 @@ final class ResourceClass
                 continue;
             }
 
-            $return = $method->getReturnType();
-
-            if (! $return instanceof ReflectionNamedType
-                || $return->allowsNull()
-                || ! in_array($return->getName(), self::RETURNS, true)) {
-                throw StoryMisconfigured::actionReturn(self::uses($class, $method->name), self::describe($return));
-            }
-
             $verb = Str::snake($method->name);
 
             if (isset($actions[$verb])) {
                 throw StoryMisconfigured::actionCollision($class, $actions[$verb]['method'], $method->name, $verb);
             }
 
-            $actions[$verb] = ['method' => $method->name, 'request' => self::takesRequest($class, $method)];
+            $actions[$verb] = self::action($class, $method);
         }
 
         return $actions;
+    }
+
+    /**
+     * The one action of an invokable story class, `__invoke`, held to the
+     * rules every action is.
+     *
+     * @param  class-string  $class
+     * @return array{method: string, request: bool}
+     */
+    public static function invokable(string $class): array
+    {
+        return self::action($class, new ReflectionMethod($class, '__invoke'));
+    }
+
+    /**
+     * @return array{method: string, request: bool}
+     */
+    private static function action(string $class, ReflectionMethod $method): array
+    {
+        $return = $method->getReturnType();
+
+        if (! $return instanceof ReflectionNamedType
+            || $return->allowsNull()
+            || ! in_array($return->getName(), self::RETURNS, true)) {
+            throw StoryMisconfigured::actionReturn(self::uses($class, $method->name), self::describe($return));
+        }
+
+        return ['method' => $method->name, 'request' => self::takesRequest($class, $method)];
     }
 
     /**

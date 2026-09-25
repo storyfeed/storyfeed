@@ -1475,7 +1475,7 @@ class StoryfeedManager
         }
 
         foreach ($this->stories as $entry) {
-            if ($entry instanceof BoundStory && $entry->class === $class) {
+            if ($entry instanceof BoundStory && $entry->isMessage() && $entry->class === $class) {
                 return true;
             }
         }

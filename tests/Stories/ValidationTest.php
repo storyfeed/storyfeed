@@ -176,7 +176,7 @@ it('refuses a malformed ad-hoc key', function () {
 
 it('refuses a non-Story class at the line that binds it', function () {
     StoryFacade::for(Delivery::class)->verb('confirm', Delivery::class);
-})->throws(StoryMisconfigured::class, 'is not a message class');
+})->throws(StoryMisconfigured::class, 'is neither a message class');
 
 class ReadsItsDelivery extends Story
 {

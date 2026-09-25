@@ -5,26 +5,36 @@ namespace Storyfeed\Stories;
 use BackedEnum;
 use Closure;
 use DateInterval;
+use ReflectionMethod;
 use Storyfeed\Contracts\FeedVerb;
 use Storyfeed\Exceptions\StoryMisconfigured;
 
 /**
- * A message class bound to its verb in routes/feed.php, as an invokable
- * controller is bound to its route:
+ * A class bound to its verb in routes/feed.php, as a controller is bound to
+ * its route. Two shapes bind here, told apart as the router tells an
+ * invokable controller from the rest, by the class itself:
  *
- *     Story::for(Task::class)->verb('complete', TaskWasCompleted::class);
+ *     Story::for(Task::class)->verb('complete', TaskWasCompleted::class);   // a message class
+ *     Story::for(Order::class)->verb('ship', ShipStory::class);             // an invokable class
+ *     Story::verb('confirm', ConfirmStory::class);                          // either, for every type
  *
- *     Story::for(Task::class)->group(function () {
- *         Story::verb('complete', TaskWasCompleted::class);
- *     });
- *
- * The line names the verb and the types, so the class may leave `$verb` and
+ * A MESSAGE CLASS extends Story and is constructed with its data. The line
+ * names the verb and the types, so the class may leave `$verb` and
  * `$objectType` out; if it declares them, they must agree with the line.
- * A resource Story class is bound with `Story::resource()` instead.
- *
  * Read when stories compile, like PendingResource, from an instance made
  * without the constructor (see Verb::presentation()): a message class takes
  * its data there, and at boot there is none.
+ *
+ * AN INVOKABLE CLASS extends nothing and declares one public method,
+ * `__invoke(Verb $verb)`: a resource class's action (see ResourceClass) for
+ * exactly one verb, taking and returning what an action does. It is
+ * `Class@__invoke` wherever an action is named, as Laravel stores an
+ * invokable controller, and nothing constructs it at a call site:
+ * `story('ship', $order)` publishes it like any declared verb. Bound
+ * outside a group it defines the verb for every type, which is what lets it
+ * write the `Group::byActors()` headline a resource class can't.
+ *
+ * A resource Story class is bound with `Story::resource()` instead.
  *
  * The line takes middleware, as a route bound to a controller does, ahead of
  * the class's own `middleware()`:
@@ -45,28 +55,42 @@ final class BoundStory
     private array $shortcuts = [];
 
     /**
-     * @param  array<int, string>|null  $objectTypes  the scope's types; null outside one, where the class's own stand
-     * @param  class-string<Story>  $class
+     * @param  array<int, string>|null  $objectTypes  the scope's types; null outside one, where a message class's own stand
+     * @param  class-string  $class
      */
     public function __construct(
         public readonly ?array $objectTypes,
         public readonly string|FeedVerb|BackedEnum $verb,
         public readonly string $class,
         public readonly string $source,
+        public readonly bool $invokable = false,
     ) {}
 
     /**
-     * Check the class is a message class, at the line that names it.
+     * Tell the class's shape at the line that names it: a Story subclass is
+     * a message, a public `__invoke` is invokable, and a class that is both
+     * or neither is an error. The router's `method_exists($action, '__invoke')`.
      *
      * @param  array<int, string>|null  $objectTypes
      */
     public static function make(?array $objectTypes, string|FeedVerb|BackedEnum $verb, string $class, string $source): self
     {
-        if (! is_a($class, Story::class, true)) {
-            throw StoryMisconfigured::notAOneVerbStory($source, $class);
+        $message = is_subclass_of($class, Story::class);
+        $invokable = method_exists($class, '__invoke') && (new ReflectionMethod($class, '__invoke'))->isPublic();
+
+        if ($message === $invokable) {
+            throw $message
+                ? StoryMisconfigured::bothStoryShapes($source, $class)
+                : StoryMisconfigured::notAOneVerbStory($source, $class);
         }
 
-        return new self($objectTypes, $verb, $class, $source);
+        return new self($objectTypes, $verb, $class, $source, $invokable);
+    }
+
+    /** Whether the class is a message class, constructed and published with `Storyfeed::publish()`. */
+    public function isMessage(): bool
+    {
+        return ! $this->invokable;
     }
 
     /**
@@ -117,7 +141,36 @@ final class BoundStory
     /** The definition the class compiles to, for the line's verb and types. */
     public function definition(): Verb
     {
-        $story = Verb::presentation($this->class);
+        $definition = $this->invokable ? $this->invokableDefinition() : $this->messageDefinition();
+
+        foreach ($this->shortcuts as $shortcut) {
+            $shortcut[0] === 'batched' ? $definition->batched($shortcut[1]) : $definition->unbatched();
+        }
+
+        return $definition;
+    }
+
+    /**
+     * Run `__invoke` once, as a resource class's action runs, on a definition
+     * for the line's types, or every type outside a group.
+     */
+    private function invokableDefinition(): Verb
+    {
+        $uses = ResourceClass::uses($this->class, '__invoke');
+        $takesRequest = ResourceClass::invokable($this->class)['request'];
+
+        $definition = Verb::for($this->objectTypes ?? ['*'], $this->verb, $this->source)
+            ->middleware($this->middleware)
+            ->withoutMiddleware($this->excludedMiddleware);
+
+        return ResourceClass::run($this->class, '__invoke', $definition)->fromAction($uses, $takesRequest);
+    }
+
+    private function messageDefinition(): Verb
+    {
+        /** @var class-string<Story> $class */
+        $class = $this->class;
+        $story = Verb::presentation($class);
         $bound = Verb::for('*', $this->verb, $this->source)->verb;
 
         if ($story->verb !== null && ($declared = Verb::for('*', $story->verb, $this->source)->verb) !== $bound) {
@@ -138,12 +191,6 @@ final class BoundStory
 
         // The line's middleware runs ahead of the class's own, as a route's
         // runs ahead of its controller's; its shortcuts are said last.
-        $definition->prependMiddleware($this->middleware)->withoutMiddleware($this->excludedMiddleware);
-
-        foreach ($this->shortcuts as $shortcut) {
-            $shortcut[0] === 'batched' ? $definition->batched($shortcut[1]) : $definition->unbatched();
-        }
-
-        return $definition;
+        return $definition->prependMiddleware($this->middleware)->withoutMiddleware($this->excludedMiddleware);
     }
 }

@@ -20,7 +20,7 @@ use Storyfeed\Stories\Registrar;
  * one: `use Storyfeed\Stories\Story as BaseStory;`.
  *
  * `Story::verb('x')` returns the definition to configure; binding a message
- * class, `Story::verb('x', X::class)`, returns the binding, which takes only
+ * or invokable class, `Story::verb('x', X::class)`, returns the binding, which takes only
  * middleware — the class says the rest.
  *
  * @method static \Storyfeed\Stories\TypeScope for(string|array<int, string> $objectType)

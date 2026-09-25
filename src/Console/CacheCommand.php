@@ -81,7 +81,7 @@ class CacheCommand extends Command
 
         $classes = array_values(array_unique(array_map(
             fn (BoundStory $story) => $story->class,
-            array_filter($storyfeed->registeredStories(), fn (mixed $story) => $story instanceof BoundStory),
+            array_filter($storyfeed->registeredStories(), fn (mixed $story) => $story instanceof BoundStory && $story->isMessage()),
         )));
 
         try {

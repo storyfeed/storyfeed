@@ -25,25 +25,41 @@ use function Laravel\Prompts\text;
  *
  *   php artisan make:story
  *   php artisan make:story DocumentWasUploaded
- *   php artisan make:story TaskWasCompleted --verb=complete --model=Task
- *   php artisan make:story OrderStory --resource --model=Order
+ *   php artisan make:story TaskWasCompleted --verb=complete --object=Task
+ *   php artisan make:story OrderStory --model=Order
+ *   php artisan make:story ShipStory --invokable --verb=ship --object=Order
  *   php artisan make:story --from-doctor
  *
- * Every form PRINTS the line that binds the class, and the line names the
- * verb and the object type, so a message class doesn't repeat them:
+ * THREE SHAPES, chosen by option as make:controller chooses its stub, and
+ * in the same order: `--model` first, then `--invokable`, then `--resource`,
+ * and a message class with none of them.
+ *
+ *   - a message class (the default), constructed with its data and published;
+ *   - `--model=Order` or `--resource`: a resource Story class, one method per
+ *     verb, the four conventional ones filled in. `--model` alone implies it,
+ *     as `make:controller --model` writes a resource controller, and wins
+ *     over `--invokable`, as it does there;
+ *   - `--invokable`: one verb's declaration in `__invoke(Verb $verb)`, bound
+ *     to a type or, with `--object='*'`, to every type.
+ *
+ * With no name and no options, it asks what the story will describe first,
+ * as make:controller asks which type of controller. Every form PRINTS the line that binds the
+ * class, and the line names the verb and the object type, so the class
+ * doesn't repeat them:
  *
  *   Story::for(\App\Models\Task::class)->verb('complete', \App\Stories\TaskWasCompleted::class);
  *
- * `--resource` writes a resource Story class, one method per verb, with the
- * four conventional ones filled in. Like make:controller, it never edits
- * routes/feed.php: the binding is yours to place.
+ * Like make:controller, it never edits routes/feed.php: the binding is yours
+ * to place.
  *
  * WHAT IT DOES NOT KNOW, IT ASKS, like Laravel's own generators. The verb is
  * a select() over the app's declared vocabulary, and the object a suggest()
- * over its Feedable models; `--verb` and `--model` skip their prompts. The
- * only inference is exact: a class name whose predicate spells exactly one
- * declared verb (see StoryName). Without a terminal, anything still unknown
- * fails with the vocabulary named. Nothing is ever written as a placeholder.
+ * over its Feedable models; `--verb`, `--object` and `--model` skip their
+ * prompts. The only inference is exact: a class name whose predicate spells
+ * exactly one declared verb (see StoryName), or an invokable class named for
+ * a declared verb (`ShipStory` for `ship`). Without a terminal, anything
+ * still unknown fails with the vocabulary named. Nothing is ever written as
+ * a placeholder.
  *
  * `--from-doctor` scaffolds from doctor's findings. That is NOT the parked
  * `storyfeed:eject`, and the distinction matters: eject was rejected because it
@@ -75,6 +91,16 @@ class StoryMakeCommand extends GeneratorCommand
     protected const SKIP = 'Skip this one';
 
     /**
+     * The shapes, each said as what it describes and the Laravel class it
+     * resembles, in columns. Passing a shape's option skips the question.
+     */
+    protected const SHAPES = [
+        'message' => 'One activity, published with its data   like an event',
+        'resource' => 'Every activity for one model            like a resource controller',
+        'invokable' => 'A single verb                           like a single action controller',
+    ];
+
+    /**
      * Ask for what the name does not settle. Runs only with a terminal, so
      * scripted use goes straight to handle(), which fails instead.
      */
@@ -92,24 +118,76 @@ class StoryMakeCommand extends GeneratorCommand
                 placeholder: 'E.g. DocumentWasUploaded',
                 required: true,
             ));
+
+            $this->afterPromptingForMissingArguments($input, $output);
         }
 
-        if (! $this->option('resource') && ! $this->option('verb') && count($matches = $this->declaredVerbsInName()) !== 1) {
+        if ($this->isResource()) {
+            if ($this->objectFromName() === null) {
+                $input->setOption('model', $this->askForModel());
+            }
+
+            return;
+        }
+
+        if (! $this->option('verb') && count($matches = $this->declaredVerbsInName()) !== 1) {
             $input->setOption('verb', $this->askForVerb($matches));
         }
 
-        if (! $this->option('resource') && $this->option('verb')) {
+        if ($this->option('verb')) {
             $this->chosenPastTense = $this->askForPastTense((string) $this->option('verb'));
         }
 
         if ($this->objectFromName() === null) {
-            $input->setOption('model', suggest(
-                label: $this->option('resource') ? 'Which model are these stories about?' : 'Which model is the object of this story?',
-                options: $this->feedableModels(),
+            $input->setOption('object', suggest(
+                label: 'Which model is the object of this story?',
+                options: $this->option('invokable') ? ['*', ...$this->feedableModels()] : $this->feedableModels(),
                 placeholder: 'E.g. '.$this->rootNamespace().'Models\\Order',
                 required: true,
+                hint: $this->option('invokable') ? "'*' binds the verb for every type." : '',
             ));
         }
+    }
+
+    /**
+     * Which shape, asked straight after the name when no option chose one,
+     * as make:controller asks which type of controller. The plainest shape
+     * is first, as Laravel's `Empty` is: a class for one activity is what
+     * the command writes with no option at all.
+     */
+    protected function afterPromptingForMissingArguments(InputInterface $input, OutputInterface $output): void
+    {
+        if ($this->didReceiveOptions($input)) {
+            return;
+        }
+
+        // One hint for the question: per-option text (`info:`) needs a
+        // newer Laravel Prompts than the oldest supported lane installs.
+        $shape = select(
+            label: 'What will this story describe?',
+            options: self::SHAPES,
+            hint: "The first is published with Storyfeed::publish(new OrderShipped(\$order)), the others with story('ship', \$order).",
+        );
+
+        if ($shape !== 'message') {
+            $input->setOption($shape, true);
+        }
+
+        // As make:controller asks a resource controller's model: the name's
+        // guess is where a wrong one hides, so the chosen shape asks.
+        if ($shape === 'resource') {
+            $input->setOption('model', $this->askForModel());
+        }
+    }
+
+    protected function askForModel(): string
+    {
+        return suggest(
+            label: 'What model is this resource story for?',
+            options: $this->feedableModels(),
+            placeholder: 'E.g. '.$this->rootNamespace().'Models\\Order',
+            required: true,
+        );
     }
 
     /** @param  list<string>  $matches  the declared verbs the name spells: none, or more than one */
@@ -173,13 +251,24 @@ class StoryMakeCommand extends GeneratorCommand
             $this->fail('Provide a name, or pass --from-doctor to scaffold from doctor\'s findings.');
         }
 
+        if ($this->option('invokable') && $this->option('resource') && ! $this->option('model')) {
+            $this->fail('--invokable and --resource write different classes: an invokable class is one verb, a resource class one method per verb. Pass one.');
+        }
+
+        // make:controller's order: --model is read before --invokable.
+        if ($this->option('invokable') && $this->option('model')) {
+            $this->components->warn('--invokable was ignored: --model writes a resource class.');
+            $this->input->setOption('invokable', false);
+        }
+
         if ($this->objectFromName() === null) {
-            $this->fail(class_basename($this->getNameInput()).' does not name the model the story is about. Pass --model.');
+            $this->fail(class_basename($this->getNameInput()).' does not name the model the story is about. Pass '
+                .($this->isResource() ? '--model.' : "--object ('*' for every type)."));
         }
 
         $result = parent::handle();
 
-        if ($this->option('resource') && $result !== false) {
+        if ($this->isResource() && $result !== false) {
             $this->bindings[] = 'Story::resource('.$this->modelReference().', \\'.$this->qualifyClass($this->getNameInput()).'::class);';
         }
 
@@ -324,9 +413,22 @@ class StoryMakeCommand extends GeneratorCommand
         return $answer === self::SKIP ? null : $answer;
     }
 
+    /**
+     * `--model` alone writes a resource class, as `make:controller --model`
+     * writes a resource controller.
+     */
+    protected function isResource(): bool
+    {
+        return $this->option('resource') || $this->option('model');
+    }
+
     protected function getStub(): string
     {
-        $stub = $this->option('resource') ? 'story.resource.stub' : 'story.stub';
+        $stub = match (true) {
+            $this->isResource() => 'story.resource.stub',
+            (bool) $this->option('invokable') => 'story.invokable.stub',
+            default => 'story.stub',
+        };
 
         // Laravel's convention: an app can drop its own stub in base_path.
         $published = $this->laravel->basePath("stubs/storyfeed.{$stub}");
@@ -343,12 +445,16 @@ class StoryMakeCommand extends GeneratorCommand
     {
         $stub = parent::buildClass($name);
 
-        if ($this->option('resource')) {
+        if ($this->isResource()) {
             return str_replace('{{ model }}', Str::studly(class_basename((string) $this->objectFromName())), $stub);
         }
 
         $verb = $this->resolveVerb($name);
         $object = (string) $this->objectFromName();
+
+        if ($this->option('invokable')) {
+            return $this->invokable($stub, $name, $verb, $object);
+        }
 
         $this->bindings[] = 'Story::for('.$this->objectType($object).")->verb('{$verb}', \\{$name}::class);";
 
@@ -365,6 +471,27 @@ class StoryMakeCommand extends GeneratorCommand
             [':actor '.$past.' :object', $this->groups([$past], $verb)],
             $stub,
         );
+    }
+
+    /**
+     * An invokable class: one verb's headlines and icon in `__invoke`, bound
+     * to the object's type, or to every type for `'*'`.
+     */
+    protected function invokable(string $stub, string $name, string $verb, string $object): string
+    {
+        $this->bindings[] = $object === '*'
+            ? "Story::verb('{$verb}', \\{$name}::class);"
+            : 'Story::for('.$this->objectType($object).")->verb('{$verb}', \\{$name}::class);";
+
+        $stub = str_replace('{{ verb }}', $verb, $stub);
+
+        $past = $this->pastTense($name, $verb);
+
+        if ($past === null) {
+            return $this->commentedHeadlines($stub, $verb);
+        }
+
+        return str_replace(['{{ headline }}', '{{ anonymousHeadline }}'], [":actor {$past} :object", ":object was {$past}"], $stub);
     }
 
     /**
@@ -403,11 +530,24 @@ class StoryMakeCommand extends GeneratorCommand
 
         $this->components->warn("Wrote the headline commented out: '{$words}' has no certain past tense. Choose one in the class.");
 
-        // By line, so a published stub keeps its own indentation.
-        $stub = preg_replace_callback('/^([ \t]*)([^\r\n]*\{\{ headline \}\}[^\r\n]*)/m', fn (array $line) => implode(PHP_EOL, [
-            "{$line[1]}// {$reason}",
-            ...array_map(fn (string $past) => $line[1].'// '.str_replace('{{ headline }}', ":actor {$past} :object", $line[2]), $candidates),
-        ]), $stub) ?? $stub;
+        // By line, so a published stub keeps its own indentation. The reason
+        // goes above the first; an invokable's anonymous headline follows it.
+        $reasoned = false;
+
+        $stub = preg_replace_callback('/^([ \t]*)([^\r\n]*\{\{ (?:headline|anonymousHeadline) \}\}[^\r\n]*)/m', function (array $line) use ($candidates, $reason, &$reasoned) {
+            $lines = array_map(fn (string $past) => $line[1].'// '.str_replace(
+                ['{{ headline }}', '{{ anonymousHeadline }}'],
+                [":actor {$past} :object", ":object was {$past}"],
+                $line[2],
+            ), $candidates);
+
+            if (! $reasoned) {
+                $reasoned = true;
+                array_unshift($lines, "{$line[1]}// {$reason}");
+            }
+
+            return implode(PHP_EOL, $lines);
+        }, $stub) ?? $stub;
 
         return str_replace('{{ groups }}', $this->groups($candidates, $verb, commented: true), $stub);
     }
@@ -424,6 +564,12 @@ class StoryMakeCommand extends GeneratorCommand
         }
 
         $matches = $this->declaredVerbsInName();
+
+        if (count($matches) === 1 && $this->option('invokable') && StoryName::parse($name)['predicate'] === null) {
+            $this->components->info("Bound to '{$matches[0]}', the declared verb the class is named for.");
+
+            return $matches[0];
+        }
 
         if (count($matches) === 1) {
             $this->components->info("Bound to '{$matches[0]}', the declared verb the class name spells.");
@@ -445,20 +591,37 @@ class StoryMakeCommand extends GeneratorCommand
         });
     }
 
-    /** @return list<string> the declared verbs the class name spells */
+    /**
+     * The declared verbs the class name spells. An invokable class not in
+     * the `{Object}Was{Verbed}` form may instead be named for its verb, the
+     * way a resource class's method is: `ShipStory` or `Ship` is `ship`, and
+     * `ConfirmPaymentStory` is `confirm_payment`, if the app declares it.
+     *
+     * @return list<string>
+     */
     protected function declaredVerbsInName(): array
     {
-        return StoryName::verbsIn($this->getNameInput(), array_keys($this->storyfeed()->registeredVerbs()));
+        $declared = array_keys($this->storyfeed()->registeredVerbs());
+        $name = $this->getNameInput();
+
+        if ($this->option('invokable') && StoryName::parse($name)['predicate'] === null) {
+            $verb = Str::snake(Str::beforeLast(class_basename($name), 'Story') ?: class_basename($name));
+
+            return in_array($verb, $declared, true) ? [$verb] : [];
+        }
+
+        return StoryName::verbsIn($name, $declared);
     }
 
     /**
-     * `--object` or `--model`, else the name's own object: the words before
-     * `Was`, or a resource class name without its `Story` suffix. Null when
-     * there is none, which interact() asks about and handle() refuses.
+     * `--model` for a resource class and `--object` for one verb, else the
+     * name's own object: a resource class name without its `Story` suffix,
+     * or the words before `Was`. Null when there is none, which interact()
+     * asks about and handle() refuses.
      */
     protected function objectFromName(): ?string
     {
-        $given = $this->option('object') ?: $this->option('model');
+        $given = $this->isResource() ? $this->option('model') : $this->option('object');
 
         if ($given) {
             return (string) $given;
@@ -466,7 +629,7 @@ class StoryMakeCommand extends GeneratorCommand
 
         $name = class_basename($this->getNameInput());
 
-        $object = $this->option('resource')
+        $object = $this->isResource()
             ? Str::beforeLast($name, 'Story')
             : StoryName::parse($name)['object'];
 
@@ -634,8 +797,9 @@ class StoryMakeCommand extends GeneratorCommand
         return [
             ['verb', null, InputOption::VALUE_OPTIONAL, 'The stored verb (default: the declared verb the class name spells, else asked)'],
             ['object', null, InputOption::VALUE_OPTIONAL, "The object model or morph alias, or '*' for object-less (default: the class name's, else asked)"],
-            ['resource', 'r', InputOption::VALUE_NONE, 'Write a resource Story class: one method per verb'],
-            ['model', 'm', InputOption::VALUE_OPTIONAL, 'The model the story is about (the resource binding, or the object)'],
+            ['resource', 'r', InputOption::VALUE_NONE, 'Generate a resource story class: one method per verb'],
+            ['invokable', 'i', InputOption::VALUE_NONE, 'Generate a single verb, invokable story class'],
+            ['model', 'm', InputOption::VALUE_OPTIONAL, 'Generate a resource story class for the given model'],
             ['axes', null, InputOption::VALUE_OPTIONAL, 'Comma-separated axes to pre-fill (default: all that apply)'],
             ['from-doctor', null, InputOption::VALUE_NONE, 'Scaffold one story per unauthored pair doctor found'],
             ['force', 'f', InputOption::VALUE_NONE, 'Overwrite an existing story'],

@@ -5,6 +5,7 @@ namespace Storyfeed\Console;
 use Closure;
 use Illuminate\Console\Command;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Str;
 use Storyfeed\Diagnostics\Checks\Retention;
 use Storyfeed\FeedHeadline;
 use Storyfeed\Grouping\Group;
@@ -159,12 +160,15 @@ class ListCommand extends Command
 
     /**
      * What the definition came from: `OrderStory@confirmPayment` for a
-     * resource Story class's action, the class for a message class, and
-     * nothing for a line in the file.
+     * resource Story class's action, the class for a message class or an
+     * invokable one (stored `ShipStory@__invoke`, shown as `route:list`
+     * shows an invokable controller), and nothing for a line in the file.
      */
     protected function action(Verb $definition): ?string
     {
-        return $definition->action();
+        $action = $definition->action();
+
+        return $action === null ? null : Str::before($action, '@__invoke');
     }
 
     /**

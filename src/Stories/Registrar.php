@@ -29,6 +29,7 @@ use Storyfeed\Support\MiddlewareNameResolver;
  *     Story::resource(Document::class)->except('restore');   // created, updated, deleted
  *     Story::resource(Order::class, OrderStory::class);      // the four, plus each OrderStory action
  *     Story::for(Task::class)->verb('complete', TaskWasCompleted::class);   // a message class
+ *     Story::verb('confirm', ConfirmStory::class);                          // an invokable class, every type
  *
  * WHAT IT IS. A front door onto {@see Verb}. Every call makes a
  * definition, registers it with the manager at once (the way `Route::get()`
@@ -95,14 +96,17 @@ class Registrar
      * outside one for any object type (`*.verb`), which is also where group
      * headlines and a composite parent's headline belong.
      *
-     * With a message class, binds the class to the verb instead, as
-     * `Route::post('…', ShipOrder::class)` binds an invokable controller. The
+     * With a class, binds it to the verb instead, as
+     * `Route::post('…', ShipOrder::class)` binds a controller: a message
+     * class (extends Story) or an invokable one (a public `__invoke`), told
+     * apart by the class, as the router tells an invokable controller. The
      * class says what the activity reads as; the binding comes back to take
      * only middleware, as a route bound to a controller does:
      * `Story::verb('create', ProjectWasCreated::class)->unbatched()`. Outside
-     * a group, the class's own `$objectType` names the types.
+     * a group, a message class's own `$objectType` names the types, and an
+     * invokable class defines the verb for every type.
      *
-     * @param  class-string<Story>|null  $story
+     * @param  class-string|null  $story
      * @return ($story is null ? Verb : BoundStory)
      */
     public function verb(string|FeedVerb|BackedEnum $verb, ?string $story = null): Verb|BoundStory
@@ -162,8 +166,8 @@ class Registrar
     }
 
     /**
-     * Bind a message class to a verb, for these object types or,
-     * with none, the class's own.
+     * Bind a message or invokable class to a verb, for these object types
+     * or, with none, the message class's own (every type, for an invokable).
      *
      * @param  array<int, string>|null  $objectTypes
      *

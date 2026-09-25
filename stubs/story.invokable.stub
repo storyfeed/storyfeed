@@ -1,0 +1,21 @@
+<?php
+
+namespace {{ namespace }};
+
+use Storyfeed\Stories\Verb;
+
+/**
+ * What a `{{ verb }}` activity says. Call sites never touch this class:
+ * they publish with story('{{ verb }}', …), as for any declared verb.
+ * Returns a Verb, a headline string, or the array form.
+ */
+class {{ class }}
+{
+    public function __invoke(Verb $verb): Verb
+    {
+        return $verb
+            ->headline('{{ headline }}')
+            ->anonymousHeadline('{{ anonymousHeadline }}')
+            ->icon('activity');
+    }
+}
