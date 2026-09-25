@@ -12,6 +12,7 @@ use Storyfeed\ActivityStreams\ObjectType;
 use Storyfeed\Contracts\FeedVerb;
 use Storyfeed\Models\Activity;
 use Storyfeed\Models\Party;
+use Storyfeed\Stories\Story;
 use Storyfeed\StoryfeedManager;
 use Storyfeed\Support\ActivityRoles;
 
@@ -26,6 +27,11 @@ use Storyfeed\Support\ActivityRoles;
  * no grouping hashes are computed, and ActivityPublished is not dispatched.
  * Use Event::fake() to assert on events.
  *
+ * A queued publish is recorded apart, as Mail::fake() keeps queued mail
+ * apart from sent: `->queue()`, or `Storyfeed::publish()` of a message
+ * class that implements ShouldQueue, is `Storyfeed::assertQueued('confirm')`
+ * (or the class) and not `assertPublished()`. Nothing reaches a queue.
+ *
  * Registries (grammar, icons, verbs, object types) are inherited from the
  * real manager, so anything a service provider registered still resolves —
  * which is what lets GrammarCoverage assert against recorded activities.
@@ -34,6 +40,12 @@ class StoryfeedFake extends StoryfeedManager
 {
     /** @var Collection<int, Activity> */
     protected Collection $recorded;
+
+    /** @var Collection<int, Activity> */
+    protected Collection $queuedActivities;
+
+    /** @var list<class-string<Story>> the message classes queued, in order */
+    protected array $queuedStories = [];
 
     /** @var array<string, Party> */
     protected array $parties = [];
@@ -45,6 +57,7 @@ class StoryfeedFake extends StoryfeedManager
     public function __construct()
     {
         $this->recorded = new Collection;
+        $this->queuedActivities = new Collection;
     }
 
     /**
@@ -112,23 +125,105 @@ class StoryfeedFake extends StoryfeedManager
     }
 
     /**
+     * Record a queued activity instead of queueing it. Called by
+     * PendingActivity::queue() while a fake is active. Nothing is stored,
+     * so it has no id.
+     */
+    public function captureQueued(Activity $activity): Activity
+    {
+        $activity->uid ??= (string) Str::ulid();
+        $activity->published_at ??= now();
+
+        $this->queuedActivities->push($activity);
+
+        return $activity;
+    }
+
+    /**
+     * A queued message class: recorded by its class, and by the activity
+     * its toFeedActivity() would publish on the worker.
+     */
+    protected function queueStory(Story $story): void
+    {
+        $this->queuedStories[] = $story::class;
+
+        $story->toFeedActivity()?->queue();
+    }
+
+    /**
+     * Activities queued so far, optionally filtered by verb or callback.
+     *
+     * @return Collection<int, Activity>
+     */
+    public function queued(string|FeedVerb|BackedEnum|Closure|null $verb = null): Collection
+    {
+        return $this->filter($this->queuedActivities, $verb);
+    }
+
+    /**
+     * An activity was queued: by its verb (and object), a callback, or the
+     * message class that was.
+     *
+     * @param  string|class-string<Story>|FeedVerb|BackedEnum|Closure  $verb
+     */
+    public function assertQueued(string|FeedVerb|BackedEnum|Closure $verb, ?Model $object = null): void
+    {
+        if (is_string($verb) && is_subclass_of($verb, Story::class)) {
+            Assert::assertContains($verb, $this->queuedStories, "The expected [{$verb}] story was not queued.");
+
+            return;
+        }
+
+        Assert::assertTrue(
+            $this->about($this->queued($verb), $object)->isNotEmpty(),
+            $this->describeExpectation('Expected an activity to be queued', $verb, $object, $this->queuedActivities, 'Queued'),
+        );
+    }
+
+    /**
+     * @param  string|class-string<Story>|FeedVerb|BackedEnum|Closure  $verb
+     */
+    public function assertNotQueued(string|FeedVerb|BackedEnum|Closure $verb, ?Model $object = null): void
+    {
+        if (is_string($verb) && is_subclass_of($verb, Story::class)) {
+            Assert::assertNotContains($verb, $this->queuedStories, "The unexpected [{$verb}] story was queued.");
+
+            return;
+        }
+
+        Assert::assertTrue(
+            $this->about($this->queued($verb), $object)->isEmpty(),
+            $this->describeExpectation('Expected no activity to be queued', $verb, $object, $this->queuedActivities, 'Queued'),
+        );
+    }
+
+    public function assertQueuedCount(int $count, string|FeedVerb|BackedEnum|Closure|null $verb = null): void
+    {
+        $actual = $this->queued($verb)->count();
+
+        Assert::assertSame(
+            $count,
+            $actual,
+            "Expected {$count} activities to be queued, found {$actual}.".$this->summary($this->queuedActivities, 'Queued'),
+        );
+    }
+
+    public function assertNothingQueued(): void
+    {
+        Assert::assertTrue(
+            $this->queuedActivities->isEmpty() && $this->queuedStories === [],
+            'Expected no activities to be queued.'.$this->summary($this->queuedActivities, 'Queued'),
+        );
+    }
+
+    /**
      * Activities recorded so far, optionally filtered by verb or callback.
      *
      * @return Collection<int, Activity>
      */
     public function published(string|FeedVerb|BackedEnum|Closure|null $verb = null): Collection
     {
-        if ($verb === null) {
-            return $this->recorded;
-        }
-
-        if ($verb instanceof Closure) {
-            return $this->recorded->filter($verb)->values();
-        }
-
-        $needle = $this->normalize($verb);
-
-        return $this->recorded->filter(fn (Activity $a) => $a->verb === $needle)->values();
+        return $this->filter($this->recorded, $verb);
     }
 
     public function assertPublished(string|FeedVerb|BackedEnum|Closure $verb, ?Model $object = null): void
@@ -140,9 +235,12 @@ class StoryfeedFake extends StoryfeedManager
                 && (string) $a->object_id === (string) $object->getKey());
         }
 
+        // MailFake::assertSent()'s hint.
+        $suggestion = $this->queuedActivities->isNotEmpty() || $this->queuedStories !== [] ? ' Did you mean to use assertQueued() instead?' : '';
+
         Assert::assertTrue(
             $matches->isNotEmpty(),
-            $this->describeExpectation('Expected an activity to be published', $verb, $object),
+            $this->describeExpectation('Expected an activity to be published', $verb, $object).$suggestion,
         );
     }
 
@@ -261,7 +359,10 @@ class StoryfeedFake extends StoryfeedManager
         };
     }
 
-    protected function describeExpectation(string $prefix, string|FeedVerb|BackedEnum|Closure $verb, ?Model $object): string
+    /**
+     * @param  Collection<int, Activity>|null  $recorded
+     */
+    protected function describeExpectation(string $prefix, string|FeedVerb|BackedEnum|Closure $verb, ?Model $object, ?Collection $recorded = null, string $label = 'Published'): string
     {
         $described = $verb instanceof Closure ? 'matching the given callback' : "with verb [{$this->normalize($verb)}]";
 
@@ -269,19 +370,60 @@ class StoryfeedFake extends StoryfeedManager
             $described .= " for [{$object->getMorphClass()}#{$object->getKey()}]";
         }
 
-        return "{$prefix} {$described}.".$this->recordedSummary();
+        return "{$prefix} {$described}.".$this->summary($recorded ?? $this->recorded, $label);
     }
 
     protected function recordedSummary(): string
     {
-        if ($this->recorded->isEmpty()) {
-            return ' Nothing was published.';
+        return $this->summary($this->recorded, 'Published');
+    }
+
+    /**
+     * @param  Collection<int, Activity>  $activities
+     */
+    protected function summary(Collection $activities, string $label): string
+    {
+        if ($activities->isEmpty()) {
+            return ' Nothing was '.strtolower($label).'.';
         }
 
-        $summary = $this->recorded
+        $summary = $activities
             ->map(fn (Activity $a) => $a->verb.($a->object_type ? " on {$a->object_type}#{$a->object_id}" : ''))
             ->implode(', ');
 
-        return " Published: {$summary}.";
+        return " {$label}: {$summary}.";
+    }
+
+    /**
+     * @param  Collection<int, Activity>  $activities
+     * @return Collection<int, Activity>
+     */
+    protected function filter(Collection $activities, string|FeedVerb|BackedEnum|Closure|null $verb): Collection
+    {
+        if ($verb === null) {
+            return $activities;
+        }
+
+        if ($verb instanceof Closure) {
+            return $activities->filter($verb)->values();
+        }
+
+        $needle = $this->normalize($verb);
+
+        return $activities->filter(fn (Activity $a) => $a->verb === $needle)->values();
+    }
+
+    /**
+     * @param  Collection<int, Activity>  $activities
+     * @return Collection<int, Activity>
+     */
+    protected function about(Collection $activities, ?Model $object): Collection
+    {
+        if ($object === null) {
+            return $activities;
+        }
+
+        return $activities->filter(fn (Activity $a) => $a->object_type === $object->getMorphClass()
+            && (string) $a->object_id === (string) $object->getKey());
     }
 }

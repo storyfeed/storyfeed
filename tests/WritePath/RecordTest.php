@@ -1,5 +1,7 @@
 <?php
 
+use Illuminate\Bus\Queueable;
+use Illuminate\Queue\SerializesAndRestoresModelIdentifiers;
 use Storyfeed\Facades\Storyfeed;
 use Storyfeed\FeedChange;
 use Storyfeed\FeedThread;
@@ -134,6 +136,13 @@ it('has a record parameter for every public builder role and setter', function (
         'by', 'using', 'resulting', 'in', 'to', 'for', 'from', 'on', 'with', 'into', // Role aliases.
         'when', 'unless', // Conditional composition, not activity fields.
         'hasActor', 'isAnonymous', 'has', // What story middleware reads, not setters.
+        // record() stays synchronous (ruled 2026-09-24): queueing is the
+        // builder's, with Laravel's Queueable, and so is what it carries.
+        'queue', 'snapshotNow', 'deleteWhenMissingModels', '__serialize', '__unserialize',
+        ...array_map(fn (ReflectionMethod $m) => $m->getName(), [
+            ...(new ReflectionClass(Queueable::class))->getMethods(),
+            ...(new ReflectionClass(SerializesAndRestoresModelIdentifiers::class))->getMethods(),
+        ]),
     ];
     $parameters = array_map(fn (ReflectionParameter $p) => $p->getName(), $record->getParameters());
     $setters = [];

@@ -5,6 +5,7 @@ namespace Storyfeed;
 use BackedEnum;
 use Closure;
 use DateTimeInterface;
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Bus\PendingDispatch;
 use Illuminate\Http\Request;
@@ -40,6 +41,7 @@ use Storyfeed\Stories\BoundStory;
 use Storyfeed\Stories\CompileStories;
 use Storyfeed\Stories\DefinitionsFile;
 use Storyfeed\Stories\PendingResource;
+use Storyfeed\Stories\PublishQueuedStory;
 use Storyfeed\Stories\Registrar;
 use Storyfeed\Stories\ResourceClass;
 use Storyfeed\Stories\Story;
@@ -161,6 +163,14 @@ class StoryfeedManager
      * @var array<string, string>
      */
     protected array $storyPeriods = [];
+
+    /**
+     * Where a verb's queued publishes go (`->onQueue()`, `->delay()`,
+     * `->afterCommit()`, …), on the type → verb ladder. Story-compiled only.
+     *
+     * @var array<string, array{connection?: string, queue?: string, delay?: int, afterCommit?: bool, deleteWhenMissingModels?: bool}>
+     */
+    protected array $storyQueue = [];
 
     /**
      * Story middleware as each definition declared it (`->middleware()`,
@@ -1364,12 +1374,36 @@ class StoryfeedManager
      * as `Notification::send()` sends one. Null when its toFeedActivity()
      * says there is nothing to publish.
      *
-     * Synchronous for now, the same as publishNow(). This is where a queued
-     * message (`implements ShouldQueue`) will be dispatched instead.
+     * A message that `implements ShouldQueue` is queued instead, as a queued
+     * notification is, and this returns null, as `Mail::send()` does for a
+     * queued mailable. Where it goes is the class's Queueable properties
+     * (`$queue`, `$connection`, `$delay`, `$afterCommit`,
+     * `$deleteWhenMissingModels`), over what the line binding it in
+     * routes/feed.php declared. Its toFeedActivity() runs on the worker;
+     * `published_at` is stamped now. See PublishQueuedStory.
      */
     public function publish(Story $story): ?Activity
     {
-        return $this->publishNow($story);
+        if (! $story instanceof ShouldQueue) {
+            return $this->publishNow($story);
+        }
+
+        // Unregistered is an error here, at the call, not on the worker.
+        $this->storyVerb($story::class);
+
+        $this->queueStory($story);
+
+        return null;
+    }
+
+    /** Queue a message class that implements ShouldQueue. Overridden by the fake. */
+    protected function queueStory(Story $story): void
+    {
+        if (! $this->isRecording()) {
+            return;
+        }
+
+        PublishQueuedStory::dispatchFor($story, $this->storyQueueing($story::class));
     }
 
     /**
@@ -1467,6 +1501,7 @@ class StoryfeedManager
         $this->storyRetention = $compiled['retention'];
         $this->storyKeepLatest = $compiled['keepLatest'];
         $this->storyPeriods = $compiled['periods'];
+        $this->storyQueue = $compiled['queue'];
         $this->storyMiddleware = $compiled['middleware'];
         $this->storyActions = $compiled['actions'];
         $this->storyNames = $compiled['names'];
@@ -1493,7 +1528,7 @@ class StoryfeedManager
 
         foreach (CompileStories::REGISTRIES as $registry) {
             // Held by TombstoneRules, or replaced whole by the next compile.
-            if (in_array($registry, ['missing', 'forget', 'retention', 'keepLatest', 'periods', 'middleware', 'missingGrammar', 'actors', 'actions', 'names'], true)) {
+            if (in_array($registry, ['missing', 'forget', 'retention', 'keepLatest', 'periods', 'queue', 'middleware', 'missingGrammar', 'actors', 'actions', 'names'], true)) {
                 continue;
             }
 
@@ -1554,7 +1589,7 @@ class StoryfeedManager
      * with the Story facade (2026-09-23): actorless grammar, nouns and object
      * types.
      *
-     * @param  array{grammar: array<string, string|Closure|FeedHeadline>, aggregateGrammar: array<string, string>, actorlessGrammar?: array<string, string|Closure|FeedHeadline>, icons: array<string, string>, glyphIntents?: array<string, string>, nouns?: array<string, string|FeedNoun>, objectTypes?: array<string, ObjectType|string>, verbs: array<string, mixed>, missing?: array<string, list<string>>, missingGrammar?: array<string, string|Closure|FeedHeadline>, forget?: array<string, bool>, retention?: array<string, string>, keepLatest?: array<string, array{per: list<string>, within: string|null}>, periods?: array<string, string>, middleware?: array<string, array{middleware: list<string|Closure>, excluded: list<string>}>, actors?: array<string, string>, actions?: array<string, array{uses: string, request: bool, parts: array<string, string>|null}>, names?: array<string, string>}  $compiled
+     * @param  array{grammar: array<string, string|Closure|FeedHeadline>, aggregateGrammar: array<string, string>, actorlessGrammar?: array<string, string|Closure|FeedHeadline>, icons: array<string, string>, glyphIntents?: array<string, string>, nouns?: array<string, string|FeedNoun>, objectTypes?: array<string, ObjectType|string>, verbs: array<string, mixed>, missing?: array<string, list<string>>, missingGrammar?: array<string, string|Closure|FeedHeadline>, forget?: array<string, bool>, retention?: array<string, string>, keepLatest?: array<string, array{per: list<string>, within: string|null}>, periods?: array<string, string>, queue?: array<string, array{connection?: string, queue?: string, delay?: int, afterCommit?: bool, deleteWhenMissingModels?: bool}>, middleware?: array<string, array{middleware: list<string|Closure>, excluded: list<string>}>, actors?: array<string, string>, actions?: array<string, array{uses: string, request: bool, parts: array<string, string>|null}>, names?: array<string, string>}  $compiled
      * @param  list<string>  $stories  the Story classes the manifest was compiled from
      */
     public function useCompiledStories(array $compiled, array $stories = []): static
@@ -1571,6 +1606,7 @@ class StoryfeedManager
         $compiled['retention'] ??= [];
         $compiled['keepLatest'] ??= [];
         $compiled['periods'] ??= [];
+        $compiled['queue'] ??= [];
         $compiled['middleware'] ??= [];
         $compiled['actors'] ??= [];
         $compiled['actions'] ??= [];
@@ -2715,6 +2751,47 @@ class StoryfeedManager
         $this->ensureStoriesCompiled();
 
         return $this->resolve($this->storyKeepLatest, $type, $verb);
+    }
+
+    /**
+     * Where a queued publish of this type and verb goes, as the most
+     * specific declaration on the type → verb ladder says; empty when none
+     * reaches it. The call site overrides each part.
+     *
+     * @return array{connection?: string, queue?: string, delay?: int, afterCommit?: bool, deleteWhenMissingModels?: bool}
+     *
+     * @internal
+     */
+    public function queueing(?string $type, string $verb): array
+    {
+        $this->ensureStoriesCompiled();
+
+        return $this->resolve($this->storyQueue, $type, $verb) ?? [];
+    }
+
+    /**
+     * Where a message class's queued publishes go, as the line binding it
+     * says: the class isn't built until the worker, so its type is the
+     * line's.
+     *
+     * @param  class-string<Story>  $class
+     * @return array{connection?: string, queue?: string, delay?: int, afterCommit?: bool, deleteWhenMissingModels?: bool}
+     *
+     * @internal
+     */
+    public function storyQueueing(string $class): array
+    {
+        $this->ensureStoriesCompiled();
+
+        foreach ($this->storyActions as $key => $action) {
+            if ($action['uses'] === $class) {
+                [$type, $verb] = explode('.', $key, 2);
+
+                return $this->queueing($type === '*' ? null : $type, $verb);
+            }
+        }
+
+        return [];
     }
 
     /**

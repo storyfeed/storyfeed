@@ -6,6 +6,7 @@ use BackedEnum;
 use Closure;
 use DateInterval;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Queue\SerializesModels;
 use Storyfeed\ActivityStreams\ActivityType;
 use Storyfeed\Contracts\FeedVerb;
 use Storyfeed\Contracts\PublishesToFeed;
@@ -59,6 +60,15 @@ use Storyfeed\StoryfeedManager;
  *
  *   // the call site
  *   Storyfeed::publish(new DocumentWasUploaded($document, $user));
+ *
+ * QUEUED, it is a queued Notification: `implements ShouldQueue` and
+ * `use Queueable`, and the same `Storyfeed::publish()` puts it on the queue
+ * and returns null; `Storyfeed::publishNow()` publishes it here.
+ * toFeedActivity() runs on the worker, where its models are fetched again
+ * by their keys (SerializesModels), and `published_at` is still the moment
+ * of the call. `$queue`, `$connection`, `$delay`, `$afterCommit`,
+ * `$deleteWhenMissingModels`, `ShouldBeUnique` and `#[DebounceFor]` mean
+ * what they mean on a job.
  *
  * `toFeedActivity()` is the class's `toMail()`: what this one publish says.
  * Null publishes nothing. Everything else is presentation, the same for every
@@ -116,6 +126,8 @@ use Storyfeed\StoryfeedManager;
  */
 abstract class Story implements PublishesToFeed
 {
+    use SerializesModels;
+
     /**
      * REQUIRED when the line binding the class is outside a `Story::for()`,
      * which would otherwise give the types. A model

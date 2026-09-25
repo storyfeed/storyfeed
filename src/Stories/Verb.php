@@ -89,6 +89,9 @@ final class Verb
     /** The calendar bucket its groups live in; null: not said, so a broader definition's, or a day. */
     protected ?Period $period = null;
 
+    /** @var array{connection?: string, queue?: string, delay?: int, afterCommit?: bool, deleteWhenMissingModels?: bool} where a queued publish goes, as declared */
+    protected array $queueing = [];
+
     /** @var list<string|Closure> story middleware, in the order declared */
     protected array $middleware = [];
 
@@ -638,6 +641,84 @@ final class Verb
     }
 
     /**
+     * Where this verb's queued publishes go, as a job class's `$connection`
+     * and `$queue` say where it goes: a default, and the call site's
+     * `->onConnection()` / `->onQueue()` overrides it.
+     *
+     *     Story::for(Order::class)->verb('confirm')->onQueue('feed');
+     *
+     *     Storyfeed::activity('confirm', $order)->queue();                     // on `feed`
+     *     Storyfeed::activity('confirm', $order)->onQueue('urgent')->queue();  // on `urgent`
+     *
+     * Declaring it doesn't queue anything: a publish is queued by
+     * `->queue()`, or by a message class that implements `ShouldQueue`.
+     */
+    public function onConnection(string|BackedEnum $connection): self
+    {
+        $this->queueing['connection'] = $connection instanceof BackedEnum ? (string) $connection->value : $connection;
+
+        return $this;
+    }
+
+    /** The queue this verb's queued publishes go on — see onConnection(). */
+    public function onQueue(string|BackedEnum $queue): self
+    {
+        $this->queueing['queue'] = $queue instanceof BackedEnum ? (string) $queue->value : $queue;
+
+        return $this;
+    }
+
+    /**
+     * How long a queued publish waits before the worker takes it, in
+     * seconds or as an interval: `->delay('5 seconds')`. The activity's
+     * `published_at` is still the moment `->queue()` was called.
+     */
+    public function delay(int|string|DateInterval $delay): self
+    {
+        if (is_int($delay) && $delay < 0) {
+            throw new InvalidArgumentException("->delay() on [{$this->key()}] was given {$delay}, which is not a number of seconds.");
+        }
+
+        $this->queueing['delay'] = is_int($delay)
+            ? $delay
+            : (int) CarbonInterval::make(self::window($delay, $this->key(), 'delay'))?->totalSeconds;
+
+        return $this;
+    }
+
+    /**
+     * Publish once the surrounding database transaction has committed, as a
+     * job's `afterCommit()` waits for it: queued or not. Off by default, when
+     * a queued publish follows its connection's `after_commit`.
+     */
+    public function afterCommit(): self
+    {
+        $this->queueing['afterCommit'] = true;
+
+        return $this;
+    }
+
+    /** Publish without waiting for the transaction, whatever the connection's `after_commit` says. */
+    public function beforeCommit(): self
+    {
+        $this->queueing['afterCommit'] = false;
+
+        return $this;
+    }
+
+    /**
+     * Drop a queued publish silently when a model it names was deleted before
+     * the worker took it, as a job's `$deleteWhenMissingModels` does. Without
+     * it, the job fails and lands in `failed_jobs`.
+     */
+    public function deleteWhenMissingModels(bool $delete = true): self
+    {
+        $this->queueing['deleteWhenMissingModels'] = $delete;
+
+        return $this;
+    }
+
+    /**
      * Middleware this verb's activities go through when they are published,
      * after the `default` group, as a route's own middleware runs after its
      * group's. A class, an alias with arguments (`'batch:5 minutes'`), a
@@ -1117,6 +1198,33 @@ final class Verb
         return $this->period;
     }
 
+    /**
+     * Where a queued publish goes, as declared; null when the verb said
+     * nothing and a broader definition's answer stands.
+     *
+     * @return array{connection?: string, queue?: string, delay?: int, afterCommit?: bool, deleteWhenMissingModels?: bool}|null
+     *
+     * @internal
+     */
+    public function queueing(): ?array
+    {
+        return $this->queueing === [] ? null : $this->queueing;
+    }
+
+    /**
+     * Take a bound line's queue placement, what it said winning.
+     *
+     * @param  array{connection?: string, queue?: string, delay?: int, afterCommit?: bool, deleteWhenMissingModels?: bool}  $queueing
+     *
+     * @internal
+     */
+    public function queueLike(array $queueing): self
+    {
+        $this->queueing = [...$this->queueing, ...$queueing];
+
+        return $this;
+    }
+
     /** @internal */
     public function actorGiven(): Model|string|null
     {
@@ -1188,6 +1296,11 @@ final class Verb
             'retention' => $this->retention,
             'keepLatest' => $this->keepLatest === null ? null : [...$this->keepLatest['per'], '@', (string) $this->keepLatest['within']],
             'period' => $this->period,
+            'queue' => $this->queueing === [] ? null : array_map(
+                fn (string $key, mixed $value) => $key.'='.var_export($value, true),
+                array_keys($this->queueing),
+                $this->queueing,
+            ),
             'groups' => $this->groups,
         ]);
     }

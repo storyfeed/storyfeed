@@ -100,6 +100,10 @@ it('forwards every chainable builder method', function () {
             continue; // verb() belongs to the FeedVerb contract; action() is its alias, and an enum case is already a verb
         }
 
+        if (in_array($method->getName(), ['snapshotNow', 'deleteWhenMissingModels'], true)) {
+            continue; // Queue settings, like Queueable's onQueue(): said on the builder, not where an enum case starts one
+        }
+
         if ((string) $method->getReturnType() === 'static') {
             $chainable[] = $method->getName();
         }

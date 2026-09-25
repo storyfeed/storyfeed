@@ -522,6 +522,50 @@
   `make:story --invokable` prints its binding with the name,
   `->name('order.ship')`.
 - **Grouping periods, declared per verb.** `->groupedHourly()`, `->groupedDaily()` (the default), `->groupedWeekly()` and `->groupedMonthly()` on a verb, or `->groupedPer(Period::Week)`, `'groupedPer' => 'week'` in the array form, and a `period(): ?Period` method on a Story class. The period is the value of the Day segment of every axis key, cut in `app.timezone` at publish: `2026-09-23T14`, `2026-09-23`, `2026-W39`, `2026-09`. A verb that declares nothing hashes byte for byte as before. A week is ISO, Monday to Sunday, whatever the locale, with no config key. Resolved on the `type.verb` ladder, so `Story::fallback()->groupedWeekly()` sets it for every verb that says nothing. It compiles into the manifest as a scalar, and `storyfeed:list` shows it in a Period column (`period` in `--json`). A bounded `storyfeed:curate --window` looks back over a weekly or monthly verb's whole period plus a day, for that verb only, and the doctor's `grouping.uncurated` reach agrees.
+- **Queued publishing, as Laravel queues a Mailable and a Notification.**
+  `PendingActivity` uses `Illuminate\Bus\Queueable` (`onConnection()`,
+  `onQueue()`, `delay()`, `afterCommit()`/`beforeCommit()`, `through()`,
+  `chain()`), and `->queue()` sits beside `->publish()`:
+  `Storyfeed::activity('confirm', $order)->onQueue('feed')->queue()`. It
+  rides in a `PublishQueuedActivity` job that carries its models by key,
+  never whole, and publishes on the worker through the verb's story
+  middleware. `published_at` is stamped at the call, so a delayed publish
+  lands when it happened. Snapshots are taken on the worker; `->snapshotNow()`
+  takes them at the call. `Storyfeed::as()`, `Storyfeed::context()` and the
+  signed-in user go with it, as they do into any job. A model deleted before
+  the worker takes it fails the job, as a job's does;
+  `->deleteWhenMissingModels()` drops it silently instead. With recording
+  off, nothing is queued. `record()` stays synchronous.
+- **A verb declares where its queued publishes go**, as a job class's
+  `$queue` does: `->onConnection()`, `->onQueue()`, `->delay()`,
+  `->afterCommit()`, `->beforeCommit()` and `->deleteWhenMissingModels()`
+  on a Verb, a resource action or a bound line
+  (`Story::verb('confirm', OrderConfirmed::class)->onQueue('feed')`). The
+  call site overrides each. They compile into a new `queue` registry, which
+  `storyfeed:cache` keeps.
+- **`->afterCommit()` holds a synchronous publish too**, until the
+  surrounding transaction commits, as an event that implements
+  `ShouldDispatchAfterCommit` does, and drops it on a rollback. Until then
+  `publish()` returns the Activity unsaved (`exists` false), and the same
+  instance is stored at the commit. Off by default; a verb can declare it.
+- **A message class that `implements ShouldQueue` and uses `Queueable` is
+  queued by `Storyfeed::publish()`**, which then returns null, as a queued
+  notification and a queued mailable are; `Storyfeed::publishNow()`
+  publishes it at once. Its toFeedActivity() runs on the worker. Its
+  Queueable properties, `$tries`, `$timeout`, `backoff()`, `retryUntil()`,
+  `$deleteWhenMissingModels` and `ShouldQueueAfterCommit` apply over the
+  line's declaration, and `failed()` is called when the job fails.
+  `ShouldBeUnique`, `ShouldBeUniqueUntilProcessing`, `uniqueId()` and
+  `uniqueFor` are forwarded the way a queued listener's are (a second
+  publish while one is pending is dropped), and so is `#[DebounceFor]` with
+  `debounceId()` (the last pending publish wins; Laravel 13, and not with
+  `maxWait`, which Laravel reads from the job class itself). The base
+  `Story` class now uses `SerializesModels`.
+- **The fake keeps queued publishes apart**, as `Mail::fake()` does:
+  `Storyfeed::assertQueued('confirm', $order)` (or a message class, or a
+  callback), `assertNotQueued()`, `assertQueuedCount()`,
+  `assertNothingQueued()` and `queued()`. `assertPublished()` suggests
+  `assertQueued()` when something was queued.
 - **Invokable story classes**, as invokable controllers: one verb's declaration, grown too big for a line in routes/feed.php, in a class that extends nothing and declares `__invoke(Verb $verb)`, returning a Verb, a headline string or the array form, as a resource class's action does. Bind it with the line a message class uses, `Story::for(Order::class)->verb('ship', ShipStory::class)`, or `Story::verb('confirm', ConfirmStory::class)` for every type, which may give `->grouped(Group::byActors()->headline(…))` a headline that names no type. The class's shape tells the two apart, as the router checks for `__invoke`: a `Story` subclass is a message, a public `__invoke` is invokable, and a class that is both or neither fails at the line, naming the two shapes. Call sites never touch it: it publishes by its name, `story('order.ship', $order)` once the line says `->name('order.ship')`, as for any named story. It is stored as `ShipStory@__invoke`, as Laravel stores an invokable controller, so `storyfeed:cache` round-trips it, and `storyfeed:list` shows `ShipStory` in its Action column, as route:list does. `make:story ShipStory --invokable --object=Order` writes one from `stubs/story.invokable.stub`; an invokable class named for a declared verb (`ShipStory`, `ConfirmPaymentStory`) takes that verb, and `--object='*'` prints `Story::verb(…)`. `--invokable` with `--resource` is an error.
 - **A `Feedable` subclass deleted through its parent is tombstoned at
   deletion time.** `FeedablePhoto extends Media implements Feedable` is

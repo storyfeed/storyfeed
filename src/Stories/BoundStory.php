@@ -42,6 +42,11 @@ use Storyfeed\Exceptions\StoryMisconfigured;
  *
  *     Story::verb('create', ProjectWasCreated::class)->unbatched();
  *
+ * And where a queued publish goes, below the message class's own `$queue`
+ * and `$connection` and a call site's `->onQueue()`:
+ *
+ *     Story::verb('create', ProjectWasCreated::class)->onQueue('feed');
+ *
  * Made by the Story facade.
  */
 final class BoundStory
@@ -58,6 +63,9 @@ final class BoundStory
     private ?string $name = null;
 
     private string $namePrefix = '';
+
+    /** Where a queued publish goes, as the line says, checked as it is said. */
+    private ?Verb $placement = null;
 
     /**
      * @param  array<int, string>|null  $objectTypes  the scope's types; null outside one, where a message class's own stand
@@ -164,6 +172,59 @@ final class BoundStory
         return $this;
     }
 
+    /** @see Verb::onConnection() */
+    public function onConnection(string|BackedEnum $connection): self
+    {
+        $this->placement()->onConnection($connection);
+
+        return $this;
+    }
+
+    /** @see Verb::onQueue() */
+    public function onQueue(string|BackedEnum $queue): self
+    {
+        $this->placement()->onQueue($queue);
+
+        return $this;
+    }
+
+    /** @see Verb::delay() */
+    public function delay(int|string|DateInterval $delay): self
+    {
+        $this->placement()->delay($delay);
+
+        return $this;
+    }
+
+    /** @see Verb::afterCommit() */
+    public function afterCommit(): self
+    {
+        $this->placement()->afterCommit();
+
+        return $this;
+    }
+
+    /** @see Verb::beforeCommit() */
+    public function beforeCommit(): self
+    {
+        $this->placement()->beforeCommit();
+
+        return $this;
+    }
+
+    /** @see Verb::deleteWhenMissingModels() */
+    public function deleteWhenMissingModels(bool $delete = true): self
+    {
+        $this->placement()->deleteWhenMissingModels($delete);
+
+        return $this;
+    }
+
+    private function placement(): Verb
+    {
+        return $this->placement ??= Verb::for('*', $this->verb, $this->source);
+    }
+
     /** The definition the class compiles to, for the line's verb and types. */
     public function definition(): Verb
     {
@@ -177,6 +238,10 @@ final class BoundStory
 
         if ($this->name !== null) {
             $definition->name($this->name);
+        }
+
+        if (($queueing = $this->placement?->queueing()) !== null) {
+            $definition->queueLike($queueing);
         }
 
         return $definition;

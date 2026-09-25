@@ -5,10 +5,12 @@ namespace Storyfeed;
 use BackedEnum;
 use Carbon\CarbonInterval;
 use DateTimeInterface;
+use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Pipeline\Pipeline;
+use Illuminate\Queue\SerializesAndRestoresModelIdentifiers;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -54,6 +56,11 @@ use UnexpectedValueException;
  *
  *   PendingActivity::inline(ActivityVerb::Confirm)->object($delivery)->actor($user)
  *
+ * QUEUED, it is a Mailable: `->queue()` sits beside `->publish()`, and
+ * Laravel's own Queueable says where it goes:
+ *
+ *   Storyfeed::activity('confirm', $order)->onQueue('feed')->afterCommit()->queue();
+ *
  * Ad-hoc means "no Story CLASS needed", not "grammar inline". Grammar resolves
  * at read time from the compiled registries, and an inline headline would live
  * on an instance of an event that takes constructor arguments — so it could not
@@ -66,7 +73,7 @@ use UnexpectedValueException;
  */
 class PendingActivity
 {
-    use Conditionable;
+    use Conditionable, Queueable, SerializesAndRestoresModelIdentifiers;
 
     public Activity $activity;
 
@@ -84,6 +91,19 @@ class PendingActivity
     protected ?FeedThread $thread = null;
 
     protected ?FeedChange $change = null;
+
+    /** Queued: snapshot the entities at `->queue()`, not on the worker. */
+    private bool $snapshotNow = false;
+
+    /** @var list<string> roles whose snapshot was taken at dispatch */
+    private array $snapshotted = [];
+
+    /**
+     * Queued: drop the publish when a model it names is gone by the time the
+     * worker takes it, as a job's `$deleteWhenMissingModels` does. Null
+     * follows the verb's declaration, and then fails the job.
+     */
+    public ?bool $deleteWhenMissingModels = null;
 
     public function __construct(string|FeedVerb|BackedEnum|null $verb = null, Model|string|null $object = null)
     {
@@ -419,6 +439,14 @@ class PendingActivity
      * null as the unsaved Activity recording-off gives (`exists` false), the
      * way the router turns a null into an empty response. Nothing is stored
      * or dispatched, and the fake records nothing.
+     *
+     * AFTER COMMIT (`->afterCommit()`, or the verb's declaration) waits for
+     * the surrounding database transaction, as an event that implements
+     * `ShouldDispatchAfterCommit` does: the publish runs once it commits,
+     * and never if it rolls back, so a feed row can't describe a write that
+     * didn't happen. Until then this returns the Activity unsaved (`exists`
+     * false), and the same instance is stored at the commit. Outside a
+     * transaction it publishes at once.
      */
     public function publish(): Activity
     {
@@ -428,6 +456,8 @@ class PendingActivity
 
         $manager = app(StoryfeedManager::class);
 
+        // Before any wait for a commit, so a scope that has closed by then
+        // still says who acted.
         $this->applyScopes($manager);
 
         $this->assertAuthored($manager);
@@ -440,6 +470,163 @@ class PendingActivity
         // middleware, so it sees when the act happened.
         $this->activity->published_at ??= now();
 
+        $type = $this->activity->object_type;
+        $afterCommit = $this->afterCommit ?? $manager->queueing(is_string($type) && $type !== '' ? $type : null, (string) $this->activity->verb)['afterCommit'] ?? false;
+
+        if ($afterCommit && app()->bound('db.transactions')) {
+            $ran = false;
+            $published = null;
+
+            // Runs at once when no transaction is open.
+            app('db.transactions')->addCallback(function () use (&$ran, &$published) {
+                $ran = true;
+                $published = $this->throughMiddleware(app(StoryfeedManager::class));
+            });
+
+            if ($ran && $published instanceof Activity) {
+                return $published;
+            }
+
+            // Keyed now, so the row the commit stores is the one handed back.
+            $this->activity->uid ??= (string) Str::ulid();
+
+            return $this->activity;
+        }
+
+        return $this->throughMiddleware($manager);
+    }
+
+    /**
+     * Publish on a queue worker instead, as a Mailable's `queue()` sends it
+     * there: `Storyfeed::activity('confirm', $order)->queue()`.
+     *
+     * Where it goes is Laravel's own Queueable: `->onConnection()`,
+     * `->onQueue()`, `->delay()`, `->afterCommit()`, `->through()` (job
+     * middleware) and `->chain()`, each over what the verb declared in
+     * routes/feed.php, then the queue config. `published_at` is stamped
+     * now, so a delayed publish still lands at the moment it happened.
+     *
+     * On the worker it publishes as `publish()` does: the story middleware,
+     * then the snapshots, unless `->snapshotNow()` took them here. A
+     * `Storyfeed::as()` or `Storyfeed::context()` around this call, and the
+     * signed-in user, go with it. A model deleted before the worker takes it
+     * fails the job, unless `->deleteWhenMissingModels()` says to drop it.
+     *
+     * With recording off nothing is queued. The fake records it as queued,
+     * for `Storyfeed::assertQueued()`.
+     */
+    public function queue(): void
+    {
+        if (blank($this->activity->verb)) {
+            throw IncompleteActivity::missingVerb();
+        }
+
+        $manager = app(StoryfeedManager::class);
+
+        $this->assertAuthored($manager);
+
+        $this->activity->published_at ??= now();
+
+        if ($manager instanceof StoryfeedFake) {
+            $this->applyScopes($manager);
+            $this->resolveDefaultActor($manager);
+            $this->captureOnFake($manager, queued: true);
+
+            return;
+        }
+
+        if (! $manager->isRecording()) {
+            return;
+        }
+
+        $type = $this->activity->object_type;
+        $declared = $manager->queueing(is_string($type) && $type !== '' ? $type : null, (string) $this->activity->verb);
+
+        // The call site first, as `->onQueue()` overrides a job's `$queue`.
+        $this->connection ??= $declared['connection'] ?? null;
+        $this->queue ??= $declared['queue'] ?? null;
+        $this->delay ??= $declared['delay'] ?? null;
+        $this->afterCommit ??= $declared['afterCommit'] ?? null;
+        $this->deleteWhenMissingModels ??= $declared['deleteWhenMissingModels'] ?? false;
+
+        if ($this->snapshotNow) {
+            $this->snapshotEntities();
+            $this->snapshotted = array_keys($this->entities);
+        }
+
+        dispatch(new PublishQueuedActivity($this));
+    }
+
+    /**
+     * Queued: take the snapshots (labels, data, media) now, as the entities
+     * are at this call, instead of on the worker. Laravel says "now" for
+     * "here, not on the queue" (`notifyNow()`, `Mail::sendNow()`).
+     */
+    public function snapshotNow(bool $now = true): static
+    {
+        $this->snapshotNow = $now;
+
+        return $this;
+    }
+
+    /**
+     * Queued: drop the publish silently when a model it names was deleted
+     * before the worker took it — see {@see $deleteWhenMissingModels}.
+     */
+    public function deleteWhenMissingModels(bool $delete = true): static
+    {
+        $this->deleteWhenMissingModels = $delete;
+
+        return $this;
+    }
+
+    /**
+     * What a queue carries: the unsaved row's attributes, and each model by
+     * its identifier, never whole, as SerializesModels carries a job's.
+     * Restoring it fetches them again, and throws ModelNotFoundException for
+     * one deleted since. Where it was queued is the job's to carry, not this.
+     *
+     * @return array<string, mixed>
+     */
+    public function __serialize(): array
+    {
+        return [
+            'activity' => [$this->activity::class, $this->activity->getAttributes()],
+            'anonymous' => $this->anonymous,
+            'entities' => array_map(fn (Model $model) => $this->getSerializedPropertyValue($model), $this->entities),
+            'objects' => array_map(fn (Model $model) => $this->getSerializedPropertyValue($model), $this->objects),
+            'thread' => $this->thread,
+            'change' => $this->change,
+            'snapshotted' => $this->snapshotted,
+        ];
+    }
+
+    /** @param  array<string, mixed>  $data */
+    public function __unserialize(array $data): void
+    {
+        /** @var array{0: class-string<Activity>, 1: array<string, mixed>} $activity */
+        $activity = $data['activity'];
+
+        $this->activity = new $activity[0];
+        $this->activity->setRawAttributes($activity[1]);
+        $this->anonymous = (bool) $data['anonymous'];
+        $this->activity->withoutDefaultActor($this->anonymous);
+        $this->thread = $data['thread'];
+        $this->change = $data['change'];
+        $this->snapshotted = $data['snapshotted'];
+
+        foreach ($data['entities'] as $role => $identifier) {
+            $this->entities[$role] = $this->getRestoredPropertyValue($identifier);
+        }
+
+        foreach ($data['objects'] as $identifier) {
+            $this->objects[] = $this->getRestoredPropertyValue($identifier);
+        }
+    }
+
+    /** Through the verb's story middleware to the row. */
+    private function throughMiddleware(StoryfeedManager $manager): Activity
+    {
         $type = $this->activity->object_type;
         $verb = (string) $this->activity->verb;
 
@@ -846,18 +1033,16 @@ class PendingActivity
      * On the fake, a composite records the parent story plus each member,
      * so per-object assertions (assertPublished('upload', $file)) hold.
      */
-    protected function captureOnFake(StoryfeedFake $fake): Activity
+    protected function captureOnFake(StoryfeedFake $fake, bool $queued = false): Activity
     {
-        if ($this->objects === []) {
-            return $fake->capture($this->activity);
-        }
+        $capture = fn (Activity $activity) => $queued ? $fake->captureQueued($activity) : $fake->capture($activity);
 
-        $parent = $fake->capture($this->activity);
+        $parent = $capture($this->activity);
 
         foreach ($this->objects as $model) {
             $member = $this->activity->replicate(['uid']);
             $member->object()->associate($model);
-            $fake->capture($member);
+            $capture($member);
         }
 
         return $parent;
@@ -1004,6 +1189,11 @@ class PendingActivity
     private function snapshotEntities(): void
     {
         foreach ($this->entities as $role => $model) {
+            // Taken at `->queue()` by `->snapshotNow()`.
+            if (in_array($role, $this->snapshotted, true)) {
+                continue;
+            }
+
             if (app(Feedables::class)->isFeedable($model)) {
                 $snapshot = (new SnapshotEntity)($model);
 

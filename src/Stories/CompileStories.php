@@ -49,6 +49,7 @@ use Storyfeed\StoryfeedManager;
  *     retention: array<string, string>,
  *     keepLatest: array<string, array{per: list<string>, within: string|null}>,
  *     periods: array<string, string>,
+ *     queue: array<string, array{connection?: string, queue?: string, delay?: int, afterCommit?: bool, deleteWhenMissingModels?: bool}>,
  *     middleware: array<string, array{middleware: list<string|Closure>, excluded: list<string>}>,
  *     actors: array<string, string>,
  *     actions: array<string, array{uses: string, request: bool, parts: array<string, string>|null}>,
@@ -58,7 +59,7 @@ use Storyfeed\StoryfeedManager;
 class CompileStories
 {
     /** The registries a compile produces, in the order they are applied. */
-    public const REGISTRIES = ['grammar', 'aggregateGrammar', 'actorlessGrammar', 'icons', 'glyphIntents', 'nouns', 'objectTypes', 'verbs', 'missing', 'missingGrammar', 'forget', 'retention', 'keepLatest', 'periods', 'middleware', 'actors', 'actions', 'names'];
+    public const REGISTRIES = ['grammar', 'aggregateGrammar', 'actorlessGrammar', 'icons', 'glyphIntents', 'nouns', 'objectTypes', 'verbs', 'missing', 'missingGrammar', 'forget', 'retention', 'keepLatest', 'periods', 'queue', 'middleware', 'actors', 'actions', 'names'];
 
     /**
      * @param  array<int, Verb>  $definitions
@@ -80,6 +81,7 @@ class CompileStories
         $retention = [];
         $keepLatest = [];
         $periods = [];
+        $queue = [];
         $middleware = [];
         $actors = [];
         $actions = [];
@@ -184,6 +186,14 @@ class CompileStories
                     $periods[$key] = $period->value;
                 }
 
+                // Where a queued publish goes: scalars, as a job's
+                // `$connection` and `$queue` are. Unsaid, the call site's
+                // and then the queue config's defaults stand.
+                if (($queueing = $definition->queueing()) !== null) {
+                    $this->claim($owners, 'queue', $key, $source);
+                    $queue[$key] = $queueing;
+                }
+
                 // Story middleware as declared: names, not classes, as
                 // route:cache keeps them, so aliases and groups resolve when
                 // the activity is published. The same declaration twice (a
@@ -266,6 +276,7 @@ class CompileStories
             'retention' => $retention,
             'keepLatest' => $keepLatest,
             'periods' => $periods,
+            'queue' => $queue,
             'middleware' => $middleware,
             'actors' => $actors,
             'actions' => $actions,
