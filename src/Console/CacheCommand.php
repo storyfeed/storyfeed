@@ -79,10 +79,10 @@ class CacheCommand extends Command
             return self::SUCCESS;
         }
 
-        $classes = array_values(array_unique(array_filter(array_map(
-            fn (mixed $story) => $story instanceof BoundStory ? $story->class : $story,
-            $storyfeed->registeredStories(),
-        ), fn (mixed $story) => is_string($story) && is_a($story, Story::class, true))));
+        $classes = array_values(array_unique(array_map(
+            fn (BoundStory $story) => $story->class,
+            array_filter($storyfeed->registeredStories(), fn (mixed $story) => $story instanceof BoundStory),
+        )));
 
         try {
             $path = $manifest->write($compiled, $classes);

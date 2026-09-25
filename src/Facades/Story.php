@@ -19,7 +19,7 @@ use Storyfeed\Stories\Registrar;
  * Story classes extend. The two rarely meet in one file; where they do, alias
  * one: `use Storyfeed\Stories\Story as BaseStory;`.
  *
- * `Story::verb('x')` returns the definition to configure; binding a one-verb
+ * `Story::verb('x')` returns the definition to configure; binding a message
  * class, `Story::verb('x', X::class)`, returns null — the class says it all.
  *
  * @method static \Storyfeed\Stories\TypeScope for(string|array<int, string> $objectType)

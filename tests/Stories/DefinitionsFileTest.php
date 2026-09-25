@@ -5,13 +5,12 @@ use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Support\ServiceProvider;
 use Orchestra\Testbench\Attributes\WithConfig;
 use Storyfeed\Facades\Storyfeed;
-use Storyfeed\PendingActivity;
 use Storyfeed\Stories\DefinitionsFile;
 use Storyfeed\Stories\StoryManifest;
 use Storyfeed\StoryfeedServiceProvider;
 use Storyfeed\Tests\Fixtures\Stories\DeliveryWasDispatched;
 use Storyfeed\Tests\TestCase;
-use Workbench\App\Stories\DeliveryWasConfirmed;
+use Workbench\App\Models\Delivery;
 
 /*
  * routes/feed.php: loaded in booted() like routes/channels.php, and given
@@ -132,20 +131,6 @@ it('reports a stale manifest when the file changes after caching', function () {
         ->and($finding->message)->toContain('grammar[delivery.rush]');
 });
 
-it('knows a Story class registered in the file once cached', function () {
-    $path = writeDefinitions(<<<'PHP'
-        Storyfeed::stories([Workbench\App\Stories\DeliveryWasConfirmed::class]);
-        PHP);
-
-    bootWithDefinitions($this, $path);
-    $this->artisan('storyfeed:cache')->assertSuccessful();
-    bootWithDefinitions($this, $path);
-
-    expect(app(DefinitionsFile::class)->isLoaded())->toBeFalse()
-        ->and(Storyfeed::hasStory(DeliveryWasConfirmed::class))->toBeTrue()
-        ->and(Storyfeed::template('delivery', 'confirm'))->not->toBeNull();
-});
-
 it('knows a class bound in the file, and its verb, once cached', function () {
     $path = writeDefinitions(<<<'PHP'
         Story::for(Delivery::class)->verb('dispatch', \Storyfeed\Tests\Fixtures\Stories\DeliveryWasDispatched::class);
@@ -157,8 +142,8 @@ it('knows a class bound in the file, and its verb, once cached', function () {
 
     expect(app(DefinitionsFile::class)->isLoaded())->toBeFalse()
         ->and(Storyfeed::hasStory(DeliveryWasDispatched::class))->toBeTrue()
-        ->and(DeliveryWasDispatched::verb())->toBe('dispatch')
-        ->and(DeliveryWasDispatched::of())->toBeInstanceOf(PendingActivity::class)
+        ->and(Storyfeed::storyVerb(DeliveryWasDispatched::class))->toBe('dispatch')
+        ->and((new DeliveryWasDispatched(new Delivery))->toFeedActivity()?->activity->verb)->toBe('dispatch')
         ->and(Storyfeed::template('delivery', 'dispatch'))->toBe(':actor dispatched :object');
 });
 

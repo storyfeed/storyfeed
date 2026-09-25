@@ -25,12 +25,10 @@ use Storyfeed\Events\ActivityPublished;
 use Storyfeed\Events\Snapshots\ActivitySnapshot;
 use Storyfeed\Exceptions\IncompleteActivity;
 use Storyfeed\Exceptions\UnauthoredActivity;
-use Storyfeed\Exceptions\UnknownStory;
 use Storyfeed\Exceptions\UnknownVerb;
 use Storyfeed\Models\Activity;
 use Storyfeed\Models\Grouping;
 use Storyfeed\Models\Party;
-use Storyfeed\Stories\Story;
 use Storyfeed\Support\BodySlot;
 use Storyfeed\Support\Chronology;
 use Storyfeed\Support\Feedables;
@@ -47,13 +45,10 @@ use Storyfeed\Testing\StoryfeedFake;
  * Verbs are free-form strings; a FeedVerb enum (or any backed enum) is an
  * authoring convenience that resolves to the same string.
  *
- * A `PublishesToFeed` implementor returns one of these, unpublished. Two ways
- * to name what it publishes, matching the ad-hoc-disks framing:
+ * A `PublishesToFeed` implementor returns one of these, unpublished. A
+ * message class starts it with `$this->activity($object)`, which knows the
+ * class's verb; anything else names the verb inline:
  *
- *   // point at a Story class — verb, AS2 type and grammar come from it
- *   PendingActivity::of(DeliveryWasConfirmed::class)->object($delivery)->actor($user)
- *
- *   // declare inline, no class required
  *   PendingActivity::inline(ActivityVerb::Confirm)->object($delivery)->actor($user)
  *
  * Ad-hoc means "no Story CLASS needed", not "grammar inline". Grammar resolves
@@ -101,37 +96,6 @@ class PendingActivity
     public static function make(string|FeedVerb|BackedEnum|null $verb = null, Model|string|null $object = null): static
     {
         return new static($verb, $object);
-    }
-
-    /**
-     * Begin the activity a registered Story class describes:
-     * `PendingActivity::of(OrderWasShipped::class)->object($order)`.
-     *
-     * This `of()` takes the Story CLASS. `OrderWasShipped::of($order)` is the
-     * other one: the class is the receiver there, so it takes the OBJECT.
-     *
-     * Throws for an unregistered Story rather than publishing a verbless
-     * activity — a typo'd or unregistered class must not degrade into a row
-     * nobody authored a headline for.
-     *
-     * Typed as a plain string rather than `class-string<Story>` on purpose:
-     * the guard below exists BECAUSE callers pass whatever they have, and
-     * narrowing the annotation would tell the analyser the check is unreachable
-     * while leaving the runtime exactly as exposed.
-     */
-    public static function of(string|Story $story): static
-    {
-        $class = is_string($story) ? $story : $story::class;
-
-        if (! is_a($class, Story::class, true)) {
-            throw UnknownStory::notAStory($class);
-        }
-
-        if (! app(StoryfeedManager::class)->hasStory($class)) {
-            throw UnknownStory::unregistered($class);
-        }
-
-        return static::make($class::verb());
     }
 
     /**

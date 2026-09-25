@@ -24,10 +24,14 @@ use Storyfeed\PendingActivity;
  *   }
  *
  * The return type is the plain builder, so the event writes exactly the line a
- * listener would, minus `->publish()`. `SomeStory::of($object)`,
- * `PendingActivity::of(SomeStory::class)` and `PendingActivity::inline($verb)`
+ * listener would, minus `->publish()`. `Storyfeed::activity()`,
+ * `PendingActivity::inline($verb)` and a message class's `$this->activity()`
  * all build one; nothing downstream needs anything narrower — `publishFor()`
  * only publishes.
+ *
+ * A message class (`Storyfeed\Stories\Story`) implements this too, so an
+ * event and a message are published by the same method:
+ * `Storyfeed::publish(new OrderConfirmed($order))` reaches `publishFor()`.
  *
  * Wiring is ONE line in this package's provider:
  * `Event::listen(PublishesToFeed::class, PublishFeedActivity::class)`. Laravel's

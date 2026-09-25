@@ -28,7 +28,7 @@ use Storyfeed\StoryfeedManager;
  *      this currently picks one at random and says nothing. Every registry
  *      entry is claimed, and the error names both sources (`file:line` for
  *      the registrar and ad-hoc definitions, the class for Story classes).
- *      A verb an action or a one-verb Story class defines is claimed whole.
+ *      A verb an action or a message class defines is claimed whole.
  *
  * Output is closure-free unless a definition authored a closure headline
  * (the registrar allows it). Closure-free output is var_export-able into the
@@ -85,7 +85,7 @@ class CompileStories
         /** @var array<string, array{0: string, 1: string|null}> $defined type.verb => [the first source, the action that owns it] */
         $defined = [];
 
-        /** @var array<string, string> $classVerbs a one-verb Story class => its verb */
+        /** @var array<string, string> $classVerbs a message class => its verb */
         $classVerbs = [];
 
         foreach ($definitions as $definition) {
@@ -301,7 +301,7 @@ class CompileStories
      *
      * Written on a verb, it is filed under the verb (`repeat.place`). Written
      * inside `Story::for(Order::class)`, or in a Story class about orders
-     * (a resource class method such as `OrderStory::place()`, or a one-verb
+     * (a resource class method such as `OrderStory::place()`, or a message
      * class such as `OrderWasPlaced`), it is about orders, so it is filed
      * under orders too (`repeat.order.place`), which the read path tries
      * first. Filed under the verb alone, `ReservationWasPlaced` would share
@@ -341,7 +341,7 @@ class CompileStories
     /**
      * The Story class method that wrote a definition's group headlines, for
      * one about a type: `App\Stories\OrderStory@place` from a resource
-     * class, `App\Stories\OrderWasPlaced@groups` from a one-verb class;
+     * class, `App\Stories\OrderWasPlaced@groups` from a message class;
      * null for anything else.
      */
     protected function classMethod(Verb $definition): ?string
@@ -381,7 +381,7 @@ class CompileStories
     }
 
     /**
-     * A verb an action or a one-verb Story class defines is defined there
+     * A verb an action or a message class defines is defined there
      * whole, as a route bound to a controller is: any other definition of
      * the same `type.verb`, whatever it says, is a conflict naming both.
      * Lines in the file may still share a key between them, each saying a

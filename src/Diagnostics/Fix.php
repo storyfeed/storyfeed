@@ -69,10 +69,10 @@ final class Fix
             return $this->snippet;
         }
 
-        // A declaration with no hand-written registry: the array form of a
-        // definition, and nothing to spell, so it is always live.
-        if ($this->registry === 'keepLatest') {
-            return sprintf("Storyfeed::stories([\n    '%s' => ['keepLatest' => true],\n]);", $this->key);
+        // A declaration with no hand-written registry: only routes/feed.php
+        // can say it, and there is nothing to spell, so it is always live.
+        if ($this->registry === 'keepLatest' && ($definition = $this->definition()) !== null) {
+            return $definition['code'];
         }
 
         $code = sprintf(

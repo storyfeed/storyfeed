@@ -3,11 +3,13 @@
 use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Support\Facades\ParallelTesting;
 use Illuminate\Support\ServiceProvider;
+use Storyfeed\Facades\Story;
 use Storyfeed\Facades\Storyfeed;
 use Storyfeed\Grouping\Group;
 use Storyfeed\Stories\StoryManifest;
 use Storyfeed\Stories\Verb;
 use Storyfeed\StoryfeedManager;
+use Workbench\App\Enums\ActivityVerb;
 use Workbench\App\Stories\DeliveryWasConfirmed;
 
 /*
@@ -42,7 +44,7 @@ it('gives each parallel test worker a manifest of its own', function () {
 });
 
 it('produces registries identical to an uncached boot', function () {
-    Storyfeed::stories([DeliveryWasConfirmed::class]);
+    Story::verb(ActivityVerb::Confirm, DeliveryWasConfirmed::class);
 
     $uncached = [
         'grammar' => Storyfeed::registeredGrammar(),
@@ -56,7 +58,7 @@ it('produces registries identical to an uncached boot', function () {
     app()->forgetInstance(StoryfeedManager::class);
     Storyfeed::clearResolvedInstances();
 
-    Storyfeed::stories([DeliveryWasConfirmed::class]);
+    Story::verb(ActivityVerb::Confirm, DeliveryWasConfirmed::class);
     expect(app(StoryManifest::class)->apply(app(StoryfeedManager::class)))->toBeTrue();
 
     expect(Storyfeed::registeredGrammar())->toBe($uncached['grammar'])
@@ -65,7 +67,7 @@ it('produces registries identical to an uncached boot', function () {
 });
 
 it('keeps the verb mapping usable across a var_export round-trip', function () {
-    Storyfeed::stories([DeliveryWasConfirmed::class]);
+    Story::verb(ActivityVerb::Confirm, DeliveryWasConfirmed::class);
 
     $this->artisan('storyfeed:cache')->assertSuccessful();
 
@@ -78,7 +80,7 @@ it('keeps the verb mapping usable across a var_export round-trip', function () {
 
     app()->forgetInstance(StoryfeedManager::class);
     Storyfeed::clearResolvedInstances();
-    Storyfeed::stories([DeliveryWasConfirmed::class]);
+    Story::verb(ActivityVerb::Confirm, DeliveryWasConfirmed::class);
     app(StoryManifest::class)->apply(app(StoryfeedManager::class));
 
     expect(Storyfeed::activityTypeValue('confirm'))->toBe('Update');
@@ -90,7 +92,7 @@ it('registers with optimize and optimize:clear', function () {
 });
 
 it('removes the manifest on clear', function () {
-    Storyfeed::stories([DeliveryWasConfirmed::class]);
+    Story::verb(ActivityVerb::Confirm, DeliveryWasConfirmed::class);
 
     $this->artisan('storyfeed:cache')->assertSuccessful();
     expect(app(StoryManifest::class)->exists())->toBeTrue();
@@ -100,12 +102,12 @@ it('removes the manifest on clear', function () {
 });
 
 it('writes nothing when a story fails to compile', function () {
-    Storyfeed::stories([
+    defineStories(
         // Composite with no parent grammar — a compile error.
         Verb::make('delivery.upload')
             ->headline(':actor uploaded :object')
-            ->groups(Group::composite()->headline(':actor uploaded :objects')),
-    ]);
+            ->groups(Group::composite()->headline(':actor uploaded :objects'))
+    );
 
     $this->artisan('storyfeed:cache')
         ->expectsOutputToContain('nothing was cached')
@@ -124,9 +126,9 @@ it('says so plainly when there are no stories to cache', function () {
 });
 
 it('reports a stale manifest, naming what drifted', function () {
-    Storyfeed::stories([
-        Verb::make('delivery.confirm')->headline(':actor confirmed :object'),
-    ]);
+    defineStories(
+        Verb::make('delivery.confirm')->headline(':actor confirmed :object')
+    );
 
     $this->artisan('storyfeed:cache')->assertSuccessful();
 
@@ -136,9 +138,9 @@ it('reports a stale manifest, naming what drifted', function () {
     // recompile. Deploys, migrations and tests all stay green.
     app()->forgetInstance(StoryfeedManager::class);
     Storyfeed::clearResolvedInstances();
-    Storyfeed::stories([
-        Verb::make('delivery.confirm')->headline(':actor CONFIRMED :object'),
-    ]);
+    defineStories(
+        Verb::make('delivery.confirm')->headline(':actor CONFIRMED :object')
+    );
 
     $report = Storyfeed::doctor(['manifest']);
 
@@ -149,7 +151,7 @@ it('reports a stale manifest, naming what drifted', function () {
 });
 
 it('reports nothing when no manifest is cached', function () {
-    Storyfeed::stories([DeliveryWasConfirmed::class]);
+    Story::verb(ActivityVerb::Confirm, DeliveryWasConfirmed::class);
 
     // Never written implicitly, so a developer who has not opted in has
     // nothing stale to fight.
@@ -158,9 +160,9 @@ it('reports nothing when no manifest is cached', function () {
 });
 
 it('flags a cached manifest whose source no longer compiles', function () {
-    Storyfeed::stories([
-        Verb::make('delivery.confirm')->headline(':actor confirmed :object'),
-    ]);
+    defineStories(
+        Verb::make('delivery.confirm')->headline(':actor confirmed :object')
+    );
 
     $this->artisan('storyfeed:cache')->assertSuccessful();
 
@@ -168,11 +170,11 @@ it('flags a cached manifest whose source no longer compiles', function () {
     // stories on disk are broken, so nothing else would notice.
     app()->forgetInstance(StoryfeedManager::class);
     Storyfeed::clearResolvedInstances();
-    Storyfeed::stories([
+    defineStories(
         Verb::make('delivery.confirm')
             ->headline(':actor confirmed :object')
-            ->groups(Group::on('nonexistent')->headline(':actors confirmed')),
-    ]);
+            ->groups(Group::on('nonexistent')->headline(':actors confirmed'))
+    );
 
     $report = Storyfeed::doctor(['manifest']);
 

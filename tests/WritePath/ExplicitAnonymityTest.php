@@ -1,8 +1,10 @@
 <?php
 
 use Storyfeed\Concerns\AsFeedVerb;
+use Storyfeed\Facades\Story as StoryFacade;
 use Storyfeed\Facades\Storyfeed;
 use Storyfeed\Models\Activity;
+use Storyfeed\PendingActivity;
 use Storyfeed\Stories\Story;
 use Workbench\App\Models\Delivery;
 use Workbench\App\Models\User;
@@ -59,15 +61,14 @@ it('keeps omitted actors resolving across builder and record entry points', func
     $activity = match ($entry) {
         'builder' => Storyfeed::activity('ping')->publish(),
         'record' => Storyfeed::record('ping'),
-        'story' => AnonymityTestStory::record(),
+        'story' => publishAnonymityStory(new AnonymityTestStory),
         'record null' => Storyfeed::record('ping', actor: null),
-        'story null' => AnonymityTestStory::record(actor: null),
         'enum' => AnonymityTestVerb::Ping->record(),
         'model' => Activity::create(['verb' => 'ping']),
     };
     expect($activity->fresh()->actor_id)->toEqual($user->id)
         ->and($calls)->toBe(1);
-})->with(['builder', 'record', 'story', 'record null', 'story null', 'enum', 'model']);
+})->with(['builder', 'record', 'story', 'record null', 'enum', 'model']);
 
 it('carries anonymity into composite members and overrides ambient actors', function () {
     $objects = collect([Delivery::create(['tracking_number' => 'A']), Delivery::create(['tracking_number' => 'B'])]);
@@ -94,6 +95,15 @@ class AnonymityTestStory extends Story
 
     public string|\Storyfeed\Contracts\FeedVerb|BackedEnum|null $verb = 'ping';
 
+    public function __construct(public bool $anonymous = false, public ?User $by = null) {}
+
+    public function toFeedActivity(): ?PendingActivity
+    {
+        return $this->activity()
+            ->when($this->anonymous, fn (PendingActivity $pending) => $pending->anonymously())
+            ->when($this->by, fn (PendingActivity $pending, User $user) => $pending->by($user));
+    }
+
     public function headline(): string
     {
         return ':actor pinged';
@@ -103,18 +113,29 @@ class AnonymityTestStory extends Story
 it('starts anonymous chains on every authoring surface and lets a later actor win', function (string $surface, bool $named) {
     $user = User::create(['name' => 'Sally', 'email' => 'sally@example.com']);
     Storyfeed::resolveActorUsing(fn () => throw new RuntimeException('Unexpected resolver'));
-    $pending = match ($surface) {
-        'facade' => Storyfeed::anonymous()->action('ping'),
-        'story' => AnonymityTestStory::anonymous(),
-        'enum' => AnonymityTestVerb::Ping->anonymous(),
-    };
-    if ($named) {
-        $pending->by($user);
+    // A message's chain is its own: the later actor is given to it.
+    if ($surface === 'story') {
+        $activity = publishAnonymityStory(new AnonymityTestStory(anonymous: true, by: $named ? $user : null))->fresh();
+    } else {
+        $pending = match ($surface) {
+            'facade' => Storyfeed::anonymous()->action('ping'),
+            'enum' => AnonymityTestVerb::Ping->anonymous(),
+        };
+        if ($named) {
+            $pending->by($user);
+        }
+        $activity = $pending->publish()->fresh();
     }
-    $activity = $pending->publish()->fresh();
     expect($activity->verb)->toBe('ping')
         ->and($activity->actor_id)->toEqual($named ? $user->id : null);
 })->with(['facade', 'story', 'enum'])->with([true, false]);
+
+function publishAnonymityStory(AnonymityTestStory $story): Activity
+{
+    StoryFacade::verb('ping', AnonymityTestStory::class);
+
+    return Storyfeed::publish($story) ?? throw new LogicException('The message published nothing.');
+}
 
 enum AnonymityTestVerb: string
 {

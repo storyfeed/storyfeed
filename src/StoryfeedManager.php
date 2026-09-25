@@ -27,6 +27,7 @@ use Storyfeed\Diagnostics\Report;
 use Storyfeed\Exceptions\StoryMisconfigured;
 use Storyfeed\Exceptions\UndeclaredParty;
 use Storyfeed\Exceptions\UnknownFeed;
+use Storyfeed\Exceptions\UnknownStory;
 use Storyfeed\Grouping\Axis;
 use Storyfeed\Models\Activity;
 use Storyfeed\Models\FeedTombstone;
@@ -277,14 +278,10 @@ class StoryfeedManager
     protected array $bundleables = [];
 
     /**
-     * Registered story definitions, in registration order.
+     * What routes/feed.php registered through the Story facade, in
+     * registration order.
      *
-     * Typed loosely on purpose: this holds whatever the app passed, and
-     * validating it is exactly what storyDefinitions() is for. Narrowing it
-     * here would tell the analyser the checks are unreachable while leaving
-     * the runtime just as exposed.
-     *
-     * @var array<int|string, mixed>
+     * @var list<Verb|PendingResource|BoundStory>
      */
     protected array $stories = [];
 
@@ -796,7 +793,7 @@ class StoryfeedManager
      *   ]);
      *
      * The same register-once-at-boot shape as grammar(), axes(), verbs(),
-     * icons(), stories() and checks(), one level up: those describe how an
+     * icons() and checks(), one level up: those describe how an
      * activity READS, this describes which activities a surface is about.
      *
      * Both forms normalize into one FeedDefinition, exactly as a Story class
@@ -1233,14 +1230,35 @@ class StoryfeedManager
     }
 
     /**
-     * Register story definitions — classes, Stories\Verb objects, or
-     * `'type.verb' => [...]` arrays (see Storyfeed\Stories\Story).
+     * Publish a message: `Storyfeed::publish(new OrderConfirmed($order))`,
+     * as `Notification::send()` sends one. Null when its toFeedActivity()
+     * says there is nothing to publish.
      *
-     * @param  array<int|string, class-string<Story>|Verb|PendingResource|BoundStory|array<string, mixed>>  $stories
+     * Synchronous for now, the same as publishNow(). This is where a queued
+     * message (`implements ShouldQueue`) will be dispatched instead.
      */
-    public function stories(array $stories, bool $merge = true): static
+    public function publish(Story $story): ?Activity
     {
-        $this->stories = $merge ? [...$this->stories, ...$stories] : $stories;
+        return $this->publishNow($story);
+    }
+
+    /**
+     * Publish a message now, whether or not it is queued, as
+     * `Notification::sendNow()` does.
+     */
+    public function publishNow(Story $story): ?Activity
+    {
+        return $this->publishFor($story);
+    }
+
+    /**
+     * Register what a Story facade line made.
+     *
+     * @internal Registration is routes/feed.php, through the Story facade.
+     */
+    public function addStory(Verb|PendingResource|BoundStory $story): static
+    {
+        $this->stories[] = $story;
 
         // Registering after a compile (a second provider, a test) must not be
         // silently ignored — and the memoized output is now stale.
@@ -1255,8 +1273,8 @@ class StoryfeedManager
      *
      * Deferred to App::booted() by the service provider so PROVIDER ORDERING IS
      * IRRELEVANT: compilation reads the axis registry (to validate group axes)
-     * and the verb registry, and an app that calls stories() before axes()
-     * would otherwise get a confusing "unknown axis" throw for a correct
+     * and the verb registry, and a definitions file that loads before an
+     * app's axes() call would otherwise get a confusing "unknown axis" throw for a correct
      * configuration.
      *
      * Hand-written registrations WIN, whichever order they were made in. An
@@ -1370,14 +1388,11 @@ class StoryfeedManager
 
         $definitions = [];
 
-        foreach ($this->stories as $key => $story) {
+        foreach ($this->stories as $story) {
             array_push($definitions, ...match (true) {
                 $story instanceof Verb => [$story],
                 $story instanceof PendingResource => $story->definitions(),
                 $story instanceof BoundStory => [$story->definition()],
-                is_array($story) => [Verb::fromArray((string) $key, $story)],
-                is_string($story) && is_a($story, Story::class, true) => [Verb::fromStory($story)],
-                default => throw StoryMisconfigured::notAStory(is_string($story) ? $story : get_debug_type($story)),
             });
         }
 
@@ -1431,7 +1446,7 @@ class StoryfeedManager
         return $this;
     }
 
-    /** @return array<int|string, mixed> */
+    /** @return list<Verb|PendingResource|BoundStory> */
     public function registeredStories(): array
     {
         return $this->stories;
@@ -1449,7 +1464,7 @@ class StoryfeedManager
         }
 
         foreach ($this->stories as $entry) {
-            if ($entry === $class || $entry instanceof $class || ($entry instanceof BoundStory && $entry->class === $class)) {
+            if ($entry instanceof BoundStory && $entry->class === $class) {
                 return true;
             }
         }
@@ -1458,7 +1473,7 @@ class StoryfeedManager
     }
 
     /**
-     * The verb a one-verb Story class publishes, as the compiled stories
+     * The verb a message class publishes, as the compiled stories
      * know it — which is how a class bound in routes/feed.php, with no `$verb`
      * of its own, learns its verb, cached or not. Null for a class nothing
      * registered.
@@ -1470,6 +1485,55 @@ class StoryfeedManager
         foreach ($this->storyActions as $key => $action) {
             if ($action['uses'] === $class) {
                 return explode('.', $key, 2)[1];
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * The verb a message class publishes, for its `$this->activity()`.
+     *
+     * Throws for a class nothing registered, rather than publishing a verb
+     * nobody authored a headline for.
+     *
+     * @internal Use `$this->activity()` inside the class.
+     */
+    public function storyVerb(string $class): string
+    {
+        if (! $this->hasStory($class)) {
+            throw UnknownStory::unregistered($class);
+        }
+
+        return $this->boundVerb($class) ?? throw StoryMisconfigured::missingVerb($class);
+    }
+
+    /**
+     * The message class a verb is bound to, for this object type or, with
+     * none, for any: `story()` refuses such a verb, so the class's
+     * toFeedActivity() is never bypassed. Null for a verb only lines and
+     * resource classes define.
+     *
+     * @return class-string<Story>|null
+     *
+     * @internal
+     */
+    public function messageFor(string|FeedVerb|BackedEnum $verb, ?string $type = null): ?string
+    {
+        $this->ensureStoriesCompiled();
+
+        $verb = match (true) {
+            $verb instanceof FeedVerb => $verb->verb(),
+            $verb instanceof BackedEnum => (string) $verb->value,
+            default => trim($verb),
+        };
+
+        foreach ($this->storyActions as $key => $action) {
+            [$keyType, $keyVerb] = explode('.', $key, 2);
+
+            if ($keyVerb === $verb && ($type === null || $keyType === $type || $keyType === '*')
+                && is_a($action['uses'], Story::class, true)) {
+                return $action['uses'];
             }
         }
 
@@ -1836,8 +1900,7 @@ class StoryfeedManager
      * Unrecognized type strings are preserved verbatim (extension types
      * must survive round-tripping).
      *
-     * Typed on the KEY loosely on purpose, for the same reason `$stories` is:
-     * this receives whatever the app passed, and validating it is what the loop
+     * Typed on the KEY loosely on purpose: this receives whatever the app passed, and validating it is what the loop
      * below is for. Declaring `array<string, …>` claimed a guarantee PHP does
      * not enforce, and the cost of the lie was a list silently registering the
      * integer 0 as a verb.

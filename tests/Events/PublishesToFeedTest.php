@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Event;
 use Storyfeed\Contracts\FeedVerb;
 use Storyfeed\Contracts\PublishesToFeed;
 use Storyfeed\Exceptions\UnknownStory;
+use Storyfeed\Facades\Story as StoryFacade;
 use Storyfeed\Facades\Storyfeed;
 use Storyfeed\PendingActivity;
 use Storyfeed\Stories\Story;
@@ -19,7 +20,7 @@ use Workbench\App\Stories\DeliveryWasConfirmed;
  */
 
 beforeEach(function () {
-    Storyfeed::stories([DeliveryWasConfirmed::class]);
+    StoryFacade::verb(ActivityVerb::Confirm, DeliveryWasConfirmed::class);
 });
 
 it('publishes when an implementing event is dispatched', function () {
@@ -99,6 +100,11 @@ it('refuses to publish an unregistered Story rather than a verbless row', functi
 
         public string|FeedVerb|BackedEnum|null $verb = 'ghost';
 
+        public function toFeedActivity(): ?PendingActivity
+        {
+            return $this->activity();
+        }
+
         public function headline(): string
         {
             return ':actor did something';
@@ -106,7 +112,7 @@ it('refuses to publish an unregistered Story rather than a verbless row', functi
     };
 
     try {
-        PendingActivity::of($unregistered);
+        Storyfeed::publish($unregistered);
         $this->fail('Expected an UnknownStory.');
     } catch (UnknownStory $e) {
         expect($e->getMessage())
@@ -117,21 +123,14 @@ it('refuses to publish an unregistered Story rather than a verbless row', functi
     }
 });
 
-it('refuses a non-Story class, pointing at inline() instead', function () {
-    expect(fn () => PendingActivity::of(Delivery::class))
-        ->toThrow(UnknownStory::class, 'PendingActivity::inline($verb)');
-});
-
 it('keeps the whole builder surface, with no parallel API to drift', function () {
     $delivery = Delivery::create(['tracking_number' => 'TN-1']);
     $user = User::create(['name' => 'Sally', 'email' => 'sally@example.com']);
 
     // Inherited from PendingActivity — actor/for/data/when/publishedAt all
     // present without a single forwarder written here.
-    $activity = PendingActivity::of(DeliveryWasConfirmed::class)
-        ->object($delivery)
-        ->actor($user)
-        ->data(['note' => 'ok'])
+    $activity = (new DeliveryWasConfirmed($delivery, $user))->toFeedActivity()
+        ?->data(['note' => 'ok'])
         ->when(true, fn ($story) => $story->publishedAt(now()->subHour()))
         ->publish();
 

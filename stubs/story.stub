@@ -2,11 +2,27 @@
 
 namespace {{ namespace }};
 
+{{ modelImport }}
 use Storyfeed\Grouping\Group;
+use Storyfeed\PendingActivity;
 use Storyfeed\Stories\Story;
 
 class {{ class }} extends Story
 {
+    /**
+     * The data one activity needs, given where it happens:
+     * Storyfeed::publish(new {{ class }}(…)).
+     */
+    public function __construct({{ constructor }}) {}
+
+    /**
+     * The activity to publish, or null to publish nothing.
+     */
+    public function toFeedActivity(): ?PendingActivity
+    {
+        return {{ activity }};
+    }
+
     public function headline(): string
     {
         return '{{ headline }}';

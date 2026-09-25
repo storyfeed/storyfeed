@@ -55,8 +55,7 @@ trait AsFeedVerb
 
     /**
      * Begin this verb's activity, about this object:
-     * `ActivityVerb::Upload->of($document)->by($user)->publish()`. The same
-     * word a one-verb Story class uses, `DocumentWasUploaded::of($document)`.
+     * `ActivityVerb::Upload->of($document)->by($user)->publish()`.
      */
     public function of(Model|string|null $object = null): PendingActivity
     {

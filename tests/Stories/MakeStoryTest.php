@@ -1,5 +1,6 @@
 <?php
 
+use App\Stories\DeliveryWasConfirmed;
 use Illuminate\Support\Facades\Artisan;
 use Storyfeed\Facades\Story;
 use Storyfeed\Facades\Storyfeed;
@@ -336,8 +337,14 @@ it('honours an explicit axis list', function () {
         ->and($source)->not->toContain('Group::byActors()');
 });
 
-it('generates a story that compiles once the printed line binds it', function () {
+it('generates a message that compiles once the printed line binds it, and publishes', function () {
     $binding = bindingIn(makeStory(['name' => 'DeliveryWasConfirmed', '--object' => Delivery::class]));
+
+    // A message: constructed with its object, which its activity is about.
+    expect(file_get_contents(storyPath('DeliveryWasConfirmed')))
+        ->toContain('use '.Delivery::class.';')
+        ->toContain('public function __construct(public Delivery $delivery) {}')
+        ->toContain('return $this->activity($this->delivery);');
 
     require storyPath('DeliveryWasConfirmed');
 
@@ -347,6 +354,21 @@ it('generates a story that compiles once the printed line binds it', function ()
 
     expect(Storyfeed::template('delivery', 'confirm'))->toContain(':actor')
         ->and(Storyfeed::aggregateTemplate('repeat', 'confirm', 'delivery'))->not->toBeNull();
+
+    $delivery = Delivery::create(['tracking_number' => 'TN-1']);
+    $activity = Storyfeed::publish(new DeliveryWasConfirmed($delivery));
+
+    expect($activity?->verb)->toBe('confirm')
+        ->and($activity?->object_id)->toEqual($delivery->id);
+});
+
+it('types the object as any model when no model class names it', function () {
+    makeStory(['name' => 'ParcelWasConfirmed']);
+
+    expect(file_get_contents(storyPath('ParcelWasConfirmed')))
+        ->toContain('use Illuminate\Database\Eloquent\Model;')
+        ->toContain('public function __construct(public Model $parcel) {}')
+        ->toContain('return $this->activity($this->parcel);');
 });
 
 it('scaffolds one story per unauthored pair doctor actually found', function () {

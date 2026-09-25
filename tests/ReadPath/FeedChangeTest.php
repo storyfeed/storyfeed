@@ -1,8 +1,10 @@
 <?php
 
+use Storyfeed\Facades\Story as StoryFacade;
 use Storyfeed\Facades\Storyfeed;
 use Storyfeed\FeedChange;
 use Storyfeed\FeedThread;
+use Storyfeed\PendingActivity;
 use Storyfeed\Serialization\ActivitySerializer;
 use Storyfeed\Stories\Story;
 use Workbench\App\Models\Delivery;
@@ -13,18 +15,30 @@ class ChangeStory extends Story
 
     public string|array|null $objectType = Delivery::class;
 
+    /** @param  array<string, mixed>  $data */
+    public function __construct(public Delivery $delivery, public array $data) {}
+
+    public function toFeedActivity(): ?PendingActivity
+    {
+        return $this->activity($this->delivery)->data($this->data);
+    }
+
     public function headline(): string
     {
         return ':actor confirmed :object';
     }
 }
 
-it('records changes through both flat surfaces with a storage-only version', function (bool $story) {
+it('records changes through a flat surface and a message with a storage-only version', function (bool $story) {
     $change = FeedChange::make(['Status' => ['Draft', 'Ready'], 'Cleared' => ['old', null]]);
     $data = $change->toData(['source' => 'import', '$vendor' => ['$v' => 12]]);
     $object = Delivery::create(['tracking_number' => 'CHANGE']);
+    if ($story) {
+        StoryFacade::verb('confirm', ChangeStory::class);
+    }
+
     $activity = $story
-        ? ChangeStory::record(object: $object, data: $data)
+        ? Storyfeed::publish(new ChangeStory($object, $data))
         : Storyfeed::record('confirm', object: $object, data: $data);
 
     expect($activity->fresh()->data)->toBe($data)

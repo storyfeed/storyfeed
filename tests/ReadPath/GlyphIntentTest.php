@@ -1,7 +1,9 @@
 <?php
 
+use Storyfeed\Facades\Story as StoryFacade;
 use Storyfeed\Facades\Storyfeed;
 use Storyfeed\Models\Activity;
+use Storyfeed\PendingActivity;
 use Storyfeed\Serialization\ActivitySerializer;
 use Storyfeed\Stories\Story;
 use Storyfeed\Stories\StoryManifest;
@@ -105,12 +107,17 @@ it('emits the intent on a group node from the same pair as its glyph', function 
         ->and($item['children'][0]['glyph_intent'])->toBe('info');
 });
 
-it('compiles the three authoring forms to the same intent registry', function () {
+it('compiles a message class and a line to the same intent registry', function () {
     $story = new class extends Story
     {
         public string|array|null $objectType = Delivery::class;
 
         public string|\Storyfeed\Contracts\FeedVerb|\BackedEnum|null $verb = 'confirm';
+
+        public function toFeedActivity(): ?PendingActivity
+        {
+            return $this->activity();
+        }
 
         public function headline(): string
         {
@@ -129,24 +136,18 @@ it('compiles the three authoring forms to the same intent registry', function ()
     };
 
     $forms = [
-        'class' => [$story::class],
-        'fluent' => [
-            Verb::make('delivery.confirm')
-                ->headline(':actor confirmed :object')
-                ->icon('bi-truck')
-                ->intent('success'),
-        ],
-        'array' => [
-            'delivery.confirm' => [
-                'headline' => ':actor confirmed :object',
-                'icon' => 'bi-truck',
-                'intent' => 'success',
-            ],
-        ],
+        'class' => fn () => StoryFacade::verb('confirm', $story::class),
+        'line' => fn () => StoryFacade::for(Delivery::class)->verb('confirm')
+            ->headline(':actor confirmed :object')
+            ->icon('bi-truck')
+            ->intent('success'),
     ];
 
-    foreach ($forms as $name => $stories) {
-        Storyfeed::stories($stories, merge: false);
+    foreach ($forms as $name => $register) {
+        app()->forgetInstance(StoryfeedManager::class);
+        Storyfeed::clearResolvedInstances();
+
+        $register();
 
         $compiled = Storyfeed::compiledStories();
 
@@ -156,28 +157,26 @@ it('compiles the three authoring forms to the same intent registry', function ()
 });
 
 it('leaves the registry empty when no story declares an intent', function () {
-    Storyfeed::stories([
-        Verb::make('delivery.confirm')->headline(':actor confirmed :object')->icon('bi-truck'),
-    ]);
+    defineStories(
+        Verb::make('delivery.confirm')->headline(':actor confirmed :object')->icon('bi-truck')
+    );
 
     expect(Storyfeed::compiledStories()['glyphIntents'])->toBe([])
         ->and(Storyfeed::glyphIntent('delivery', 'confirm'))->toBeNull();
 });
 
 it('lets a hand-written registration win over a compiled one, like every registry', function () {
-    Storyfeed::stories([
-        Verb::make('delivery.confirm')->headline(':actor confirmed :object')->intent('success'),
-    ]);
+    defineStories(
+        Verb::make('delivery.confirm')->headline(':actor confirmed :object')->intent('success')
+    );
     Storyfeed::glyphIntents(['delivery.confirm' => 'overridden']);
 
     expect(Storyfeed::glyphIntent('delivery', 'confirm'))->toBe('overridden');
 });
 
 it('round-trips through the cached manifest and tolerates a manifest written before it existed', function () {
-    $stories = [
-        Verb::make('delivery.confirm')->headline(':actor confirmed :object')->intent('success'),
-    ];
-    Storyfeed::stories($stories);
+    $define = fn () => defineStories(Verb::make('delivery.confirm')->headline(':actor confirmed :object')->intent('success'));
+    $define();
 
     $manifest = app(StoryManifest::class);
 
@@ -189,7 +188,7 @@ it('round-trips through the cached manifest and tolerates a manifest written bef
         // the manifest only ever stands in for their COMPILATION.
         app()->forgetInstance(StoryfeedManager::class);
         Storyfeed::clearResolvedInstances();
-        Storyfeed::stories($stories);
+        $define();
         expect($manifest->apply(app(StoryfeedManager::class)))->toBeTrue()
             ->and(Storyfeed::glyphIntent('delivery', 'confirm'))->toBe('success');
 
@@ -199,7 +198,7 @@ it('round-trips through the cached manifest and tolerates a manifest written bef
 
         app()->forgetInstance(StoryfeedManager::class);
         Storyfeed::clearResolvedInstances();
-        Storyfeed::stories($stories);
+        $define();
         expect($manifest->apply(app(StoryfeedManager::class)))->toBeTrue()
             ->and(Storyfeed::glyphIntent('delivery', 'confirm'))->toBeNull()
             ->and(Storyfeed::registeredGlyphIntents())->toBe([]);

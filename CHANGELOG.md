@@ -43,6 +43,34 @@
   `delete` option (`'soft'` or `'force'`). Rename the key in a published
   config.
 
+- **Breaking: a one-verb Story class is now a message**, constructed with
+  its data and published, as a Notification is:
+  `Storyfeed::publish(new OrderConfirmed($order))`. The class implements
+  `toFeedActivity(): ?PendingActivity`, the same hook as a `PublishesToFeed`
+  event, and starts it with `$this->activity($object)`, which knows the
+  class's verb. Null publishes nothing. `Storyfeed::publish()` and
+  `Storyfeed::publishNow()` both publish now and return `?Activity`;
+  `publish()` is where queued messages will be dispatched. Presentation
+  (`headline()`, `icon()`, `groups()`, …) still compiles at boot, from an
+  instance made without the constructor, so it must not read what the
+  constructor sets; one that does fails the compile, naming the class.
+  `make:story` writes the new shape. Removed, with their replacements:
+  - `OrderConfirmed::of($order)`, `::publish()`, `::record()`,
+    `::anonymous()`, `::objects()`: construct the class and
+    `Storyfeed::publish()` it; the roles go in its `toFeedActivity()`.
+  - `OrderConfirmed::verb()`: `$this->activity()` inside the class.
+  - `PendingActivity::of(OrderConfirmed::class)`: construct the class and
+    call `toFeedActivity()`, or `PendingActivity::inline($verb)`.
+- **Breaking: `story($verb)` refuses a verb bound to a message class**, naming
+  the class to construct, so its `toFeedActivity()` is never skipped.
+  `Storyfeed::activity($verb)` still builds any verb.
+- **Breaking: `Storyfeed::stories([...])` is removed.** routes/feed.php is the
+  one place stories register: bind a message class with
+  `Story::for(Order::class)->verb('confirm', OrderConfirmed::class)`, and write
+  a `'type.verb' => [...]` array as a line,
+  `Story::for(Order::class)->verb('confirm')->headline(…)`. `Verb::fromArray()`
+  goes with it.
+  `Verb::fromArray()` goes with it.
 - **Story classes: one class per type, one method per verb.**
   `Story::resource(Order::class, OrderStory::class)` binds a plain class that
   extends nothing. Every public method is a verb, named as stored once

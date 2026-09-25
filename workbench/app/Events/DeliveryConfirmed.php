@@ -15,7 +15,9 @@ use Workbench\App\Stories\DeliveryWasConfirmed;
  *
  * Note what is visible AT THE RECORDING SITE: the story, and every role. That
  * is the argument against the attribute form — `#[RecordsStory(...)]` would
- * name the story but leave the roles to be inferred.
+ * name the story but leave the roles to be inferred. The message class
+ * answers the same method, so the event hands it the roles and returns its
+ * activity.
  */
 class DeliveryConfirmed implements PublishesToFeed
 {
@@ -29,9 +31,6 @@ class DeliveryConfirmed implements PublishesToFeed
 
     public function toFeedActivity(): ?PendingActivity
     {
-        return PendingActivity::of(DeliveryWasConfirmed::class)
-            ->object($this->delivery)
-            ->actor($this->user)
-            ->for($this->customer);
+        return (new DeliveryWasConfirmed($this->delivery, $this->user, $this->customer))->toFeedActivity();
     }
 }

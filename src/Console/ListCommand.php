@@ -23,7 +23,7 @@ use Storyfeed\Support\ManifestClosure;
  *     php artisan storyfeed:list --type=order --verb=place
  *     php artisan storyfeed:list --json
  *
- * It lists DEFINITIONS (the Story facade, Story classes, the array form),
+ * It lists DEFINITIONS (lines, resource classes, message classes),
  * not the hand-written registries, which have no source to show. Reads
  * routes/feed.php even when it is cached, as route:list reads cached routes.
  */
@@ -128,8 +128,8 @@ class ListCommand extends Command
 
     /**
      * What the definition came from: `OrderStory@confirmPayment` for a
-     * resource Story class's action, the class for a one-verb Story, and
-     * nothing for a line in the file or the array form.
+     * resource Story class's action, the class for a message class, and
+     * nothing for a line in the file.
      */
     protected function action(Verb $definition): ?string
     {

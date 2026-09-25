@@ -14,6 +14,7 @@ use Storyfeed\Models\Activity;
 use Storyfeed\Models\FeedTombstone;
 use Storyfeed\Models\Grouping;
 use Storyfeed\Models\Snapshot;
+use Storyfeed\PendingActivity;
 use Storyfeed\Stories\Story as BaseStory;
 use Storyfeed\Stories\StoryManifest;
 use Storyfeed\Stories\Verb;
@@ -83,14 +84,19 @@ describe('declaring a window', function () {
     });
 
     it('declares a window in the array form and on a Story class', function () {
-        Storyfeed::stories([
-            'delivery.view' => ['keepFor' => '2 weeks'],
-            'delivery.sign' => ['keepForever' => true],
+        defineStories(
+            Verb::make('delivery.view')->fill(['keepFor' => '2 weeks'], 'delivery.view'),
+            Verb::make('delivery.sign')->fill(['keepForever' => true], 'delivery.sign'),
             Verb::fromStory(new class extends BaseStory
             {
                 public string|array|null $objectType = 'customer';
 
                 public \Storyfeed\Contracts\FeedVerb|\BackedEnum|string|null $verb = 'open';
+
+                public function toFeedActivity(): ?PendingActivity
+                {
+                    return $this->activity();
+                }
 
                 public function headline(): string
                 {
@@ -101,8 +107,8 @@ describe('declaring a window', function () {
                 {
                     return '90 days';
                 }
-            }),
-        ]);
+            }, null, 'open', 'a line'),
+        );
 
         expect(Storyfeed::retention('delivery', 'view'))->toBe('P14D')
             ->and(Storyfeed::retention('delivery', 'sign'))->toBe(Verb::FOREVER)

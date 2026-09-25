@@ -4,6 +4,7 @@ use Illuminate\Support\Collection;
 use Storyfeed\ActivityStreams\ActivityType;
 use Storyfeed\Diagnostics\Severity;
 use Storyfeed\Exceptions\FeedMisconfigured;
+use Storyfeed\Facades\Story;
 use Storyfeed\Facades\Storyfeed;
 use Storyfeed\FeedBuilder;
 use Workbench\App\Enums\ActivityVerb;
@@ -188,7 +189,7 @@ it('sees verbs a Story declared, live and through a cached manifest', function (
     // could break is this check reading the vocabulary: it must go through
     // registeredVerbs(), which resolves story-declared verbs whether they came
     // from a live compile or from the manifest.
-    Storyfeed::stories([DeliveryWasConfirmed::class]);
+    Story::verb(ActivityVerb::Confirm, DeliveryWasConfirmed::class);
     Storyfeed::feeds(['customer' => fn (FeedBuilder $feed) => $feed->only(['order.placed'])]);
 
     expect(feedFindings()->where('code', 'feeds.unclassified')->pluck('subject.verb'))
@@ -262,7 +263,7 @@ it('checks class feeds identically through a cached manifest', function () {
     // storyfeed:cache is a NO-OP for feeds by construction: a feed compiles to
     // behaviour, not data, so it never enters the manifest. What must not break
     // is this check's vocabulary, which does come from there.
-    Storyfeed::stories([DeliveryWasConfirmed::class]);
+    Story::verb(ActivityVerb::Confirm, DeliveryWasConfirmed::class);
     Storyfeed::feeds([CustomerFeed::class]);
 
     Storyfeed::useCompiledStories([

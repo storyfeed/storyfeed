@@ -155,8 +155,8 @@ class StoryfeedServiceProvider extends PackageServiceProvider
 
         // Stories compile AFTER every provider has booted, so provider
         // ordering is irrelevant: compilation validates group axes against the
-        // axis registry and reads the verb registry, and an app that calls
-        // stories() before axes() would otherwise get an "unknown axis" throw
+        // axis registry and reads the verb registry, and a provider calling
+        // axes() after the definitions load would otherwise get an "unknown axis" throw
         // for a perfectly correct configuration. The manager also compiles
         // lazily on first registry read, which covers console commands, tests
         // and the fake — anything reaching the registries outside a request.
@@ -175,8 +175,8 @@ class StoryfeedServiceProvider extends PackageServiceProvider
             }
 
             // A cached manifest short-circuits compilation. Applied HERE, not
-            // during registration, because every provider's stories() calls
-            // must already have landed. Without one, routes/feed.php loads
+            // during registration, because every provider's axes() and verbs()
+            // calls must already have landed. Without one, routes/feed.php loads
             // now, after every provider (so the morph map is set): the
             // channels.php timing. With one, the file is skipped, as a route
             // file is after route:cache.

@@ -5,6 +5,7 @@ use Storyfeed\Facades\Story;
 use Storyfeed\Facades\Storyfeed;
 use Storyfeed\FeedHeadline;
 use Storyfeed\Grouping\Group;
+use Workbench\App\Enums\ActivityVerb;
 use Workbench\App\Models\Customer;
 use Workbench\App\Models\Delivery;
 use Workbench\App\Stories\DeliveryWasConfirmed;
@@ -24,7 +25,7 @@ beforeEach(function () {
 
     Story::for(Customer::class)->verb('ship')->headline(fn () => 'Shipped');
     Story::verb('ship')->grouped(Group::byActors()->headline(':actors shipped :count deliveries'));
-    Storyfeed::stories([DeliveryWasConfirmed::class]);
+    Story::verb(ActivityVerb::Confirm, DeliveryWasConfirmed::class);
 });
 
 it('lists every definition with its source', function () {

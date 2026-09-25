@@ -2,12 +2,14 @@
 
 use Illuminate\Support\Facades\Artisan;
 use PHPUnit\Framework\AssertionFailedError;
+use Storyfeed\Facades\Story;
 use Storyfeed\Facades\Storyfeed;
 use Storyfeed\Grouping\Group;
 use Storyfeed\Stories\Verb;
 use Storyfeed\StoryfeedManager;
 use Storyfeed\Testing\GrammarCoverage;
 use Storyfeed\Testing\StorySurface;
+use Workbench\App\Enums\ActivityVerb;
 use Workbench\App\Models\Courier;
 use Workbench\App\Models\Customer;
 use Workbench\App\Models\Delivery;
@@ -23,11 +25,11 @@ use Workbench\App\Stories\DeliveryWasConfirmed;
  */
 
 it('names the story class as the source of what it publishes', function () {
-    Storyfeed::stories([DeliveryWasConfirmed::class]);
+    Story::verb(ActivityVerb::Confirm, DeliveryWasConfirmed::class);
 
     $user = User::create(['name' => 'Sally', 'email' => 's@example.com']);
 
-    DeliveryWasConfirmed::of(Delivery::create(['tracking_number' => 'TN-1']))
+    Storyfeed::activity(ActivityVerb::Confirm, Delivery::create(['tracking_number' => 'TN-1']))
         ->actor($user)
         ->publish();
 
@@ -67,9 +69,9 @@ it('marks a recorded pair with no grammar as unauthored', function () {
 });
 
 it('marks an authored-but-never-recorded story as dead', function () {
-    Storyfeed::stories([
-        Verb::make('delivery.confirm')->headline(':actor confirmed :object'),
-    ]);
+    defineStories(
+        Verb::make('delivery.confirm')->headline(':actor confirmed :object')
+    );
 
     $this->artisan('storyfeed:stories --gaps')
         ->expectsOutputToContain('dead')
@@ -77,12 +79,12 @@ it('marks an authored-but-never-recorded story as dead', function () {
 });
 
 it('marks a story missing an applicable axis as a gap', function () {
-    Storyfeed::stories([
+    defineStories(
         // Authored singular, and only ONE of the axes `upload` can reach.
         Verb::make('delivery.upload')
             ->headline(':actor uploaded :object')
-            ->groups(Group::repeat()->headline(':actor uploaded :count')),
-    ]);
+            ->groups(Group::repeat()->headline(':actor uploaded :count'))
+    );
 
     $user = User::create(['name' => 'Sally', 'email' => 's@example.com']);
 
@@ -114,10 +116,8 @@ it('names a declared model that never appears, once there is data to judge again
 });
 
 it('reports every story as ok when there is nothing to flag', function () {
-    Storyfeed::stories([DeliveryWasConfirmed::class]);
-
-    // The fixture and the workbench's routes/feed.php author three of the four
-    // axes `confirm` can reach, so the fourth has to be filled in for a clean
+    // The workbench's routes/feed.php binds the fixture, which with it
+    // authors three of the four axes `confirm` can reach, so the fourth has to be filled in for a clean
     // run — which is itself the derivation working: nobody hand-listed which
     // axes apply.
     require __DIR__.'/../../workbench/routes/feed.php';
@@ -126,7 +126,7 @@ it('reports every story as ok when there is nothing to flag', function () {
     $user = User::create(['name' => 'Sally', 'email' => 's@example.com']);
     $customer = Customer::create(['name' => 'Acme']);
 
-    DeliveryWasConfirmed::of(Delivery::create(['tracking_number' => 'TN-1']))
+    Storyfeed::activity(ActivityVerb::Confirm, Delivery::create(['tracking_number' => 'TN-1']))
         ->actor($user)->for($customer)->context(Courier::create(['name' => 'Ada']))->publish();
 
     // And every Feedable model is now in the feed in SOME role — the actor and
@@ -137,12 +137,12 @@ it('reports every story as ok when there is nothing to flag', function () {
 });
 
 it('warns when the newest activity is older than --since', function () {
-    Storyfeed::stories([DeliveryWasConfirmed::class]);
+    Story::verb(ActivityVerb::Confirm, DeliveryWasConfirmed::class);
 
     $user = User::create(['name' => 'Sally', 'email' => 's@example.com']);
     $customer = Customer::create(['name' => 'Acme']);
 
-    DeliveryWasConfirmed::of(Delivery::create(['tracking_number' => 'TN-1']))
+    Storyfeed::activity(ActivityVerb::Confirm, Delivery::create(['tracking_number' => 'TN-1']))
         ->actor($user)->for($customer)
         ->publishedAt(now()->subDays(90))
         ->publish();
@@ -167,7 +167,7 @@ it('refuses a verdict when nothing has been published', function () {
 });
 
 it('passes once every declared model appears in SOME role', function () {
-    Storyfeed::stories([DeliveryWasConfirmed::class]);
+    Story::verb(ActivityVerb::Confirm, DeliveryWasConfirmed::class);
 
     $user = User::create(['name' => 'Sally', 'email' => 's@example.com']);
     $customer = Customer::create(['name' => 'Acme']);
@@ -175,7 +175,7 @@ it('passes once every declared model appears in SOME role', function () {
     // `Feedable` means the model APPEARS in the feed, not that it publishes.
     // Publishing from an Action class while the model is merely a role is an
     // ordinary Laravel shape, and must satisfy this.
-    DeliveryWasConfirmed::of(Delivery::create(['tracking_number' => 'TN-1']))
+    Storyfeed::activity(ActivityVerb::Confirm, Delivery::create(['tracking_number' => 'TN-1']))
         ->actor($user)->for($customer)->context(Courier::create(['name' => 'Ada']))->publish();
 
     StorySurface::assertNoUnwiredSurface();
@@ -203,13 +203,13 @@ it('works under Storyfeed::fake(), like its two sibling assertions', function ()
     // two passes and one inexplicable refusal. A namespace where two of three
     // work under fake() is worse than one where none do — the inconsistency is
     // what sends you to the wrong conclusion about which tool is broken.
-    Storyfeed::stories([DeliveryWasConfirmed::class]);
+    Story::verb(ActivityVerb::Confirm, DeliveryWasConfirmed::class);
     Storyfeed::fake();
 
     $user = User::create(['name' => 'Sally', 'email' => 's@example.com']);
     $customer = Customer::create(['name' => 'Acme']);
 
-    DeliveryWasConfirmed::of(Delivery::create(['tracking_number' => 'TN-1']))
+    Storyfeed::activity(ActivityVerb::Confirm, Delivery::create(['tracking_number' => 'TN-1']))
         ->actor($user)->for($customer)->context(Courier::create(['name' => 'Ada']))->publish();
 
     // Nothing reached the table, and this still returns a real verdict.

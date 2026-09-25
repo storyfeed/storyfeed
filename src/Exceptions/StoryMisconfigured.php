@@ -4,6 +4,7 @@ namespace Storyfeed\Exceptions;
 
 use LogicException;
 use Storyfeed\Stories\Story;
+use Throwable;
 
 /**
  * Thrown at compile time when a Story cannot produce valid registry entries.
@@ -22,18 +23,16 @@ class StoryMisconfigured extends LogicException
             "Story [{$story}] must declare \$objectType — a model class (Document::class), a morph alias "
             ."('document'), an array of either, or '*' for object-less activities such as composite parents. "
             .'It is never inferred from the class name: token-guessing died on multi-word objects '
-            .'(CreatePurchaseOrder — is the object PurchaseOrder, or the verb CreatePurchase?).'
+            .'(CreatePurchaseOrder — is the object PurchaseOrder, or the verb CreatePurchase?). Or bind it '
+            ."inside the types' scope in routes/feed.php: Story::for(Order::class)->verb('ship', ".class_basename($story).'::class).'
         );
     }
 
     public static function missingVerb(string $story): self
     {
         return new self(
-            "Story [{$story}] must declare \$verb — a string or a FeedVerb enum case. It is not inferred at "
-            .'runtime: a Story REGISTERS its own verb, so a wrong guess would self-register and sail past '
-            .'verbs.strict. `php artisan make:story` writes the verb into the file instead, where a wrong '
-            .'guess is visible in the diff. Or bind the class to its verb in routes/feed.php: '
-            ."Story::for(Order::class)->verb('ship', ".class_basename($story).'::class).'
+            "Story [{$story}] has no verb. It is not inferred from the class name: bind the class to its "
+            ."verb in routes/feed.php, Story::for(Order::class)->verb('ship', ".class_basename($story).'::class).'
         );
     }
 
@@ -168,14 +167,6 @@ class StoryMisconfigured extends LogicException
         );
     }
 
-    public static function notAStory(string $given): self
-    {
-        return new self(
-            "[{$given}] is not a Storyfeed\\Stories\\Story subclass. Storyfeed::stories() takes Story class-strings, "
-            .'Stories\Verb objects, or `\'type.verb\' => [...]` arrays.'
-        );
-    }
-
     public static function actionReturn(string $uses, ?string $given): self
     {
         $given = $given === null ? 'declares no return type' : "returns [{$given}]";
@@ -249,7 +240,7 @@ class StoryMisconfigured extends LogicException
             : '';
 
         return new self(
-            "The verb at {$source} binds [{$class}], which is not a one-verb Story class (one that extends "
+            "The verb at {$source} binds [{$class}], which is not a message class (one that extends "
             .'Storyfeed\Stories\Story).'.$hint
         );
     }
@@ -278,8 +269,22 @@ class StoryMisconfigured extends LogicException
     public static function storyBoundTwice(string $class, array $verbs): self
     {
         return new self(
-            "[{$class}] is bound to the verbs [".implode('] and [', $verbs).']. A one-verb Story class has one verb, '
-            .'which is what '.class_basename($class).'::of($object) publishes. Give the other verb its own class.'
+            "[{$class}] is bound to the verbs [".implode('] and [', $verbs).']. A message class has one verb, '
+            .'which is what its $this->activity() publishes. Give the other verb its own class.'
+        );
+    }
+
+    /**
+     * A presentation method read what only the constructor sets. Stories
+     * compile at boot from an instance made without the constructor.
+     */
+    public static function presentationReadsState(string $class, Throwable $previous): self
+    {
+        return new self(
+            "[{$class}] read constructor state while it compiled: {$previous->getMessage()}. Its presentation "
+            .'(headline(), icon(), groups(), keepFor() and the rest) compiles at boot, '
+            .'with no constructor call and no data. Say per-publish things in toFeedActivity() instead.',
+            previous: $previous,
         );
     }
 }

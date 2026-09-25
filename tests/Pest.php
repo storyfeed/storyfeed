@@ -2,6 +2,8 @@
 
 use Storyfeed\Models\Activity;
 use Storyfeed\Serialization\ActivitySerializer;
+use Storyfeed\Stories\Verb;
+use Storyfeed\StoryfeedManager;
 use Storyfeed\Support\ActivityRoles;
 use Storyfeed\Tests\TestCase;
 
@@ -21,4 +23,16 @@ function serialize_one(Activity $activity): array
     return app(ActivitySerializer::class)->activity(
         $activity->fresh(ActivityRoles::cachedRelations()),
     );
+}
+
+/**
+ * Register definitions made with Verb::make(), as a routes/feed.php line
+ * registers its own, for tests about what definitions compile to rather than
+ * how a line is written. Each keeps the source Verb::make() gave it.
+ */
+function defineStories(Verb ...$definitions): void
+{
+    foreach ($definitions as $definition) {
+        app(StoryfeedManager::class)->addStory($definition);
+    }
 }

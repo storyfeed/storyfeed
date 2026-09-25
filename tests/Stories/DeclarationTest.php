@@ -30,6 +30,7 @@ function loadStorySubclass(string $objectTypeLine, string $verbLine): Process
     {
         {$objectTypeLine}
         {$verbLine}
+        public function toFeedActivity(): ?\\Storyfeed\\PendingActivity { return null; }
         public function headline(): string { return ':actor uploaded :object'; }
     }
     echo get_parent_class(new DocumentWasUploaded);

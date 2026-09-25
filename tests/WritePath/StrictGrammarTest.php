@@ -1,8 +1,11 @@
 <?php
 
 use Storyfeed\Exceptions\UnauthoredActivity;
+use Storyfeed\Facades\Story;
 use Storyfeed\Facades\Storyfeed;
+use Workbench\App\Enums\ActivityVerb;
 use Workbench\App\Models\Delivery;
+use Workbench\App\Models\User;
 use Workbench\App\Stories\DeliveryWasConfirmed;
 
 /*
@@ -37,11 +40,14 @@ it('throws when publishing an activity nobody authored a headline for', function
 });
 
 it('is satisfied by a Story', function () {
-    Storyfeed::stories([DeliveryWasConfirmed::class]);
+    Story::verb(ActivityVerb::Confirm, DeliveryWasConfirmed::class);
 
-    $activity = DeliveryWasConfirmed::publish(Delivery::create(['tracking_number' => 'TN-1']));
+    $activity = Storyfeed::publish(new DeliveryWasConfirmed(
+        Delivery::create(['tracking_number' => 'TN-1']),
+        User::create(['name' => 'Sally', 'email' => 's@example.com']),
+    ));
 
-    expect($activity->exists)->toBeTrue();
+    expect($activity?->exists)->toBeTrue();
 });
 
 it('is satisfied by a partial wildcard', function () {

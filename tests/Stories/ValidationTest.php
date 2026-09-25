@@ -2,10 +2,13 @@
 
 use Storyfeed\Contracts\FeedVerb;
 use Storyfeed\Exceptions\StoryMisconfigured;
+use Storyfeed\Facades\Story as StoryFacade;
 use Storyfeed\Facades\Storyfeed;
 use Storyfeed\Grouping\Group;
+use Storyfeed\PendingActivity;
 use Storyfeed\Stories\Story;
 use Storyfeed\Stories\Verb;
+use Storyfeed\Tests\Fixtures\Stories\DeliveryWasDispatched;
 use Workbench\App\Models\Delivery;
 
 /*
@@ -20,54 +23,53 @@ it('refuses a story with no object type, and says why it is not inferred', funct
     {
         public string|FeedVerb|BackedEnum|null $verb = 'confirm';
 
+        public function toFeedActivity(): ?PendingActivity
+        {
+            return $this->activity();
+        }
+
         public function headline(): string
         {
             return ':actor confirmed :object';
         }
     };
 
-    expect(fn () => Verb::fromStory($story))
+    expect(fn () => Verb::fromStory($story::class, null, 'confirm', 'a line'))
         ->toThrow(StoryMisconfigured::class, 'must declare $objectType');
 
     try {
-        Verb::fromStory($story);
+        Verb::fromStory($story::class, null, 'confirm', 'a line');
     } catch (StoryMisconfigured $e) {
         // The reason matters: token-guessing on class names is what died.
         expect($e->getMessage())->toContain('CreatePurchaseOrder');
     }
 });
 
-it('refuses a story with no verb, and says why inference would be unsafe', function () {
-    $story = new class extends Story
-    {
-        public string|array|null $objectType = 'delivery';
+it('compiles a message whose constructor needs its data, without calling it', function () {
+    StoryFacade::for(Delivery::class)->verb('dispatch', DeliveryWasDispatched::class);
 
-        public function headline(): string
-        {
-            return ':actor confirmed :object';
-        }
-    };
+    // DeliveryWasDispatched's constructor requires a Delivery: `new` at
+    // compile would be an ArgumentCountError.
+    expect(Storyfeed::template('delivery', 'dispatch'))->toBe(':actor dispatched :object');
+});
 
-    try {
-        Verb::fromStory($story);
-        $this->fail('Expected a StoryMisconfigured.');
-    } catch (StoryMisconfigured $e) {
-        // The actual reason inference is generator-time, not boot-time.
-        expect($e->getMessage())
-            ->toContain('self-register')
-            ->toContain('verbs.strict')
-            ->toContain('make:story');
-    }
+it('refuses presentation that reads constructor state, naming the class', function () {
+    StoryFacade::for(Delivery::class)->verb('dispatch', ReadsItsDelivery::class);
+
+    expect(fn () => Storyfeed::compiledStories())
+        ->toThrow(StoryMisconfigured::class, '['.ReadsItsDelivery::class.'] read constructor state while it compiled')
+        ->and(fn () => Storyfeed::compiledStories())
+        ->toThrow(StoryMisconfigured::class, 'Say per-publish things in toFeedActivity() instead');
 });
 
 it('refuses an unpinned aggregate token before any traffic exists', function () {
-    Storyfeed::stories([
+    defineStories(
         Verb::make('delivery.revise')
             ->headline(':actor revised :object')
             // :object on the repeat axis is the documented lie: the group can
             // span five different documents.
-            ->groups(Group::repeat()->headline(':actor made :count revisions to :object')),
-    ]);
+            ->groups(Group::repeat()->headline(':actor made :count revisions to :object'))
+    );
 
     try {
         Storyfeed::registeredAggregateGrammar();
@@ -81,11 +83,11 @@ it('refuses an unpinned aggregate token before any traffic exists', function () 
 });
 
 it('refuses a group on an unregistered axis', function () {
-    Storyfeed::stories([
+    defineStories(
         Verb::make('delivery.confirm')
             ->headline(':actor confirmed :object')
-            ->groups(Group::on('nonexistent')->headline(':actors confirmed :count')),
-    ]);
+            ->groups(Group::on('nonexistent')->headline(':actors confirmed :count'))
+    );
 
     try {
         Storyfeed::registeredAggregateGrammar();
@@ -100,12 +102,12 @@ it('refuses a group on an unregistered axis', function () {
 });
 
 it('refuses a composite without parent grammar, and refuses to suggest *.*', function () {
-    Storyfeed::stories([
+    defineStories(
         Verb::make('delivery.upload')
             ->headline(':actor uploaded :object')
             // No ->parentHeadline(): the parent would render a blank line.
-            ->groups(Group::composite()->headline(':actor uploaded :objects')),
-    ]);
+            ->groups(Group::composite()->headline(':actor uploaded :objects'))
+    );
 
     try {
         Storyfeed::registeredAggregateGrammar();
@@ -120,21 +122,21 @@ it('refuses a composite without parent grammar, and refuses to suggest *.*', fun
 
 it('accepts parent grammar from another story instead of parentHeadline', function () {
     // The invariant is that the entry EXISTS, not where it came from.
-    Storyfeed::stories([
+    defineStories(
         Verb::make('*.upload')->headline(':actor uploaded deliveries'),
         Verb::make('delivery.upload')
             ->headline(':actor uploaded :object')
-            ->groups(Group::composite()->headline(':actor uploaded :objects')),
-    ]);
+            ->groups(Group::composite()->headline(':actor uploaded :objects'))
+    );
 
     expect(Storyfeed::aggregateTemplate('composite', 'upload'))->toBe(':actor uploaded :objects');
 });
 
 it('refuses two stories authoring the same key', function () {
-    Storyfeed::stories([
+    defineStories(
         Verb::make('delivery.confirm', 'FirstStory')->headline(':actor confirmed :object'),
-        Verb::make('delivery.confirm', 'SecondStory')->headline(':actor OK-ed :object'),
-    ]);
+        Verb::make('delivery.confirm', 'SecondStory')->headline(':actor OK-ed :object')
+    );
 
     try {
         Storyfeed::registeredGrammar();
@@ -162,8 +164,8 @@ it('refuses Group::min(), pointing at the axis instead of ignoring it', function
     }
 });
 
-it('refuses a typod ad-hoc option rather than dropping it', function () {
-    expect(fn () => Verb::fromArray('delivery.confirm', ['headine' => ':actor confirmed']))
+it('refuses a typod option rather than dropping it', function () {
+    expect(fn () => Verb::make('delivery.confirm')->fill(['headine' => ':actor confirmed'], 'delivery.confirm'))
         ->toThrow(StoryMisconfigured::class, 'unrecognized option [headine]');
 });
 
@@ -172,9 +174,21 @@ it('refuses a malformed ad-hoc key', function () {
         ->toThrow(StoryMisconfigured::class, '`{type}.{verb}` form');
 });
 
-it('refuses a non-Story class-string', function () {
-    Storyfeed::stories([Delivery::class]);
+it('refuses a non-Story class at the line that binds it', function () {
+    StoryFacade::for(Delivery::class)->verb('confirm', Delivery::class);
+})->throws(StoryMisconfigured::class, 'is not a message class');
 
-    expect(fn () => Storyfeed::registeredGrammar())
-        ->toThrow(StoryMisconfigured::class, 'is not a Storyfeed\Stories\Story subclass');
-});
+class ReadsItsDelivery extends Story
+{
+    public function __construct(public Delivery $delivery) {}
+
+    public function toFeedActivity(): ?PendingActivity
+    {
+        return $this->activity($this->delivery);
+    }
+
+    public function headline(): string
+    {
+        return ':actor dispatched '.$this->delivery->tracking_number;
+    }
+}

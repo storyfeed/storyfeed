@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Eloquent\Model;
 use Storyfeed\Contracts\FeedVerb;
+use Storyfeed\Exceptions\UnknownStory;
 use Storyfeed\PendingActivity;
 use Storyfeed\StoryfeedManager;
 
@@ -31,9 +32,20 @@ if (! function_exists('story')) {
      *
      *   story('ship', $order)->by($user)->publish();
      *   story(Act::Ship)->by($user)->objects($orders)->publish();
+     *
+     * A verb bound to a message class throws: the class is constructed and
+     * published, `Storyfeed::publish(new OrderShipped($order))`, so its
+     * toFeedActivity() always runs.
      */
     function story(string|FeedVerb|BackedEnum $verb, Model|string|null $object = null): PendingActivity
     {
-        return app(StoryfeedManager::class)->activity($verb, $object);
+        $storyfeed = app(StoryfeedManager::class);
+        $type = $object instanceof Model ? $object->getMorphClass() : null;
+
+        if (($message = $storyfeed->messageFor($verb, $type)) !== null) {
+            throw UnknownStory::boundToMessage($verb, $message);
+        }
+
+        return $storyfeed->activity($verb, $object);
     }
 }

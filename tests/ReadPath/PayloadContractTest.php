@@ -1,8 +1,10 @@
 <?php
 
+use Storyfeed\Facades\Story;
 use Storyfeed\Facades\Storyfeed;
 use Storyfeed\Models\Activity;
 use Storyfeed\StoryfeedManager;
+use Workbench\App\Enums\ActivityVerb;
 use Workbench\App\Models\Customer;
 use Workbench\App\Models\Delivery;
 use Workbench\App\Models\User;
@@ -110,10 +112,9 @@ it('emits a byte-identical payload whether authored as a Story or a registry ent
     app()->forgetInstance(StoryfeedManager::class);
     Storyfeed::clearResolvedInstances();
 
-    Storyfeed::stories([DeliveryWasConfirmed::class]);
+    Story::verb(ActivityVerb::Confirm, DeliveryWasConfirmed::class);
 
-    DeliveryWasConfirmed::of(Delivery::create(['tracking_number' => 'TN-2']))
-        ->actor($user)->for($customer)->publish();
+    Storyfeed::publish(new DeliveryWasConfirmed(Delivery::create(['tracking_number' => 'TN-2']), $user, $customer));
 
     $viaStory = $strip(Storyfeed::feed()->get()->toArray());
 

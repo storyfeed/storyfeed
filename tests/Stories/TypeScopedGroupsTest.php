@@ -6,6 +6,7 @@ use Storyfeed\Facades\Story;
 use Storyfeed\Facades\Storyfeed;
 use Storyfeed\Grouping\Group;
 use Storyfeed\Grouping\GroupBuilder;
+use Storyfeed\PendingActivity;
 use Storyfeed\Stories\Story as StoryClass;
 use Storyfeed\Stories\Verb;
 use Storyfeed\Tests\Fixtures\Stories\DeliveryWasSigned;
@@ -60,10 +61,10 @@ it('refuses a group headline on a type fallback', function () {
 it('keeps axis.verb for an unscoped verb and for the other authoring forms', function () {
     Story::verb('ship')->grouped(Group::byActors()->headline(':actors shipped :count things'));
 
-    Storyfeed::stories([
+    defineStories(
         Verb::for(Delivery::class, 'hold')
-            ->grouped(Group::byActors()->headline(':actors held :count things')),
-    ]);
+            ->grouped(Group::byActors()->headline(':actors held :count things'))
+    );
 
     expect(Storyfeed::registeredAggregateGrammar())->toHaveKeys(['actors.ship', 'actors.hold']);
 });
@@ -140,16 +141,21 @@ it('refuses a resource class headline on a grouping that can hold several types,
 });
 
 /*
- * A one-verb Story class is about its type too: `DeliveryWasPlaced` and
+ * A message class is about its type too: `DeliveryWasPlaced` and
  * `CustomerWasPlaced` must not file their group headlines in the same place.
  */
 
-it('files a one-verb class headline under its type, so two classes sharing a verb keep their own', function () {
+it('files a message class headline under its type, so two classes sharing a verb keep their own', function () {
     $deliveries = new class extends StoryClass
     {
         public string|array|null $objectType = Delivery::class;
 
         public string|FeedVerb|BackedEnum|null $verb = 'place';
+
+        public function toFeedActivity(): ?PendingActivity
+        {
+            return $this->activity();
+        }
 
         public function headline(): string
         {
@@ -168,6 +174,11 @@ it('files a one-verb class headline under its type, so two classes sharing a ver
 
         public string|FeedVerb|BackedEnum|null $verb = 'place';
 
+        public function toFeedActivity(): ?PendingActivity
+        {
+            return $this->activity();
+        }
+
         public function headline(): string
         {
             return ':actor placed :object';
@@ -179,15 +190,16 @@ it('files a one-verb class headline under its type, so two classes sharing a ver
         }
     };
 
-    Storyfeed::stories([$deliveries::class, $customers::class]);
+    Story::verb('place', $deliveries::class);
+    Story::verb('place', $customers::class);
 
     expect(Storyfeed::registeredAggregateGrammar())->not->toHaveKey('repeat.place')
         ->and(Storyfeed::aggregateTemplate('repeat', 'place', 'delivery'))->toBe(':actor placed :count deliveries')
         ->and(Storyfeed::aggregateTemplate('repeat', 'place', 'customer'))->toBe(':actor placed :count customers');
 });
 
-it('refuses a one-verb class headline on a grouping that can hold several types, naming the class', function () {
-    Storyfeed::stories([DeliveryWasSigned::class]);
+it('refuses a message class headline on a grouping that can hold several types, naming the class', function () {
+    Story::verb('sign', DeliveryWasSigned::class);
 
     expect(fn () => Storyfeed::compiledStories())->toThrow(function (StoryMisconfigured $e) {
         expect($e->getMessage())
@@ -197,12 +209,17 @@ it('refuses a one-verb class headline on a grouping that can hold several types,
     });
 });
 
-it('keeps an object-less one-verb class on axis.verb', function () {
+it('keeps an object-less message class on axis.verb', function () {
     $story = new class extends StoryClass
     {
         public string|array|null $objectType = '*';
 
         public string|FeedVerb|BackedEnum|null $verb = 'sweep';
+
+        public function toFeedActivity(): ?PendingActivity
+        {
+            return $this->activity();
+        }
 
         public function headline(): string
         {
@@ -215,7 +232,7 @@ it('keeps an object-less one-verb class on axis.verb', function () {
         }
     };
 
-    Storyfeed::stories([$story::class]);
+    Story::verb('sweep', $story::class);
 
     expect(Storyfeed::registeredAggregateGrammar())->toHaveKey('actors.sweep');
 });

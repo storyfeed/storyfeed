@@ -181,7 +181,7 @@ it('compiles fallback() to type.* and *.*', function () {
 it('does not declare * as a verb for a wildcard key', function () {
     // Defect 2 of todo 1311: `order.*` put `*` in the verb registry, where it
     // reached storyfeed:verbs and satisfied verbs.strict.
-    Storyfeed::stories([Verb::make('delivery.*')->headline(':actor did :object')]);
+    defineStories(Verb::make('delivery.*')->headline(':actor did :object'));
     Story::fallback()->icon('bi-activity');
     Story::for(Delivery::class)->noun('delivery|deliveries');
 
@@ -193,8 +193,8 @@ it('does not declare * as a verb for a wildcard key', function () {
 it('names both sources when one key is defined twice', function () {
     // Defect 3 of todo 1311: two ad-hoc definitions shared the source string
     // `ad-hoc [key]`, so the conflict guard saw one author and the second won.
-    Storyfeed::stories([Verb::make('delivery.confirm')->headline('FIRST')]);
-    Storyfeed::stories([Verb::make('delivery.confirm')->headline('SECOND')]);
+    defineStories(Verb::make('delivery.confirm')->headline('FIRST'));
+    defineStories(Verb::make('delivery.confirm')->headline('SECOND'));
 
     $first = __LINE__ - 3;
     $second = __LINE__ - 3;
@@ -299,14 +299,12 @@ it('loses to a hand-written registration, like every compiled entry', function (
 });
 
 it('accepts the new keys in the array form', function () {
-    Storyfeed::stories([
-        'delivery.confirm' => [
-            'headline' => FeedHeadline::trans('feed.confirmed'),
-            'anonymousHeadline' => ':object was confirmed',
-            'noun' => FeedNoun::trans('nouns.delivery'),
-            'activityStreamsType' => 'Document',
-        ],
-    ]);
+    defineStories(Verb::make('delivery.confirm')->fill([
+        'headline' => FeedHeadline::trans('feed.confirmed'),
+        'anonymousHeadline' => ':object was confirmed',
+        'noun' => FeedNoun::trans('nouns.delivery'),
+        'activityStreamsType' => 'Document',
+    ], 'delivery.confirm'));
 
     expect(Storyfeed::registeredActorlessGrammar())->toBe(['delivery.confirm' => ':object was confirmed'])
         ->and(Storyfeed::registeredNouns()['delivery.confirm'])->toBeInstanceOf(FeedNoun::class)

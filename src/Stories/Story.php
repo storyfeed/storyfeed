@@ -4,25 +4,30 @@ namespace Storyfeed\Stories;
 
 use BackedEnum;
 use DateInterval;
-use DateTimeInterface;
 use Illuminate\Database\Eloquent\Model;
 use Storyfeed\ActivityStreams\ActivityType;
 use Storyfeed\Contracts\FeedVerb;
-use Storyfeed\Exceptions\StoryMisconfigured;
+use Storyfeed\Contracts\PublishesToFeed;
 use Storyfeed\Exceptions\UnknownStory;
-use Storyfeed\FeedThread;
 use Storyfeed\Grouping\Group;
-use Storyfeed\Models\Activity;
 use Storyfeed\PendingActivity;
 use Storyfeed\StoryfeedManager;
 
 /**
- * One class per meaningful activity type — the declarative authoring layer.
+ * One activity type as a message, the way a Notification is one: constructed
+ * with its data, then published.
  *
  *   class DocumentWasUploaded extends Story
  *   {
  *       public string|array|null $objectType = Document::class;
  *       public string|FeedVerb|BackedEnum|null $verb = ActivityVerb::Upload;
+ *
+ *       public function __construct(public Document $document, public User $user) {}
+ *
+ *       public function toFeedActivity(): ?PendingActivity
+ *       {
+ *           return $this->activity($this->document)->by($this->user)->in($this->document->folder);
+ *       }
  *
  *       public function headline(): string
  *       {
@@ -46,6 +51,25 @@ use Storyfeed\StoryfeedManager;
  *           ];
  *       }
  *   }
+ *
+ *   // routes/feed.php
+ *   Story::for(Document::class)->verb('upload', DocumentWasUploaded::class);
+ *
+ *   // the call site
+ *   Storyfeed::publish(new DocumentWasUploaded($document, $user));
+ *
+ * `toFeedActivity()` is the class's `toMail()`: what this one publish says.
+ * Null publishes nothing. Everything else is presentation, the same for every
+ * activity of the type. `$objectType` and `$verb` are optional, since the
+ * line names them, and must agree with it; the enum case carries the verb's
+ * AS2.0 type.
+ *
+ * PRESENTATION NEVER READS THE CONSTRUCTOR'S STATE. The presentation methods
+ * (headline(), icon(), intent(), groups(), missing(), keepFor(),
+ * keepForever(), keepLatest()) compile into the registries at boot, from an instance made
+ * WITHOUT calling the constructor: there is no order at boot to pass it. A
+ * headline that reads `$this->order` fails the compile, naming the class.
+ * Per-publish wording belongs in toFeedActivity(), as data.
  *
  * A group headline here is about documents, so it is filed under documents
  * and cannot collide with another class's headline for the same verb. A
@@ -71,27 +95,27 @@ use Storyfeed\StoryfeedManager;
  *   3. The read path never changes: resolution hits compiled arrays and never
  *      reflects on a class per row.
  *
- * BOUND OR DECLARED. routes/feed.php can bind the class as a route binds an
- * invokable controller, and then the line names the verb and the types:
+ * BOUND IN ROUTES/FEED.PHP, the one place stories register, as a route
+ * binds an invokable controller. The line names the verb, and inside
+ * `Story::for()` the types:
  *
  *   Story::for(Document::class)->verb('upload', DocumentWasUploaded::class);
  *
- * A class that is bound may leave `$verb` and `$objectType` out; one that
- * declares them must agree with the line.
+ * The class may declare `$verb` and `$objectType` as well; they must then
+ * agree with the line. Outside a `Story::for()`, the class's `$objectType`
+ * gives the types.
  *
- * NOTHING IS INFERRED AT RUNTIME. Unbound, `$verb` and `$objectType` are both required.
- * The class name is documentation and generator input, never behaviour. This is
- * not fussiness: a Story REGISTERS its own verb, so an inferred-wrong verb
- * would self-register and sail past verbs.strict — inference at boot would
- * REMOVE the typo safety net that exists today. `make:story` writes both values
- * into the generated file, where a wrong guess shows up in the diff. (The miss
- * rate is real: in one app, 9 of 10 command-style class names matched their
- * verb, and `PostComment` published `comment`, not `post`.)
+ * NOTHING IS INFERRED AT RUNTIME. The class name is documentation and
+ * generator input, never behaviour: `make:story` writes the binding line,
+ * where a wrong guess shows up in the diff. (The miss rate is real: in one
+ * app, 9 of 10 command-style class names matched their verb, and
+ * `PostComment` published `comment`, not `post`.)
  */
-abstract class Story
+abstract class Story implements PublishesToFeed
 {
     /**
-     * REQUIRED, unless routes/feed.php binds the class to its types. A model
+     * REQUIRED when the line binding the class is outside a `Story::for()`,
+     * which would otherwise give the types. A model
      * class (recommended — a rename is then IDE-checked), a morph alias, an
      * array of either, or '*' for object-less activities such as composite
      * parents.
@@ -103,8 +127,9 @@ abstract class Story
     public string|array|null $objectType = null;
 
     /**
-     * REQUIRED, unless routes/feed.php binds the class to its verb. A verb
-     * string, or a FeedVerb enum case (which also carries its AS2.0 mapping).
+     * Optional: the line in routes/feed.php names the verb, and one declared
+     * here must agree with it. A verb string, or a FeedVerb enum case, which
+     * also carries its AS2.0 mapping.
      */
     public string|FeedVerb|BackedEnum|null $verb = null;
 
@@ -198,38 +223,27 @@ abstract class Story
     }
 
     /**
-     * The verb this class publishes: its `$verb`, or else the verb
-     * routes/feed.php binds it to (`Story::for(Task::class)->verb('complete',
-     * TaskWasCompleted::class)`).
+     * The activity to publish, or null to publish nothing: the same hook as
+     * an event's {@see PublishesToFeed::toFeedActivity()}, so a message class
+     * and an event are published by one method. Start it with
+     * {@see activity()}, which knows this class's verb.
      */
-    public static function verb(): string
-    {
-        if (get_class_vars(static::class)['verb'] !== null) {
-            return Verb::fromStory(static::class)->verb;
-        }
-
-        $storyfeed = app(StoryfeedManager::class);
-
-        return $storyfeed->boundVerb(static::class) ?? throw ($storyfeed->hasStory(static::class)
-            ? StoryMisconfigured::missingVerb(static::class)
-            : UnknownStory::unregistered(static::class));
-    }
+    abstract public function toFeedActivity(): ?PendingActivity;
 
     /**
-     * Begin this story's activity, about this object:
-     * `OrderWasShipped::of($order)->by($user)->publish()`.
+     * Begin this class's activity, about this object: the verb is the one
+     * this class declares or routes/feed.php binds it to.
      *
-     * Not `PendingActivity::of(OrderWasShipped::class)`, which takes the
-     * Story CLASS and has no object yet. Here the class is the receiver, so
-     * the argument is the thing the activity is about.
+     *   public function toFeedActivity(): ?PendingActivity
+     *   {
+     *       return $this->activity($this->order)->by($this->user);
+     *   }
      *
-     * Returns PendingActivity, so the whole fluent surface — actor/target/in/
-     * to/for/data/when — comes from the one builder. A parallel
-     * chainable surface on Story would need its own parity test and would
-     * drift; the trait that forwards the builder for verb enums already pays
-     * that tax with twelve forwarders.
+     * `Storyfeed::activity($verb, $object)` with the verb filled in, as a
+     * controller's `$this->authorize()` is `Gate::authorize()`. Protected: call
+     * sites construct the class and hand it to `Storyfeed::publish()`.
      */
-    public static function of(Model|string|null $object = null): PendingActivity
+    protected function activity(Model|string|null $object = null): PendingActivity
     {
         // A string object is a party's name, so a Story class here would
         // publish an activity about a party called "App\Stories\…".
@@ -237,62 +251,6 @@ abstract class Story
             throw UnknownStory::classGivenAsObject(static::class, $object);
         }
 
-        return PendingActivity::make(static::verb(), $object);
-    }
-
-    /**
-     * A composite: one authored story over a collection of objects.
-     *
-     * @param  iterable<int, Model>  $models
-     */
-    public static function objects(iterable $models): PendingActivity
-    {
-        return static::of()->objects($models);
-    }
-
-    /** Begin this verb's activity with an explicitly unknown actor. */
-    public static function anonymous(Model|string|null $object = null): PendingActivity
-    {
-        return static::of($object)->anonymously();
-    }
-
-    /**
-     * Compose and publish in one call. Spec names only (object/actor/target/
-     * context) — the one-liner speaks the spec, the chain speaks English, and
-     * named arguments cannot be aliased.
-     *
-     * @param  array<string, mixed>  $data
-     * @param  iterable<int, Model>  $objects
-     */
-    public static function record(
-        Model|string|null $object = null,
-        Model|string|null $actor = null,
-        Model|string|null $target = null,
-        Model|string|null $context = null,
-        array $data = [],
-        iterable $objects = [],
-        DateTimeInterface|string|null $publishedAt = null,
-        ?FeedThread $thread = null,
-        Model|string|null $origin = null,
-        Model|string|null $result = null,
-        Model|string|null $instrument = null,
-    ): Activity {
-        return static::of($object)
-            ->when($objects !== [], fn (PendingActivity $a) => $a->objects($objects))
-            ->when($actor !== null, fn (PendingActivity $a) => $a->actor($actor))
-            ->target($target)
-            ->context($context)
-            ->origin($origin)
-            ->result($result)
-            ->instrument($instrument)
-            ->when($data !== [], fn (PendingActivity $a) => $a->data($data))
-            ->when($thread !== null, fn (PendingActivity $a) => $a->thread($thread))
-            ->when($publishedAt !== null, fn (PendingActivity $a) => $a->publishedAt($publishedAt))
-            ->publish();
-    }
-
-    public static function publish(Model|string|null $object = null): Activity
-    {
-        return static::of($object)->publish();
+        return PendingActivity::make(app(StoryfeedManager::class)->storyVerb(static::class), $object);
     }
 }

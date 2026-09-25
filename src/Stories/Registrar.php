@@ -26,14 +26,14 @@ use Storyfeed\StoryfeedManager;
  *
  *     Story::resource(Document::class)->except('restore');   // created, updated, deleted
  *     Story::resource(Order::class, OrderStory::class);      // the four, plus each OrderStory action
- *     Story::for(Task::class)->verb('complete', TaskWasCompleted::class);   // a one-verb Story class
+ *     Story::for(Task::class)->verb('complete', TaskWasCompleted::class);   // a message class
  *
  * WHAT IT IS. A front door onto {@see Verb}. Every call makes a
  * definition, registers it with the manager at once (the way `Route::get()`
  * returns a Route already in the collection), and hands it back to be
- * configured. Definitions compile through CompileStories beside Story
- * classes, so the class form, the array form and this one produce the same
- * registries, and the same compile-time guards apply to all three.
+ * configured. Every definition, from a line, a resource class or a
+ * message class, compiles through CompileStories, so they produce the same
+ * registries and the same compile-time guards apply to all of them.
  *
  * SCOPES ARE A STACK, pushed by `Story::for(…)->group(fn)` and popped in
  * `finally`, which is how Laravel's router does route groups. Scopes don't
@@ -67,7 +67,7 @@ class Registrar
      * outside one for any object type (`*.verb`), which is also where group
      * headlines and a composite parent's headline belong.
      *
-     * With a one-verb Story class, binds the class to the verb instead, as
+     * With a message class, binds the class to the verb instead, as
      * `Route::post('…', ShipOrder::class)` binds an invokable controller, and
      * returns nothing to configure: the class says it all. Outside a group,
      * the class's own `$objectType` names the types.
@@ -110,7 +110,7 @@ class Registrar
     {
         $resource = new PendingResource($objectType, Verb::caller(), $class);
 
-        app(StoryfeedManager::class)->stories([$resource]);
+        app(StoryfeedManager::class)->addStory($resource);
 
         return $resource;
     }
@@ -134,7 +134,7 @@ class Registrar
     }
 
     /**
-     * Bind a one-verb Story class to a verb, for these object types or,
+     * Bind a message class to a verb, for these object types or,
      * with none, the class's own.
      *
      * @param  array<int, string>|null  $objectTypes
@@ -143,7 +143,7 @@ class Registrar
      */
     public function bind(?array $objectTypes, string|FeedVerb|BackedEnum $verb, string $story): void
     {
-        app(StoryfeedManager::class)->stories([BoundStory::make($objectTypes, $verb, $story, Verb::caller())]);
+        app(StoryfeedManager::class)->addStory(BoundStory::make($objectTypes, $verb, $story, Verb::caller()));
     }
 
     /**
@@ -157,7 +157,7 @@ class Registrar
     {
         $definition = Verb::for($objectTypes, $verb, Verb::caller())->scopedToType();
 
-        app(StoryfeedManager::class)->stories([$definition]);
+        app(StoryfeedManager::class)->addStory($definition);
 
         return $definition;
     }

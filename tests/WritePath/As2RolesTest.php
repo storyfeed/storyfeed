@@ -17,7 +17,6 @@ use Workbench\App\Enums\ActivityVerb;
 use Workbench\App\Models\Customer;
 use Workbench\App\Models\Delivery;
 use Workbench\App\Models\User;
-use Workbench\App\Stories\DeliveryWasConfirmed;
 
 it('stores snapshots and scopes participation for each AS2 role', function (string $role) {
     $entity = Customer::create(['name' => 'Source or tool or outcome']);
@@ -61,7 +60,6 @@ it('preserves from as target and forwards enum helpers and all record entry poin
     $records = [
         Storyfeed::record('confirm', object: $delivery, origin: 'Warehouse', result: 'Receipt', instrument: 'Tablet'),
         ActivityVerb::Confirm->record(object: $delivery, origin: 'Warehouse', result: 'Receipt', instrument: 'Tablet'),
-        DeliveryWasConfirmed::record(object: $delivery, origin: 'Warehouse', result: 'Receipt', instrument: 'Tablet'),
     ];
     foreach ($records as $record) {
         expect($record->origin->name)->toBe('Warehouse')

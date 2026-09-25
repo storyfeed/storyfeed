@@ -6,7 +6,9 @@ use Storyfeed\Exceptions\StoryMisconfigured;
 use Storyfeed\Exceptions\UnknownStory;
 use Storyfeed\Facades\Story;
 use Storyfeed\Facades\Storyfeed;
+use Storyfeed\Models\Activity;
 use Storyfeed\PendingActivity;
+use Storyfeed\Stories\Story as Message;
 use Storyfeed\Tests\Fixtures\Stories\DeliveryStory;
 use Storyfeed\Tests\Fixtures\Stories\DeliveryWasDispatched;
 use Workbench\App\Enums\ActivityVerb;
@@ -19,9 +21,9 @@ use Workbench\App\Stories\DeliveryWasConfirmed;
  * Call sites, read the way Laravel reads routes: the verb is the public
  * handle, as a route's name is, and `story('ship', $order)` is the feed's
  * `route('orders.ship', $order)`. A resource Story class is a declaration
- * call sites never touch. A one-verb Story class is the invokable
- * controller: bound to its verb in routes/feed.php, and — being Job-shaped —
- * still publishable at the call site with `OrderWasShipped::of($order)`.
+ * call sites never touch. A message class is a Notification: bound to its
+ * verb in routes/feed.php, constructed with its data at the call site and
+ * published, `Storyfeed::publish(new OrderWasShipped($order))`.
  */
 
 // ── story() ─────────────────────────────────────────────────────────────
@@ -52,54 +54,89 @@ it('leaves an app that already defines story() alone', function () {
         ->and(file_get_contents((string) $helper->getFileName()))->toContain("if (! function_exists('story')) {");
 });
 
-// ── of() ────────────────────────────────────────────────────────────────
+// ── Storyfeed::publish(new Message(…)) ──────────────────────────────────
 
-it('begins a one-verb class and a verb enum with the same word', function () {
-    Storyfeed::stories([DeliveryWasConfirmed::class]);
+it('publishes a message, and publishNow() does the same', function () {
+    Story::for(Delivery::class)->verb('dispatch', DeliveryWasDispatched::class);
+    $delivery = Delivery::create(['tracking_number' => 'TN-1']);
 
-    $viaClass = DeliveryWasConfirmed::of(Delivery::create(['tracking_number' => 'A']))->publish();
-    $viaEnum = ActivityVerb::Confirm->of(Delivery::create(['tracking_number' => 'B']))->publish();
+    $published = Storyfeed::publish(new DeliveryWasDispatched($delivery));
+    $now = Storyfeed::publishNow(new DeliveryWasDispatched($delivery));
 
-    expect($viaClass->verb)->toBe('confirm')
-        ->and($viaEnum->verb)->toBe('confirm')
-        ->and($viaClass->object_type)->toBe($viaEnum->object_type);
+    expect($published?->verb)->toBe('dispatch')
+        ->and($published?->object_id)->toEqual($delivery->id)
+        ->and($now?->verb)->toBe('dispatch');
 });
 
-it('drops the old words: Story::activity() and the enum\'s action() and activity()', function () {
-    expect(method_exists(DeliveryWasConfirmed::class, 'activity'))->toBeFalse()
+it('publishes nothing when the message says nothing happened', function () {
+    Story::for(Delivery::class)->verb('dispatch', QuietDispatch::class);
+
+    expect(Storyfeed::publish(new QuietDispatch(Delivery::create(['tracking_number' => 'TN-1']))))->toBeNull()
+        ->and(Storyfeed::publishNow(new QuietDispatch(Delivery::create(['tracking_number' => 'TN-2']))))->toBeNull()
+        ->and(Activity::count())->toBe(0);
+});
+
+it('is the event hook, so a message dispatched as an event publishes too', function () {
+    Story::for(Delivery::class)->verb('dispatch', DeliveryWasDispatched::class);
+
+    event(new DeliveryWasDispatched(Delivery::create(['tracking_number' => 'TN-1'])));
+
+    expect(Activity::sole()->verb)->toBe('dispatch');
+});
+
+it('refuses to publish a message nothing registered', function () {
+    Storyfeed::publish(new DeliveryWasDispatched(Delivery::create(['tracking_number' => 'TN-1'])));
+})->throws(UnknownStory::class, 'is not registered');
+
+it('refuses a verb bound to a message by name, naming the class to construct', function () {
+    Story::for(Delivery::class)->verb('dispatch', DeliveryWasDispatched::class);
+
+    expect(fn () => story('dispatch'))
+        ->toThrow(UnknownStory::class, 'Storyfeed::publish(new DeliveryWasDispatched(…))')
+        ->and(fn () => story('dispatch', Delivery::create(['tracking_number' => 'TN-1'])))
+        ->toThrow(UnknownStory::class, 'bound to the message class ['.DeliveryWasDispatched::class.']');
+});
+
+it('lets story() name the verb for a type no message is bound to', function () {
+    Story::for(Delivery::class)->verb('dispatch', DeliveryWasDispatched::class);
+    Story::for(Customer::class)->verb('dispatch')->headline(':actor dispatched :object');
+
+    $customer = Customer::create(['name' => 'Acme']);
+
+    expect(story('dispatch', $customer)->publish()->verb)->toBe('dispatch');
+});
+
+it('drops the statics that made a one-verb class half controller, half message', function (string $method) {
+    expect(method_exists(DeliveryWasConfirmed::class, $method) && (new ReflectionMethod(DeliveryWasConfirmed::class, $method))->isStatic())->toBeFalse();
+})->with(['verb', 'of', 'objects', 'anonymous', 'record', 'publish']);
+
+it('keeps activity() inside the class, and drops the enum\'s action() and activity()', function () {
+    expect((new ReflectionMethod(DeliveryWasConfirmed::class, 'activity'))->isPublic())->toBeFalse()
+        ->and(method_exists(PendingActivity::class, 'of'))->toBeFalse()
         ->and(method_exists(ActivityVerb::Confirm, 'action'))->toBeFalse()
         ->and(method_exists(ActivityVerb::Confirm, 'activity'))->toBeFalse();
 });
 
-it('says which of() takes the object when given a Story class', function () {
-    Storyfeed::stories([DeliveryWasConfirmed::class]);
+it('says a message\'s activity() takes the object when given a Story class', function () {
+    Story::for(Delivery::class)->verb('dispatch', ClassAsObject::class);
 
     // A string object is a party's name: without the guard, this would
-    // publish an activity about a party called "Workbench\App\Stories\…".
-    expect(fn () => DeliveryWasConfirmed::of(DeliveryWasConfirmed::class))
-        ->toThrow(UnknownStory::class, "DeliveryWasConfirmed::of() takes the activity's object")
-        ->and(fn () => DeliveryWasConfirmed::of(DeliveryWasConfirmed::class))
-        ->toThrow(UnknownStory::class, 'PendingActivity::of() is the one that takes a Story class');
-});
-
-it('says which of() takes the class when given a model', function () {
-    expect(fn () => PendingActivity::of(Delivery::class))
-        ->toThrow(UnknownStory::class, 'PendingActivity::of() takes a Story class, and the object comes after');
-});
+    // publish an activity about a party called "Storyfeed\Tests\…".
+    Storyfeed::publish(new ClassAsObject);
+})->throws(UnknownStory::class, "ClassAsObject's \$this->activity() takes the activity's object");
 
 // ── Story::for(…)->verb('x', OneVerbClass::class) ───────────────────────
 
-it('binds a one-verb class to its verb, and the class learns it', function () {
+it('binds a message class to its verb, and the class learns it', function () {
     Story::for(Delivery::class)->verb('dispatch', DeliveryWasDispatched::class);
 
-    $activity = DeliveryWasDispatched::of(Delivery::create(['tracking_number' => 'TN-1']))->publish();
+    $activity = Storyfeed::publish(new DeliveryWasDispatched(Delivery::create(['tracking_number' => 'TN-1'])));
 
-    expect($activity->verb)->toBe('dispatch')
-        ->and(DeliveryWasDispatched::verb())->toBe('dispatch')
+    expect($activity?->verb)->toBe('dispatch')
+        ->and(Storyfeed::storyVerb(DeliveryWasDispatched::class))->toBe('dispatch')
         ->and(Storyfeed::template('delivery', 'dispatch'))->toBe(':actor dispatched :object')
         ->and(Storyfeed::icon('delivery', 'dispatch'))->toBe('truck')
-        ->and(Storyfeed::hasStory(DeliveryWasDispatched::class))->toBeTrue()
-        ->and(PendingActivity::of(DeliveryWasDispatched::class)->publish()->verb)->toBe('dispatch');
+        ->and(Storyfeed::hasStory(DeliveryWasDispatched::class))->toBeTrue();
 });
 
 it('binds inside a group with Story::verb(), and chains on the scope', function () {
@@ -203,12 +240,13 @@ it('conflicts when a line adds to a bound class\'s verb', function () {
         ->toThrow(StoryMisconfigured::class, 'A verb a Story class defines is defined there whole');
 });
 
-it('conflicts when a class is registered and also bound', function () {
-    Storyfeed::stories([DeliveryWasConfirmed::class]);
+it('conflicts when a class is bound twice to one verb', function () {
+    Story::verb(ActivityVerb::Confirm, DeliveryWasConfirmed::class);
     Story::for(Delivery::class)->verb('confirm', DeliveryWasConfirmed::class);
 
+    // Each binding is its line, as each route is.
     expect(fn () => Storyfeed::compiledStories())
-        ->toThrow(StoryMisconfigured::class, '[delivery.confirm] is defined twice: '.DeliveryWasConfirmed::class.' and ');
+        ->toThrow(StoryMisconfigured::class, '[delivery.confirm] is defined twice: '.__FILE__.':');
 });
 
 it('still lets lines share a verb, each saying its own part', function () {
@@ -218,3 +256,31 @@ it('still lets lines share a verb, each saying its own part', function () {
     expect(Storyfeed::template('delivery', 'ship'))->toBe(':actor shipped :object')
         ->and(Storyfeed::icon('delivery', 'ship'))->toBe('send');
 });
+
+class QuietDispatch extends Message
+{
+    public function __construct(public Delivery $delivery) {}
+
+    public function toFeedActivity(): ?PendingActivity
+    {
+        return null;
+    }
+
+    public function headline(): string
+    {
+        return ':actor dispatched :object';
+    }
+}
+
+class ClassAsObject extends Message
+{
+    public function toFeedActivity(): ?PendingActivity
+    {
+        return $this->activity(DeliveryWasConfirmed::class);
+    }
+
+    public function headline(): string
+    {
+        return ':actor dispatched :object';
+    }
+}

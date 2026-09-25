@@ -30,7 +30,7 @@ use function Laravel\Prompts\text;
  *   php artisan make:story --from-doctor
  *
  * Every form PRINTS the line that binds the class, and the line names the
- * verb and the object type, so a one-verb class doesn't repeat them:
+ * verb and the object type, so a message class doesn't repeat them:
  *
  *   Story::for(\App\Models\Task::class)->verb('complete', \App\Stories\TaskWasCompleted::class);
  *
@@ -352,6 +352,8 @@ class StoryMakeCommand extends GeneratorCommand
 
         $this->bindings[] = 'Story::for('.$this->objectType($object).")->verb('{$verb}', \\{$name}::class);";
 
+        $stub = $this->message($stub, $object);
+
         $past = $this->pastTense($name, $verb);
 
         if ($past === null) {
@@ -363,6 +365,28 @@ class StoryMakeCommand extends GeneratorCommand
             [':actor '.$past.' :object', $this->groups([$past], $verb)],
             $stub,
         );
+    }
+
+    /**
+     * The message half: a constructor taking the object, and the activity
+     * about it. The object's model class when one exists, else any model; no
+     * object for `'*'`.
+     */
+    protected function message(string $stub, string $object): string
+    {
+        $class = $object === '*' ? null : $this->modelClass($object);
+        $variable = Str::camel(class_basename($object));
+
+        [$import, $constructor, $activity] = match (true) {
+            $object === '*' => ['', '', '$this->activity()'],
+            $class !== null => ["use {$class};", 'public '.class_basename($class)." \${$variable}", "\$this->activity(\$this->{$variable})"],
+            default => ['use Illuminate\\Database\\Eloquent\\Model;', "public Model \${$variable}", "\$this->activity(\$this->{$variable})"],
+        };
+
+        // The import's line goes with it when there is none.
+        $stub = preg_replace_callback('/^\{\{ modelImport \}\}\R/m', fn () => $import === '' ? '' : $import.PHP_EOL, $stub) ?? $stub;
+
+        return str_replace(['{{ constructor }}', '{{ activity }}'], [$constructor, $activity], $stub);
     }
 
     /**
@@ -488,13 +512,21 @@ class StoryMakeCommand extends GeneratorCommand
             return "'*'";
         }
 
+        $class = $this->modelClass($object);
+
+        return $class !== null ? "\\{$class}::class" : "'".Str::snake(class_basename($object))."'";
+    }
+
+    /** The model class an object names, if one exists. */
+    protected function modelClass(string $object): ?string
+    {
         foreach ([$object, $this->rootNamespace().'Models\\'.Str::studly($object), $this->rootNamespace().Str::studly($object)] as $candidate) {
             if (class_exists($candidate)) {
-                return '\\'.ltrim($candidate, '\\').'::class';
+                return ltrim($candidate, '\\');
             }
         }
 
-        return "'".Str::snake(class_basename($object))."'";
+        return null;
     }
 
     /**

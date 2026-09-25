@@ -57,7 +57,7 @@ final class TypeScope
      * verb's definition to configure; with one, configures it and returns
      * this scope, so more `->verb()` calls chain.
      *
-     * With a one-verb Story class, binds the class to the verb, as a route
+     * With a message class, binds the class to the verb, as a route
      * binds an invokable controller, and returns this scope:
      * `->verb('complete', TaskWasCompleted::class)`.
      *

@@ -1,5 +1,6 @@
 <?php
 
+use Storyfeed\Facades\Story;
 use Storyfeed\Facades\Storyfeed;
 use Storyfeed\Grouping\Axis;
 use Storyfeed\Grouping\Group;
@@ -21,7 +22,7 @@ use Workbench\App\Stories\DeliveryWasConfirmed;
  */
 
 it('compiles to exactly what the hand-written registries would hold', function () {
-    Storyfeed::stories([DeliveryWasConfirmed::class]);
+    Story::verb(ActivityVerb::Confirm, DeliveryWasConfirmed::class);
 
     $fromStory = [
         'grammar' => Storyfeed::registeredGrammar(),
@@ -43,9 +44,9 @@ it('compiles to exactly what the hand-written registries would hold', function (
 });
 
 it('registers the verb even when the story declares no AS2 type', function () {
-    Storyfeed::stories([
-        Verb::make('delivery.frobnicate')->headline(':actor frobnicated :object'),
-    ]);
+    defineStories(
+        Verb::make('delivery.frobnicate')->headline(':actor frobnicated :object')
+    );
 
     // Without this, strict mode would throw UnknownVerb for every
     // story-authored verb whose vocabulary is not also in an enum — a
@@ -55,13 +56,13 @@ it('registers the verb even when the story declares no AS2 type', function () {
 });
 
 it('takes the AS2 mapping from a FeedVerb enum case', function () {
-    Storyfeed::stories([DeliveryWasConfirmed::class]);
+    Story::verb('confirm', DeliveryWasConfirmed::class);
 
     expect(Storyfeed::activityTypeValue('confirm'))->toBe('Update');
 });
 
 it('compiles a composite into both the aggregate key and the parent singular', function () {
-    Storyfeed::stories([DeliveriesWereUploaded::class]);
+    Story::verb(ActivityVerb::Upload, DeliveriesWereUploaded::class);
 
     expect(Storyfeed::registeredAggregateGrammar())->toHaveKey('composite.upload')
         // The second, unlisted registry: a composite parent is object-less, so
@@ -70,16 +71,17 @@ it('compiles a composite into both the aggregate key and the parent singular', f
         ->and(Storyfeed::template(null, 'upload'))->toBe(':actor uploaded deliveries');
 });
 
-it('publishes through a story identically to the builder', function () {
-    Storyfeed::stories([DeliveryWasConfirmed::class]);
+it('publishes through a message identically to the builder', function () {
+    Story::verb(ActivityVerb::Confirm, DeliveryWasConfirmed::class);
 
+    $user = User::create(['name' => 'Sally', 'email' => 's@example.com']);
     $delivery = Delivery::create(['tracking_number' => 'TN-1']);
     $other = Delivery::create(['tracking_number' => 'TN-2']);
 
-    $viaStory = DeliveryWasConfirmed::publish($delivery);
-    $viaBuilder = Storyfeed::activity(ActivityVerb::Confirm, $other)->publish();
+    $viaStory = Storyfeed::publish(new DeliveryWasConfirmed($delivery, $user));
+    $viaBuilder = Storyfeed::activity(ActivityVerb::Confirm, $other)->by($user)->publish();
 
-    expect($viaStory->verb)->toBe($viaBuilder->verb)
+    expect($viaStory?->verb)->toBe($viaBuilder->verb)
         ->and($viaStory->object_type)->toBe($viaBuilder->object_type);
 
     // Same grouping hashes for equivalent activities — the story is a
@@ -89,20 +91,22 @@ it('publishes through a story identically to the builder', function () {
     expect($hashes($viaStory))->toBe($hashes($viaBuilder));
 });
 
-it('exposes the chainable builder rather than a parallel surface', function () {
-    Storyfeed::stories([DeliveryWasConfirmed::class]);
+it('builds with the chainable builder rather than a parallel surface', function () {
+    Story::verb(ActivityVerb::Confirm, DeliveryWasConfirmed::class);
 
-    $activity = DeliveryWasConfirmed::of(Delivery::create(['tracking_number' => 'TN-1']))
-        ->actor(User::create(['name' => 'Sally', 'email' => 's@example.com']))
-        ->for(Customer::create(['name' => 'Acme']))
-        ->publish();
+    $activity = Storyfeed::publish(new DeliveryWasConfirmed(
+        Delivery::create(['tracking_number' => 'TN-1']),
+        User::create(['name' => 'Sally', 'email' => 's@example.com']),
+        Customer::create(['name' => 'Acme']),
+    ));
 
-    expect($activity->target_type)->toBe('customer')
+    expect($activity?->target_type)->toBe('customer')
         ->and($activity->actor_type)->toBe('user');
 });
 
 it('emits closure-free output, so a manifest can var_export it', function () {
-    Storyfeed::stories([DeliveryWasConfirmed::class, DeliveriesWereUploaded::class]);
+    Story::verb(ActivityVerb::Confirm, DeliveryWasConfirmed::class);
+    Story::verb(ActivityVerb::Upload, DeliveriesWereUploaded::class);
 
     $compiled = Storyfeed::compiledStories();
 
@@ -116,7 +120,6 @@ it('emits closure-free output, so a manifest can var_export it', function () {
 });
 
 it('groups by verb, not by axis — the ergonomic point', function () {
-    Storyfeed::stories([DeliveryWasConfirmed::class]);
     require __DIR__.'/../../workbench/routes/feed.php';
 
     // `confirm`'s aggregate headlines sit together: the one about deliveries
@@ -136,11 +139,11 @@ it('accepts an ad-hoc group on a custom axis', function () {
         Axis::make('scene')->key('v:ca!:cid!:d'),
     ]);
 
-    Storyfeed::stories([
+    defineStories(
         Verb::make('delivery.confirm')
             ->headline(':actor confirmed :object')
-            ->groups(Group::on('scene')->headline(':actors confirmed :count deliveries in :context')),
-    ]);
+            ->groups(Group::on('scene')->headline(':actors confirmed :count deliveries in :context'))
+    );
 
     expect(Storyfeed::aggregateTemplate('scene', 'confirm'))
         ->toBe(':actors confirmed :count deliveries in :context');

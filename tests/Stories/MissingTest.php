@@ -6,6 +6,7 @@ use Storyfeed\Contracts\FeedVerb;
 use Storyfeed\Exceptions\StoryMisconfigured;
 use Storyfeed\Facades\Story;
 use Storyfeed\Facades\Storyfeed;
+use Storyfeed\PendingActivity;
 use Storyfeed\Stories\Story as BaseStory;
 use Storyfeed\Stories\StoryManifest;
 use Storyfeed\Stories\Verb;
@@ -65,11 +66,11 @@ it('replaces the default set rather than adding to it', function () {
 });
 
 it('declares roles in the array form, where an empty list means none', function () {
-    Storyfeed::stories([
-        'delivery.note' => ['headline' => ':actor noted :object', 'missing' => ['target']],
-        'delivery.mention' => ['missing' => []],
+    defineStories(
+        Verb::make('delivery.note')->fill(['headline' => ':actor noted :object', 'missing' => ['target']], 'delivery.note'),
+        Verb::make('delivery.mention')->fill(['missing' => []], 'delivery.mention'),
         Verb::make('delivery.pack')->missing('instrument'),
-    ]);
+    );
 
     expect(constitutive('delivery', 'note'))->toBe(['target'])
         ->and(constitutive('delivery', 'mention'))->toBe([])
@@ -83,6 +84,11 @@ it('declares roles on a Story class with missing()', function () {
 
         public string|FeedVerb|BackedEnum|null $verb = 'hand_over';
 
+        public function toFeedActivity(): ?PendingActivity
+        {
+            return $this->activity();
+        }
+
         public function headline(): string
         {
             return ':actor handed :object to :target';
@@ -94,7 +100,7 @@ it('declares roles on a Story class with missing()', function () {
         }
     };
 
-    Storyfeed::stories([Verb::fromStory($story)]);
+    defineStories(Verb::fromStory($story, null, 'hand_over', 'a line'));
 
     expect(constitutive('delivery', 'hand_over'))->toBe(['object', 'target'])
         // A class that doesn't override it keeps the default.
@@ -104,11 +110,16 @@ it('declares roles on a Story class with missing()', function () {
 
             public string|FeedVerb|BackedEnum|null $verb = 'confirm';
 
+            public function toFeedActivity(): ?PendingActivity
+            {
+                return $this->activity();
+            }
+
             public function headline(): string
             {
                 return ':actor confirmed :object';
             }
-        })->missingRoles())->toBeNull();
+        }, null, 'confirm', 'a line')->missingRoles())->toBeNull();
 });
 
 it('refuses a role that is not one of the seven', function () {

@@ -3,6 +3,7 @@
 use Storyfeed\Facades\Story;
 use Storyfeed\Facades\Storyfeed;
 use Storyfeed\FeedHeadline;
+use Storyfeed\Stories\Verb;
 use Workbench\App\Models\Customer;
 use Workbench\App\Models\Delivery;
 use Workbench\App\Models\User;
@@ -104,7 +105,7 @@ it('resolves optional segments, and runs closures and translations as headlines 
 });
 
 it('takes the array form', function () {
-    Storyfeed::stories(['*.confirm' => ['headline' => ':actor confirmed :object', 'missingHeadline' => ':actor confirmed a removed delivery']]);
+    defineStories(Verb::make('*.confirm')->fill(['headline' => ':actor confirmed :object', 'missingHeadline' => ':actor confirmed a removed delivery'], '*.confirm'));
     Storyfeed::activity()->actor($this->ines)->verb('confirm', $this->delivery)->publish();
 
     $this->delivery->delete();

@@ -4,11 +4,11 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Storyfeed\Events\ActivityPublished;
 use Storyfeed\Exceptions\UnauthoredActivity;
+use Storyfeed\Facades\Story;
 use Storyfeed\Facades\Storyfeed;
 use Storyfeed\Models\Activity;
 use Storyfeed\Models\Party;
 use Storyfeed\Models\Snapshot;
-use Storyfeed\PendingActivity;
 use Workbench\App\Enums\ActivityVerb;
 use Workbench\App\Events\DeliveryConfirmed;
 use Workbench\App\Models\Customer;
@@ -80,19 +80,20 @@ describe('config off', function () {
     });
 
     it('writes nothing from a Story', function () {
-        Storyfeed::stories([DeliveryWasConfirmed::class]);
+        Story::verb(ActivityVerb::Confirm, DeliveryWasConfirmed::class);
 
-        $activity = PendingActivity::of(DeliveryWasConfirmed::class)
-            ->object(Delivery::create(['tracking_number' => 'TN-1']))
-            ->publish();
+        $activity = Storyfeed::publish(new DeliveryWasConfirmed(
+            Delivery::create(['tracking_number' => 'TN-1']),
+            User::create(['name' => 'Sally', 'email' => 'sally@example.com']),
+        ));
 
-        expect($activity->exists)->toBeFalse()->and($activity->verb)->toBe('confirm');
+        expect($activity?->exists)->toBeFalse()->and($activity?->verb)->toBe('confirm');
 
         expectNoFeedRows();
     });
 
     it('writes nothing from a PublishesToFeed event', function () {
-        Storyfeed::stories([DeliveryWasConfirmed::class]);
+        Story::verb(ActivityVerb::Confirm, DeliveryWasConfirmed::class);
 
         DeliveryConfirmed::dispatch(
             Delivery::create(['tracking_number' => 'TN-1']),

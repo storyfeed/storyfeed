@@ -5,9 +5,11 @@ namespace Workbench\App\Stories;
 use BackedEnum;
 use Storyfeed\Contracts\FeedVerb;
 use Storyfeed\Grouping\Group;
+use Storyfeed\PendingActivity;
 use Storyfeed\Stories\Story;
 use Workbench\App\Enums\ActivityVerb;
 use Workbench\App\Models\Delivery;
+use Workbench\App\Models\User;
 
 /**
  * A composite story — one act over a collection of objects.
@@ -24,6 +26,17 @@ class DeliveriesWereUploaded extends Story
     public string|array|null $objectType = Delivery::class;
 
     public string|FeedVerb|BackedEnum|null $verb = ActivityVerb::Upload;
+
+    /** @param  iterable<int, Delivery>  $deliveries */
+    public function __construct(
+        public iterable $deliveries,
+        public User $user,
+    ) {}
+
+    public function toFeedActivity(): ?PendingActivity
+    {
+        return $this->activity()->objects($this->deliveries)->by($this->user);
+    }
 
     public function headline(): string
     {

@@ -135,8 +135,10 @@ it('runs from the manifest, with nothing registered at boot', function () {
     Story::resource(Delivery::class, RefundStory::class)->only('refund');
     $this->artisan('storyfeed:cache')->assertSuccessful();
 
+    // A fresh manager: nothing registered, as at a cached boot.
+    app()->forgetInstance(StoryfeedManager::class);
+    Storyfeed::clearResolvedInstances();
     $storyfeed = app(StoryfeedManager::class);
-    $storyfeed->stories([], merge: false);
     app(StoryManifest::class)->apply($storyfeed);
     RefundStory::$seen = [];
 

@@ -2,7 +2,9 @@
 
 namespace Storyfeed\Exceptions;
 
+use BackedEnum;
 use LogicException;
+use Storyfeed\Contracts\FeedVerb;
 
 /**
  * Thrown when something names a Story that cannot be used.
@@ -24,22 +26,33 @@ class UnknownStory extends LogicException
         );
     }
 
-    public static function notAStory(string $given): self
-    {
-        return new self(
-            "[{$given}] is not a Storyfeed\\Stories\\Story subclass. PendingActivity::of() takes a Story class, and "
-            .'the object comes after (->object($order)); to publish without a Story class, use '
-            .'PendingActivity::inline($verb).'
-        );
-    }
-
     public static function classGivenAsObject(string $story, string $given): self
     {
         $short = class_basename($story);
 
         return new self(
-            "{$short}::of() takes the activity's object, and was given the Story class [{$given}]. "
-            ."Pass the model: {$short}::of(\$order). PendingActivity::of() is the one that takes a Story class."
+            "{$short}'s \$this->activity() takes the activity's object, and was given the Story class [{$given}]. "
+            .'Pass the model: $this->activity($this->order).'
+        );
+    }
+
+    /**
+     * story() on a verb a message class is bound to: publishing it by name
+     * would skip the class's toFeedActivity().
+     */
+    public static function boundToMessage(string|FeedVerb|BackedEnum $verb, string $story): self
+    {
+        $verb = match (true) {
+            $verb instanceof FeedVerb => $verb->verb(),
+            $verb instanceof BackedEnum => (string) $verb->value,
+            default => trim($verb),
+        };
+        $short = class_basename($story);
+
+        return new self(
+            "The verb [{$verb}] is bound to the message class [{$story}], so story('{$verb}') would skip its "
+            ."toFeedActivity(). Construct the class and publish it:\n\n"
+            ."    Storyfeed::publish(new {$short}(…));"
         );
     }
 }

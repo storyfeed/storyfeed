@@ -3,13 +3,13 @@
 use Storyfeed\Facades\Storyfeed;
 use Storyfeed\FeedThread;
 use Workbench\App\Models\Delivery;
-use Workbench\App\Stories\DeliveryWasConfirmed;
 
-beforeEach(function () {
-    Storyfeed::stories([DeliveryWasConfirmed::class]);
-});
+/*
+ * A thread and a publication date through the one-call form, from storage
+ * to the node.
+ */
 
-it('records a story thread through storage into the node without exposing its version', function () {
+it('records a thread through storage into the node without exposing its version', function () {
     $payload = [
         'text' => 'Thursday works.',
         'by' => 'Sally',
@@ -18,7 +18,8 @@ it('records a story thread through storage into the node without exposing its ve
         'truncated' => true,
     ];
 
-    $activity = DeliveryWasConfirmed::record(
+    $activity = Storyfeed::record(
+        'confirm',
         object: Delivery::create(['tracking_number' => 'TN-1']),
         data: ['source' => 'import'],
         thread: FeedThread::make(...$payload),
@@ -36,8 +37,9 @@ it('records a story thread through storage into the node without exposing its ve
         ->and($node['data'])->toBe(['source' => 'import']);
 });
 
-it('records a story publication date', function ($date) {
-    $activity = DeliveryWasConfirmed::record(
+it('records a publication date', function ($date) {
+    $activity = Storyfeed::record(
+        'confirm',
         object: Delivery::create(['tracking_number' => 'TN-1']),
         publishedAt: $date,
     );
@@ -48,29 +50,11 @@ it('records a story publication date', function ($date) {
     'date object' => new DateTimeImmutable('2026-08-01T12:30:00+00:00'),
 ]);
 
-it('keeps existing positional story record calls unchanged', function () {
-    $delivery = Delivery::create(['tracking_number' => 'TN-1']);
+it('accepts an explicit null thread and publication date', function () {
     $this->freezeSecond();
 
-    $activity = DeliveryWasConfirmed::record($delivery, 'Sally', 'Warehouse', 'Import', ['source' => 'import'], []);
-
-    expect($activity->fresh()->data)->toBe(['source' => 'import'])
-        ->and($activity->object_id)->toEqual($delivery->id)
-        ->and($activity->actor->name)->toBe('Sally')
-        ->and($activity->target->name)->toBe('Warehouse')
-        ->and($activity->context->name)->toBe('Import')
-        ->and($activity->published_at->equalTo(now()))->toBeTrue();
-
-    $node = Storyfeed::feed()->get()->toArray()['items'][0];
-
-    expect($node['thread'])->toBeNull()
-        ->and($node['data'])->toBe(['source' => 'import']);
-});
-
-it('accepts explicit null story thread and publication date', function () {
-    $this->freezeSecond();
-
-    $activity = DeliveryWasConfirmed::record(
+    $activity = Storyfeed::record(
+        'confirm',
         object: Delivery::create(['tracking_number' => 'TN-1']),
         data: ['source' => 'import'],
         publishedAt: null,

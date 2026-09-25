@@ -5,6 +5,7 @@ namespace Storyfeed\Console;
 use Illuminate\Console\Command;
 use Illuminate\Support\Carbon;
 use Storyfeed\Models\Activity;
+use Storyfeed\Stories\Story;
 use Storyfeed\StoryfeedManager;
 use Storyfeed\Support\ActivityRoles;
 
@@ -85,17 +86,20 @@ class StoriesCommand extends Command
         $lastRecorded = $this->lastRecordedByPair();
         $roleMap = $this->roleMap();
 
-        // 1. Registered stories, named by their class or ad-hoc key. A line
-        // that only gives a verb its group headlines (`Story::verb('confirm')
-        // ->grouped(…)`, for groupings that can hold several types) is not a
-        // story of its own: its headlines count in each row for the verb.
+        // 1. Registered stories, named by their message class or their line.
+        // A line that only gives a verb its group headlines
+        // (`Story::verb('confirm')->grouped(…)`, for groupings that can hold
+        // several types) is not a story of its own: its headlines count in
+        // each row for the verb.
         foreach ($storyfeed->storyDefinitions() as $definition) {
             if ($definition->template() === null && $definition->groupList() !== []) {
                 continue;
             }
 
+            $source = is_a((string) $definition->action(), Story::class, true) ? (string) $definition->action() : $definition->source;
+
             foreach ($definition->pairs() as [$type, $verb]) {
-                $rows[] = $this->row($storyfeed, $definition->source, $type, $verb, $lastRecorded, $roleMap);
+                $rows[] = $this->row($storyfeed, $source, $type, $verb, $lastRecorded, $roleMap);
             }
         }
 

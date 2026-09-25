@@ -10,6 +10,7 @@ use Storyfeed\Facades\Story;
 use Storyfeed\Facades\Storyfeed;
 use Storyfeed\Models\Activity;
 use Storyfeed\Models\Grouping;
+use Storyfeed\PendingActivity;
 use Storyfeed\Stories\Story as BaseStory;
 use Storyfeed\Stories\StoryManifest;
 use Storyfeed\Stories\Verb;
@@ -62,14 +63,19 @@ describe('declaring it', function () {
     });
 
     it('declares it in the array form and on a Story class', function () {
-        Storyfeed::stories([
-            'delivery.save' => ['keepLatest' => true],
-            'delivery.view' => ['keepLatest' => ['per' => ['object', 'actor']]],
+        defineStories(
+            Verb::make('delivery.save')->fill(['keepLatest' => true], 'delivery.save'),
+            Verb::make('delivery.view')->fill(['keepLatest' => ['per' => ['object', 'actor']]], 'delivery.view'),
             Verb::fromStory(new class extends BaseStory
             {
                 public string|array|null $objectType = 'customer';
 
                 public \Storyfeed\Contracts\FeedVerb|\BackedEnum|string|null $verb = 'update';
+
+                public function toFeedActivity(): ?PendingActivity
+                {
+                    return $this->activity();
+                }
 
                 public function headline(): string
                 {
@@ -80,8 +86,8 @@ describe('declaring it', function () {
                 {
                     return ['within' => '1 hour'];
                 }
-            }),
-        ]);
+            }, null, 'update', 'a line'),
+        );
 
         expect(Storyfeed::keepLatest('delivery', 'save'))->toBe(['per' => ['object'], 'within' => null])
             ->and(Storyfeed::keepLatest('delivery', 'view'))->toBe(['per' => ['actor', 'object'], 'within' => null])
@@ -355,7 +361,8 @@ describe('the doctor', function () {
 
         expect($finding->subject)->toBe(['type' => 'delivery', 'verb' => 'save', 'count' => 1])
             ->and($finding->fix?->definition()['code'])->toBe("Story::for(Delivery::class)->verb('save')->keepLatest();")
-            ->and($finding->fix?->snippet())->toContain("'delivery.save' => ['keepLatest' => true]");
+            // Only routes/feed.php can declare it, so the snippet is the line.
+            ->and($finding->fix?->snippet())->toBe("Story::for(Delivery::class)->verb('save')->keepLatest();");
 
         Artisan::call('storyfeed:doctor', ['--only' => ['keep_latest'], '--stubs' => true]);
 

@@ -5,18 +5,21 @@ namespace Workbench\App\Stories;
 use BackedEnum;
 use Storyfeed\Contracts\FeedVerb;
 use Storyfeed\Grouping\Group;
+use Storyfeed\PendingActivity;
 use Storyfeed\Stories\Story;
 use Workbench\App\Enums\ActivityVerb;
+use Workbench\App\Models\Customer;
 use Workbench\App\Models\Delivery;
+use Workbench\App\Models\User;
 
 /**
- * The canonical Story: everything about one activity type in one file.
+ * The canonical Story: one activity type as a message, constructed with its
+ * data and published, `Storyfeed::publish(new DeliveryWasConfirmed($delivery,
+ * $user))`, and bound to its verb in routes/feed.php.
  *
- * Note both `$objectType` and `$verb` are declared, so it registers without a
- * binding line in routes/feed.php. Nothing is inferred from the class name at
- * runtime — `make:story` parses `Delivery`+`WasConfirmed` and prints the line
- * that binds it, so a wrong guess is seen instead of self-registering a wrong
- * verb past strict mode.
+ * `$verb` is declared because the enum case carries the AS2.0 type, and
+ * `$objectType` so a line outside `Story::for()` can bind it. Nothing is
+ * inferred from the class name.
  *
  * Its group headlines are about deliveries, as everything in the class is:
  * a row of one person's repeated confirms holds only deliveries. A grouping
@@ -29,6 +32,17 @@ class DeliveryWasConfirmed extends Story
     public string|array|null $objectType = Delivery::class;
 
     public string|FeedVerb|BackedEnum|null $verb = ActivityVerb::Confirm;
+
+    public function __construct(
+        public Delivery $delivery,
+        public User $user,
+        public ?Customer $customer = null,
+    ) {}
+
+    public function toFeedActivity(): ?PendingActivity
+    {
+        return $this->activity($this->delivery)->by($this->user)->for($this->customer);
+    }
 
     public function headline(): string
     {

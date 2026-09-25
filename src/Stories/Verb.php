@@ -6,9 +6,11 @@ use BackedEnum;
 use Carbon\CarbonInterval;
 use Closure;
 use DateInterval;
+use Error;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Traits\Conditionable;
 use InvalidArgumentException;
+use ReflectionClass;
 use Storyfeed\ActivityStreams\ActivityType;
 use Storyfeed\ActivityStreams\ObjectType;
 use Storyfeed\Contracts\FeedVerb;
@@ -24,24 +26,10 @@ use Storyfeed\Support\ManifestClosure;
 /**
  * A story as data — the normalized form every authoring path funnels into.
  *
- * Three ways to author one activity type, one compiler:
- *
- *   Storyfeed::stories([
- *       DocumentWasUploaded::class,                       // a class
- *
- *       Verb::make('comment.comment')                     // fluent, ad-hoc
- *           ->headline(':actor commented on :target'),
- *
- *       'member.join' => [                                // array, ad-hoc
- *           'headline' => ':actor joined :target',
- *       ],
- *   ]);
- *
- * The ad-hoc forms are the `Storage::build()` analogue: an unnamed story that
- * still runs through the same machinery, for the cases where a whole class is
- * ceremony. Because CompileStories consumes only this type, the class form and
- * the class-free forms are provably identical — a test asserts the compiled
- * registries come out byte-for-byte the same.
+ * Every authoring path in routes/feed.php funnels into it, one compiler:
+ * a line (`Story::for(Comment::class)->verb('comment')->headline(…)`), an
+ * action on a resource class, and a message class bound to its verb.
+ * Because CompileStories consumes only this type, they compile alike.
  *
  * The `Story` facade is the front door onto this class: `Story::verb('place')`
  * returns a Verb that is already registered, the way `Route::get()`
@@ -99,7 +87,7 @@ final class Verb
     /** Per publish: who acted, when the call site and `Storyfeed::as()` didn't say. */
     protected Model|string|null $actor = null;
 
-    /** `App\Stories\OrderStory@place`, or a one-verb class: the action this definition came from. */
+    /** `App\Stories\OrderStory@place`, or a message class: the action this definition came from. */
     protected ?string $action = null;
 
     /** Whether that action takes the request, and so runs again at each publish. */
@@ -160,82 +148,102 @@ final class Verb
     }
 
     /**
-     * From a one-verb Story class. Bound in routes/feed.php, the line gives
-     * the types (null outside a scope), the verb and the source; otherwise
-     * the class declares both and is its own source.
+     * From a message class bound in routes/feed.php: the line gives the
+     * types (null outside a scope, where the class's own stand), the verb
+     * and the source.
      *
+     * @param  class-string<Story>|Story  $story
      * @param  array<int, string>|null  $objectTypes
      */
     public static function fromStory(
         string|Story $story,
-        ?array $objectTypes = null,
-        string|FeedVerb|BackedEnum|null $verb = null,
-        ?string $source = null,
+        ?array $objectTypes,
+        string|FeedVerb|BackedEnum $verb,
+        string $source,
     ): self {
-        $instance = is_string($story) ? new $story : $story;
+        $instance = is_string($story) ? self::presentation($story) : $story;
         $class = $instance::class;
         $objectTypes ??= $instance->objectType;
-        $verb ??= $instance->verb;
 
         if ($objectTypes === null) {
             throw StoryMisconfigured::missingObjectType($class);
         }
 
-        if ($verb === null) {
-            throw StoryMisconfigured::missingVerb($class);
-        }
+        try {
+            // The class is the action, as an invokable controller is a
+            // route's: it is what storyfeed:list shows, what the class's
+            // $this->activity() finds its verb by, and what makes a second
+            // definition of the verb a conflict.
+            $definition = self::for($objectTypes, $verb, $source)
+                ->fromAction($class, false)
+                ->headline($instance->headline())
+                ->groups(...$instance->groups());
 
-        // The class is the action, as an invokable controller is a route's:
-        // it is what storyfeed:list shows, what `Class::of()` finds its verb
-        // by, and what makes a second definition of the verb a conflict.
-        $definition = self::for($objectTypes, $verb, $source ?? $class)
-            ->fromAction($class, false)
-            ->headline($instance->headline())
-            ->groups(...$instance->groups());
+            if ($instance->icon() !== null) {
+                $definition = $definition->icon($instance->icon());
+            }
 
-        if ($instance->icon() !== null) {
-            $definition = $definition->icon($instance->icon());
-        }
+            if ($instance->intent() !== null) {
+                $definition = $definition->intent($instance->intent());
+            }
 
-        if ($instance->intent() !== null) {
-            $definition = $definition->intent($instance->intent());
-        }
+            if ($instance->type !== null) {
+                $definition = $definition->type($instance->type);
+            }
 
-        if ($instance->type !== null) {
-            $definition = $definition->type($instance->type);
-        }
+            if (($missing = $instance->missing()) !== null) {
+                $definition = $definition->missing(...$missing);
+            }
 
-        if (($missing = $instance->missing()) !== null) {
-            $definition = $definition->missing(...$missing);
-        }
+            if ($instance->keepForever()) {
+                $definition = $definition->keepForever();
+            } elseif (($window = $instance->keepFor()) !== null) {
+                $definition = $definition->keepFor($window);
+            }
 
-        if ($instance->keepForever()) {
-            $definition = $definition->keepForever();
-        } elseif (($window = $instance->keepFor()) !== null) {
-            $definition = $definition->keepFor($window);
-        }
+            if (($latest = $instance->keepLatest()) !== null) {
+                $definition = $definition->keepLatest(...($latest === true ? [] : $latest));
+            }
+        } catch (Error $e) {
+            // "must not be accessed before initialization": a presentation
+            // method read what only the constructor sets.
+            if (! str_contains($e->getMessage(), 'before initialization')) {
+                throw $e;
+            }
 
-        if (($latest = $instance->keepLatest()) !== null) {
-            $definition = $definition->keepLatest(...($latest === true ? [] : $latest));
+            throw StoryMisconfigured::presentationReadsState($class, $e);
         }
 
         return $definition;
+    }
+
+    /**
+     * The instance a message class's presentation is read from, made WITHOUT
+     * its constructor.
+     *
+     * A message class is constructed with its data (`new OrderConfirmed(
+     * $order)`), and at boot there is no order to pass. Presentation is the
+     * same for every activity of the type, so it never needs one: the
+     * property defaults (`$verb`, `$objectType`, `$type`) are set without the
+     * constructor, and anything the constructor sets is not, so a headline
+     * that reads it fails here, at compile, naming the class. Static
+     * presentation methods would enforce that rule by themselves, but on a
+     * class Laravel developers read as a Notification, whose `toMail()` and
+     * `via()` are instance methods, they would be the odd ones out.
+     *
+     * @param  class-string<Story>  $class
+     */
+    public static function presentation(string $class): Story
+    {
+        return (new ReflectionClass($class))->newInstanceWithoutConstructor();
     }
 
     /** The keys the array form accepts. */
     public const ARRAY_KEYS = ['headline', 'anonymousHeadline', 'icon', 'intent', 'type', 'noun', 'activityStreamsType', 'missing', 'missingHeadline', 'forgetWhenMissing', 'keepFor', 'keepForever', 'keepLatest', 'actor', 'groups'];
 
     /**
-     * @param  array<string, mixed>  $spec
-     */
-    public static function fromArray(string $key, array $spec): self
-    {
-        return self::make($key, "array [{$key}]")->fill($spec, $key);
-    }
-
-    /**
-     * Configure from the array form: what `'type.verb' => [...]` and an
-     * action returning an array both say.
+     * Configure from the array form: what an action returning an array
+     * says.
      *
      * @param  array<string, mixed>  $spec
      *
@@ -741,7 +749,7 @@ final class Verb
         return $this;
     }
 
-    /** `App\Stories\OrderStory@place`, a one-verb Story class, or null for a line or an array. */
+    /** `App\Stories\OrderStory@place`, a message class, or null for a line or an array. */
     public function action(): ?string
     {
         return $this->action;

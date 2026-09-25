@@ -7,8 +7,8 @@ use Storyfeed\Contracts\FeedVerb;
 use Storyfeed\Exceptions\StoryMisconfigured;
 
 /**
- * A one-verb Story class bound to its verb in routes/feed.php, as an
- * invokable controller is bound to its route:
+ * A message class bound to its verb in routes/feed.php, as an invokable
+ * controller is bound to its route:
  *
  *     Story::for(Task::class)->verb('complete', TaskWasCompleted::class);
  *
@@ -20,8 +20,9 @@ use Storyfeed\Exceptions\StoryMisconfigured;
  * `$objectType` out; if it declares them, they must agree with the line.
  * A resource Story class is bound with `Story::resource()` instead.
  *
- * Read when stories compile, like PendingResource, so the class is only
- * instantiated then.
+ * Read when stories compile, like PendingResource, from an instance made
+ * without the constructor (see Verb::presentation()): a message class takes
+ * its data there, and at boot there is none.
  *
  * @internal Made by the Story facade.
  */
@@ -39,7 +40,7 @@ final class BoundStory
     ) {}
 
     /**
-     * Check the class is a one-verb Story, at the line that names it.
+     * Check the class is a message class, at the line that names it.
      *
      * @param  array<int, string>|null  $objectTypes
      */
@@ -55,7 +56,7 @@ final class BoundStory
     /** The definition the class compiles to, for the line's verb and types. */
     public function definition(): Verb
     {
-        $story = new ($this->class);
+        $story = Verb::presentation($this->class);
         $bound = Verb::for('*', $this->verb, $this->source)->verb;
 
         if ($story->verb !== null && ($declared = Verb::for('*', $story->verb, $this->source)->verb) !== $bound) {
