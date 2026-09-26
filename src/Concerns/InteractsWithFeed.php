@@ -29,7 +29,7 @@ use Storyfeed\Support\Feedables;
  *         use InteractsWithFeed;
  *     }
  *
- * is snapshotted as "Carrot Soup" (its `name`), or "Dish #42", and is never a
+ * is snapshotted as "Carrot Soup" (its `name`), or "Ticket #42", and is never a
  * link. The two halves are refined separately, and the file's shape shows
  * which is which — what's stored is an instance method, what's resolved at
  * read time is a closure registered in `booted()`, because at read time
@@ -109,16 +109,16 @@ trait InteractsWithFeed
      * A named feed narrows it to one audience's verbs, declared once in a
      * service provider with `Storyfeed::feeds([...])` — see docs/feeds.md:
      *
-     *   $order->storyfeed('customer')->get();
+     *   $ticket->storyfeed('ticket')->get();
      *
      * The feed's constraints apply BEFORE involving(), so the two compose: this
-     * order's timeline, as a customer may see it.
+     * ticket's timeline, as a requester may see it.
      *
      * A Feed CLASS that takes its subject as a constructor argument cannot be
      * entered this way — it is built through its constructor instead, and the
      * role it binds is its own rather than involving():
      *
-     *   CustomerFeed::make($order)->get();
+     *   TicketFeed::make($ticket)->get();
      *
      * Needs `feed_participants` populated. On an existing install that means
      * running `storyfeed:participants` once; `storyfeed:doctor` warns until it
@@ -147,7 +147,7 @@ trait InteractsWithFeed
      *     public function describeFeed(): void
      *     {
      *         $this->feedEntity()
-     *             ->label("Order #{$this->reference}")
+     *             ->label("Ticket #{$this->reference}")
      *             ->body(Excerpt::make()->text($this->notes));
      *     }
      *
@@ -188,8 +188,8 @@ trait InteractsWithFeed
      * else is valid, and this is its label.
      *
      * The ladder: a `name` or `title` attribute, then the registered noun and
-     * the key ("Dish #42", from `Storyfeed::nouns()`), then the class name as
-     * words and the key ("Menu Item #42"). An app-wide guesser registered with
+     * the key ("Ticket #42", from `Storyfeed::nouns()`), then the class name as
+     * words and the key ("Support Ticket #42"). An app-wide guesser registered with
      * `Storyfeed::guessFeedLabelsUsing()` is asked first; returning null falls
      * through to the ladder. Override this method on a model, or a base
      * model, to change it there.
@@ -231,7 +231,7 @@ trait InteractsWithFeed
      * Register how this model's live media is resolved at read time, from
      * `booted()`:
      *
-     *     static::feedMediaUsing(fn ($context) => route('orders.show', $context->routeKey()));
+     *     static::feedMediaUsing(fn ($context) => route('tickets.show', $context->routeKey()));
      *
      * The closure gets the entity's FeedContext and a fresh FeedMedia. Return
      * a URL string, the `$media` you filled, or null for "not linkable".

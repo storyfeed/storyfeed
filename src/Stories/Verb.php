@@ -610,9 +610,9 @@ final class Verb
      * Keep only the latest of this verb's activities about one thing: each
      * publish supersedes the earlier rows on its key.
      *
-     *     Story::for(MenuItem::class)->verb('reprice')->keepLatest();
+     *     Story::for(Task::class)->verb('reschedule')->keepLatest();
      *     Story::verb('save')->keepLatest(per: ['object', 'actor']);
-     *     Story::for(MenuItem::class)->verb('update')->keepLatest(within: '10 minutes');
+     *     Story::for(Task::class)->verb('update')->keepLatest(within: '10 minutes');
      *
      * The key is the object, or the roles `per` names, plus the verb. The
      * latest `published_at` wins, whatever order the rows arrive in: a

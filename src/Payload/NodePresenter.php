@@ -57,8 +57,8 @@ class NodePresenter
      * A copy rather than a setter because the presenter is resolved from the
      * container: were an app to bind it as a singleton, a setter would leak
      * one page's feed name into the next page rendered in the same process —
-     * a queued digest rendering the customer feed after the kitchen feed
-     * would resolve kitchen URLs. A copy cannot.
+     * a queued digest rendering the reader feed after the editorial feed
+     * would resolve editorial URLs. A copy cannot.
      */
     public function forFeed(?string $feed): static
     {
@@ -295,8 +295,8 @@ class NodePresenter
      * all pinned by the axis, or the noun rung can honestly pluralise the
      * ones that are not. An unchecked singular fallback is the lie class
      * arriving through the back door: "Bob Callahan uploaded — to Analytics
-     * Dashboard" rendered over ten uploads by two people (found live by the
-     * Newsroom). Unsafe fallbacks yield a null template — the renderer's
+     * Dashboard" rendered over ten uploads by two people. Unsafe fallbacks
+     * yield a null template — the renderer's
      * generic group treatment beats a wrong sentence. `storyfeed:doctor` and
      * HeadlineCoverage surface the missing entry.
      *

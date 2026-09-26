@@ -116,7 +116,7 @@ class FeedBuilder
      * The registered name this builder was entered through, or null for an
      * ad-hoc read. Not a filter: it changes no query. It is the identity a
      * resolver sees as FeedContext::feed(), so the same snapshot can link
-     * differently on the kitchen wall and on the customer's status page.
+     * differently in a support workspace and on the requester's ticket page.
      */
     protected ?string $feed = null;
 
@@ -218,7 +218,7 @@ class FeedBuilder
      *
      * The same reasoning is why a Feed class has no for() either: it would have
      * bound whichever role the class binds, invisibly. A class feed is entered
-     * through its constructor (`CustomerFeed::make($order)`), which claims no
+     * through its constructor (`TicketFeed::make($ticket)`), which claims no
      * relationship at all.
      */
     public function for(Model|string $model): never
@@ -228,7 +228,7 @@ class FeedBuilder
             .'involving the model in ANY role, which the old name obscured (on the recording '
             .'side, for() sets the target). Use ->involving($model), or ->target($model) if '
             .'you meant the single role. A Feed CLASS is entered through its constructor '
-            .'instead — CustomerFeed::make($model) — and binds its own role; see docs/feeds.md.',
+            .'instead — TicketFeed::make($model) — and binds its own role; see docs/feeds.md.',
         );
     }
 
@@ -240,11 +240,11 @@ class FeedBuilder
     }
 
     /**
-     * Restrict this feed to an allowlist of verbs — the seam a customer-facing
+     * Restrict this feed to an allowlist of verbs — the seam a requester-facing
      * surface is built on.
      *
-     *   Storyfeed::feed()->only(['order.placed', 'order.delivered'])->get();
-     *   Storyfeed::feed()->only(['order.*', OrderVerb::Paid])->get();
+     *   Storyfeed::feed()->only(['ticket.opened', 'ticket.resolved'])->get();
+     *   Storyfeed::feed()->only(['ticket.*', TicketVerb::Resolved])->get();
      *
      * Takes verb strings, FeedVerb cases and plain backed enum cases, mixed;
      * verbs are free-form strings in storage, so this NEVER throws on a verb it
@@ -252,7 +252,7 @@ class FeedBuilder
      *
      * This is a query filter, not hiding and not authorization: the caller is
      * declaring, visibly, which verbs this feed is ABOUT. Row-level visibility
-     * ("this customer's orders only") is still involving()/context()/query().
+     * ("this requester's tickets only") is still involving()/context()/query().
      * Declare it once per audience with Storyfeed::feeds([...]) rather than at
      * each call site — see docs/feeds.md.
      *
@@ -307,7 +307,7 @@ class FeedBuilder
      * DECIDED: a verb carried only by an unrestricted feed is still reported
      * on every run, as Info rather than Warning, because the check's whole
      * value is firing for the person who did not write this line — the one
-     * who records `order.margin_note` six months from now. This declaration
+     * who records `ticket.internal_note` six months from now. This declaration
      * would auto-decide every verb that does not exist yet, so it lowers the
      * severity and nothing else. (The same shape as `aggregates.latent`.)
      *
@@ -337,7 +337,7 @@ class FeedBuilder
      * A ∩ B, so a call site downstream of a preset can only ever cut further.
      * Scope has no such property, because role filters are single-slot
      * ASSIGNMENTS — a second involving() replaces the first. So
-     * `CustomerFeed::make($order)->involving($someoneElse)` would silently swap
+     * `TicketFeed::make($ticket)->involving($someoneElse)` would silently swap
      * the scope a surface was built on, and no allowlist protects you from
      * that. Declared scope is therefore pinned; the other four roles stay open,
      * because adding a role NARROWS (they AND together) and narrowing was never
@@ -373,7 +373,7 @@ class FeedBuilder
     }
 
     /**
-     * The feed this builder was entered through — `'kitchen'` — or null
+     * The feed this builder was entered through — `'support'` — or null
      * when it was built ad hoc. The read-back beside declaredMode(), and
      * what NodePresenter hands every resolver on the page.
      */
@@ -782,15 +782,15 @@ class FeedBuilder
                 $tombstoned[$key] ?? [],
             );
         })
-            // PHASE 2 IS AUTHORITATIVE (2026-08-12, found in the Newsroom's
-            // production logs). The two phases run as separate queries, so a
+            // PHASE 2 IS AUTHORITATIVE (observed in production on 2026-08-12).
+            // The two phases run as separate queries, so a
             // candidate selected in phase 1 can have its activities deleted
             // before phase 2 hydrates them — a real race, not a bad state:
             // both phases share one soft-delete scope, so deleting up front
-            // stays consistent and cannot reproduce it. The Newsroom hit it
+            // stays consistent and cannot reproduce it. It occurred
             // during the shape-column drift, when an every-5-minute trickle
             // was taking the ORPHAN delete path over a 200-row budget while
-            // open tabs polled every 10 seconds.
+            // open tabs refreshed every 10 seconds.
             //
             // An empty slice took down the WHOLE render, two ways: count == 1
             // (no HAVING floor in groupStream, so it happens) fails
@@ -1318,7 +1318,7 @@ class FeedBuilder
         //    selected groups in one bounded query — the same shape
         //    countDistinctRoles() already runs seven times a page.
         //
-        // Measured on MySQL 8.4.11, the newsroom's 50k fixture, page size 30:
+        // Measured on MySQL 8.4.11, a 50k-activity fixture, page size 30:
         // see docs/journal for the W114 numbers.
         $ceiling = $cursor['latest'] ?? null;
         $rows = Collection::make();

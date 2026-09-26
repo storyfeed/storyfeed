@@ -17,7 +17,7 @@ return [
     |--------------------------------------------------------------------------
     |
     | The file that holds what each activity says, the way routes/web.php
-    | holds routes: `Story::for(Order::class)->verb('place')->headline(…)`.
+    | holds routes: `Story::for(Document::class)->verb('upload')->headline(…)`.
     | `php artisan storyfeed:install` creates it. It is loaded after every
     | service provider has booted, so your morph map is already in place.
     |
@@ -382,7 +382,7 @@ return [
     |
     | `storyfeed:prune` permanently deletes activities older than their
     | verb's window, with the snapshots and tombstones only they named, and
-    | what remains of each group is re-decided ("viewed 12 orders" becomes
+    | what remains of each group is re-decided ("viewed 12 documents" becomes
     | "viewed 3"). Nothing is scheduled for you; `--pretend` shows a run.
     |
     | `after_days` is the window for every verb that declares none. Null (the

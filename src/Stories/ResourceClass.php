@@ -16,17 +16,17 @@ use Storyfeed\Exceptions\StoryMisconfigured;
  * A resource Story class, read the way a controller is: every public method
  * is an action, and each action is a verb.
  *
- *     Story::resource(Order::class, OrderStory::class);
+ *     Story::resource(Post::class, PostStory::class);
  *
- *     class OrderStory
+ *     class PostStory
  *     {
- *         public function create(Verb $verb): Verb { return $verb->headline(':actor placed :object'); }
- *         public function confirmPayment(): string { return ':actor confirmed payment for :object'; }
+ *         public function create(Verb $verb): Verb { return $verb->headline(':actor created :object'); }
+ *         public function requestReview(): string { return ':actor requested review of :object'; }
  *     }
  *
  * THE CLASS EXTENDS NOTHING. It declares, and nothing instantiates it at a
  * call site, as nothing calls a controller: the verb is the public handle,
- * and `Storyfeed::record('confirm_payment', $order)` addresses it. So it
+ * and `Storyfeed::record('request_review', $post)` addresses it. So it
  * carries no publishing API, and no method name is reserved.
  *
  * THE RULES, all checked when stories compile:
@@ -37,8 +37,8 @@ use Storyfeed\Exceptions\StoryMisconfigured;
  *   - The declared return type is `Verb`, `string` (the headline alone) or
  *     `array` (deprecated; return the fluent Verb instead). Anything else,
  *     or none, is an error naming the method, so a helper left public fails loudly.
- *   - The verb is the method name, snake-cased: `confirmPayment()` stores
- *     `confirm_payment`, `pay()` stores `pay`. Nothing else is mapped.
+ *   - The verb is the method name, snake-cased: `requestReview()` stores
+ *     `request_review`, `publish()` stores `publish`. Nothing else is mapped.
  *
  * WHEN AN ACTION RUNS. Once, when stories compile, with a fresh blank
  * request, and what it returns is what the feed reads, lists, checks and
@@ -153,7 +153,7 @@ final class ResourceClass
         };
     }
 
-    /** `App\Stories\OrderStory@place`, the form `route:list` gives `action.uses`. */
+    /** `App\Stories\PostStory@create`, the form `route:list` gives `action.uses`. */
     public static function uses(string $class, string $method): string
     {
         return "{$class}@{$method}";

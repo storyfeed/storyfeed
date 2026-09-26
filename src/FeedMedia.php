@@ -245,7 +245,7 @@ final class FeedMedia
      * payload and the AS2 document both emit it in this sequence.
      *
      *     ->attachments($invoice, $receipt)
-     *     ->attachments($order->files->map(…))
+     *     ->attachments($document->files->map(…))
      *
      * @param  FeedResource|iterable<FeedResource>  ...$attachments
      */

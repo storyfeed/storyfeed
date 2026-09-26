@@ -8,7 +8,7 @@ namespace Storyfeed\Diagnostics;
  * Deliberately three levels, not five. `Info` exists because several checks
  * report facts that are not problems (a party's activity count), and folding
  * those into warnings is what makes a report people stop reading — the
- * failure mode the Newsroom named: "a coverage tool that silently skips a
+ * failure mode seen in production: "a coverage tool that silently skips a
  * category is indistinguishable from a healthy system", and its twin, a tool
  * that cries wolf until nobody looks.
  *

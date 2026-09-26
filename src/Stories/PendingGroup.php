@@ -37,7 +37,7 @@ use Storyfeed\FeedNoun;
  *         ->verb('place', fn (Verb $verb) => $verb->headline(':actor placed :object'))
  *         ->verb('complete', fn (Verb $verb) => $verb->headline(':actor completed :object'));
  *
- *     Story::for(MenuItem::class)->noun('dish|dishes');
+ *     Story::for(Person::class)->noun('person|people');
  *
  * The group closure receives this object, for anyone who prefers
  * `fn (PendingGroup $order) => $order->verb('place')`.

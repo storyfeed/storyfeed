@@ -490,8 +490,8 @@ class Feedables
     /**
      * A label for a model whose feed code set none: the app-wide guesser if
      * it answers, then the ladder — a `name` or `title` attribute, the
-     * registered noun and the key ("Dish #42"), the class name and the key
-     * ("Menu Item #42").
+     * registered noun and the key ("Ticket #42"), the class name and the key
+     * ("Support Ticket #42").
      */
     public function guessLabel(Model $model): string
     {

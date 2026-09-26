@@ -948,7 +948,7 @@ class StoryfeedManager
      *   Storyfeed::feeds([
      *       'customer' => CustomerFeed::class,                              // a class
      *       AdminFeed::class,                                              // name derived
-     *       'kitchen' => fn (FeedBuilder $feed) => $feed->only(['order.*']), // a closure
+     *       'operations' => fn (FeedBuilder $feed) => $feed->only(['order.*']), // a closure
      *   ]);
      *
      * The same register-once-at-boot shape as grammar(), axes(), verbs(),
@@ -1029,8 +1029,8 @@ class StoryfeedManager
     /**
      * The key a Feed class is registered under, or null when it is not.
      *
-     * ONE FEED, ONE IDENTITY. `'kitchen' => CustomerFeed::class` read through
-     * `Storyfeed::feed('kitchen')` reports 'kitchen' to every resolver on the
+     * ONE FEED, ONE IDENTITY. `'operations' => CustomerFeed::class` read through
+     * `Storyfeed::feed('operations')` reports 'operations' to every resolver on the
      * page. Read through `CustomerFeed::make($order)` it used to report the
      * class-derived 'customer', so a `match` in feedMedia() was right on one
      * door and silently wrong on the other — no failure, just a link quietly
