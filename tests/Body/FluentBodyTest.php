@@ -1,6 +1,5 @@
 <?php
 
-use Storyfeed\Body\Change;
 use Storyfeed\Body\Component;
 use Storyfeed\Body\Excerpt;
 use Storyfeed\Body\File;
@@ -18,10 +17,6 @@ use Storyfeed\MediaSlot;
  * indistinguishable once stored: a reader cannot tell which one wrote a row.
  */
 dataset('fluent and named bodies', fn () => [
-    'Change' => [
-        fn () => Change::make()->field('Status', 'Draft', 'Ready')->changes(['Owner' => [1 => 'Ben']]),
-        fn () => Change::make(['Status' => ['Draft', 'Ready'], 'Owner' => [1 => 'Ben']]),
-    ],
     'Excerpt' => [
         fn () => Excerpt::make()->text('Fine by me.')->from('Jasper')->truncated(false),
         fn () => Excerpt::make('Fine by me.', from: 'Jasper', truncated: false),
@@ -82,8 +77,6 @@ it('reads a value set after the body was handed on, because it is read when used
 
 it('appends lists and merges maps', function () {
     expect(ItemList::make(['a'])->items(['b'])->items(['c'])->toPayload()['items'])->toBe(['a', 'b', 'c'])
-        ->and(Change::make(['A' => [1, 2]])->field('B', 3, 4)->field('A', 5, 6)->toPayload()['items'])
-        ->toBe(['A' => [5, 6], 'B' => [3, 4]])
         ->and(MediaObject::make()->attachments(FeedResource::make('/a'))->attachments(FeedResource::make('/b'), FeedResource::make('/c'))->toPayload()['attachments'])
         ->toHaveCount(3);
 
@@ -125,7 +118,7 @@ it('supports when() and unless() on every body type', function () {
     expect($prose->toPayload()['title'])->toBe('Shown')
         ->and(Component::make('Card')->when(false, fn ($c) => $c->props('x', 1))->toPayload()['props'])->toBe([]);
 
-    foreach ([Change::class, Excerpt::class, File::class, ItemList::class, KeyValue::class, MediaObject::class, Prose::class, Component::class] as $class) {
+    foreach ([Excerpt::class, File::class, ItemList::class, KeyValue::class, MediaObject::class, Prose::class, Component::class] as $class) {
         expect(method_exists($class, 'when') && method_exists($class, 'unless'))->toBeTrue();
     }
 });
@@ -139,8 +132,7 @@ it('names the method to call when a required value was never set', function (Clo
 ]);
 
 it('starts every body type empty', function () {
-    expect(Change::make()->toPayload()['items'])->toBe([])
-        ->and(File::make()->toPayload()['name'])->toBeNull()
+    expect(File::make()->toPayload()['name'])->toBeNull()
         ->and(ItemList::make()->toPayload()['items'])->toBe([])
         ->and(KeyValue::make()->toPayload()['items'])->toBe([])
         ->and(MediaObject::make()->toPayload()['subject'])->toBeNull();

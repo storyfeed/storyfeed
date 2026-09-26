@@ -279,21 +279,6 @@ final class FeedItem implements Arrayable, ArrayAccess, JsonSerializable
     }
 
     /**
-     * The before/after rows of a change, each `label`, `before`, `after`.
-     *
-     * @return Collection<int, array<string, mixed>>
-     */
-    public function changes(): Collection
-    {
-        $changes = $this->payload['change']['changes'] ?? null;
-
-        return collect(is_array($changes) ? $changes : [])
-            ->filter(fn (mixed $row): bool => is_array($row))
-            ->map(fn (array $row): array => array_filter($row, is_string(...), ARRAY_FILTER_USE_KEY))
-            ->values();
-    }
-
-    /**
      * The utterance this activity quotes (`text`, `by`, `kind`, `replies`, `truncated`), or null.
      *
      * @return Fluent<string, mixed>|null

@@ -3,7 +3,6 @@
 use Illuminate\Bus\Queueable;
 use Illuminate\Queue\SerializesAndRestoresModelIdentifiers;
 use Storyfeed\Facades\Storyfeed;
-use Storyfeed\FeedChange;
 use Storyfeed\FeedThread;
 use Storyfeed\Models\Activity;
 use Storyfeed\PendingActivity;
@@ -68,19 +67,6 @@ it('accepts an explicit null thread without adding stored thread data', function
 
     expect($activity->fresh()->data)->toBe(['source' => 'import'])
         ->and(Storyfeed::feed()->get()->toArray()['items'][0]['thread'])->toBeNull();
-});
-
-it('records change facts alongside application data', function () {
-    $change = FeedChange::make(['Status' => ['Draft', 'Ready']]);
-    $activity = Storyfeed::record('confirm', data: ['source' => 'import'], change: $change);
-
-    expect($activity->fresh()->data)->toBe(['source' => 'import', ...$change->toData()]);
-});
-
-it('accepts a null change without storing change data', function () {
-    $activity = Storyfeed::record('confirm', data: ['source' => 'import'], change: null);
-
-    expect($activity->fresh()->data)->toBe(['source' => 'import']);
 });
 
 it('records an unknown actor even when another actor is available', function (string $source) {

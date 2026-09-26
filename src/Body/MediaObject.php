@@ -233,7 +233,7 @@ use Storyfeed\MediaSlot;
  * entity to read a slot from, and draws the text and nothing else. `$v`
  * exists for the day the block learns to say whose.
  *
- * ## Not `Excerpt`, not `Change`, not `Prose`, not a thread
+ * ## Not `Excerpt`, not `Prose`, not a before and after, not a thread
  *
  * Most app data fits this shape, which is its use and its hazard. It can
  * express the other body types badly, and nothing stops a consumer doing so.
@@ -243,7 +243,8 @@ use Storyfeed\MediaSlot;
  * — the tell is that the words are someone else's. Authored rich text is
  * {@see Prose}, which says so and is sanitised at read time; prose
  * pasted into `content` renders as its own asterisks. A field that was one
- * thing and is now another is {@see Change}, and a conversation is core's
+ * thing and is now another is from and to in the activity's `data`, with a
+ * headline that says so, and a conversation is core's
  * `FeedThread`, painted by the presenter — the tell is a reply count. A
  * list of files BESIDE a sentence is `attachments`; ONE artefact whose own
  * facts are the row — how big it is, what type it is — is {@see File}, and

@@ -17,7 +17,7 @@ use Workbench\App\Models\User;
  * A well-meaning "strip every `$`-prefixed key" on the read path would pass
  * every FeedThread test and delete a paying customer's payload — a detail
  * carrying `$body`/`$v`, a key another package reserved, a key the app
- * chose for itself. Core owns `$thread` and `$change`.
+ * chose for itself. Core owns `$thread`.
  */
 
 function recordWithReservedKeys(array $data, ?FeedThread $thread = null, string $tracking = 'TN-R'): Activity
@@ -93,4 +93,17 @@ it('passes an unknown $-key through on a row written directly to the column', fu
 
     // And nothing was rewritten on the way past.
     expect($activity->fresh()->data['$vendor'])->toBe(['v' => 1]);
+});
+
+it('passes a stored $change through to node.data as written', function () {
+    // Core owned `$change` until the change body left core. Rows recorded
+    // before then keep it, and the app that wrote it now reads it from data.
+    $change = ['$v' => 1, 'changes' => [['label' => 'Status', 'before' => 'Draft', 'after' => 'Ready']]];
+    $activity = recordWithReservedKeys(['placeholder' => true], null, 'TN-CHG');
+    $activity->forceFill(['data' => ['$change' => $change, 'ip' => '1.2.3.4']])->save();
+
+    $node = Storyfeed::feed()->get()->toArray()['items'][0];
+
+    expect($node['data'])->toBe(['$change' => $change, 'ip' => '1.2.3.4'])
+        ->and($node)->not->toHaveKey('change');
 });
