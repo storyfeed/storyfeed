@@ -11,6 +11,7 @@ use Illuminate\Support\Fluent;
 use Illuminate\Support\Str;
 use Illuminate\Support\Traits\Conditionable;
 use Illuminate\Support\Traits\Dumpable;
+use Illuminate\Support\Traits\Macroable;
 use Illuminate\Support\Traits\Tappable;
 use JsonSerializable;
 use Storyfeed\Concerns\ReadsPayloadArray;
@@ -33,7 +34,7 @@ use Stringable;
  */
 final class Entity implements Arrayable, ArrayAccess, Htmlable, JsonSerializable, Stringable
 {
-    use Conditionable, Dumpable, ReadsPayloadArray, Tappable;
+    use Conditionable, Dumpable, Macroable, ReadsPayloadArray, Tappable;
 
     /**
      * @param  array<string, mixed>  $payload  an entity object from the payload

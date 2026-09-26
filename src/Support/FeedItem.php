@@ -9,6 +9,7 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Fluent;
 use Illuminate\Support\Traits\Conditionable;
 use Illuminate\Support\Traits\Dumpable;
+use Illuminate\Support\Traits\Macroable;
 use Illuminate\Support\Traits\Tappable;
 use JsonSerializable;
 use Storyfeed\Concerns\ReadsPayloadArray;
@@ -35,7 +36,7 @@ use Storyfeed\Concerns\ReadsPayloadArray;
  */
 final class FeedItem implements Arrayable, ArrayAccess, JsonSerializable
 {
-    use Conditionable, Dumpable, ReadsPayloadArray, Tappable;
+    use Conditionable, Dumpable, Macroable, ReadsPayloadArray, Tappable;
 
     /**
      * @param  array<string, mixed>  $payload  an item of a feed page

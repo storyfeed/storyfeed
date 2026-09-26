@@ -7,6 +7,7 @@ use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Traits\Conditionable;
 use Illuminate\Support\Traits\Dumpable;
+use Illuminate\Support\Traits\Macroable;
 use Illuminate\Support\Traits\Tappable;
 use JsonSerializable;
 use Storyfeed\FeedHeadline;
@@ -31,7 +32,7 @@ use Stringable;
  */
 final class Headline implements Htmlable, JsonSerializable, Stringable
 {
-    use Conditionable, Dumpable, Tappable;
+    use Conditionable, Dumpable, Macroable, Tappable;
 
     public function __construct(
         protected FeedItem $item,

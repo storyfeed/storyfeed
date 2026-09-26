@@ -39,8 +39,11 @@ Write it while it's fresh; never reconstruct after the fact. See
   "basic component" energy to a plain Blade example in docs, never into src/.
 - Morph aliases everywhere: compare with `getMorphClass()`, never `get_class()`.
 - Activities are never hidden by the read path — degrade gracefully.
-- **No magic methods.** `__call` verb magic was removed at v0.4 on DX grounds
-  (see journal 006); unknown methods must be errors, not features.
+- **Unknown methods are errors, never features.** `__call` verb magic was
+  removed at v0.4 on DX grounds (see journal 006). No behaviour hides behind
+  `__call`, with one exception: Laravel's `Macroable` on the `Storyfeed\Support`
+  readers, where every method is registered explicitly and anything else still
+  throws (ruled 2026-09-26, following Laravel's own helpers).
 - **Anonymous ≠ system.** A null actor means the actor is genuinely unknown;
   a named non-model participant is a `Party` (any role). Never conflate them.
 - Package-owned morph aliases must resolve via `Support\MorphResolver`,

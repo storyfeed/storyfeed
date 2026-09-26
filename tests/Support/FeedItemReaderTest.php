@@ -214,7 +214,7 @@ it('is read-only', function () {
 });
 
 it('is an error to call a method it does not declare', function () {
-    expect(fn () => FeedItem::of(readerActivity())->label())->toThrow(Error::class);
+    expect(fn () => FeedItem::of(readerActivity())->label())->toThrow(BadMethodCallException::class);
 });
 
 it('reads a malformed item without throwing', function () {
