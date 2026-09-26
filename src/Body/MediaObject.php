@@ -27,18 +27,18 @@ use Storyfeed\MediaSlot;
  *
  * Stored:
  *
- *     {"$body": "Storyfeed/MediaObject", "$v": 1,
+ *     {"$body": "Storyfeed/Body/MediaObject", "$v": 2,
  *      "subject": "N201 Saffron Butter Rice",
  *      "content": "Basmati replaces Jasmine.",
- *      "image": "icon", "attachments": [], "footnote": "Approved by Jasper"}
+ *      "image": "icon", "files": [], "footnote": "Approved by Jasper"}
  *
  * …and with a subject that leads to its entity, and a file it names itself:
  *
- *     {"$body": "Storyfeed/MediaObject", "$v": 1,
+ *     {"$body": "Storyfeed/Body/MediaObject", "$v": 2,
  *      "subject": {"label": "N201 Saffron Butter Rice", "href": null},
  *      "content": "Basmati replaces Jasmine.",
  *      "image": "icon",
- *      "attachments": [{"type": "Document", "href": "https://…/n201-v4.pdf",
+ *      "files": [{"type": "Document", "href": "https://…/n201-v4.pdf",
  *                       "mediaType": "application/pdf", "name": "n201-v4.pdf"}],
  *      "footnote": null}
  *
@@ -58,9 +58,9 @@ use Storyfeed\MediaSlot;
  * rewrite history. Raise a THUMB_SIZE and every historical row draws the
  * new one, because none of them stored a size.
  *
- * ## `attachments` names its own files, and that costs something
+ * ## `files` names its own files, and that costs something
  *
- * `attachments` is a list of {@see FeedResource} values: the files THIS
+ * `files` is a list of {@see FeedResource} values: the files THIS
  * block names. It was a bool until 2026-09-10, where `true` meant "draw
  * whatever `entity.media.attachments` holds" — the paragraph above applied
  * one slot over, storing nothing and therefore ageing not at all.
@@ -163,7 +163,7 @@ use Storyfeed\MediaSlot;
  * THE PACKAGE FETCHES NOTHING. The app scraped and cached those values
  * before it recorded the row; the resolver turns the cached og:image into a URL
  * into `preview` at read time; the renderer draws what it is handed. Same
- * line {@see File} draws — it is not the remote-resource hazard `Link` and
+ * line {@see FileAttachment} draws — it is not the remote-resource hazard `Link` and
  * `Media` are, because nothing here issues a request — and this example
  * is not an invitation to make a feed render fetch a page.
  *
@@ -217,8 +217,8 @@ use Storyfeed\MediaSlot;
  * Fluent and named forms produce byte-identical rows — the fluent form is
  * sugar, never a second body type:
  *
- *     MediaObject::make(subject: $name)->withIcon()->withAttachments($pdf)
- *     MediaObject::make(subject: $name, image: MediaSlot::Icon, attachments: [$pdf])
+ *     MediaObject::make(subject: $name)->withIcon()->withFiles($pdf)
+ *     MediaObject::make(subject: $name, image: MediaSlot::Icon, files: [$pdf])
  *
  * ## A block naming an empty slot draws nothing
  *
@@ -248,10 +248,10 @@ use Storyfeed\MediaSlot;
  * pasted into `content` renders as its own asterisks. A field that was one
  * thing and is now another is {@see Change}, and a conversation is core's
  * `FeedThread`, painted by the presenter — the tell is a reply count. A
- * list of files BESIDE a sentence is `attachments`; ONE artefact whose own
- * facts are the row — how big it is, what type it is — is {@see File}, and
- * a `MediaObject` carrying a single attachment and nothing else is usually
- * a `File` written the long way.
+ * list of files BESIDE a sentence is `files`; ONE artefact whose own
+ * facts are the row — how big it is, what type it is — is {@see FileAttachment}, and
+ * a `MediaObject` carrying a single file and nothing else is usually
+ * a `FileAttachment` written the long way.
  *
  * A `subject` that repeats the headline is the smell the other body types name
  * too: a preview complements the sentence above it.
@@ -280,7 +280,7 @@ class MediaObject implements FeedBody
     private ?MediaSlot $image = null;
 
     /** @var list<FeedResource> */
-    private array $attachments = [];
+    private array $files = [];
 
     private string|FeedLink|null $footnote = null;
 
@@ -292,21 +292,21 @@ class MediaObject implements FeedBody
      * @param  string|FeedLink|null  $subject  a title line — only when the headline does not already say it; a {@see FeedLink} makes it the row's way in
      * @param  string|null  $content  prose, as plain text
      * @param  MediaSlot|null  $image  which of the entity's media slots is this block's picture
-     * @param  array<array-key, mixed>  $attachments  the files this block names, as {@see FeedResource} values
+     * @param  array<array-key, mixed>  $files  the files this block names, as {@see FeedResource} values
      * @param  string|FeedLink|null  $footnote  small print under the content — a credit, an approval; never a second paragraph
      */
     public static function make(
         string|FeedLink|null $subject = null,
         ?string $content = null,
         ?MediaSlot $image = null,
-        array $attachments = [],
+        array $files = [],
         string|FeedLink|null $footnote = null,
     ): static {
         return (new static)
             ->subject($subject)
             ->content($content)
             ->image($image)
-            ->attachments(array_values(array_filter($attachments, fn (mixed $file): bool => $file instanceof FeedResource)))
+            ->files(array_values(array_filter($files, fn (mixed $file): bool => $file instanceof FeedResource)))
             ->footnote($footnote);
     }
 
@@ -343,13 +343,13 @@ class MediaObject implements FeedBody
     /**
      * Add the files this block names. Each call APPENDS, in the order given.
      *
-     * @param  FeedResource|iterable<FeedResource>  ...$attachments
+     * @param  FeedResource|iterable<FeedResource>  ...$files
      */
-    public function attachments(FeedResource|iterable ...$attachments): static
+    public function files(FeedResource|iterable ...$files): static
     {
-        foreach ($attachments as $attachment) {
+        foreach ($files as $attachment) {
             foreach ($attachment instanceof FeedResource ? [$attachment] : $attachment as $file) {
-                $this->attachments[] = $file;
+                $this->files[] = $file;
             }
         }
 
@@ -386,14 +386,14 @@ class MediaObject implements FeedBody
      * Name the files this block draws, replacing any already named.
      *
      * At least one is REQUIRED, so that the day the bool was retired lands
-     * as an error in the fluent form too. `withAttachments()` meaning "draw
+     * as an error in the fluent form too. `withFiles()` meaning "draw
      * the entity's files" is the shape that went away; accepting the same
      * call and quietly producing an empty list would make an upgrade look
      * like it worked.
      */
-    public function withAttachments(FeedResource $file, FeedResource ...$more): static
+    public function withFiles(FeedResource $file, FeedResource ...$more): static
     {
-        $this->attachments = [$file, ...$more];
+        $this->files = [$file, ...$more];
 
         return $this;
     }
@@ -418,7 +418,7 @@ class MediaObject implements FeedBody
 
     public static function version(): int
     {
-        return 1;
+        return 2;
     }
 
     public static function upgrade(array $payload, int $from): array
@@ -438,21 +438,23 @@ class MediaObject implements FeedBody
         $footnote = $payload['footnote'] ?? null;
 
         /*
-         * `attachments` WAS A BOOL, and an old `true` upgrades to an empty
+         * The legacy `attachments` WAS A BOOL, and an old `true` upgrades to an empty
          * list: the row that used to defer to the entity now names no files
          * and draws none. It does not throw and it is not migrated — nothing
          * already written becomes invalid, it becomes empty, which is a state
          * this vocabulary already has and already renders as nothing. The
          * consumer re-authors the block the next time they touch it.
          */
-        $attachments = $payload['attachments'] ?? null;
+        $files = array_key_exists('files', $payload)
+            ? $payload['files']
+            : ($from < 2 ? ($payload['attachments'] ?? null) : null);
 
         return [
             'subject' => is_string($subject) ? $subject : FeedLink::from($subject)?->toPayload(),
             'content' => is_string($payload['content'] ?? null) ? $payload['content'] : null,
             'image' => is_string($image) ? MediaSlot::tryFrom($image)?->value : null,
-            'attachments' => array_values(array_filter(
-                array_map(self::resource(...), is_array($attachments) ? $attachments : []),
+            'files' => array_values(array_filter(
+                array_map(self::resource(...), is_array($files) ? $files : []),
                 is_array(...),
             )),
             'footnote' => is_string($footnote) ? $footnote : FeedLink::from($footnote)?->toPayload(),
@@ -460,7 +462,7 @@ class MediaObject implements FeedBody
     }
 
     /**
-     * @return array{'$body': string, '$v': int, subject: string|array{label: string, href: string|null}|null, content: string|null, image: string|null, attachments: list<array{href: string, mediaType: string|null, name: string|null, type: string}>, footnote: string|array{label: string, href: string|null}|null}
+     * @return array{'$body': string, '$v': int, subject: string|array{label: string, href: string|null}|null, content: string|null, image: string|null, files: list<array{href: string, mediaType: string|null, name: string|null, type: string}>, footnote: string|array{label: string, href: string|null}|null}
      */
     public function toPayload(): array
     {
@@ -470,7 +472,7 @@ class MediaObject implements FeedBody
             'subject' => $this->subject instanceof FeedLink ? $this->subject->toPayload() : $this->subject,
             'content' => $this->content,
             'image' => $this->image?->value,
-            'attachments' => array_map(fn (FeedResource $file): array => $file->toPayload(), $this->attachments),
+            'files' => array_map(fn (FeedResource $file): array => $file->toPayload(), $this->files),
             'footnote' => $this->footnote instanceof FeedLink ? $this->footnote->toPayload() : $this->footnote,
         ];
     }

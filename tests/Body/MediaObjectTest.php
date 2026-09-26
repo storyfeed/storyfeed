@@ -15,11 +15,11 @@ it('stores a slot name and no image, because the resolver mints the picture at r
 
     $expected = [
         '$body' => 'Storyfeed/Body/MediaObject',
-        '$v' => 1,
+        '$v' => 2,
         'subject' => 'N201 Saffron Butter Rice',
         'content' => 'Basmati replaces Jasmine.',
         'image' => 'icon',
-        'attachments' => [],
+        'files' => [],
         'footnote' => null,
     ];
 
@@ -34,32 +34,32 @@ it('stores a slot name and no image, because the resolver mints the picture at r
     $props = array_diff_key($stored, array_flip([FeedBody::KEY, FeedBody::VERSION]));
 
     expect(MediaObject::upgrade($props, $stored[FeedBody::VERSION]))
-        ->toBe(['subject' => 'N201 Saffron Butter Rice', 'content' => 'Basmati replaces Jasmine.', 'image' => 'icon', 'attachments' => [], 'footnote' => null]);
+        ->toBe(['subject' => 'N201 Saffron Butter Rice', 'content' => 'Basmati replaces Jasmine.', 'image' => 'icon', 'files' => [], 'footnote' => null]);
 });
 
-it('reads in the order it renders: subject, content, image, attachments, footnote', function () {
+it('reads in the order it renders: subject, content, image, files, footnote', function () {
     // The footnote is last in the signature because it is subordinate to
     // everything above it, and the reading order of the two should match.
     expect(array_keys(MediaObject::make()->toPayload()))
-        ->toBe(['$body', '$v', 'subject', 'content', 'image', 'attachments', 'footnote'])
+        ->toBe(['$body', '$v', 'subject', 'content', 'image', 'files', 'footnote'])
         ->and(array_keys(MediaObject::upgrade([], 1)))
-        ->toBe(['subject', 'content', 'image', 'attachments', 'footnote']);
+        ->toBe(['subject', 'content', 'image', 'files', 'footnote']);
 });
 
-it('is all-optional, so a block with only attachments is a file list and no second form is needed', function () {
+it('is all-optional, so a block with only files is a file list and no second form is needed', function () {
     $pdf = FeedResource::make('https://example.test/n201-v4.pdf', 'application/pdf', 'n201-v4.pdf');
 
     expect(MediaObject::make()->toPayload())
-        ->toBe(['$body' => MediaObject::bodyType(), '$v' => 1, 'subject' => null, 'content' => null, 'image' => null, 'attachments' => [], 'footnote' => null])
-        ->and(MediaObject::make(attachments: [$pdf])->toPayload()['attachments'])
+        ->toBe(['$body' => MediaObject::bodyType(), '$v' => 2, 'subject' => null, 'content' => null, 'image' => null, 'files' => [], 'footnote' => null])
+        ->and(MediaObject::make(files: [$pdf])->toPayload()['files'])
         ->toBe([['type' => 'Document', 'href' => 'https://example.test/n201-v4.pdf', 'mediaType' => 'application/pdf', 'name' => 'n201-v4.pdf']])
         ->and(MediaObject::make(subject: 'Minutes', content: 'Two items carried.')->toPayload()['image'])->toBeNull();
 });
 
 it('names the files it draws rather than deferring to whatever the entity holds', function () {
     /*
-     * `attachments` was a bool until 2026-09-10: `true` meant "draw whatever
-     * entity.media.attachments has". That could never say WHICH files, so two
+     * `files` was a bool until 2026-09-10: `true` meant "draw whatever
+     * entity.media.files has". That could never say WHICH files, so two
      * blocks on one entity could not differ and neither could say what it was
      * about. The consumer says what a block contains; the renderer decides how
      * it looks.
@@ -67,23 +67,23 @@ it('names the files it draws rather than deferring to whatever the entity holds'
     $spec = FeedResource::make('https://example.test/n201-v4.pdf', 'application/pdf', 'n201-v4.pdf');
     $photo = FeedResource::make('https://example.test/plated.jpg', 'image/jpeg', 'plated.jpg', 'Image');
 
-    expect(MediaObject::make(subject: 'N201', attachments: [$spec, $photo])->toPayload()['attachments'])
+    expect(MediaObject::make(subject: 'N201', files: [$spec, $photo])->toPayload()['files'])
         ->toBe([$spec->toPayload(), $photo->toPayload()])
         // A list of VALUES, which a form may hold; a list of forms is what
         // details are forbidden. Nothing nests here.
-        ->and(MediaObject::make(attachments: [$spec])->toPayload()['attachments'][0])
+        ->and(MediaObject::make(files: [$spec])->toPayload()['files'][0])
         ->not->toHaveKey(FeedBody::KEY);
 
     // Anything that is not a FeedResource is not a file, and a list stays a list.
-    expect(MediaObject::make(attachments: ['n201-v4.pdf', null, $spec, ['href' => 'x']])->toPayload()['attachments'])
+    expect(MediaObject::make(files: ['n201-v4.pdf', null, $spec, ['href' => 'x']])->toPayload()['files'])
         ->toBe([$spec->toPayload()]);
 });
 
 it('produces a byte-identical row from the fluent form, which is sugar and not a second form', function () {
     $pdf = FeedResource::make('https://example.test/n201-v4.pdf', 'application/pdf', 'n201-v4.pdf');
 
-    $fluent = MediaObject::make(subject: 'N201', content: 'Basmati.')->withIcon()->withAttachments($pdf);
-    $named = MediaObject::make(subject: 'N201', content: 'Basmati.', image: MediaSlot::Icon, attachments: [$pdf]);
+    $fluent = MediaObject::make(subject: 'N201', content: 'Basmati.')->withIcon()->withFiles($pdf);
+    $named = MediaObject::make(subject: 'N201', content: 'Basmati.', image: MediaSlot::Icon, files: [$pdf]);
 
     expect(json_encode($fluent->toArray()))->toBe(json_encode($named->toArray()))
         ->and(MediaObject::make()->withPreview()->toPayload()['image'])->toBe('preview')
@@ -91,11 +91,11 @@ it('produces a byte-identical row from the fluent form, which is sugar and not a
 
     /*
      * The fluent form needs at least one file, so that retiring the bool lands
-     * as an error here too. A bare withAttachments() is the shape that went
+     * as an error here too. A bare withFiles() is the shape that went
      * away, and accepting it would make an upgrade that did nothing look like
      * one that worked.
      */
-    expect(fn () => MediaObject::make()->withAttachments())->toThrow(ArgumentCountError::class);
+    expect(fn () => MediaObject::make()->withFiles())->toThrow(ArgumentCountError::class);
 });
 
 it('names at most one slot, and a second one throws rather than replacing the first', function () {
@@ -107,20 +107,20 @@ it('names at most one slot, and a second one throws rather than replacing the fi
         ->and(fn () => MediaObject::make()->withPreview()->withPreview())
         ->toThrow(LogicException::class);
 
-    // Attachments are not a slot; adding them after a slot is fine.
+    // Files are not a slot; adding them after a slot is fine.
     $pdf = FeedResource::make('https://example.test/n201-v4.pdf');
-    expect(MediaObject::make()->withIcon()->withAttachments($pdf)->toPayload()['image'])->toBe('icon');
+    expect(MediaObject::make()->withIcon()->withFiles($pdf)->toPayload()['image'])->toBe('icon');
 });
 
 it('normalizes malformed and unknown-version payloads without throwing', function () {
-    $blank = ['subject' => null, 'content' => null, 'image' => null, 'attachments' => [], 'footnote' => null];
+    $blank = ['subject' => null, 'content' => null, 'image' => null, 'files' => [], 'footnote' => null];
     $file = ['type' => 'Document', 'href' => 'https://example.test/n201-v4.pdf', 'mediaType' => null, 'name' => null];
 
     foreach ([1, 0, 999] as $version) {
-        expect(MediaObject::upgrade(['subject' => 'A', 'content' => 'B', 'image' => 'preview', 'attachments' => [$file], 'footnote' => 'C', 'src' => 'stale'], $version))
-            ->toBe(['subject' => 'A', 'content' => 'B', 'image' => 'preview', 'attachments' => [$file], 'footnote' => 'C']);
+        expect(MediaObject::upgrade(['subject' => 'A', 'content' => 'B', 'image' => 'preview', 'files' => [$file], 'footnote' => 'C', 'src' => 'stale'], $version))
+            ->toBe(['subject' => 'A', 'content' => 'B', 'image' => 'preview', 'files' => [$file], 'footnote' => 'C']);
 
-        foreach ([[], ['subject' => 3, 'content' => [], 'image' => 7, 'attachments' => 'yes', 'footnote' => 9]] as $payload) {
+        foreach ([[], ['subject' => 3, 'content' => [], 'image' => 7, 'files' => 'yes', 'footnote' => 9]] as $payload) {
             expect(MediaObject::upgrade($payload, $version))->toBe($blank);
         }
     }
@@ -141,7 +141,7 @@ it('upgrades a row that said `attachments: true` to a row that names no files', 
      */
     foreach ([true, false, 1, 'true', null] as $legacy) {
         expect(MediaObject::upgrade(['subject' => 'N201', 'attachments' => $legacy], 1))
-            ->toBe(['subject' => 'N201', 'content' => null, 'image' => null, 'attachments' => [], 'footnote' => null]);
+            ->toBe(['subject' => 'N201', 'content' => null, 'image' => null, 'files' => [], 'footnote' => null]);
     }
 });
 
@@ -159,7 +159,7 @@ it('keeps a stored file only when it has an href, and mints it back into the sha
         ['href' => 'https://example.test/n201-v4.pdf'],
     ];
 
-    expect(MediaObject::upgrade(['attachments' => $stored], 1)['attachments'])->toBe([
+    expect(MediaObject::upgrade(['files' => $stored], 1)['files'])->toBe([
         ['type' => 'Image', 'href' => 'https://example.test/plated.jpg', 'mediaType' => 'image/jpeg', 'name' => 'plated.jpg'],
         ['type' => 'Document', 'href' => 'https://example.test/n201-v4.pdf', 'mediaType' => null, 'name' => null],
     ]);
@@ -242,4 +242,19 @@ it('does not make a string footnote clickable, for the same reason a subject is 
     foreach ([['label' => ''], ['href' => 'https://example.test'], 7, []] as $malformed) {
         expect(MediaObject::upgrade(['footnote' => $malformed], 1)['footnote'])->toBeNull();
     }
+});
+
+it('upgrades stored attachments to files without rewriting the row', function () {
+    $stored = ['attachments' => [['href' => '/old.pdf', 'name' => 'Old file']]];
+    $original = $stored;
+    $upgraded = MediaObject::upgrade($stored, 1);
+
+    expect($upgraded['files'])->toBe([FeedResource::make('/old.pdf', name: 'Old file')->toPayload()])
+        ->and($upgraded)->not->toHaveKey('attachments')
+        ->and($stored)->toBe($original)
+        ->and(MediaObject::upgrade($upgraded, 2))->toBe($upgraded)
+        ->and(MediaObject::upgrade([...$stored, 'files' => []], 1)['files'])->toBe([])
+        ->and(MediaObject::upgrade([...$stored, 'files' => null], 1)['files'])->toBe([])
+        ->and(method_exists(MediaObject::class, 'attachments'))->toBeFalse()
+        ->and(method_exists(MediaObject::class, 'withAttachments'))->toBeFalse();
 });

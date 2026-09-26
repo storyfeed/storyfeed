@@ -9,11 +9,13 @@ use Storyfeed\Contracts\FeedBody;
 /**
  * An artefact: what it is, how big, and where it lives.
  *
+ *     use Storyfeed\Body\FileAttachment;
+ *
  *     public function toFeed(): FeedEntity
  *     {
  *         return FeedEntity::make()
  *             ->label($this->name)
- *             ->body(File::make()->size($this->bytes)->mediaType($this->mime));
+ *             ->body(FileAttachment::make()->size($this->bytes)->mediaType($this->mime));
  *     }
  *
  * The canonical case for the whole feature. "Sally uploaded archive.zip to
@@ -28,7 +30,7 @@ use Storyfeed\Contracts\FeedBody;
  * keep serving the one that was true when it was written. So a renderer hands
  * its view the entity's own link and this class stays out of it.
  *
- * That is also why `File` is not the remote-resource hazard `Link` and `Media`
+ * That is also why `FileAttachment` is not the remote-resource hazard `Link` and `Media`
  * are. It fetches nothing and embeds nothing — it labels a link the app already
  * decided to publish.
  *
@@ -50,7 +52,7 @@ use Storyfeed\Contracts\FeedBody;
  * The version travels in both storage and payload: core does not own the app's
  * key, so the renderer must upgrade the body at read time, never write it back.
  */
-class File implements FeedBody
+class FileAttachment implements FeedBody
 {
     use Conditionable;
     use HasPayload;
@@ -99,7 +101,7 @@ class File implements FeedBody
     }
 
     /**
-     * `Storyfeed/Body/File` — the VOCABULARY'S name, not a package's.
+     * `Storyfeed/Body/FileAttachment` — the VOCABULARY'S name, not a package's.
      *
      * A body outlives whichever library defined it ({@see FeedBody}), so the
      * name must not contain the library: this body type has already moved
@@ -113,7 +115,7 @@ class File implements FeedBody
      */
     public static function bodyType(): string
     {
-        return 'Storyfeed/Body/File';
+        return 'Storyfeed/Body/FileAttachment';
     }
 
     public static function version(): int
