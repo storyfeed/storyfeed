@@ -29,7 +29,7 @@ use Storyfeed\FeedThread;
  * outlives whichever library defined it. Nothing below assumes otherwise.
  *
  * Core also ships seven body types under `Storyfeed\Body` — Excerpt,
- * KeyValue, FileAttachment, Prose, ItemList, MediaObject, Component. **They are a vocabulary, not a
+ * KeyValue, FileAttachment, Image, Prose, ItemList, MediaObject, Component. **They are a vocabulary, not a
  * mechanism**: nothing in this package reads them, and an app may write its own
  * and owe them nothing. They were in `storyfeed/ui` until 2026-09-14 and moved
  * for one reason — their names always said `Storyfeed/`, because a body's
