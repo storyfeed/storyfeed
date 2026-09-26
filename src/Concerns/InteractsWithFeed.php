@@ -12,7 +12,6 @@ use Storyfeed\FeedBuilder;
 use Storyfeed\FeedContext;
 use Storyfeed\FeedEntity;
 use Storyfeed\FeedMedia;
-use Storyfeed\MediaSlot;
 use Storyfeed\StoryfeedManager;
 use Storyfeed\Support\Feedables;
 
@@ -242,42 +241,6 @@ trait InteractsWithFeed
     protected static function feedMediaUsing(Closure $resolver): void
     {
         app(Feedables::class)->useMediaResolver(static::class, $resolver);
-    }
-
-    /**
-     * The name of this model's `icon` slot, for something stored to refer to.
-     *
-     * Three forwarding calls, one per image slot, each returning the
-     * {@see MediaSlot} case of the same name. They exist for the call site:
-     *
-     *     data: MediaObject::make(subject: $this->name, image: $this->feedMediaIcon())
-     *
-     * reads as "the image is my feedMedia's icon", which is the one thing a
-     * reader of `toFeed()` needs and cannot otherwise see — that the picture a
-     * stored block draws is the one `feedMedia()` resolves at read time, never
-     * a URL frozen into the row. `MediaSlot::Icon` says the same thing with the
-     * resolver's name missing from it.
-     *
-     * NOT `usingFeedMediaIcon()`. A verb would hint that something is
-     * resolved here, eagerly, and nothing is: this is a lazy reference to a
-     * slot the resolver may fill later, or never. A block naming a slot the
-     * resolver leaves empty draws nothing, silently.
-     */
-    public function feedMediaIcon(): MediaSlot
-    {
-        return MediaSlot::Icon;
-    }
-
-    /** The name of this model's `preview` slot — see {@see feedMediaIcon()}. */
-    public function feedMediaPreview(): MediaSlot
-    {
-        return MediaSlot::Preview;
-    }
-
-    /** The name of this model's `image` slot — see {@see feedMediaIcon()}. */
-    public function feedMediaImage(): MediaSlot
-    {
-        return MediaSlot::Image;
     }
 
     /**
