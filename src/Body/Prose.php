@@ -2,7 +2,11 @@
 
 namespace Storyfeed\Body;
 
+use Illuminate\Contracts\JsonSchema\JsonSchema;
+use Illuminate\JsonSchema\Types\Type;
 use Illuminate\Support\Traits\Conditionable;
+use Storyfeed\BodyMigrations\BodyMigrator;
+use Storyfeed\Concerns\HasBodyMigrations;
 use Storyfeed\Concerns\HasPayload;
 use Storyfeed\Contracts\FeedBody;
 use Storyfeed\Exceptions\IncompleteFeedValue;
@@ -50,6 +54,7 @@ use Stringable;
 class Prose implements FeedBody
 {
     use Conditionable;
+    use HasBodyMigrations;
     use HasPayload;
 
     private ?string $content = null;
@@ -150,9 +155,15 @@ class Prose implements FeedBody
         return 'Storyfeed/Body/Prose';
     }
 
-    public static function version(): int
+    /** @return array<string, Type> */
+    public static function schema(JsonSchema $schema): array
     {
-        return 1;
+        return [
+            'content' => $schema->string()->required(),
+            'mediaType' => $schema->string()->required(),
+            'verbatim' => $schema->boolean()->required(),
+            'title' => $schema->string()->nullable()->required(),
+        ];
     }
 
     /**
@@ -161,6 +172,8 @@ class Prose implements FeedBody
      */
     public static function upgrade(array $payload, int $from): array
     {
+        $payload = app(BodyMigrator::class)->upgrade(static::class, $payload, $from);
+
         $mediaType = $payload['mediaType'] ?? null;
         $title = $payload['title'] ?? null;
 

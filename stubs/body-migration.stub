@@ -1,0 +1,16 @@
+<?php
+
+use {{ table }};
+use Storyfeed\BodyMigrations\Body;
+use Storyfeed\BodyMigrations\BodyBlueprint;
+use Storyfeed\BodyMigrations\BodyMigration;
+
+return new class extends BodyMigration
+{
+    public function up(): void
+    {
+        Body::table({{ body }}::class, function (BodyBlueprint $body): void {
+            // $body->renameField('size', 'bytes');
+        });
+    }
+};

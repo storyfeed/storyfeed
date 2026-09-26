@@ -2,8 +2,12 @@
 
 namespace Storyfeed\Body;
 
+use Illuminate\Contracts\JsonSchema\JsonSchema;
+use Illuminate\JsonSchema\Types\Type;
 use Illuminate\Support\Traits\Conditionable;
 use LogicException;
+use Storyfeed\BodyMigrations\BodyMigrator;
+use Storyfeed\Concerns\HasBodyMigrations;
 use Storyfeed\Concerns\HasPayload;
 use Storyfeed\Contracts\FeedBody;
 use Storyfeed\FeedLink;
@@ -269,6 +273,7 @@ use Storyfeed\MediaSlot;
 class MediaObject implements FeedBody
 {
     use Conditionable;
+    use HasBodyMigrations;
     use HasPayload;
 
     private string|FeedLink|null $subject = null;
@@ -414,13 +419,22 @@ class MediaObject implements FeedBody
         return 'Storyfeed/Body/MediaObject';
     }
 
-    public static function version(): int
+    /** @return array<string, Type> */
+    public static function schema(JsonSchema $schema): array
     {
-        return 2;
+        return [
+            'subject' => $schema->union(['string', 'object', 'null'])->required(),
+            'content' => $schema->string()->nullable()->required(),
+            'image' => $schema->string()->enum(['icon', 'image', 'preview'])->nullable()->required(),
+            'files' => $schema->array()->required(),
+            'footnote' => $schema->union(['string', 'object', 'null'])->required(),
+        ];
     }
 
     public static function upgrade(array $payload, int $from): array
     {
+        $payload = app(BodyMigrator::class)->upgrade(static::class, $payload, $from);
+
         // Total by contract: a row from a version this class does not know
         // still has to render. A slot name it does not know — a case a later
         // version added, or `url`, which is never a slot — is null, so the
@@ -445,7 +459,7 @@ class MediaObject implements FeedBody
          */
         $files = array_key_exists('files', $payload)
             ? $payload['files']
-            : ($from < 2 ? ($payload['attachments'] ?? null) : null);
+            : null;
 
         return [
             'subject' => is_string($subject) ? $subject : FeedLink::from($subject)?->toPayload(),

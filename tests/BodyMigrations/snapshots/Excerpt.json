@@ -1,0 +1,27 @@
+{
+    "type": "Storyfeed\/Body\/Excerpt",
+    "history": [],
+    "schema": {
+        "additionalProperties": false,
+        "properties": {
+            "text": {
+                "type": "string"
+            },
+            "from": {
+                "type": [
+                    "string",
+                    "null"
+                ]
+            },
+            "truncated": {
+                "type": "boolean"
+            }
+        },
+        "type": "object",
+        "required": [
+            "text",
+            "from",
+            "truncated"
+        ]
+    }
+}

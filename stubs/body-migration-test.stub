@@ -1,0 +1,13 @@
+<?php
+
+use {{ class }};
+use Storyfeed\BodyMigrations\BodyGuard;
+
+it('preserves the released body shape and migration history', function (): void {
+    // Replace with representative current writer values and commit the released snapshot.
+    $example = {{ body }}::make();
+    $released = json_decode(file_get_contents(__DIR__.'/{{ body }}.released.json'), true, flags: JSON_THROW_ON_ERROR);
+    BodyGuard::assertCompatible($released, BodyGuard::snapshot($example));
+
+    // Add old-row input and expected output assertions for every retained version.
+});

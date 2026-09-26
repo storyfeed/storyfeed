@@ -9,6 +9,7 @@ use Illuminate\Support\Collection;
 use IteratorAggregate;
 use JsonSerializable;
 use LogicException;
+use Storyfeed\BodyMigrations\BodyRegistry;
 use Storyfeed\Support\FeedItem;
 use Traversable;
 
@@ -53,7 +54,12 @@ final class FeedPage implements Arrayable, ArrayAccess, IteratorAggregate, JsonS
         $presenter = $this->presenter->forPage($this->slices);
 
         return $this->slices
-            ->map(fn (GroupSlice $slice) => $presenter->node($slice))
+            ->map(function (GroupSlice $slice) use ($presenter): array {
+                $node = $presenter->node($slice);
+                $bodies = app(BodyRegistry::class);
+
+                return $bodies->enabled ? $bodies->walk($node) : $node;
+            })
             ->values()
             ->all();
     }

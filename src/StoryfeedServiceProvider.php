@@ -18,6 +18,8 @@ use Illuminate\Support\Facades\Route;
 use Spatie\LaravelPackageTools\Package;
 use Spatie\LaravelPackageTools\PackageServiceProvider;
 use Storyfeed\Actions\CurateCluster;
+use Storyfeed\BodyMigrations\BodyMigrator;
+use Storyfeed\BodyMigrations\BodyRegistry;
 use Storyfeed\Events\ActivityDeleted;
 use Storyfeed\Http\Middleware\UseActor;
 use Storyfeed\Http\Middleware\UseContext;
@@ -77,6 +79,8 @@ class StoryfeedServiceProvider extends PackageServiceProvider
                 Console\DemoCommand::class,
                 Console\InstallCommand::class,
                 Console\ListCommand::class,
+                Console\BodyMigrationMakeCommand::class,
+                Console\MigrateBodiesCommand::class,
             ]);
     }
 
@@ -114,6 +118,8 @@ class StoryfeedServiceProvider extends PackageServiceProvider
     public function packageRegistered(): void
     {
         $this->app->singleton(StoryfeedManager::class);
+        $this->app->singleton(BodyMigrator::class);
+        $this->app->singleton(BodyRegistry::class);
         $this->app->alias(StoryfeedManager::class, 'storyfeed');
         $this->app->singleton(Registrar::class);
         $this->app->singleton(Feedables::class);

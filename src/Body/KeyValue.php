@@ -2,8 +2,12 @@
 
 namespace Storyfeed\Body;
 
+use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Illuminate\Contracts\Support\Htmlable;
+use Illuminate\JsonSchema\Types\Type;
 use Illuminate\Support\Traits\Conditionable;
+use Storyfeed\BodyMigrations\BodyMigrator;
+use Storyfeed\Concerns\HasBodyMigrations;
 use Storyfeed\Concerns\HasPayload;
 use Storyfeed\Contracts\FeedBody;
 use Stringable;
@@ -51,6 +55,7 @@ use Stringable;
 class KeyValue implements FeedBody
 {
     use Conditionable;
+    use HasBodyMigrations;
     use HasPayload;
 
     /**
@@ -211,27 +216,34 @@ class KeyValue implements FeedBody
         return 'Storyfeed/Body/KeyValue';
     }
 
-    public static function version(): int
+    /** @return array<string, Type> */
+    public static function schema(JsonSchema $schema): array
     {
-        return 2;
+        return [
+            'title' => $schema->string()->nullable()->required(),
+            'defaultPlaceholder' => $schema->string()->nullable()->required(),
+            'items' => $schema->array()->required(),
+        ];
     }
 
     public static function upgrade(array $payload, int $from): array
     {
+        $payload = app(BodyMigrator::class)->upgrade(static::class, $payload, $from);
+
         $items = is_array($payload['items'] ?? null) ? $payload['items'] : [];
         $title = $payload['title'] ?? null;
         $default = array_key_exists('defaultPlaceholder', $payload)
             ? $payload['defaultPlaceholder']
-            : ($from < 2 ? ($payload['missing'] ?? null) : null);
+            : null;
         $default = is_string($default) ? $default : null;
 
         return [
             'title' => is_string($title) ? $title : null,
             'defaultPlaceholder' => $default,
-            'items' => array_values(array_map(function (array $row) use ($from, $default): array {
+            'items' => array_values(array_map(function (array $row) use ($default): array {
                 $placeholder = array_key_exists('placeholder', $row)
                     ? $row['placeholder']
-                    : ($from < 2 && array_key_exists('missing', $row) ? $row['missing'] : $default);
+                    : $default;
 
                 unset($row['missing']);
 

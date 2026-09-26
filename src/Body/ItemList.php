@@ -2,7 +2,11 @@
 
 namespace Storyfeed\Body;
 
+use Illuminate\Contracts\JsonSchema\JsonSchema;
+use Illuminate\JsonSchema\Types\Type;
 use Illuminate\Support\Traits\Conditionable;
+use Storyfeed\BodyMigrations\BodyMigrator;
+use Storyfeed\Concerns\HasBodyMigrations;
 use Storyfeed\Concerns\HasPayload;
 use Storyfeed\Contracts\FeedBody;
 use Storyfeed\FeedLink;
@@ -53,6 +57,7 @@ use Stringable;
 class ItemList implements FeedBody
 {
     use Conditionable;
+    use HasBodyMigrations;
     use HasPayload;
 
     /**
@@ -209,9 +214,16 @@ class ItemList implements FeedBody
         return 'Storyfeed/Body/ItemList';
     }
 
-    public static function version(): int
+    /** @return array<string, Type> */
+    public static function schema(JsonSchema $schema): array
     {
-        return 1;
+        return [
+            'title' => $schema->string()->nullable()->required(),
+            'ordered' => $schema->boolean()->required(),
+            'items' => $schema->array()->required(),
+            'totalItems' => $schema->integer()->nullable()->required(),
+            'more' => $schema->object()->nullable()->required(),
+        ];
     }
 
     /**
@@ -220,6 +232,8 @@ class ItemList implements FeedBody
      */
     public static function upgrade(array $payload, int $from): array
     {
+        $payload = app(BodyMigrator::class)->upgrade(static::class, $payload, $from);
+
         $items = is_array($payload['items'] ?? null) ? $payload['items'] : [];
         $title = $payload['title'] ?? null;
         $total = $payload['totalItems'] ?? null;

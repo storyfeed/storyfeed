@@ -1,0 +1,31 @@
+{
+    "type": "Storyfeed\/Body\/Prose",
+    "history": [],
+    "schema": {
+        "additionalProperties": false,
+        "properties": {
+            "content": {
+                "type": "string"
+            },
+            "mediaType": {
+                "type": "string"
+            },
+            "verbatim": {
+                "type": "boolean"
+            },
+            "title": {
+                "type": [
+                    "string",
+                    "null"
+                ]
+            }
+        },
+        "type": "object",
+        "required": [
+            "content",
+            "mediaType",
+            "verbatim",
+            "title"
+        ]
+    }
+}

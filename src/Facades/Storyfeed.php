@@ -7,6 +7,8 @@ use Storyfeed\StoryfeedManager;
 use Storyfeed\Testing\StoryfeedFake;
 
 /**
+ * @method static StoryfeedManager upgradeBodies(bool $enabled = true)
+ * @method static StoryfeedManager body(\Storyfeed\Contracts\FeedBody $example)
  * @method static StoryfeedManager actorlessGrammar(array<array-key, string|\Closure|\Storyfeed\FeedHeadline> $grammar, bool $merge = true)
  * @method static string|\Closure|null actorlessTemplate(?string $type, string $verb)
  * @method static string|null actorlessTemplateKey(?string $type, string $verb)

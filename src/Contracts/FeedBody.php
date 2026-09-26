@@ -241,8 +241,9 @@ interface FeedBody extends Arrayable
     /**
      * Normalize a stored payload of version `$from` into the current shape.
      *
-     * Called at READ time by the RENDERER and never persisted back — see rule
-     * 2 and the versioning rule. Implementations must be TOTAL: an
+     * Called at read time by renderers, or by the opt-in body registry. The
+     * explicit body rewrite command may persist successful upgrades. The
+     * registry catches failed upgrades and emits a placeholder. An
      * unrecognised `$from` — a row written by a newer version of this library
      * than the one reading it — returns something renderable rather than
      * throwing, because the row is in the database either way.

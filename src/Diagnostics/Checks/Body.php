@@ -3,6 +3,10 @@
 namespace Storyfeed\Diagnostics\Checks;
 
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+use Storyfeed\BodyMigrations\BodyRegistry;
+use Storyfeed\BodyMigrations\RewriteBodies;
 use Storyfeed\Contracts\FeedBody;
 use Storyfeed\Diagnostics\Finding;
 use Storyfeed\FeedThread;
@@ -19,25 +23,10 @@ use Storyfeed\StoryfeedManager;
  * state of is a spec that drifts — this package's history is that the doctor is
  * where contract drift gets caught, months before a consumer reports it.
  *
- * ## What it will NOT report, and this is the design
- *
- * Two of the obvious candidates cannot be written without core learning a
- * vocabulary, so neither is here:
- *
- *   an unknown type token         core has no list of known names, on purpose.
- *                                 A "body this renderer never heard of"
- *                                 renders as nothing by rule 3 and is a fact
- *                                 about ONE renderer, not about the row. Core
- *                                 answering it would require a registry, and
- *                                 the registry is the thing {@see FeedBody}
- *                                 exists to avoid.
- *   a payload whose shape does    same wall, one level in: knowing that
- *   not match its version         version 2 of `Acme/Shipment` has a `carrier`
- *                                 key means knowing `Acme/Shipment`.
- *
- * What is left is everything a reader can see WITHOUT a vocabulary: which body
- * types are in the column, and whether the two reserved keys are usable. That
- * turns out to be most of the value, because both failures are silent.
+ * Registered bodies also run their migration and shape checks over a bounded
+ * sample. Unknown types remain a census fact: only the owner can register
+ * their writer and migrations. Unreadable bodies produce one finding per
+ * type and stored version, regardless of how many sampled rows contain them.
  *
  * ## Silence means clean, and there is nothing to skip
  *
@@ -112,6 +101,20 @@ class Body extends Check
 
     public function run(StoryfeedManager $storyfeed): iterable
     {
+        $registry = app(BodyRegistry::class);
+        $registry->clearFindings();
+        foreach (app(RewriteBodies::class)->columns() as $table => $columns) {
+            if (! Schema::hasTable($table)) {
+                continue;
+            }
+            foreach (DB::table($table)->orderByDesc('id')->limit(self::SAMPLE)->get($columns) as $row) {
+                foreach ($columns as $column) {
+                    $registry->walk(json_decode($row->$column ?? 'null', true));
+                }
+            }
+        }
+        yield from $registry->findings();
+
         /** @var array<string, array{activity: int, snapshot: int, versions: list<int>, unversioned: int, examples: list<string>}> */
         $types = [];
 

@@ -1,0 +1,41 @@
+{
+    "type": "Storyfeed\/Body\/ItemList",
+    "history": [],
+    "schema": {
+        "additionalProperties": false,
+        "properties": {
+            "title": {
+                "type": [
+                    "string",
+                    "null"
+                ]
+            },
+            "ordered": {
+                "type": "boolean"
+            },
+            "items": {
+                "type": "array"
+            },
+            "totalItems": {
+                "type": [
+                    "integer",
+                    "null"
+                ]
+            },
+            "more": {
+                "type": [
+                    "object",
+                    "null"
+                ]
+            }
+        },
+        "type": "object",
+        "required": [
+            "title",
+            "ordered",
+            "items",
+            "totalItems",
+            "more"
+        ]
+    }
+}

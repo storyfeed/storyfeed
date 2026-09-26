@@ -18,8 +18,10 @@ use Storyfeed\Actions\TombstoneEntity;
 use Storyfeed\ActivityStreams\ActivityType;
 use Storyfeed\ActivityStreams\CoreType;
 use Storyfeed\ActivityStreams\ObjectType;
+use Storyfeed\BodyMigrations\BodyRegistry;
 use Storyfeed\Contracts\Bundleable;
 use Storyfeed\Contracts\DiagnosticCheck;
+use Storyfeed\Contracts\FeedBody;
 use Storyfeed\Contracts\FeedHealer;
 use Storyfeed\Contracts\FeedVerb;
 use Storyfeed\Contracts\HasActivityStreamsType;
@@ -61,6 +63,22 @@ use WeakMap;
  */
 class StoryfeedManager
 {
+    /** Upgrade registered bodies before emitting feed payloads. */
+    public function upgradeBodies(bool $enabled = true): static
+    {
+        app(BodyRegistry::class)->enabled = $enabled;
+
+        return $this;
+    }
+
+    /** Register an example of the current writer shape for an application body. */
+    public function body(FeedBody $example): static
+    {
+        app(BodyRegistry::class)->register($example);
+
+        return $this;
+    }
+
     public function requireFeedableMorphMap(bool $require = true): void
     {
         app(Feedables::class)->requireMorphMap($require);

@@ -1,0 +1,56 @@
+{
+    "type": "Storyfeed\/Body\/MediaObject",
+    "history": [
+        {
+            "name": "2026_09_26_000002_rename_media_object_files",
+            "hash": "84bdfa6cd2dd1a08f0e8958ab187729ef84e7ab932d20b3a1f78704e144d1e02"
+        }
+    ],
+    "schema": {
+        "additionalProperties": false,
+        "properties": {
+            "subject": {
+                "type": [
+                    "string",
+                    "object",
+                    "null"
+                ]
+            },
+            "content": {
+                "type": [
+                    "string",
+                    "null"
+                ]
+            },
+            "image": {
+                "enum": [
+                    "icon",
+                    "image",
+                    "preview"
+                ],
+                "type": [
+                    "string",
+                    "null"
+                ]
+            },
+            "files": {
+                "type": "array"
+            },
+            "footnote": {
+                "type": [
+                    "string",
+                    "object",
+                    "null"
+                ]
+            }
+        },
+        "type": "object",
+        "required": [
+            "subject",
+            "content",
+            "image",
+            "files",
+            "footnote"
+        ]
+    }
+}

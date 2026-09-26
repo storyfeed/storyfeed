@@ -1,0 +1,33 @@
+{
+    "type": "Storyfeed\/Body\/FileAttachment",
+    "history": [],
+    "schema": {
+        "additionalProperties": false,
+        "properties": {
+            "name": {
+                "type": [
+                    "string",
+                    "null"
+                ]
+            },
+            "size": {
+                "type": [
+                    "integer",
+                    "null"
+                ]
+            },
+            "mediaType": {
+                "type": [
+                    "string",
+                    "null"
+                ]
+            }
+        },
+        "type": "object",
+        "required": [
+            "name",
+            "size",
+            "mediaType"
+        ]
+    }
+}

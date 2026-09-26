@@ -2,8 +2,12 @@
 
 namespace Storyfeed\Body;
 
+use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Illuminate\Contracts\Support\Htmlable;
+use Illuminate\JsonSchema\Types\Type;
 use Illuminate\Support\Traits\Conditionable;
+use Storyfeed\BodyMigrations\BodyMigrator;
+use Storyfeed\Concerns\HasBodyMigrations;
 use Storyfeed\Concerns\HasPayload;
 use Storyfeed\Contracts\FeedBody;
 use Storyfeed\Exceptions\IncompleteFeedValue;
@@ -56,6 +60,7 @@ use Stringable;
 class Excerpt implements FeedBody
 {
     use Conditionable;
+    use HasBodyMigrations;
     use HasPayload;
 
     private ?string $text = null;
@@ -125,13 +130,20 @@ class Excerpt implements FeedBody
         return 'Storyfeed/Body/Excerpt';
     }
 
-    public static function version(): int
+    /** @return array<string, Type> */
+    public static function schema(JsonSchema $schema): array
     {
-        return 1;
+        return [
+            'text' => $schema->string()->required(),
+            'from' => $schema->string()->nullable()->required(),
+            'truncated' => $schema->boolean()->required(),
+        ];
     }
 
     public static function upgrade(array $payload, int $from): array
     {
+        $payload = app(BodyMigrator::class)->upgrade(static::class, $payload, $from);
+
         // Total by contract: a payload from a version this class does not know
         // still has to render, because the row is in the database either way.
         return [

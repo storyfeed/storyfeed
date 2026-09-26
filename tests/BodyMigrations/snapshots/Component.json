@@ -1,0 +1,23 @@
+{
+    "type": "Storyfeed\/Body\/Component",
+    "history": [],
+    "schema": {
+        "additionalProperties": false,
+        "properties": {
+            "name": {
+                "type": "string"
+            },
+            "props": {
+                "type": [
+                    "object",
+                    "array"
+                ]
+            }
+        },
+        "type": "object",
+        "required": [
+            "name",
+            "props"
+        ]
+    }
+}

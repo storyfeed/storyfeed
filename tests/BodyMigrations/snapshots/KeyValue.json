@@ -1,0 +1,35 @@
+{
+    "type": "Storyfeed\/Body\/KeyValue",
+    "history": [
+        {
+            "name": "2026_09_26_000001_rename_key_value_placeholders",
+            "hash": "4a0c6efa87df19afe73c31f1b6eba80bdbba78b907c5eafcb1f37fe110e38769"
+        }
+    ],
+    "schema": {
+        "additionalProperties": false,
+        "properties": {
+            "title": {
+                "type": [
+                    "string",
+                    "null"
+                ]
+            },
+            "defaultPlaceholder": {
+                "type": [
+                    "string",
+                    "null"
+                ]
+            },
+            "items": {
+                "type": "array"
+            }
+        },
+        "type": "object",
+        "required": [
+            "title",
+            "defaultPlaceholder",
+            "items"
+        ]
+    }
+}
