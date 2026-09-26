@@ -36,7 +36,6 @@ function readerActivity(array $overrides = []): array
         'object' => readerEntity('delivery', 'Delivery #1042'),
         'target' => null, 'context' => null, 'origin' => null, 'result' => null, 'instrument' => null,
         'data' => ['source' => 'import'],
-        'change' => null,
         'thread' => null,
         'tombstoned' => [],
         'redundant' => false,
@@ -106,20 +105,17 @@ it('reads an activity by named accessors', function () {
         ->and($item->phrases())->toBeEmpty();
 });
 
-it('reads activity data, change and thread', function () {
+it('reads activity data and thread', function () {
     $item = FeedItem::of(readerActivity([
-        'change' => ['changes' => [['label' => 'Status', 'before' => 'Draft', 'after' => 'Ready']]],
         'thread' => ['text' => 'Thursday?', 'by' => 'Nayani', 'kind' => 'asked', 'replies' => 3, 'truncated' => false],
     ]));
 
     expect($item->data())->toBeInstanceOf(Fluent::class)
         ->and($item->data()->string('source')->toString())->toBe('import')
-        ->and($item->changes()->all())->toBe([['label' => 'Status', 'before' => 'Draft', 'after' => 'Ready']])
         ->and($item->thread()->get('text'))->toBe('Thursday?')
         ->and($item->thread()->integer('replies'))->toBe(3);
 
-    expect(FeedItem::of(readerActivity())->thread())->toBeNull()
-        ->and(FeedItem::of(readerActivity())->changes())->toBeEmpty();
+    expect(FeedItem::of(readerActivity())->thread())->toBeNull();
 });
 
 it('reads an activity role as a one-or-none plural', function () {

@@ -499,7 +499,6 @@ class StoryfeedManager
         Model|string|null $origin = null,
         Model|string|null $result = null,
         Model|string|null $instrument = null,
-        ?FeedChange $change = null,
         bool $anonymous = false,
     ): Activity {
         if ($actor !== null && $anonymous) {
@@ -517,7 +516,6 @@ class StoryfeedManager
             ->when($data !== [], fn (PendingActivity $a) => $a->data($data))
             ->when($thread !== null, fn (PendingActivity $a) => $a->thread($thread))
             ->when($publishedAt !== null, fn (PendingActivity $a) => $a->publishedAt($publishedAt))
-            ->when($change !== null, fn (PendingActivity $a) => $a->change($change))
             ->when($anonymous, fn (PendingActivity $a) => $a->anonymously())
             ->publish();
     }

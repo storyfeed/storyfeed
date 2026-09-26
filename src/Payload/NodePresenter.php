@@ -4,7 +4,6 @@ namespace Storyfeed\Payload;
 
 use Closure;
 use Illuminate\Support\Collection;
-use Storyfeed\FeedChange;
 use Storyfeed\FeedContext;
 use Storyfeed\FeedHeadline;
 use Storyfeed\FeedNoun;
@@ -134,10 +133,6 @@ class NodePresenter
             : [null, null];
 
         [$data, $thread] = $this->thread($activity);
-        $change = FeedChange::fromArray($data[FeedChange::KEY] ?? null);
-        if (is_array($data)) {
-            unset($data[FeedChange::KEY]);
-        }
 
         return [
             'kind' => 'activity',
@@ -173,7 +168,6 @@ class NodePresenter
             // size of the conversation around it, or null — which is every
             // activity that has not opted in. See docs/payload.md, `thread`.
             'thread' => $thread?->toPayload(),
-            'change' => $change?->toPayload(),
             // Additive (2026-09-23): the roles whose entity was deleted, and
             // whether one of them is constitutive for this verb, so the
             // activity is redundant as news though still true as history.

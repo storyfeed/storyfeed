@@ -78,7 +78,7 @@ final class BodySlot
      * The app's own map, with a NESTED `Arrayable` flattened too.
      *
      * `$data` itself has always been flattened; a body sitting inside it was
-     * not, so `['diff' => Change::make(…)]` stored `{}` and the fix was to
+     * not, so `['facts' => KeyValue::make(…)]` stored `{}` and the fix was to
      * remember `->toArray()`. That trap produced a docs example teaching the
      * workaround rather than the mistake. One level is enough — a body never
      * nests, and walking further would be core reading the app's map.
