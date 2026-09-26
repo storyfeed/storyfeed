@@ -55,6 +55,7 @@ use Storyfeed\Testing\StoryfeedFake;
  * @method static string|\Closure|null missingTemplate(?string $type, string $verb)
  * @method static string|null icon(?string $type, string $verb)
  * @method static string|null glyphIntent(?string $type, string $verb)
+ * @method static array<string, string|list<string>> dataCasts(?string $type, string $verb)
  * @method static \Storyfeed\ActivityStreams\ActivityType|string|null activityType(string $verb)
  * @method static string activityTypeValue(string $verb)
  * @method static \Storyfeed\ActivityStreams\ObjectType|string|null objectType(string $alias)

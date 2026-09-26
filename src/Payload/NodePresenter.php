@@ -131,7 +131,7 @@ class NodePresenter
         [$tombstoned, $redundant] = $this->tombstoneFact($activity);
         $type = $this->objectType($activity);
         [$missingTemplate, $missingHeadline] = $redundant
-            ? $this->render($this->storyfeed->missingTemplate($type, $activity->verb), $activity)
+            ? $this->render($this->storyfeed->missingTemplate($type, $activity->verb), $activity, $type)
             : [null, null];
 
         [$data, $thread] = $this->thread($activity);
@@ -250,7 +250,7 @@ class NodePresenter
             : null;
         $entry ??= $this->storyfeed->template($type, $activity->verb);
 
-        return $this->render($entry, $activity);
+        return $this->render($entry, $activity, $type);
     }
 
     /**
@@ -259,11 +259,11 @@ class NodePresenter
      *
      * @return array{0: string|null, 1: string|null}
      */
-    protected function render(string|Closure|null $entry, Activity $activity): array
+    protected function render(string|Closure|null $entry, Activity $activity, ?string $type = null): array
     {
         if ($entry instanceof Closure) {
             try {
-                $result = $entry(ActivityContextFactory::make($activity, $this->feed, $this->hydrator));
+                $result = $entry(ActivityContextFactory::make($activity, $this->feed, $this->hydrator, $type));
                 $entry = $result instanceof FeedHeadline ? $result->toTemplate() : (string) $result;
             } catch (Throwable $e) {
                 report($e);

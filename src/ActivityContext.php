@@ -5,6 +5,7 @@ namespace Storyfeed;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Traits\InteractsWithData;
+use Storyfeed\Support\DataCasts;
 
 /**
  * The recorded facts available to a headline closure: activity data and
@@ -13,12 +14,21 @@ use Illuminate\Support\Traits\InteractsWithData;
  * Final and readonly like FeedContext. Named constructor arguments have
  * defaults so new facts can be added without reordering existing callers.
  * Data helpers come directly from Laravel, with its request semantics.
+ *
+ * CASTS are the verb's `casts()`, Eloquent's: get() reads a cast key
+ * through its cast, as `$model->getAttribute()` does, while all() and the
+ * typed helpers read the recorded values, as `getAttributes()` and the
+ * request's helpers do. A helper is a cast of its own (`enum()`, `date()`),
+ * so it is handed what was recorded, never another cast's result.
  */
 final readonly class ActivityContext
 {
     use InteractsWithData;
 
-    /** @param array<array-key, mixed> $data the activity's recorded data */
+    /**
+     * @param  array<array-key, mixed>  $data  the activity's recorded data
+     * @param  array<string, mixed>  $casts  the verb's Eloquent casts, keyed by data key
+     */
     public function __construct(
         private array $data = [],
         private string $verb = '',
@@ -30,6 +40,7 @@ final readonly class ActivityContext
         private ?FeedContext $origin = null,
         private ?FeedContext $result = null,
         private ?FeedContext $instrument = null,
+        private array $casts = [],
     ) {}
 
     /**
@@ -58,12 +69,26 @@ final readonly class ActivityContext
     /**
      * One data value, using "dot" notation, as on Laravel's Fluent::get().
      *
+     * A key the verb casts is read through its cast first, and the rest of
+     * the path is read from the result: `get('order.total')` is the total
+     * of the cast `order`.
+     *
      * @param  string  $key
      * @param  mixed  $default
      */
     public function get($key, $default = null): mixed
     {
-        return data_get($this->data, $key, $default);
+        [$first, $rest] = explode('.', (string) $key, 2) + [1 => null];
+
+        if (! array_key_exists($first, $this->casts) || ! array_key_exists($first, $this->data)) {
+            return data_get($this->data, $key, $default);
+        }
+
+        /** @var array<string, mixed> $data */
+        $data = $this->data;
+        $value = DataCasts::get($data, $this->casts, $first);
+
+        return $rest === null ? $value : data_get($value, $rest, $default);
     }
 
     /**

@@ -47,6 +47,7 @@ use Storyfeed\StoryfeedManager;
  *     missingGrammar: array<string, string|Closure|FeedHeadline>,
  *     forget: array<string, bool>,
  *     retention: array<string, string>,
+ *     casts: array<string, array<string, string|list<string>>>,
  *     keepLatest: array<string, array{per: list<string>, within: string|null}>,
  *     periods: array<string, string>,
  *     queue: array<string, array{connection?: string, queue?: string, delay?: int, afterCommit?: bool, deleteWhenMissingModels?: bool}>,
@@ -60,7 +61,7 @@ use Storyfeed\StoryfeedManager;
 class CompileStories
 {
     /** The registries a compile produces, in the order they are applied. */
-    public const REGISTRIES = ['grammar', 'aggregateGrammar', 'actorlessGrammar', 'icons', 'glyphIntents', 'nouns', 'objectTypes', 'verbs', 'missing', 'missingGrammar', 'forget', 'retention', 'keepLatest', 'periods', 'queue', 'middleware', 'actors', 'actions', 'names', 'wheres'];
+    public const REGISTRIES = ['grammar', 'aggregateGrammar', 'actorlessGrammar', 'icons', 'glyphIntents', 'nouns', 'objectTypes', 'verbs', 'missing', 'missingGrammar', 'forget', 'retention', 'casts', 'keepLatest', 'periods', 'queue', 'middleware', 'actors', 'actions', 'names', 'wheres'];
 
     /**
      * @param  array<int, Verb>  $definitions
@@ -80,6 +81,7 @@ class CompileStories
         $missingGrammar = [];
         $forget = [];
         $retention = [];
+        $casts = [];
         $keepLatest = [];
         $periods = [];
         $queue = [];
@@ -172,6 +174,13 @@ class CompileStories
                 if (($window = $definition->retention()) !== null) {
                     $this->claim($owners, 'retention', $key, $source);
                     $retention[$key] = $window;
+                }
+
+                // Eloquent casts for the data keys: one entry, never merged
+                // with a wildcard's, as a model's casts() is one array.
+                if (($dataCasts = $definition->dataCasts()) !== null) {
+                    $this->claim($owners, 'casts', $key, $source);
+                    $casts[$key] = $dataCasts;
                 }
 
                 // Which rows a publish supersedes: the roles it keys on and
@@ -288,6 +297,7 @@ class CompileStories
             'missingGrammar' => $missingGrammar,
             'forget' => $forget,
             'retention' => $retention,
+            'casts' => $casts,
             'keepLatest' => $keepLatest,
             'periods' => $periods,
             'queue' => $queue,

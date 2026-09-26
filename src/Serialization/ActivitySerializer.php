@@ -215,7 +215,7 @@ class ActivitySerializer
 
         if ($entry instanceof Closure) {
             try {
-                $result = $entry(ActivityContextFactory::make($activity));
+                $result = $entry(ActivityContextFactory::make($activity, type: $type));
                 $entry = $result instanceof FeedHeadline ? $result->toTemplate() : (string) $result;
             } catch (Throwable $e) {
                 // Same posture as the payload presenter: an authoring bug is

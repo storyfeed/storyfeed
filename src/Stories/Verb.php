@@ -70,6 +70,9 @@ final class Verb
 
     protected ?string $intent = null;
 
+    /** @var array<string, string|list<string>>|null */
+    protected ?array $casts = null;
+
     protected ActivityType|string|null $type = null;
 
     /** @var list<string>|null null: the default set (the object) */
@@ -215,6 +218,10 @@ final class Verb
 
             if ($instance->type !== null) {
                 $definition = $definition->type($instance->type);
+            }
+
+            if (($casts = $instance->casts()) !== []) {
+                $definition = $definition->casts($casts);
             }
 
             if (($missing = $instance->missing()) !== null) {
@@ -502,6 +509,25 @@ final class Verb
     public function intent(string $intent): self
     {
         $this->intent = $intent;
+
+        return $this;
+    }
+
+    /**
+     * How `ActivityContext::get()` reads this verb's data keys: Eloquent's
+     * `casts()`, keyed by data key instead of column. Every cast a model
+     * accepts is accepted, and Eloquent does the casting. Storage is
+     * untouched: the row keeps what `data()` recorded, and so does the
+     * payload.
+     *
+     * Strings and class names only, as a model's casts are, so the
+     * definition caches (`storyfeed:cache`).
+     *
+     * @param  array<string, string|list<string>>  $casts
+     */
+    public function casts(array $casts): self
+    {
+        $this->casts = $casts;
 
         return $this;
     }
@@ -1413,6 +1439,11 @@ final class Verb
             'missingHeadline' => $this->missingHeadline,
             'icon' => $this->icon,
             'intent' => $this->intent,
+            'casts' => $this->casts === null ? null : array_map(
+                fn (string $key, string|array $cast) => $key.'='.implode(',', (array) $cast),
+                array_keys($this->casts),
+                $this->casts,
+            ),
             'type' => $this->type,
             'noun' => $this->noun,
             'activityStreamsType' => $this->activityStreamsType,
@@ -1443,6 +1474,18 @@ final class Verb
     public function glyphIntent(): ?string
     {
         return $this->intent;
+    }
+
+    /**
+     * The data casts, or null when the verb declared none.
+     *
+     * @return array<string, string|list<string>>|null
+     *
+     * @internal
+     */
+    public function dataCasts(): ?array
+    {
+        return $this->casts;
     }
 
     public function activityType(): ActivityType|string|null
