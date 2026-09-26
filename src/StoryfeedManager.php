@@ -1098,7 +1098,7 @@ class StoryfeedManager
      * "delivery.*", "*.confirm", "*.*"); values are template strings with
      * :actor/:object/:target/:context placeholders (and optional segments,
      * `[ with :target]`), FeedHeadline::trans() keys translated when the feed
-     * is read, or closures receiving the Activity. A closure's result that
+     * is read, or closures receiving an ActivityContext. A closure's result that
      * names a role token is a template; one without is finished text.
      *
      * Typed loosely on the KEY on purpose — see assertKeyed().
@@ -1124,7 +1124,7 @@ class StoryfeedManager
      * No aggregate forms.
      *
      * Strings are tokenizable templates and cannot name :actor or :actors.
-     * Closures receive the Activity, as in grammar().
+     * Closures receive an ActivityContext, as in grammar().
      *
      * @param  array<array-key, string|Closure|FeedHeadline>  $grammar
      *

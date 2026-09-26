@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Traits\Conditionable;
 use InvalidArgumentException;
 use ReflectionClass;
+use Storyfeed\ActivityContext;
 use Storyfeed\ActivityStreams\ActivityType;
 use Storyfeed\ActivityStreams\ObjectType;
 use Storyfeed\Contracts\FeedVerb;
@@ -21,7 +22,6 @@ use Storyfeed\Grouping\Group;
 use Storyfeed\Grouping\GroupBuilder;
 use Storyfeed\Grouping\Period;
 use Storyfeed\Middleware\Batch;
-use Storyfeed\Models\Activity;
 use Storyfeed\Support\ActivityRoles;
 use Storyfeed\Support\ManifestClosure;
 
@@ -427,7 +427,7 @@ final class Verb
      * A closure may return either. A result naming a role token is a
      * template, so names stay tokens and links; one without is finished text.
      *
-     * @param  string|FeedHeadline|Closure(Activity): (string|FeedHeadline)  $headline
+     * @param  string|FeedHeadline|Closure(ActivityContext): (string|FeedHeadline)  $headline
      */
     public function headline(string|Closure|FeedHeadline $headline): self
     {
@@ -444,7 +444,7 @@ final class Verb
      * Often an optional segment in headline() does the same job with one
      * sentence: `'[:actor ]confirmed :object'`.
      *
-     * @param  string|FeedHeadline|Closure(Activity): (string|FeedHeadline)  $headline
+     * @param  string|FeedHeadline|Closure(ActivityContext): (string|FeedHeadline)  $headline
      */
     public function anonymousHeadline(string|Closure|FeedHeadline $headline): self
     {
@@ -551,7 +551,7 @@ final class Verb
      *
      *     Story::verb('place')->missingHeadline(':actor placed an order that is no longer available');
      *
-     * @param  string|FeedHeadline|Closure(Activity): (string|FeedHeadline)  $headline
+     * @param  string|FeedHeadline|Closure(ActivityContext): (string|FeedHeadline)  $headline
      */
     public function missingHeadline(string|Closure|FeedHeadline $headline): self
     {

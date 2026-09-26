@@ -1,5 +1,6 @@
 <?php
 
+use Storyfeed\ActivityContext;
 use Storyfeed\Facades\Story;
 use Storyfeed\Facades\Storyfeed;
 use Storyfeed\FeedHeadline;
@@ -79,7 +80,7 @@ it('resolves segments against the group: a role no member holds is empty', funct
 
 it('reads a closure result with a role token as a template', function () {
     Story::for(Delivery::class)->verb('confirm')->headline(
-        fn (Activity $activity) => ($activity->data['rush'] ?? false) ? ':actor rushed :object[ to :target]' : ':actor confirmed :object',
+        fn (ActivityContext $activity) => $activity->boolean('rush') ? ':actor rushed :object[ to :target]' : ':actor confirmed :object',
     );
 
     Storyfeed::activity('confirm', Delivery::create(['tracking_number' => 'TN-1']))
@@ -94,7 +95,7 @@ it('reads a closure result with a role token as a template', function () {
 });
 
 it('reads a closure result without a role token as finished text', function () {
-    Story::for(Delivery::class)->verb('confirm')->headline(fn (Activity $activity) => 'A delivery was confirmed');
+    Story::for(Delivery::class)->verb('confirm')->headline(fn (ActivityContext $activity) => 'A delivery was confirmed');
 
     $node = confirmNode();
 
@@ -156,7 +157,7 @@ it('caches a FeedHeadline and a closure headline', function () {
 });
 
 it('unserialises a cached closure headline only when its verb renders', function () {
-    Story::for(Delivery::class)->verb('confirm')->headline(static fn (Activity $activity) => ':actor confirmed :object[ for :target]');
+    Story::for(Delivery::class)->verb('confirm')->headline(static fn (ActivityContext $activity) => ':actor confirmed :object[ for :target]');
     Story::for(Delivery::class)->verb('ship')->headline(static fn () => 'Shipped');
 
     $uncached = confirmNode();

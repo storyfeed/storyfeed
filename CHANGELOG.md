@@ -15,6 +15,11 @@
   JSON retains the feed envelope and adds Laravel's cursor pagination keys;
   `data` and `items` contain the same payload arrays. Iteration yields `FeedItem`s.
   `get()` continues to return the existing `FeedPage`.
+- `ActivityContext` for headline closures, with Laravel's `InteractsWithData`
+  helpers, `verb()`, immutable `publishedAt()` and a `FeedContext` accessor
+  for each role. Normal, anonymous and missing headlines receive the context
+  in payloads and Activity Streams serialization. Closures typed `Activity`
+  must switch to `ActivityContext`; the raw activity model is not exposed.
 
 - `Storyfeed\Support\FeedItem`, `Headline` and `Entity`: fluent readers over
   the payload, after `Illuminate\Support\Uri`. Iterating a `FeedPage` yields
