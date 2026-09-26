@@ -78,8 +78,8 @@ interface Feedable
      * Write the arm; decide what it returns.
      *
      * PER-FEED AUTHORITY. The URL you return is correct for the feed named
-     * in the context and for no other. A kitchen feed's payload may carry a
-     * signed operational link that must never be served on the customer
+     * in the context and for no other. An editorial feed's payload may carry a
+     * signed operational link that must never be served on the reader
      * feed; the read path keeps them apart because the feed name is
      * declared, never sniffed. Cache a payload per feed, never across them.
      * docs/payload.md carries the full statement.

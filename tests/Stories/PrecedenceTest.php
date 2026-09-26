@@ -38,7 +38,7 @@ it('keeps closures legal through the hand-written path', function () {
     // Compiled output is closure-free so it can be cached; closures remain
     // available where they always were.
     Story::verb(ActivityVerb::Confirm, DeliveryWasConfirmed::class);
-    Storyfeed::grammar(['delivery.confirm' => fn ($activity) => 'rendered '.$activity->verb]);
+    Storyfeed::grammar(['delivery.confirm' => fn ($activity) => 'rendered '.$activity->verb()]);
 
     expect(Storyfeed::template('delivery', 'confirm'))->toBeInstanceOf(Closure::class);
 });

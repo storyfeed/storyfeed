@@ -28,18 +28,18 @@ use Storyfeed\MediaSlot;
  * Stored:
  *
  *     {"$body": "Storyfeed/MediaObject", "$v": 1,
- *      "subject": "N201 Saffron Butter Rice",
- *      "content": "Basmati replaces Jasmine.",
- *      "image": "icon", "attachments": [], "footnote": "Approved by Jasper"}
+ *      "subject": "Bronze Figure",
+ *      "content": "Restoration is complete.",
+ *      "image": "icon", "attachments": [], "footnote": "Restored by Ana"}
  *
  * …and with a subject that leads to its entity, and a file it names itself:
  *
  *     {"$body": "Storyfeed/MediaObject", "$v": 1,
- *      "subject": {"label": "N201 Saffron Butter Rice", "href": null},
- *      "content": "Basmati replaces Jasmine.",
+ *      "subject": {"label": "Bronze Figure", "href": null},
+ *      "content": "Restoration is complete.",
  *      "image": "icon",
- *      "attachments": [{"type": "Document", "href": "https://…/n201-v4.pdf",
- *                       "mediaType": "application/pdf", "name": "n201-v4.pdf"}],
+ *      "attachments": [{"type": "Document", "href": "https://…/restoration-v4.pdf",
+ *                       "mediaType": "application/pdf", "name": "restoration-v4.pdf"}],
  *      "footnote": null}
  *
  * ## It stores no media, it names a slot
@@ -85,15 +85,14 @@ use Storyfeed\MediaSlot;
  * ## `footnote` — small print, and the name is the constraint
  *
  * A line under the content, drawn small and muted by a renderer; this
- * package only stores it. The case it exists for is an approval that has to
- * be RECORDED without claiming equal weight with the sentence — subtle,
- * which is the word that was used for it and is the whole specification.
+ * package only stores it. It can record a credit, source or short
+ * qualification without claiming equal weight with the main sentence.
  *
  * It takes a string or a {@see FeedLink}, on `subject`'s rule exactly, so
- * that the credit can lead to the person or to the approval:
+ * that the credit can lead to the person or to the restoration record:
  *
- *     footnote: 'Approved by Jasper'
- *     footnote: FeedLink::make('Approved by Jasper', $approval->url)
+ *     footnote: 'Restored by Ana'
+ *     footnote: FeedLink::make('Restored by Ana', $restoration->url)
  *
  * A plain-string footnote never becomes a link, for the same reason a
  * plain-string subject does not.
@@ -118,29 +117,27 @@ use Storyfeed\MediaSlot;
  * should be OF the entity, unless the slot is `icon`, which may represent
  * by association.
  *
- * A consumer's production feed showed why the distinction earns a slot.
- * Three rows in one viewport, about the same menu item, all drawing the
- * identical plated-dish photograph at the same size: "Nangi replied on
- * N201", "Nayani added a photo of N201", "Nayani wrote a note on N201".
- * Only the middle row is ABOUT the photograph. The other two are a reply
- * and a note whose object is a discussion, and the app had put the dish's
- * lead image in the discussion's `preview` — but a photograph of food is
- * not a preview of a discussion.
+ * Consider three rows about the same sculpture, all drawing its photograph
+ * at the same size: "Ana replied about Bronze Figure", "Ben added a photo
+ * of Bronze Figure", "Ana wrote a note about Bronze Figure". Only the
+ * middle row is ABOUT the photograph. The other two are a reply and a note
+ * whose object is a discussion. A photograph of the sculpture identifies
+ * what the discussion concerns; it is not a preview of the discussion.
  *
  * **`icon` — which thing this is.** The reply and the note. A discussion
  * has no picture of its own, but "what small image represents this
- * discussion?" has an answer: the dish it concerns. `icon` is small and
+ * discussion?" has an answer: the sculpture it concerns. `icon` is small and
  * REPRESENTATIONAL, and a representation may be borrowed from what the
  * thing is about. So the comment-shaped rows name `icon`, and the same
  * photograph reads as a 32px identifier beside the text — the way it
- * labels the dish in the menu list — rather than as a photograph under a
+ * labels the sculpture in a catalogue — rather than as a photograph under a
  * reply.
  *
  *     MediaObject::make(subject: $note->title, content: $note->body, image: $note->feedMediaIcon())
  *
- * **`image` — what the thing looks like.** The photo row. "Nayani added a
- * photo of N201" is about the picture, and the dish is a non-image object
- * of which the photograph is a larger visual representation. The block
+ * **`image` — what the thing looks like.** The photo row. "Ben added a
+ * photo of Bronze Figure" is about the picture. The sculpture is a non-image
+ * object of which the photograph is a larger visual representation. The block
  * reads as the post it is — the name, the caption, and the picture worth
  * stopping on, at the size the feed gives a picture. Same rows, same
  * photograph, and only this one stays a photograph.

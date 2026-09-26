@@ -9,8 +9,8 @@ use Storyfeed\Exceptions\IncompleteFeedValue;
 /**
  * A piece of text that leads somewhere: a label, and where a tap on it goes.
  *
- *     FeedLink::make()->label('N201 Saffron Butter Rice')                    // → my entity
- *     FeedLink::make()->label('The recall notice')->href('https://…')      // → there
+ *     FeedLink::make()->label('Bronze Figure')                       // → my entity
+ *     FeedLink::make()->label('The exhibition guide')->href('https://…') // → there
  *
  * It exists so that a stored block can say "my title is a way in" without a
  * consumer reaching into a renderer's markup to add one. A consumer who has

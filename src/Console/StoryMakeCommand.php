@@ -27,8 +27,8 @@ use function Laravel\Prompts\text;
  *   php artisan make:story
  *   php artisan make:story DocumentWasUploaded
  *   php artisan make:story TaskWasCompleted --verb=complete --object=Task
- *   php artisan make:story OrderStory --model=Order
- *   php artisan make:story ShipStory --invokable --verb=ship --object=Order
+ *   php artisan make:story DocumentStory --model=Document
+ *   php artisan make:story UploadStory --invokable --verb=upload --object=Document
  *   php artisan make:story --from-doctor
  *
  * THREE SHAPES, chosen by option as make:controller chooses its stub, and
@@ -36,7 +36,7 @@ use function Laravel\Prompts\text;
  * and a message class with none of them.
  *
  *   - a message class (the default), constructed with its data and published;
- *   - `--model=Order` or `--resource`: a resource Story class, one method per
+ *   - `--model=Document` or `--resource`: a resource Story class, one method per
  *     verb, the four conventional ones filled in. `--model` alone implies it,
  *     as `make:controller --model` writes a resource controller, and wins
  *     over `--invokable`, as it does there;
@@ -58,7 +58,7 @@ use function Laravel\Prompts\text;
  * over its Feedable models; `--verb`, `--object` and `--model` skip their
  * prompts. The only inference is exact: a class name whose predicate spells
  * exactly one declared verb (see StoryName), or an invokable class named for
- * a declared verb (`ShipStory` for `ship`). Without a terminal, anything
+ * a declared verb (`UploadStory` for `upload`). Without a terminal, anything
  * still unknown fails with the vocabulary named. Nothing is ever written as
  * a placeholder.
  *
@@ -143,7 +143,7 @@ class StoryMakeCommand extends GeneratorCommand
             $input->setOption('object', suggest(
                 label: 'Which model is the object of this story?',
                 options: $this->option('invokable') ? ['*', ...$this->feedableModels()] : $this->feedableModels(),
-                placeholder: 'E.g. '.$this->rootNamespace().'Models\\Order',
+                placeholder: 'E.g. '.$this->rootNamespace().'Models\\Document',
                 required: true,
                 hint: $this->option('invokable') ? "'*' binds the verb for every type." : '',
             ));
@@ -167,7 +167,7 @@ class StoryMakeCommand extends GeneratorCommand
         $shape = select(
             label: 'What will this story describe?',
             options: self::SHAPES,
-            hint: "The first is published with Storyfeed::publish(new OrderShipped(\$order)), the others by name, with story('order.ship', \$order).",
+            hint: "The first is published with Storyfeed::publish(new DocumentUploaded(\$document)), the others by name, with story('document.upload', \$document).",
         );
 
         if ($shape !== 'message') {
@@ -186,7 +186,7 @@ class StoryMakeCommand extends GeneratorCommand
         return suggest(
             label: 'What model is this resource story for?',
             options: $this->feedableModels(),
-            placeholder: 'E.g. '.$this->rootNamespace().'Models\\Order',
+            placeholder: 'E.g. '.$this->rootNamespace().'Models\\Document',
             required: true,
         );
     }
@@ -481,7 +481,7 @@ class StoryMakeCommand extends GeneratorCommand
     protected function invokable(string $stub, string $name, string $verb, string $object): string
     {
         // Named as a resource names its verbs, `{type}.{verb}`, so it is
-        // published with story('order.ship', $order) like one; for every
+        // published with story('document.upload', $document) like one; for every
         // type, by its verb.
         $this->bindings[] = $object === '*'
             ? "Story::verb('{$verb}', \\{$name}::class)->name('{$verb}');"
@@ -598,8 +598,8 @@ class StoryMakeCommand extends GeneratorCommand
     /**
      * The declared verbs the class name spells. An invokable class not in
      * the `{Object}Was{Verbed}` form may instead be named for its verb, the
-     * way a resource class's method is: `ShipStory` or `Ship` is `ship`, and
-     * `ConfirmPaymentStory` is `confirm_payment`, if the app declares it.
+     * way a resource class's method is: `UploadStory` or `Upload` is `upload`, and
+     * `RequestReviewStory` is `request_review`, if the app declares it.
      *
      * @return list<string>
      */

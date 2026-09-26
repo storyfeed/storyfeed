@@ -12,6 +12,7 @@ use Storyfeed\Models\Activity;
 use Storyfeed\Models\FeedTombstone;
 use Storyfeed\Models\Snapshot;
 use Storyfeed\StoryfeedManager;
+use Storyfeed\Support\ActivityContextFactory;
 use Storyfeed\Support\ActivityRoles;
 use Storyfeed\Support\LinkResolver;
 use Storyfeed\Support\ModelHydrator;
@@ -55,8 +56,8 @@ class NodePresenter
      * A copy rather than a setter because the presenter is resolved from the
      * container: were an app to bind it as a singleton, a setter would leak
      * one page's feed name into the next page rendered in the same process —
-     * a queued digest rendering the customer feed after the kitchen feed
-     * would resolve kitchen URLs. A copy cannot.
+     * a queued digest rendering the reader feed after the editorial feed
+     * would resolve editorial URLs. A copy cannot.
      */
     public function forFeed(?string $feed): static
     {
@@ -129,7 +130,7 @@ class NodePresenter
         [$tombstoned, $redundant] = $this->tombstoneFact($activity);
         $type = $this->objectType($activity);
         [$missingTemplate, $missingHeadline] = $redundant
-            ? $this->render($this->storyfeed->missingTemplate($type, $activity->verb), $activity)
+            ? $this->render($this->storyfeed->missingTemplate($type, $activity->verb), $activity, $type)
             : [null, null];
 
         [$data, $thread] = $this->thread($activity);
@@ -243,7 +244,7 @@ class NodePresenter
             : null;
         $entry ??= $this->storyfeed->template($type, $activity->verb);
 
-        return $this->render($entry, $activity);
+        return $this->render($entry, $activity, $type);
     }
 
     /**
@@ -252,11 +253,11 @@ class NodePresenter
      *
      * @return array{0: string|null, 1: string|null}
      */
-    protected function render(string|Closure|null $entry, Activity $activity): array
+    protected function render(string|Closure|null $entry, Activity $activity, ?string $type = null): array
     {
         if ($entry instanceof Closure) {
             try {
-                $result = $entry($activity);
+                $result = $entry(ActivityContextFactory::make($activity, $this->feed, $this->hydrator, $type));
                 $entry = $result instanceof FeedHeadline ? $result->toTemplate() : (string) $result;
             } catch (Throwable $e) {
                 report($e);
@@ -288,8 +289,8 @@ class NodePresenter
      * all pinned by the axis, or the noun rung can honestly pluralise the
      * ones that are not. An unchecked singular fallback is the lie class
      * arriving through the back door: "Bob Callahan uploaded — to Analytics
-     * Dashboard" rendered over ten uploads by two people (found live by the
-     * Newsroom). Unsafe fallbacks yield a null template — the renderer's
+     * Dashboard" rendered over ten uploads by two people. Unsafe fallbacks
+     * yield a null template — the renderer's
      * generic group treatment beats a wrong sentence. `storyfeed:doctor` and
      * HeadlineCoverage surface the missing entry.
      *

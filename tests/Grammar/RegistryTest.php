@@ -103,7 +103,7 @@ it('emits headline templates and glyph tokens in the payload', function () {
 
 it('pre-renders closure grammar as headline with a null template', function () {
     Storyfeed::grammar([
-        'delivery.confirm' => fn ($activity) => "Delivery {$activity->object_id} confirmed",
+        'delivery.confirm' => fn ($activity) => "Delivery {$activity->object()?->key()} confirmed",
     ]);
 
     $delivery = Delivery::create(['tracking_number' => 'TN-1']);

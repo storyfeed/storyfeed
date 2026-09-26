@@ -19,7 +19,7 @@ class UnknownStory extends LogicException
         return new self(
             "Story [{$story}] is not registered, so its verb and headlines were never compiled. "
             ."Bind it to its verb in routes/feed.php:\n\n"
-            ."    Story::for(Order::class)->verb('ship', {$story}::class);\n\n"
+            ."    Story::for(Document::class)->verb('upload', {$story}::class);\n\n"
             .'Publishing it anyway would record an activity nobody authored a headline for.'
         );
     }
@@ -30,7 +30,7 @@ class UnknownStory extends LogicException
 
         return new self(
             "{$short}'s \$this->activity() takes the activity's object, and was given the Story class [{$given}]. "
-            .'Pass the model: $this->activity($this->order).'
+            .'Pass the model: $this->activity($this->document).'
         );
     }
 

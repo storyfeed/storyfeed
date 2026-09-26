@@ -16,14 +16,14 @@ use Storyfeed\Support\ManifestClosure;
 
 /**
  * Every definition, the way `route:list` shows every route: type, verb, its
- * name (what `story()` references it by), the action it came from (`OrderStory@confirmPayment`, as route:list shows
+ * name (what `story()` references it by), the action it came from (`PostStory@requestReview`, as route:list shows
  * `Controller@method`), what it says with and without an actor, its icon
  * and intent, its group headlines, the period they group per, what it
  * keeps the latest of, the `file:line` it was written on, its story
  * middleware and its role constraints.
  *
  *     php artisan storyfeed:list
- *     php artisan storyfeed:list --type=order --verb=place
+ *     php artisan storyfeed:list --type=post --verb=create
  *     php artisan storyfeed:list --name=billing.
  *     php artisan storyfeed:list -v          # with the middleware and where columns
  *     php artisan storyfeed:list --json
@@ -189,7 +189,7 @@ class ListCommand extends Command
     }
 
     /**
-     * What the definition came from: `OrderStory@confirmPayment` for a
+     * What the definition came from: `PostStory@requestReview` for a
      * resource Story class's action, the class for a message class or an
      * invokable one (stored `ShipStory@__invoke`, shown as `route:list`
      * shows an invokable controller), and nothing for a line in the file.

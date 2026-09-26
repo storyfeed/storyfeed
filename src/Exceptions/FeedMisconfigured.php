@@ -8,7 +8,7 @@ use InvalidArgumentException;
  * Thrown when a Feed class, or a call site entering one, is wrong.
  *
  * Every case here is a failure that would otherwise be SILENT and plausible: an
- * unscoped customer feed, a subject bound to the wrong model, a call site
+ * unscoped project feed, a subject bound to the wrong model, a call site
  * quietly rebinding the scope its class declared. None of them look like bugs
  * in a rendered feed, which is why they are exceptions rather than findings.
  */
@@ -32,7 +32,7 @@ class FeedMisconfigured extends InvalidArgumentException
 
     /**
      * The backstop for a hand-written feed. A generated one binds its subject
-     * in scope(); a hand-written one that takes an order and never uses it is
+     * in scope(); a hand-written one that takes a project and never uses it is
      * an unscoped feed that LOOKS scoped at every call site — the failure this
      * layer exists to remove, wearing the layer's own clothes.
      */
@@ -42,7 +42,7 @@ class FeedMisconfigured extends InvalidArgumentException
             "Feed [{$feed}] takes constructor arguments but its scope() binds no role, so nothing "
             .'it was given reaches the query — every call site would read as scoped while the feed '
             .'returned the whole table. Bind it: protected function scope(FeedBuilder $feed): void '
-            .'{ $feed->context($this->order); }'
+            .'{ $feed->context($this->project); }'
         );
     }
 

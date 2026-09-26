@@ -11,7 +11,7 @@ use Stringable;
 /**
  * Authored text, carried as SOURCE, with the encoding that says how to read it.
  *
- *     Prose::make($order->summary())                  // printed as written
+ *     Prose::make($booking->summary())                // printed as written
  *     Prose::markdown($note->body)                    // parsed by the renderer
  *     Prose::verbatim($deploy->output)                // reproduced exactly
  *     Prose::code($migration->source, 'text/x-php')   // reproduced exactly, and it knows what it is

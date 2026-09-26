@@ -10,42 +10,42 @@ use Storyfeed\Exceptions\FeedMisconfigured;
 /**
  * One class per audience — the declarative form of a named feed.
  *
- *   class CustomerFeed extends Feed
+ *   class BookingFeed extends Feed
  *   {
- *       public function __construct(protected Order $order) {}
+ *       public function __construct(protected Reservation $reservation) {}
  *
  *       protected function scope(FeedBuilder $feed): void
  *       {
- *           $feed->context($this->order);
+ *           $feed->context($this->reservation);
  *       }
  *
  *       public function define(FeedBuilder $feed): void
  *       {
- *           $feed->only(['order.placed', 'order.delivered', 'order.paid'])->log();
+ *           $feed->only(['reservation.created', 'reservation.confirmed', 'reservation.cancelled'])->log();
  *       }
  *   }
  *
- *   CustomerFeed::make($order)->get();
+ *   BookingFeed::make($reservation)->get();
  *
  * WHAT THIS ADDS OVER A CLOSURE PRESET. A closure can carry a query. It cannot
  * carry the one thing the original ask (a scope + allowlist seam "we cannot
  * forget at a call site") most needed: the SCOPE. With closures alone the call
- * site still reads `Storyfeed::feed('customer')->involving($order)`, and the
- * `involving($order)` is exactly the part that can be forgotten. Forgetting it
- * is not a visible failure — it is a customer-facing feed rendering every order
+ * site still reads `Storyfeed::feed('booking')->involving($reservation)`, and the
+ * `involving($reservation)` is exactly the part that can be forgotten. Forgetting it
+ * is not a visible failure — it is a guest-facing feed rendering every reservation
  * in the system, correctly verb-filtered and entirely plausible. The allowlist
  * half fails safe; the scope half fails open. That asymmetry is the whole
  * reason this class exists.
  *
  * THE ENTRY POINT IS A CONSTRUCTOR. `make()` is an alias for `new static(...)`,
  * so the subject is a typed constructor parameter and PHP itself refuses an
- * unscoped build: `CustomerFeed::make()` is an ArgumentCountError, not a feed.
+ * unscoped build: `BookingFeed::make()` is an ArgumentCountError, not a feed.
  * Nothing here has to enforce that, which is the point — every prepositional
  * name considered instead (`for()`, `of()`, `scopedTo()`) claims a relationship
  * the class declares elsewhere, and `for()` in particular is the name this
  * package RETIRED at v0.7 for exactly that ambiguity. A constructor claims
- * nothing. (`new CustomerFeed()` is caught statically by PHPStan and the IDE.
- * `CustomerFeed::make()` forwards variadically, so PHP catches it at runtime on
+ * nothing. (`new BookingFeed()` is caught statically by PHPStan and the IDE.
+ * `BookingFeed::make()` forwards variadically, so PHP catches it at runtime on
  * the first call — and `PHPStan\FeedMakeArityRule`, which this package ships,
  * catches it in CI by resolving the call against the constructor it reaches.
  * The runtime guarantee is still the load-bearing one; the rule only moves
@@ -55,7 +55,7 @@ use Storyfeed\Exceptions\FeedMisconfigured;
  * feed is ABOUT — verbs, mode, limits — and must not touch constructor state,
  * because `storyfeed:doctor` reads it without being able to supply a subject.
  * `scope()` binds the values only a request can supply. The split is what lets
- * a check see a customer feed's allowlist without inventing an order.
+ * a check see a booking feed's allowlist without inventing a reservation.
  *
  * NO MAGIC. `make()` and `build()` are ordinary methods; the only dynamic part
  * is `new static(...)`, which is how `PendingActivity::make()` already works.
@@ -63,7 +63,7 @@ use Storyfeed\Exceptions\FeedMisconfigured;
  * rather than a feature.
  *
  * NOT AUTHORIZATION. Scope is a query constraint applied for you — identical to
- * the `->context($order)` you would otherwise write. It does not know who is
+ * the `->context($reservation)` you would otherwise write. It does not know who is
  * asking and it never hides an activity. A Feed declares what a surface is
  * ABOUT; a policy decides who may look at it. See docs/feeds.md.
  *
@@ -83,9 +83,9 @@ abstract class Feed
      * not a dialect.
      *
      * MUST NOT read constructor state. `storyfeed:doctor` runs this against an
-     * instance built WITHOUT calling the constructor, because it has no order
+     * instance built WITHOUT calling the constructor, because it has no reservation
      * to hand you and still needs to know which verbs you named. Touching
-     * `$this->order` here turns every doctor run into a `feeds.preset_failed`
+     * `$this->reservation` here turns every doctor run into a `feeds.preset_failed`
      * finding for this feed. Bind values in scope() instead.
      */
     public function define(FeedBuilder $feed): void {}
@@ -95,7 +95,7 @@ abstract class Feed
      *
      *   protected function scope(FeedBuilder $feed): void
      *   {
-     *       $feed->context($this->order);
+     *       $feed->context($this->reservation);
      *   }
      *
      * The role is written in plain code rather than declared as a string, so
@@ -115,22 +115,22 @@ abstract class Feed
      * This feed's one identity — what FeedContext::feed() reports for every
      * page read through it, whichever door the read came in by.
      *
-     * The registered key wins. `'kitchen' => CustomerFeed::class` makes this
-     * class 'kitchen' — for `Storyfeed::feed('kitchen')`, for
-     * `CustomerFeed::make($order)`, for `Storyfeed::feed(CustomerFeed::class)`,
-     * and for a resolver's `CustomerFeed::name() => …` arm, which is exactly
+     * The registered key wins. `'operations' => BookingFeed::class` makes this
+     * class 'operations' — for `Storyfeed::feed('operations')`, for
+     * `BookingFeed::make($reservation)`, for `Storyfeed::feed(BookingFeed::class)`,
+     * and for a resolver's `BookingFeed::name() => …` arm, which is exactly
      * why that arm survives both a class rename and a key rename. Before this
      * the constructor door reported the class-derived name, and a `match`
      * could be right on one page and silently wrong on the next (journal 054
      * escalated it; the ruling was one name, whatever door).
      *
      * A class registered under no key has only the name derived from the
-     * class (`CustomerFeed` → 'customer'), which is canonical because it is
+     * class (`BookingFeed` → 'booking'), which is canonical because it is
      * the only one. A class registered under two keys is named by the first;
      * StoryfeedManager::feedNameFor() says why. The derived name is the
      * registry's fallback, not a second identity a resolver should compare
-     * against: do not write `'customer' =>` for a class registered as
-     * 'kitchen' and expect a match.
+     * against: do not write `'booking' =>` for a class registered as
+     * 'operations' and expect a match.
      *
      * Reaches the registry once per call, and the calls are per feed build
      * and per doctor finding — never per entity. Without a container (a
@@ -153,7 +153,7 @@ abstract class Feed
     }
 
     /**
-     * Construct and build in one call: `CustomerFeed::make($order)`.
+     * Construct and build in one call: `BookingFeed::make($reservation)`.
      *
      * Variadic because a base class cannot know a subclass's signature; the
      * subclass's own constructor is what types and counts the arguments, which

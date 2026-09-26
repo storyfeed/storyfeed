@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Traits\Conditionable;
 use InvalidArgumentException;
 use ReflectionClass;
+use Storyfeed\ActivityContext;
 use Storyfeed\ActivityStreams\ActivityType;
 use Storyfeed\ActivityStreams\ObjectType;
 use Storyfeed\Contracts\FeedVerb;
@@ -21,7 +22,6 @@ use Storyfeed\Grouping\Group;
 use Storyfeed\Grouping\GroupBuilder;
 use Storyfeed\Grouping\Period;
 use Storyfeed\Middleware\Batch;
-use Storyfeed\Models\Activity;
 use Storyfeed\Support\ActivityRoles;
 use Storyfeed\Support\ManifestClosure;
 
@@ -69,6 +69,9 @@ final class Verb
     protected ?string $icon = null;
 
     protected ?string $intent = null;
+
+    /** @var array<string, string|list<string>>|null */
+    protected ?array $casts = null;
 
     protected ActivityType|string|null $type = null;
 
@@ -215,6 +218,10 @@ final class Verb
 
             if ($instance->type !== null) {
                 $definition = $definition->type($instance->type);
+            }
+
+            if (($casts = $instance->casts()) !== []) {
+                $definition = $definition->casts($casts);
             }
 
             if (($missing = $instance->missing()) !== null) {
@@ -427,7 +434,7 @@ final class Verb
      * A closure may return either. A result naming a role token is a
      * template, so names stay tokens and links; one without is finished text.
      *
-     * @param  string|FeedHeadline|Closure(Activity): (string|FeedHeadline)  $headline
+     * @param  string|FeedHeadline|Closure(ActivityContext): (string|FeedHeadline)  $headline
      */
     public function headline(string|Closure|FeedHeadline $headline): self
     {
@@ -444,7 +451,7 @@ final class Verb
      * Often an optional segment in headline() does the same job with one
      * sentence: `'[:actor ]confirmed :object'`.
      *
-     * @param  string|FeedHeadline|Closure(Activity): (string|FeedHeadline)  $headline
+     * @param  string|FeedHeadline|Closure(ActivityContext): (string|FeedHeadline)  $headline
      */
     public function anonymousHeadline(string|Closure|FeedHeadline $headline): self
     {
@@ -506,6 +513,25 @@ final class Verb
         return $this;
     }
 
+    /**
+     * How `ActivityContext::get()` and `FeedItem::data()` read this verb's
+     * data keys: Eloquent's `casts()`, keyed by data key instead of column.
+     * Encrypted and hashed casts are refused at compilation. Storage is
+     * untouched: the row keeps what `data()` recorded, and so does the
+     * payload.
+     *
+     * Strings and class names only, as a model's casts are, so the
+     * definition caches (`storyfeed:cache`).
+     *
+     * @param  array<string, string|list<string>>  $casts
+     */
+    public function casts(array $casts): self
+    {
+        $this->casts = $casts;
+
+        return $this;
+    }
+
     public function type(ActivityType|string $type): self
     {
         $this->type = $type;
@@ -551,7 +577,7 @@ final class Verb
      *
      *     Story::verb('place')->missingHeadline(':actor placed an order that is no longer available');
      *
-     * @param  string|FeedHeadline|Closure(Activity): (string|FeedHeadline)  $headline
+     * @param  string|FeedHeadline|Closure(ActivityContext): (string|FeedHeadline)  $headline
      */
     public function missingHeadline(string|Closure|FeedHeadline $headline): self
     {
@@ -610,9 +636,9 @@ final class Verb
      * Keep only the latest of this verb's activities about one thing: each
      * publish supersedes the earlier rows on its key.
      *
-     *     Story::for(MenuItem::class)->verb('reprice')->keepLatest();
+     *     Story::for(Task::class)->verb('reschedule')->keepLatest();
      *     Story::verb('save')->keepLatest(per: ['object', 'actor']);
-     *     Story::for(MenuItem::class)->verb('update')->keepLatest(within: '10 minutes');
+     *     Story::for(Task::class)->verb('update')->keepLatest(within: '10 minutes');
      *
      * The key is the object, or the roles `per` names, plus the verb. The
      * latest `published_at` wins, whatever order the rows arrive in: a
@@ -1413,6 +1439,11 @@ final class Verb
             'missingHeadline' => $this->missingHeadline,
             'icon' => $this->icon,
             'intent' => $this->intent,
+            'casts' => $this->casts === null ? null : array_map(
+                fn (string $key, string|array $cast) => $key.'='.implode(',', (array) $cast),
+                array_keys($this->casts),
+                $this->casts,
+            ),
             'type' => $this->type,
             'noun' => $this->noun,
             'activityStreamsType' => $this->activityStreamsType,
@@ -1443,6 +1474,18 @@ final class Verb
     public function glyphIntent(): ?string
     {
         return $this->intent;
+    }
+
+    /**
+     * The data casts, or null when the verb declared none.
+     *
+     * @return array<string, string|list<string>>|null
+     *
+     * @internal
+     */
+    public function dataCasts(): ?array
+    {
+        return $this->casts;
     }
 
     public function activityType(): ActivityType|string|null

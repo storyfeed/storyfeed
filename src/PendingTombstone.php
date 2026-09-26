@@ -9,11 +9,11 @@ use Illuminate\Support\Traits\Conditionable;
  * `toFeed()` entity:
  *
  *     $this->feedEntity()
- *         ->label("Order #{$this->reference}")
+ *         ->label("Invoice #{$this->reference}")
  *         ->tombstone(fn (PendingTombstone $tombstone) => $tombstone->keepLabel());
  *
  * With no call, a deleted model's tombstone follows Activity Streams 2.0: its
- * properties are stripped, so it reads "a removed order", and every story
+ * properties are stripped, so it reads "a removed invoice", and every story
  * that named it stays.
  *
  * THIS IS THE ENTITY'S TOMBSTONE, not its activities'. What an activity
@@ -36,7 +36,7 @@ final class PendingTombstone
 
     /**
      * Keep the model's label on its tombstone, so its stories go on naming
-     * it ("Order #1042") instead of "a removed order". The name then
+     * it ("Invoice #1042") instead of "a removed invoice". The name then
      * outlives the model, which is the privacy AS2's Tombstone gives up.
      */
     public function keepLabel(bool $keep = true): self

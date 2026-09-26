@@ -61,6 +61,16 @@ use WeakMap;
  */
 class StoryfeedManager
 {
+    public function requireFeedableMorphMap(bool $require = true): void
+    {
+        app(Feedables::class)->requireMorphMap($require);
+    }
+
+    public function requiresFeedableMorphMap(): bool
+    {
+        return app(Feedables::class)->requiresMorphMap();
+    }
+
     protected ?Closure $actorResolver = null;
 
     /**
@@ -145,6 +155,9 @@ class StoryfeedManager
      * @var array<string, string>
      */
     protected array $storyRetention = [];
+
+    /** @var array<string, array<string, string|list<string>>> */
+    protected array $storyCasts = [];
 
     /**
      * Which of a verb's rows a publish supersedes (`->keepLatest()`): the
@@ -936,7 +949,7 @@ class StoryfeedManager
      *   Storyfeed::feeds([
      *       'customer' => CustomerFeed::class,                              // a class
      *       AdminFeed::class,                                              // name derived
-     *       'kitchen' => fn (FeedBuilder $feed) => $feed->only(['order.*']), // a closure
+     *       'operations' => fn (FeedBuilder $feed) => $feed->only(['order.*']), // a closure
      *   ]);
      *
      * The same register-once-at-boot shape as grammar(), axes(), verbs(),
@@ -1017,8 +1030,8 @@ class StoryfeedManager
     /**
      * The key a Feed class is registered under, or null when it is not.
      *
-     * ONE FEED, ONE IDENTITY. `'kitchen' => CustomerFeed::class` read through
-     * `Storyfeed::feed('kitchen')` reports 'kitchen' to every resolver on the
+     * ONE FEED, ONE IDENTITY. `'operations' => CustomerFeed::class` read through
+     * `Storyfeed::feed('operations')` reports 'operations' to every resolver on the
      * page. Read through `CustomerFeed::make($order)` it used to report the
      * class-derived 'customer', so a `match` in feedMedia() was right on one
      * door and silently wrong on the other — no failure, just a link quietly
@@ -1086,7 +1099,7 @@ class StoryfeedManager
      * "delivery.*", "*.confirm", "*.*"); values are template strings with
      * :actor/:object/:target/:context placeholders (and optional segments,
      * `[ with :target]`), FeedHeadline::trans() keys translated when the feed
-     * is read, or closures receiving the Activity. A closure's result that
+     * is read, or closures receiving an ActivityContext. A closure's result that
      * names a role token is a template; one without is finished text.
      *
      * Typed loosely on the KEY on purpose — see assertKeyed().
@@ -1112,7 +1125,7 @@ class StoryfeedManager
      * No aggregate forms.
      *
      * Strings are tokenizable templates and cannot name :actor or :actors.
-     * Closures receive the Activity, as in grammar().
+     * Closures receive an ActivityContext, as in grammar().
      *
      * @param  array<array-key, string|Closure|FeedHeadline>  $grammar
      *
@@ -1558,6 +1571,7 @@ class StoryfeedManager
         $this->missingGrammar = $compiled['missingGrammar'];
         $this->storyActors = $compiled['actors'];
         $this->storyRetention = $compiled['retention'];
+        $this->storyCasts = $compiled['casts'];
         $this->storyKeepLatest = $compiled['keepLatest'];
         $this->storyPeriods = $compiled['periods'];
         $this->storyQueue = $compiled['queue'];
@@ -1588,7 +1602,7 @@ class StoryfeedManager
 
         foreach (CompileStories::REGISTRIES as $registry) {
             // Held by TombstoneRules, or replaced whole by the next compile.
-            if (in_array($registry, ['missing', 'forget', 'retention', 'keepLatest', 'periods', 'queue', 'middleware', 'missingGrammar', 'actors', 'actions', 'names', 'wheres'], true)) {
+            if (in_array($registry, ['missing', 'forget', 'retention', 'casts', 'keepLatest', 'periods', 'queue', 'middleware', 'missingGrammar', 'actors', 'actions', 'names', 'wheres'], true)) {
                 continue;
             }
 
@@ -1649,7 +1663,7 @@ class StoryfeedManager
      * with the Story facade (2026-09-23): actorless grammar, nouns and object
      * types.
      *
-     * @param  array{grammar: array<string, string|Closure|FeedHeadline>, aggregateGrammar: array<string, string>, actorlessGrammar?: array<string, string|Closure|FeedHeadline>, icons: array<string, string>, glyphIntents?: array<string, string>, nouns?: array<string, string|FeedNoun>, objectTypes?: array<string, ObjectType|string>, verbs: array<string, mixed>, missing?: array<string, list<string>>, missingGrammar?: array<string, string|Closure|FeedHeadline>, forget?: array<string, bool>, retention?: array<string, string>, keepLatest?: array<string, array{per: list<string>, within: string|null}>, periods?: array<string, string>, queue?: array<string, array{connection?: string, queue?: string, delay?: int, afterCommit?: bool, deleteWhenMissingModels?: bool}>, middleware?: array<string, array{middleware: list<string|Closure>, excluded: list<string>}>, actors?: array<string, string>, actions?: array<string, array{uses: string, request: bool, parts: array<string, string>|null}>, names?: array<string, string>, wheres?: array<string, array<string, list<string>>>}  $compiled
+     * @param  array{grammar: array<string, string|Closure|FeedHeadline>, aggregateGrammar: array<string, string>, actorlessGrammar?: array<string, string|Closure|FeedHeadline>, icons: array<string, string>, glyphIntents?: array<string, string>, nouns?: array<string, string|FeedNoun>, objectTypes?: array<string, ObjectType|string>, verbs: array<string, mixed>, missing?: array<string, list<string>>, missingGrammar?: array<string, string|Closure|FeedHeadline>, forget?: array<string, bool>, retention?: array<string, string>, casts?: array<string, array<string, string|list<string>>>, keepLatest?: array<string, array{per: list<string>, within: string|null}>, periods?: array<string, string>, queue?: array<string, array{connection?: string, queue?: string, delay?: int, afterCommit?: bool, deleteWhenMissingModels?: bool}>, middleware?: array<string, array{middleware: list<string|Closure>, excluded: list<string>}>, actors?: array<string, string>, actions?: array<string, array{uses: string, request: bool, parts: array<string, string>|null}>, names?: array<string, string>, wheres?: array<string, array<string, list<string>>>}  $compiled
      * @param  list<string>  $stories  the Story classes the manifest was compiled from
      */
     public function useCompiledStories(array $compiled, array $stories = []): static
@@ -1664,6 +1678,7 @@ class StoryfeedManager
         $compiled['missingGrammar'] ??= [];
         $compiled['forget'] ??= [];
         $compiled['retention'] ??= [];
+        $compiled['casts'] ??= [];
         $compiled['keepLatest'] ??= [];
         $compiled['periods'] ??= [];
         $compiled['queue'] ??= [];
@@ -2826,6 +2841,26 @@ class StoryfeedManager
         $this->ensureStoriesCompiled();
 
         return $this->resolve($this->storyRetention, $type, $verb);
+    }
+
+    /**
+     * The Eloquent casts a verb declared for its data keys, on the type →
+     * verb ladder; empty when no declaration reaches it.
+     *
+     * @return array<string, string|list<string>>
+     */
+    public function dataCasts(?string $type, string $verb): array
+    {
+        $this->ensureStoriesCompiled();
+
+        $casts = [];
+
+        // Like HasAttributes::mergeCasts(), later, more specific keys win.
+        foreach (array_reverse($this->keysFor($type, $verb)) as $key) {
+            $casts = array_merge($casts, $this->storyCasts[$key] ?? []);
+        }
+
+        return $casts;
     }
 
     /**

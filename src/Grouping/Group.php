@@ -69,9 +69,9 @@ final class Group
     }
 
     /**
-     * The digest's phrase for this verb — "confirmed :count orders". A
+     * The digest's phrase for this verb — "confirmed :count bookings". A
      * phrase starts at the verb: the row names the person once, and the
-     * renderer joins the phrases ("confirmed 11 orders and marked 9 ready").
+     * renderer joins the phrases ("confirmed 11 bookings and cancelled 9").
      * Keyed `summary.{verb}`; one phrase serves every period.
      */
     public static function summary(): self
