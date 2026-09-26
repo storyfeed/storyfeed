@@ -31,6 +31,7 @@ it('uses Laravel data helper semantics for every inherited helper', function (st
     expect($context->$method(...$arguments))->toEqual($fluent->$method(...$arguments));
 })->with([
     ['all', []], ['all', [['nested.name', 'absent']]], ['all', ['name', 'rush']],
+    ['get', ['name']], ['get', ['nested.name']], ['get', ['absent', 'fallback']], ['get', ['null', 'fallback']],
     ['boolean', ['rush']], ['boolean', ['absent', true]],
     ['string', ['nested.name']], ['str', ['absent', 'fallback']],
     ['integer', ['count']], ['integer', ['absent', 5]], ['float', ['price']],

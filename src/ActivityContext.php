@@ -56,6 +56,17 @@ final readonly class ActivityContext
     }
 
     /**
+     * One data value, using "dot" notation, as on Laravel's Fluent::get().
+     *
+     * @param  string  $key
+     * @param  mixed  $default
+     */
+    public function get($key, $default = null): mixed
+    {
+        return data_get($this->data, $key, $default);
+    }
+
+    /**
      * The data source for Laravel's typed helpers, as on Fluent.
      *
      * @param  string|null  $key
