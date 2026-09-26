@@ -62,7 +62,7 @@ use Storyfeed\MediaSlot;
  *
  * `files` is a list of {@see FeedResource} values: the files THIS
  * block names. It was a bool until 2026-09-10, where `true` meant "draw
- * whatever `entity.media.attachments` holds" — the paragraph above applied
+ * whatever `entity.media.files` holds" — the paragraph above applied
  * one slot over, storing nothing and therefore ageing not at all.
  *
  * What it could not do was say WHICH. A block that defers to the entity

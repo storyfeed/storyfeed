@@ -113,7 +113,7 @@ final class Entity implements Arrayable, ArrayAccess, Htmlable, JsonSerializable
 
     /**
      * The typed image slots (`icon`, `image`, `preview`, `url`) and
-     * `attachments`, or null when the entity has no media.
+     * `files`, or null when the entity has no media.
      *
      * @return Fluent<string, mixed>|null
      */
@@ -127,11 +127,11 @@ final class Entity implements Arrayable, ArrayAccess, Htmlable, JsonSerializable
      *
      * @return Collection<int, array<string, mixed>>
      */
-    public function attachments(): Collection
+    public function files(): Collection
     {
-        $attachments = $this->payload['media']['attachments'] ?? null;
+        $files = $this->payload['media']['files'] ?? null;
 
-        return collect(is_array($attachments) ? $attachments : [])->values();
+        return collect(is_array($files) ? $files : [])->values();
     }
 
     /**

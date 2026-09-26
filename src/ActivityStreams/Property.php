@@ -55,7 +55,7 @@ enum Property: string implements VocabularyTerm
     case Height = 'height';
 
     // Non-functional in the vocabulary: many attachments are one property
-    // holding an array (docs/payload.md, `entity.media.attachments`).
+    // holding an array (docs/payload.md, `entity.media.files`).
     case Attachment = 'attachment';
 
     // A Tombstone's two properties: the deleted object's type (non-functional,

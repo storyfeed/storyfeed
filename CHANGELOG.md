@@ -11,7 +11,11 @@
   `Storyfeed/Body/File` tokens. The old PHP class has no alias.
 - Rename MediaObject `attachments()` / `attachments:` and `withAttachments()` to
   `files()` / `files:` and `withFiles()`. MediaObject v2 stores `files`;
-  `upgrade()` maps stored v1 `attachments` to `files`. FeedMedia is unchanged.
+  `upgrade()` maps stored v1 `attachments` to `files`.
+- Rename FeedMedia `attachments()` / `attachments:` / `$attachments` to
+  `files()` / `files:` / `$files`, and the entity reader to `files()`.
+  The read-time payload now carries `entity.media.files`; snapshots do not
+  persist this slot. AS2 continues to serialize the standard `attachment` key.
 
 ### Added
 
