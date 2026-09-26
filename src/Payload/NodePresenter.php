@@ -13,6 +13,7 @@ use Storyfeed\Models\Activity;
 use Storyfeed\Models\FeedTombstone;
 use Storyfeed\Models\Snapshot;
 use Storyfeed\StoryfeedManager;
+use Storyfeed\Support\ActivityContextFactory;
 use Storyfeed\Support\ActivityRoles;
 use Storyfeed\Support\LinkResolver;
 use Storyfeed\Support\ModelHydrator;
@@ -262,7 +263,7 @@ class NodePresenter
     {
         if ($entry instanceof Closure) {
             try {
-                $result = $entry($activity);
+                $result = $entry(ActivityContextFactory::make($activity, $this->feed, $this->hydrator));
                 $entry = $result instanceof FeedHeadline ? $result->toTemplate() : (string) $result;
             } catch (Throwable $e) {
                 report($e);

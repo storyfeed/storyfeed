@@ -1,5 +1,6 @@
 <?php
 
+use Storyfeed\ActivityContext;
 use Storyfeed\Facades\Storyfeed;
 use Storyfeed\Models\Activity;
 use Storyfeed\Models\Party;
@@ -52,7 +53,7 @@ it('does not mistake unresolved or partial identity for an absent actor', functi
 })->with([['user', 999], ['user', null], [null, 999]]);
 
 it('pre-renders actorless closures with the activity using the existing headline contract', function () {
-    Storyfeed::actorlessGrammar(['confirm' => fn (Activity $activity) => "Recorded {$activity->verb}"]);
+    Storyfeed::actorlessGrammar(['confirm' => fn (ActivityContext $activity) => "Recorded {$activity->verb()}"]);
     Storyfeed::activity('confirm')->publish();
     $item = Storyfeed::feed()->get()->toArray()['items'][0];
     expect($item['headline_template'])->toBeNull()->and($item['headline'])->toBe('Recorded confirm');

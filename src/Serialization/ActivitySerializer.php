@@ -18,6 +18,7 @@ use Storyfeed\Models\FeedTombstone;
 use Storyfeed\Models\Grouping;
 use Storyfeed\Models\Snapshot;
 use Storyfeed\StoryfeedManager;
+use Storyfeed\Support\ActivityContextFactory;
 use Storyfeed\Support\ActivityRoles;
 use Storyfeed\Support\LinkResolver;
 use Throwable;
@@ -214,7 +215,7 @@ class ActivitySerializer
 
         if ($entry instanceof Closure) {
             try {
-                $result = $entry($activity);
+                $result = $entry(ActivityContextFactory::make($activity));
                 $entry = $result instanceof FeedHeadline ? $result->toTemplate() : (string) $result;
             } catch (Throwable $e) {
                 // Same posture as the payload presenter: an authoring bug is
