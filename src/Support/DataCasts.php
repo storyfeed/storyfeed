@@ -8,7 +8,7 @@ use Throwable;
 /**
  * Reads one recorded data value through an Eloquent cast.
  *
- * NOT A REIMPLEMENTATION. Every cast a model's `casts()` accepts works here
+ * NOT A REIMPLEMENTATION. Supported casts use the same semantics as a model's `casts()`
  * because Eloquent does the casting: the data keys become the attributes of
  * a model that is never saved, the verb's casts are merged into it with
  * `mergeCasts()`, and the value is read back with `getAttribute()`. A value
@@ -23,7 +23,7 @@ use Throwable;
  * The recorded data is all it has. The stand-in model has no table and no
  * connection, so a cast can never re-read the subject.
  *
- * @internal Used by ActivityContext.
+ * @internal Used by ActivityContext and FeedItem.
  */
 final class DataCasts
 {

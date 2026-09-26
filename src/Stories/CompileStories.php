@@ -176,9 +176,16 @@ class CompileStories
                     $retention[$key] = $window;
                 }
 
-                // Eloquent casts for the data keys: one entry, never merged
-                // with a wildcard's, as a model's casts() is one array.
+                // Keep declarations separate; the read ladder merges their data keys.
                 if (($dataCasts = $definition->dataCasts()) !== null) {
+                    foreach ($dataCasts as $dataKey => $cast) {
+                        $castType = trim(strtolower(is_array($cast) ? $cast[0] : $cast));
+
+                        if ($castType === 'encrypted' || str_starts_with($castType, 'encrypted:') || $castType === 'hashed') {
+                            throw StoryMisconfigured::unsupportedDataCast($key, $dataKey, $castType);
+                        }
+                    }
+
                     $this->claim($owners, 'casts', $key, $source);
                     $casts[$key] = $dataCasts;
                 }

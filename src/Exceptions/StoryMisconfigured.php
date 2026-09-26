@@ -345,4 +345,12 @@ class StoryMisconfigured extends LogicException
             previous: $previous,
         );
     }
+
+    public static function unsupportedDataCast(string $verb, string $key, string $cast): self
+    {
+        return new self(
+            "The verb [{$verb}] declares the unsupported cast [{$cast}] for data key [{$key}]. "
+            .'Activity data is recorded as plain JSON; encrypted and hashed casts cannot be used.'
+        );
+    }
 }

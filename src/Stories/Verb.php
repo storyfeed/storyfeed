@@ -514,9 +514,9 @@ final class Verb
     }
 
     /**
-     * How `ActivityContext::get()` reads this verb's data keys: Eloquent's
-     * `casts()`, keyed by data key instead of column. Every cast a model
-     * accepts is accepted, and Eloquent does the casting. Storage is
+     * How `ActivityContext::get()` and `FeedItem::data()` read this verb's
+     * data keys: Eloquent's `casts()`, keyed by data key instead of column.
+     * Encrypted and hashed casts are refused at compilation. Storage is
      * untouched: the row keeps what `data()` recorded, and so does the
      * payload.
      *

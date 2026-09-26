@@ -2855,7 +2855,14 @@ class StoryfeedManager
     {
         $this->ensureStoriesCompiled();
 
-        return $this->resolve($this->storyCasts, $type, $verb) ?? [];
+        $casts = [];
+
+        // Like HasAttributes::mergeCasts(), later, more specific keys win.
+        foreach (array_reverse($this->keysFor($type, $verb)) as $key) {
+            $casts = array_merge($casts, $this->storyCasts[$key] ?? []);
+        }
+
+        return $casts;
     }
 
     /**

@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Exceptions;
 use Storyfeed\ActivityContext;
 use Storyfeed\Contracts\FeedVerb;
+use Storyfeed\Exceptions\StoryMisconfigured;
 use Storyfeed\Facades\Story;
 use Storyfeed\Facades\Storyfeed;
 use Storyfeed\Models\Activity;
@@ -14,6 +15,7 @@ use Storyfeed\PendingActivity;
 use Storyfeed\PublishQueuedActivity;
 use Storyfeed\Stories\Story as StoryClass;
 use Storyfeed\Stories\StoryManifest;
+use Storyfeed\Support\FeedItem;
 use Storyfeed\Tests\Fixtures\DataCasts\Cents;
 use Storyfeed\Tests\Fixtures\DataCasts\LineItem;
 use Storyfeed\Tests\Fixtures\DataCasts\OrderSummary;
@@ -21,7 +23,7 @@ use Workbench\App\Enums\ActivityVerb;
 use Workbench\App\Models\Delivery;
 
 /*
- * R&D spike (W59): a verb's casts() are Eloquent's, keyed by data key.
+ * Read contract: a verb's casts() are Eloquent's, keyed by data key.
  * ActivityContext::get() reads through them; storage and payload do not
  * change.
  */
@@ -159,3 +161,67 @@ it('compiles casts from a Story class and caches them in the manifest', function
         Artisan::call('storyfeed:clear');
     }
 });
+
+it('casts feed reader data without changing its payload', function () {
+    castContext(['order' => new OrderSummary('A-1', 42), 'status' => 'confirm'], [
+        'order' => OrderSummary::class, 'status' => ActivityVerb::class,
+    ]);
+    $payload = Storyfeed::feed()->get()->toArray()['items'][0];
+    $item = new FeedItem($payload);
+    $json = json_encode($item);
+
+    expect($item->data()->get('order'))->toEqual(new OrderSummary('A-1', 42))
+        ->and($item->data()->get('order.total'))->toBe(42)
+        ->and($item->data()->get('status'))->toBe(ActivityVerb::Confirm)
+        ->and($item->toArray())->toBe($payload)
+        ->and(json_encode($item))->toBe($json);
+});
+
+it('uses the former object type and falls back to malformed recorded values in readers', function () {
+    Exceptions::fake();
+    Story::for(Delivery::class)->verb('pay')->casts(['status' => ActivityVerb::class]);
+    $payload = [
+        'verb' => 'pay',
+        'object' => ['type' => 'storyfeed.tombstone', 'tombstone' => ['formerType' => (new Delivery)->getMorphClass()]],
+        'data' => ['status' => 'confirm'],
+    ];
+    expect((new FeedItem($payload))->data()->get('status'))->toBe(ActivityVerb::Confirm);
+    $payload['data']['status'] = 'retired';
+    $item = new FeedItem($payload);
+    expect($item->data()->get('status'))->toBe('retired')->and($item->toArray())->toBe($payload);
+    Exceptions::assertReported(ValueError::class);
+});
+
+it('merges all wildcard levels with specific keys winning regardless of declaration order', function (bool $reverse) {
+    $definitions = [
+        fn () => Story::verb('*')->casts(['global' => 'integer', 'winner' => 'string', 'type_winner' => 'string']),
+        fn () => Story::verb('pay')->casts(['verb' => 'integer', 'winner' => 'float', 'type_winner' => 'float']),
+        fn () => Story::for(Delivery::class)->verb('*')->casts(['type' => 'integer', 'winner' => 'boolean', 'type_winner' => 'boolean']),
+        fn () => Story::for(Delivery::class)->verb('pay')->casts(['specific' => 'integer', 'winner' => 'integer']),
+    ];
+    foreach ($reverse ? array_reverse($definitions) : $definitions as $define) {
+        $define();
+    }
+    $alias = (new Delivery)->getMorphClass();
+    $expected = ['global' => 'integer', 'winner' => 'integer', 'type_winner' => 'boolean', 'verb' => 'integer', 'type' => 'integer', 'specific' => 'integer'];
+    expect(Storyfeed::dataCasts($alias, 'pay'))->toBe($expected)
+        ->and(Storyfeed::dataCasts(null, 'pay'))->toBe(['global' => 'integer', 'winner' => 'float', 'type_winner' => 'float', 'verb' => 'integer']);
+    Artisan::call('storyfeed:cache');
+    try {
+        expect(Storyfeed::dataCasts($alias, 'pay'))->toBe($expected);
+    } finally {
+        Artisan::call('storyfeed:clear');
+    }
+})->with([false, true]);
+
+it('refuses storage-transforming casts during compilation and cache building', function (string|array $cast, bool $cache) {
+    Story::for(Delivery::class)->verb('pay')->casts(['secret' => $cast]);
+    $alias = (new Delivery)->getMorphClass();
+    if ($cache) {
+        expect(Artisan::call('storyfeed:cache'))->toBe(1)
+            ->and(Artisan::output())->toContain("The verb [{$alias}.pay]", 'data key [secret]');
+    } else {
+        expect(fn () => Storyfeed::dataCasts($alias, 'pay'))
+            ->toThrow(StoryMisconfigured::class, 'data key [secret]');
+    }
+})->with(['encrypted', 'encrypted:array', 'encrypted:collection', 'hashed', ' HASHED ', [['encrypted', 'array']]])->with([false, true]);
