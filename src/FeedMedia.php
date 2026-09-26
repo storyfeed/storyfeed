@@ -14,9 +14,11 @@ use Throwable;
  * a modal hint, and the images that go with it. Returned by
  * Feedable::feedMedia().
  *
- * Replaced FeedLink, which stopped being "a link" once it grew a label and
- * a modal flag, and which was removed with the older toFeedLink() contract
- * on 2026-09-05 (journal 057). Part of the versioned payload contract.
+ * Replaced the first FeedLink, which stopped being "a link" once it grew a
+ * label and a modal flag, and was removed with the older toFeedLink()
+ * contract on 2026-09-05 (journal 057). The name now belongs to
+ * {@see FeedLink}, a label and an optional href inside bodies. Part of the
+ * versioned payload contract.
  *
  * ## The slots are AS2's property names, and the slot IS the meaning
  *
