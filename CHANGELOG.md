@@ -8,6 +8,13 @@
   unaliased Feedable roles. Disabled by default. Doctor reports missing aliases
   and `storyfeed:cache` (including `optimize`) refuses to cache when either
   this setting or Laravel requires aliases.
+- `Storyfeed::feed()->cursorPaginate(15)` returns a `Storyfeed\FeedPaginator`
+  implementing Laravel's cursor paginator contract, with request cursor resolution,
+  Laravel pagination views through `links()`, and URL/query-string helpers.
+  Pagination is forward-only and cursor tokens remain opaque and unchanged.
+  JSON retains the feed envelope and adds Laravel's cursor pagination keys;
+  `data` and `items` contain the same payload arrays. Iteration yields `FeedItem`s.
+  `get()` continues to return the existing `FeedPage`.
 
 - `Storyfeed\Support\FeedItem`, `Headline` and `Entity`: fluent readers over
   the payload, after `Illuminate\Support\Uri`. Iterating a `FeedPage` yields
