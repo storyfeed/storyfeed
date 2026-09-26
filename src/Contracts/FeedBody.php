@@ -29,7 +29,7 @@ use Storyfeed\FeedThread;
  * outlives whichever library defined it. Nothing below assumes otherwise.
  *
  * Core also ships eight body types under `Storyfeed\Body` — Change, Excerpt,
- * KeyValue, File, Prose, ItemList, MediaObject, Component. **They are a vocabulary, not a
+ * KeyValue, FileAttachment, Prose, ItemList, MediaObject, Component. **They are a vocabulary, not a
  * mechanism**: nothing in this package reads them, and an app may write its own
  * and owe them nothing. They were in `storyfeed/ui` until 2026-09-14 and moved
  * for one reason — their names always said `Storyfeed/`, because a body's
@@ -118,8 +118,8 @@ use Storyfeed\FeedThread;
  * still learning is a permanent commitment to this week's spelling.
  *
  * The eight already agree with this. `content`, `mediaType`, `size`, `image`,
- * `attachments`, `rows`, `changes`, `text`, `from`, `truncated`, `footnote` —
- * each is the plainest word for what it holds, and `File`'s `name` is a
+ * `files`, `rows`, `changes`, `text`, `from`, `truncated`, `footnote` —
+ * each is the plainest word for what it holds, and `FileAttachment`'s `name` is a
  * filename rather than a heading, as `Component`'s is the name of the
  * frontend component that draws it.
  *
@@ -214,7 +214,7 @@ interface FeedBody extends Arrayable
      * This body type's name, as it is written into storage.
      *
      * `bodyType()` AND NOT `name()`, because `name` is the plainest word for
-     * a value a body carries — `File`'s filename, `Component`'s component —
+     * a value a body carries — `FileAttachment`'s filename, `Component`'s component —
      * and a fluent setter for that value needs the method name. It was
      * `name()` until 2026-09-23.
      *
