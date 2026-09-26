@@ -3,6 +3,8 @@
 namespace Storyfeed\Console;
 
 use Illuminate\Console\Command;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\Relation;
 use RuntimeException;
 use Storyfeed\Exceptions\StoryMisconfigured;
 use Storyfeed\Stories\BoundStory;
@@ -11,6 +13,8 @@ use Storyfeed\Stories\DefinitionsFile;
 use Storyfeed\Stories\Story;
 use Storyfeed\Stories\StoryManifest;
 use Storyfeed\StoryfeedManager;
+use Storyfeed\Support\Feedables;
+use Storyfeed\Support\SurfaceScanner;
 
 /**
  * Compile registered stories into `bootstrap/cache/storyfeed.php`.
@@ -49,6 +53,21 @@ class CacheCommand extends Command
 
         // Skipped at boot if a manifest existed when this process started.
         $file->load($storyfeed);
+
+        $feedables = app(Feedables::class);
+
+        if (Relation::requiresMorphMap() || $feedables->requiresMorphMap()) {
+            $models = array_unique([...app(SurfaceScanner::class)->scan()['feedable'], ...$feedables->registered()]);
+            $unaliased = array_filter($models, fn (string $model) => is_a($model, Model::class, true)
+                && $feedables->morphAlias(new $model) === null);
+
+            if ($unaliased !== []) {
+                $this->error('Feedable morph aliases are required — nothing was cached.');
+                $this->line('Add aliases in Relation::morphMap([...]) for: '.implode(', ', $unaliased));
+
+                return self::FAILURE;
+            }
+        }
 
         if (($written = $file->handWrittenRegistrations()) !== []) {
             $this->error("{$file->relativePath()} can't be cached — nothing was cached.");

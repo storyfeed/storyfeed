@@ -61,6 +61,16 @@ use WeakMap;
  */
 class StoryfeedManager
 {
+    public function requireFeedableMorphMap(bool $require = true): void
+    {
+        app(Feedables::class)->requireMorphMap($require);
+    }
+
+    public function requiresFeedableMorphMap(): bool
+    {
+        return app(Feedables::class)->requiresMorphMap();
+    }
+
     protected ?Closure $actorResolver = null;
 
     /**

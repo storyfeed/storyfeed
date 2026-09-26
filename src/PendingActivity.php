@@ -1150,6 +1150,14 @@ class PendingActivity
      */
     private function assertRoleTypes(StoryfeedManager $manager): void
     {
+        $feedables = app(Feedables::class);
+
+        if ($feedables->requiresMorphMap()) {
+            foreach ([...array_values($this->entities), ...$this->objects] as $model) {
+                $feedables->assertMorphAlias($model);
+            }
+        }
+
         $type = $this->activity->object_type;
         $type = is_string($type) && $type !== '' ? $type : null;
         $verb = (string) $this->activity->verb;

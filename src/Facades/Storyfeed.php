@@ -25,6 +25,8 @@ use Storyfeed\Testing\StoryfeedFake;
  * @method static mixed actor(\Illuminate\Database\Eloquent\Model|string $actor, ?callable $callback = null)
  * @method static \Storyfeed\StoryfeedManager parties(list<string> $names, bool $merge = true)
  * @method static list<string>|null declaredParties()
+ * @method static void requireFeedableMorphMap(bool $require = true)
+ * @method static bool requiresFeedableMorphMap()
  * @method static bool isRecording()
  * @method static \Storyfeed\StoryfeedManager stopRecording()
  * @method static \Storyfeed\StoryfeedManager startRecording()

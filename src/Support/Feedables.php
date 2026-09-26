@@ -4,7 +4,9 @@ namespace Storyfeed\Support;
 
 use Closure;
 use Illuminate\Contracts\Events\Dispatcher;
+use Illuminate\Database\ClassMorphViolationException;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
@@ -16,6 +18,7 @@ use Storyfeed\Actions\SnapshotEntity;
 use Storyfeed\Actions\SyncParticipants;
 use Storyfeed\Actions\TombstoneEntity;
 use Storyfeed\Contracts\Feedable;
+use Storyfeed\Exceptions\FeedableMorphMapViolation;
 use Storyfeed\FeedableRegistration;
 use Storyfeed\FeedContext;
 use Storyfeed\FeedEntity;
@@ -68,6 +71,36 @@ class Feedables
     private array $subclassAliases = [];
 
     private bool $participantsInstalled = false;
+
+    private bool $requireMorphMap = false;
+
+    public function requireMorphMap(bool $require = true): void
+    {
+        $this->requireMorphMap = $require;
+    }
+
+    public function requiresMorphMap(): bool
+    {
+        return $this->requireMorphMap;
+    }
+
+    public function morphAlias(Model $model): ?string
+    {
+        try {
+            $alias = $model->getMorphClass();
+        } catch (ClassMorphViolationException) {
+            return null;
+        }
+
+        return ($this->requireMorphMap || Relation::requiresMorphMap()) && $alias === $model::class ? null : $alias;
+    }
+
+    public function assertMorphAlias(Model $model): void
+    {
+        if ($this->requireMorphMap && $this->isFeedable($model) && $this->morphAlias($model) === null) {
+            throw FeedableMorphMapViolation::forModel($model);
+        }
+    }
 
     /**
      * Treat a class you don't own as Feedable. Calling it again for the same
