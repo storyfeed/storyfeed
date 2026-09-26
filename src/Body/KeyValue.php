@@ -54,16 +54,16 @@ class KeyValue implements FeedBody
     use HasPayload;
 
     /**
-     * Each row as given; a row's own `missing` only when it said one, so the
+     * Each row as given; a row's own `placeholder` only when it said one, so the
      * body's default applies to the rest when the body is used.
      *
-     * @var list<array{key: string, value: string|int|float|bool|null, verbatim: bool, missing?: string|null}>
+     * @var list<array{key: string, value: string|int|float|bool|null, verbatim: bool, placeholder?: string|null}>
      */
     private array $rows = [];
 
     private ?string $title = null;
 
-    private ?string $missing = null;
+    private ?string $defaultPlaceholder = null;
 
     final protected function __construct() {}
 
@@ -73,11 +73,11 @@ class KeyValue implements FeedBody
      * @param  array<array-key, mixed>  $items  a `key => value` map, or a list of
      *                                          explicit `['key' => …, 'value' => …]` pairs
      * @param  string|null  $title  a line above the pairs, when the headline does not already say it
-     * @param  string|null  $missing  the sentence an absent value gets, if any — see {@see missing()}
+     * @param  string|null  $defaultPlaceholder  the sentence an absent value gets, if any — see {@see defaultPlaceholder()}
      */
-    public static function make(array $items = [], ?string $title = null, ?string $missing = null): static
+    public static function make(array $items = [], ?string $title = null, ?string $defaultPlaceholder = null): static
     {
-        return (new static)->items($items)->title($title)->missing($missing);
+        return (new static)->items($items)->title($title)->defaultPlaceholder($defaultPlaceholder);
     }
 
     /**
@@ -113,8 +113,8 @@ class KeyValue implements FeedBody
                 'verbatim' => (bool) ($spec['verbatim'] ?? false),
             ];
 
-            if (array_key_exists('missing', $spec)) {
-                $normalized['missing'] = is_string($spec['missing']) ? $spec['missing'] : null;
+            if (array_key_exists('placeholder', $spec)) {
+                $normalized['placeholder'] = is_string($spec['placeholder']) ? $spec['placeholder'] : null;
             }
 
             $existing = $isRow && is_int($name) ? false : array_search($normalized['key'], array_column($this->rows, 'key'), true);
@@ -153,9 +153,9 @@ class KeyValue implements FeedBody
      * "Not known" and "could not be told either way" are different
      * sentences and only the domain knows which one it has.
      */
-    public function missing(?string $missing): static
+    public function defaultPlaceholder(?string $defaultPlaceholder): static
     {
-        $this->missing = $missing;
+        $this->defaultPlaceholder = $defaultPlaceholder;
 
         return $this;
     }
@@ -180,17 +180,17 @@ class KeyValue implements FeedBody
     /**
      * Give one absence its own word, where the emptiness is the answer.
      *
-     * `missingAs()` rather than `missing()`, which sets the body's default
+     * `placeholder()` rather than `defaultPlaceholder()`, which sets the body's default
      * word for every row.
      *
      * Beside {@see verbatim()} so a literal map never has to drop into the
      * payload's own shape to say one thing about one pair.
      *
-     * @return array{value: string|int|float|bool|null, missing: string}
+     * @return array{value: string|int|float|bool|null, placeholder: string}
      */
-    public static function missingAs(mixed $value, string $word): array
+    public static function placeholder(mixed $value, string $word): array
     {
-        return ['value' => self::scalar($value), 'missing' => $word];
+        return ['value' => self::scalar($value), 'placeholder' => $word];
     }
 
     /**
@@ -213,27 +213,35 @@ class KeyValue implements FeedBody
 
     public static function version(): int
     {
-        return 1;
+        return 2;
     }
 
     public static function upgrade(array $payload, int $from): array
     {
-        // Nothing to upgrade at v1 — but the branch exists from the first
-        // commit so that the day there IS something, the call site already
-        // routes through here rather than needing to be found. Total by
-        // contract: an unknown version renders as an empty row list, never as
-        // an exception, because the row is in the database either way.
         $items = is_array($payload['items'] ?? null) ? $payload['items'] : [];
         $title = $payload['title'] ?? null;
+        $default = array_key_exists('defaultPlaceholder', $payload)
+            ? $payload['defaultPlaceholder']
+            : ($from < 2 ? ($payload['missing'] ?? null) : null);
+        $default = is_string($default) ? $default : null;
 
         return [
             'title' => is_string($title) ? $title : null,
-            'items' => array_values(array_filter($items, is_array(...))),
+            'defaultPlaceholder' => $default,
+            'items' => array_values(array_map(function (array $row) use ($from, $default): array {
+                $placeholder = array_key_exists('placeholder', $row)
+                    ? $row['placeholder']
+                    : ($from < 2 && array_key_exists('missing', $row) ? $row['missing'] : $default);
+
+                unset($row['missing']);
+
+                return [...$row, 'placeholder' => is_string($placeholder) ? $placeholder : null];
+            }, array_filter($items, is_array(...)))),
         ];
     }
 
     /**
-     * @return array{'$body': string, '$v': int, title: string|null, items: array<int, array{key: string, value: string|int|float|bool|null, verbatim: bool, missing: string|null}>}
+     * @return array{'$body': string, '$v': int, title: string|null, defaultPlaceholder: string|null, items: array<int, array{key: string, value: string|int|float|bool|null, verbatim: bool, placeholder: string|null}>}
      */
     public function toPayload(): array
     {
@@ -241,8 +249,9 @@ class KeyValue implements FeedBody
             self::KEY => self::bodyType(),
             self::VERSION => self::version(),
             'title' => $this->title,
+            'defaultPlaceholder' => $this->defaultPlaceholder,
             'items' => array_map(
-                fn (array $row): array => [...$row, 'missing' => array_key_exists('missing', $row) ? $row['missing'] : $this->missing],
+                fn (array $row): array => [...$row, 'placeholder' => array_key_exists('placeholder', $row) ? $row['placeholder'] : $this->defaultPlaceholder],
                 $this->rows,
             ),
         ];

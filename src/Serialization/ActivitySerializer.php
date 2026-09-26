@@ -413,10 +413,10 @@ class ActivitySerializer
             // a bare object for the one-item case: a peer parses one shape,
             // and it is the shape the largest live producers emit. Order is
             // the resolver's, kept. Absent when empty, like every other slot.
-            Property::Attachment->value => $media === null || $media->attachments === [] ? null : array_map(fn (FeedResource $resource) => [
+            Property::Attachment->value => $media === null || $media->files === [] ? null : array_map(fn (FeedResource $resource) => [
                 'type' => $resource->type,
                 Property::Url->value => $this->link($resource),
-            ], $media->attachments),
+            ], $media->files),
         ], fn ($value) => $value !== null);
     }
 

@@ -19,7 +19,7 @@ function entityPayload(array $overrides = []): array
             'icon' => null, 'image' => null,
             'preview' => ['src' => '/thumb.jpg', 'mediaType' => 'image/jpeg', 'width' => 400, 'height' => 300, 'alt' => null],
             'url' => null,
-            'attachments' => [['type' => 'Document', 'href' => '/menu.pdf', 'mediaType' => 'application/pdf', 'name' => 'Menu']],
+            'files' => [['type' => 'Document', 'href' => '/menu.pdf', 'mediaType' => 'application/pdf', 'name' => 'Menu']],
         ],
         'body' => [['$body' => 'Storyfeed/Body/Prose', '$v' => 1, 'text' => 'Spicy']],
         'tombstone' => null,
@@ -41,7 +41,7 @@ it('reads a live entity by named accessors', function () {
         ->and($entity->isModal())->toBeTrue()
         ->and($entity->data()->integer('table'))->toBe(4)
         ->and($entity->media()->get('preview.src'))->toBe('/thumb.jpg')
-        ->and($entity->attachments()->pluck('name')->all())->toBe(['Menu'])
+        ->and($entity->files()->pluck('name')->all())->toBe(['Menu'])
         ->and($entity->bodies()->pluck('$body')->all())->toBe(['Storyfeed/Body/Prose'])
         ->and($entity->content())->toBe('Extra lime')
         ->and($entity->mediaType())->toBe('text/markdown')
@@ -68,7 +68,7 @@ it('reads a degraded entity with its role placeholder', function () {
         ->and(Entity::of($degraded, 'target')->toString())->toBe('Something')
         ->and(Entity::of($degraded)->toString())->toBe('Something')
         ->and(Entity::of($degraded)->media())->toBeNull()
-        ->and(Entity::of($degraded)->attachments())->toBeEmpty()
+        ->and(Entity::of($degraded)->files())->toBeEmpty()
         ->and(Entity::of($degraded)->bodies())->toBeEmpty();
 });
 

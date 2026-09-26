@@ -7,7 +7,7 @@ use Storyfeed\Concerns\HasPayload;
 use Storyfeed\Exceptions\IncompleteFeedValue;
 
 /**
- * One entry in FeedMedia::attachments — a typed resource link, a PDF or an
+ * One entry in FeedMedia::files — a typed resource link, a PDF or an
  * archive. The href is resolved at read time, just like FeedImage::src. Field
  * names follow AS2 Link; the attachment owns its object type, separate from its
  * Link. Core owns this payload slot, so no `$body` discriminator or storage

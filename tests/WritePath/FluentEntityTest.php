@@ -124,8 +124,8 @@ it('builds the same media chained or named', function () {
         ->icon('/icon.png')
         ->preview(FeedImage::make('/thumb.jpg')->alt('Thumb'))
         ->image('/hero.jpg')
-        ->attachments(FeedResource::make()->href('/a.pdf')->mediaType('application/pdf'))
-        ->attachments([FeedResource::make('/b.zip')])
+        ->files(FeedResource::make()->href('/a.pdf')->mediaType('application/pdf'))
+        ->files([FeedResource::make('/b.zip')])
         ->body(fn () => Excerpt::make('Resolved late'));
 
     $named = FeedMedia::make(
@@ -136,12 +136,12 @@ it('builds the same media chained or named', function () {
         icon: '/icon.png',
         preview: FeedImage::make(src: '/thumb.jpg', alt: 'Thumb'),
         image: '/hero.jpg',
-        attachments: [FeedResource::make(href: '/a.pdf', mediaType: 'application/pdf'), FeedResource::make('/b.zip')],
+        files: [FeedResource::make(href: '/a.pdf', mediaType: 'application/pdf'), FeedResource::make('/b.zip')],
         body: fn () => Excerpt::make('Resolved late'),
     );
 
     expect(mediaShape($fluent))->toBe(mediaShape($named))
-        ->and($fluent->attachments)->toHaveCount(2);
+        ->and($fluent->files)->toHaveCount(2);
 });
 
 it('builds the same image, link and resource chained or named', function () {

@@ -41,7 +41,7 @@ use Throwable;
  * `media.url` and the AS2 serializer emit `url` as a Link with `mediaType`,
  * `width` and `height`.
  *
- * Non-image resources are `attachments`, a list: each FeedResource carries
+ * Non-image resources are `files`, a list: each FeedResource carries
  * AS2's href, mediaType and name with a Document (or extension) object type,
  * and the list keeps the order it was given. AS2's `attachment` is
  * one-or-many, so a block listing four files gets four live hrefs, resolved
@@ -56,7 +56,7 @@ use Throwable;
  * Named arguments for the one-expression case; fluent setters for the
  * resolver that decides slot by slot. Every `make()` argument has a method of
  * the same name. The setters mutate and return $this, as Stories\Verb's
- * do; lists append (`attachments()`, `body()`) and maps merge in
+ * do; lists append (`files()`, `body()`) and maps merge in
  * `View::with()`'s manner (`attributes()`). The properties are
  * `private(set)`, so a presenter can read every slot and change none.
  */
@@ -83,7 +83,7 @@ final class FeedMedia
     public private(set) ?FeedImage $image = null;
 
     /** @var list<FeedResource> */
-    public private(set) array $attachments = [];
+    public private(set) array $files = [];
 
     /**
      * Bodies resolved at read time, or closures that would build them.
@@ -142,7 +142,7 @@ final class FeedMedia
 
     /**
      * @param  array<string, mixed>  $attributes
-     * @param  iterable<FeedResource>  $attachments
+     * @param  iterable<FeedResource>  $files
      * @param  string|FeedBody|iterable<mixed>|Closure|null  $body
      */
     public function __construct(
@@ -153,7 +153,7 @@ final class FeedMedia
         FeedImage|string|null $icon = null,
         FeedImage|string|null $preview = null,
         FeedImage|string|null $image = null,
-        iterable $attachments = [],
+        iterable $files = [],
         string|FeedBody|iterable|Closure|null $body = null,
     ) {
         $this->url($url)
@@ -163,7 +163,7 @@ final class FeedMedia
             ->icon($icon)
             ->preview($preview)
             ->image($image)
-            ->attachments($attachments)
+            ->files($files)
             ->body($body);
     }
 
@@ -172,7 +172,7 @@ final class FeedMedia
      * same name, so `make()` with nothing is where the chain begins.
      *
      * @param  array<string, mixed>  $attributes
-     * @param  iterable<FeedResource>  $attachments
+     * @param  iterable<FeedResource>  $files
      * @param  string|FeedBody|iterable<mixed>|Closure|null  $body
      */
     public static function make(
@@ -183,10 +183,10 @@ final class FeedMedia
         FeedImage|string|null $icon = null,
         FeedImage|string|null $preview = null,
         FeedImage|string|null $image = null,
-        iterable $attachments = [],
+        iterable $files = [],
         string|FeedBody|iterable|Closure|null $body = null,
     ): self {
-        return new self($url, $label, $attributes, $modal, $icon, $preview, $image, $attachments, $body);
+        return new self($url, $label, $attributes, $modal, $icon, $preview, $image, $files, $body);
     }
 
     /**
@@ -241,18 +241,18 @@ final class FeedMedia
     }
 
     /**
-     * Add attachments. Each call APPENDS, and order is kept as given: the
+     * Add files. Each call APPENDS, and order is kept as given: the
      * payload and the AS2 document both emit it in this sequence.
      *
-     *     ->attachments($invoice, $receipt)
-     *     ->attachments($document->files->map(…))
+     *     ->files($invoice, $receipt)
+     *     ->files($document->files->map(…))
      *
-     * @param  FeedResource|iterable<FeedResource>  ...$attachments
+     * @param  FeedResource|iterable<FeedResource>  ...$files
      */
-    public function attachments(FeedResource|iterable ...$attachments): self
+    public function files(FeedResource|iterable ...$files): self
     {
-        foreach ($attachments as $attachment) {
-            array_push($this->attachments, ...self::resources($attachment instanceof FeedResource ? [$attachment] : $attachment));
+        foreach ($files as $resource) {
+            array_push($this->files, ...self::resources($resource instanceof FeedResource ? [$resource] : $resource));
         }
 
         return $this;
@@ -263,14 +263,14 @@ final class FeedMedia
      * FeedResource — the closure's parameter type makes a stray string a
      * TypeError at the call site rather than a broken node at read time.
      *
-     * @param  iterable<FeedResource>  $attachments
+     * @param  iterable<FeedResource>  $files
      * @return list<FeedResource>
      */
-    private static function resources(iterable $attachments): array
+    private static function resources(iterable $files): array
     {
         return array_map(
             static fn (FeedResource $resource): FeedResource => $resource,
-            array_values(is_array($attachments) ? $attachments : iterator_to_array($attachments, false)),
+            array_values(is_array($files) ? $files : iterator_to_array($files, false)),
         );
     }
 
@@ -330,17 +330,17 @@ final class FeedMedia
     }
 
     /**
-     * The image slots and the attachment list, or null when nothing is set.
+     * The image slots and the file list, or null when nothing is set.
      *
      * Null rather than four nulls and an empty list so "does this entity
      * have media at all" is one check, the same one `url: null` answers for
      * linkability. When it is an object every key is present — the four
-     * image slots as an image object or null, `attachments` as a list that
+     * image slots as an image object or null, `files` as a list that
      * may be empty — so a renderer that wants one slot reads it without
      * first asking which slots exist. `url` here is the typed form only: a
      * string url is not media and appears solely as `entity.url`.
      *
-     * @return array{icon: array<string, mixed>|null, image: array<string, mixed>|null, preview: array<string, mixed>|null, url: array<string, mixed>|null, attachments: list<array<string, mixed>>}|null
+     * @return array{icon: array<string, mixed>|null, image: array<string, mixed>|null, preview: array<string, mixed>|null, url: array<string, mixed>|null, files: list<array<string, mixed>>}|null
      */
     public function media(): ?array
     {
@@ -351,13 +351,13 @@ final class FeedMedia
             'url' => $this->url instanceof FeedImage ? $this->url : null,
         ];
 
-        if (array_filter($images) === [] && $this->attachments === []) {
+        if (array_filter($images) === [] && $this->files === []) {
             return null;
         }
 
         return [
             ...array_map(fn (?FeedImage $image) => $image?->toArray(), $images),
-            'attachments' => array_map(fn (FeedResource $resource) => $resource->toArray(), $this->attachments),
+            'files' => array_map(fn (FeedResource $resource) => $resource->toArray(), $this->files),
         ];
     }
 }

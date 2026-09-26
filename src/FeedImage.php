@@ -49,7 +49,7 @@ use Storyfeed\Exceptions\IncompleteFeedValue;
  * They exist so a dense feed can reserve the box before the bytes arrive
  * and not shift on load. A dimension the resolver does not know is null, not
  * zero — zero would reserve nothing and look like a fact. Non-positive
- * values are degraded to null for the same reason `Body\File` degrades a
+ * values are degraded to null for the same reason `Body\FileAttachment` degrades a
  * negative size: an impossible measurement is a missing one.
  *
  * Part of the versioned payload contract (docs/payload.md, `entity.media`).

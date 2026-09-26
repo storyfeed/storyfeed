@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+- Rename `KeyValue::missingAs()` to `KeyValue::placeholder()`, and the body-level
+  `missing()` / `missing:` to `defaultPlaceholder()` / `defaultPlaceholder:`.
+  KeyValue v2 stores `placeholder` per item and `defaultPlaceholder` on the body;
+  `upgrade()` maps stored v1 `missing` keys without rewriting stored rows.
+- Rename `Storyfeed\Body\File` to `Storyfeed\Body\FileAttachment`, with the
+  `Storyfeed/Body/FileAttachment` token. Renderers continue to read stored
+  `Storyfeed/Body/File` tokens. The old PHP class has no alias.
+- Rename MediaObject `attachments()` / `attachments:` and `withAttachments()` to
+  `files()` / `files:` and `withFiles()`. MediaObject v2 stores `files`;
+  `upgrade()` maps stored v1 `attachments` to `files`.
+- Rename FeedMedia `attachments()` / `attachments:` / `$attachments` to
+  `files()` / `files:` / `$files`, and the entity reader to `files()`.
+  The read-time payload now carries `entity.media.files`; snapshots do not
+  persist this slot. AS2 continues to serialize the standard `attachment` key.
+
 ### Added
 
 - Optional `Storyfeed::requireFeedableMorphMap(bool $require = true)` rejects

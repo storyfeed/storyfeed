@@ -6,53 +6,54 @@ use Storyfeed\Facades\Storyfeed;
 use Storyfeed\FeedContext;
 use Storyfeed\FeedMedia;
 use Storyfeed\FeedResource;
+use Storyfeed\Models\Snapshot;
 use Workbench\App\Models\Customer;
 
-it('accepts typed resource attachments through every construction path', function () {
+it('accepts typed resource files through every construction path', function () {
     $resource = FeedResource::make('/report.pdf', 'application/pdf', 'Report');
     $payload = ['type' => 'Document', 'href' => '/report.pdf', 'mediaType' => 'application/pdf', 'name' => 'Report'];
 
-    foreach ([new FeedMedia(attachments: [$resource]), FeedMedia::make(attachments: [$resource]), FeedMedia::make()->attachments([$resource])] as $media) {
+    foreach ([new FeedMedia(files: [$resource]), FeedMedia::make(files: [$resource]), FeedMedia::make()->files([$resource])] as $media) {
         expect($media->href())->toBeNull()
-            ->and($media->attachments)->toBe([$resource])
+            ->and($media->files)->toBe([$resource])
             ->and($media->media())->toBe([
                 'icon' => null, 'image' => null, 'preview' => null,
                 'url' => null,
-                'attachments' => [$payload],
+                'files' => [$payload],
             ]);
     }
 
     expect($resource->toArray())->toBe($resource->toPayload())
         ->and($resource->toPayload())->not->toHaveKeys(['$v', '$body'])
-        // attachments() appends: an empty list adds nothing and replaces nothing.
-        ->and(FeedMedia::make(attachments: [$resource])->attachments([])->attachments)->toBe([$resource])
-        ->and(FeedMedia::make()->attachments)->toBe([]);
+        // files() appends: an empty list adds nothing and replaces nothing.
+        ->and(FeedMedia::make(files: [$resource])->files([])->files)->toBe([$resource])
+        ->and(FeedMedia::make()->files)->toBe([]);
 });
 
-it('keeps the attachment list in the order it was given, as a list', function () {
+it('keeps the file list in the order it was given, as a list', function () {
     $resources = [
         'b' => FeedResource::make('/b.pdf', name: 'B'),
         'a' => FeedResource::make('/a.pdf', name: 'A'),
         'c' => FeedResource::make('/c.zip', 'application/zip', 'C', 'https://example.test/Archive'),
     ];
 
-    $media = FeedMedia::make(attachments: new ArrayIterator($resources));
+    $media = FeedMedia::make(files: new ArrayIterator($resources));
 
-    expect($media->attachments)->toBe(array_values($resources))
-        ->and(array_column($media->media()['attachments'], 'href'))->toBe(['/b.pdf', '/a.pdf', '/c.zip'])
-        ->and(json_encode($media->media()['attachments']))->toStartWith('[{');
+    expect($media->files)->toBe(array_values($resources))
+        ->and(array_column($media->media()['files'], 'href'))->toBe(['/b.pdf', '/a.pdf', '/c.zip'])
+        ->and(json_encode($media->media()['files']))->toStartWith('[{');
 });
 
-it('rejects an attachment that is not a FeedResource', function () {
-    FeedMedia::make(attachments: ['/report.pdf']);
+it('rejects a file that is not a FeedResource', function () {
+    FeedMedia::make(files: ['/report.pdf']);
 })->throws(TypeError::class);
 
-it('always carries the attachments key on a media object, empty when the media is only images', function () {
+it('always carries the files key on a media object, empty when the media is only images', function () {
     expect(FeedMedia::make(preview: '/thumb.png')->media())->toBe([
         'icon' => null, 'image' => null,
         'preview' => ['src' => '/thumb.png', 'mediaType' => null, 'width' => null, 'height' => null, 'alt' => null],
         'url' => null,
-        'attachments' => [],
+        'files' => [],
     ]);
 });
 
@@ -67,7 +68,7 @@ it('carries document links through the payload and AS2 without image properties'
 
         public static function feedMedia(FeedContext $context): ?FeedMedia
         {
-            return FeedMedia::make(attachments: [FeedResource::make('/files/'.$context->key(), self::$mime, $context->label(), self::$objectType)])
+            return FeedMedia::make(files: [FeedResource::make('/files/'.$context->key(), self::$mime, $context->label(), self::$objectType)])
                 ->preview('/preview.png');
         }
     };
@@ -79,7 +80,7 @@ it('carries document links through the payload and AS2 without image properties'
 
     $object = Storyfeed::feed()->get()->toArray()['items'][0]['object'];
     expect($object['url'])->toBeNull()
-        ->and($object['media']['attachments'])->toBe([[
+        ->and($object['media']['files'])->toBe([[
             'type' => $type, 'href' => '/files/'.$document->id, 'mediaType' => $mime, 'name' => 'Report',
         ]])
         ->and($object['media']['preview']['src'])->toBe('/preview.png');
@@ -96,7 +97,7 @@ it('carries document links through the payload and AS2 without image properties'
     ['https://example.test/Archive', 'application/x-custom-archive'],
 ]);
 
-it('serializes many attachments as one AS2 property in resolver order, and none as no property', function () {
+it('serializes many files as one AS2 property in resolver order, and none as no property', function () {
     $model = new class extends Customer
     {
         protected $table = 'customers';
@@ -107,16 +108,18 @@ it('serializes many attachments as one AS2 property in resolver order, and none 
         public static function feedMedia(FeedContext $context): ?FeedMedia
         {
             return FeedMedia::make(preview: '/preview.png')
-                ->attachments(array_map(fn (string $file) => FeedResource::make('/files/'.$file, name: $file), self::$files));
+                ->files(array_map(fn (string $file) => FeedResource::make('/files/'.$file, name: $file), self::$files));
         }
     };
     Relation::morphMap(['bundle' => $model::class]);
     $bundle = $model::create(['name' => 'Bundle']);
     $activity = Storyfeed::activity('publish', $bundle)->publish();
 
+    $snapshotBefore = Snapshot::query()->where('model_type', 'bundle')->where('model_id', $bundle->id)->firstOrFail()->getRawOriginal();
+
     $model::$files = ['minutes.pdf', 'budget.xlsx', 'photos.zip'];
     $object = Storyfeed::feed()->get()->toArray()['items'][0]['object'];
-    expect(array_column($object['media']['attachments'], 'name'))->toBe(['minutes.pdf', 'budget.xlsx', 'photos.zip']);
+    expect(array_column($object['media']['files'], 'name'))->toBe(['minutes.pdf', 'budget.xlsx', 'photos.zip']);
 
     $wire = serialize_one($activity)['object'];
     expect($wire['attachment'])->toHaveCount(3)
@@ -125,7 +128,9 @@ it('serializes many attachments as one AS2 property in resolver order, and none 
         ->and(array_column($wire['attachment'], 'type'))->toBe(['Document', 'Document', 'Document']);
 
     $model::$files = [];
-    expect(Storyfeed::feed()->get()->toArray()['items'][0]['object']['media']['attachments'])->toBe([])
+    expect(Storyfeed::feed()->get()->toArray()['items'][0]['object']['media']['files'])->toBe([])
         ->and(serialize_one($activity)['object'])->not->toHaveKey('attachment')
-        ->and(serialize_one($activity)['object']['preview']['href'])->toBe(url('/preview.png'));
+        ->and(serialize_one($activity)['object']['preview']['href'])->toBe(url('/preview.png'))
+        ->and(Snapshot::query()->where('model_type', 'bundle')->where('model_id', $bundle->id)->firstOrFail()->getRawOriginal())->toBe($snapshotBefore)
+        ->and($snapshotBefore)->not->toHaveKey('media');
 });
