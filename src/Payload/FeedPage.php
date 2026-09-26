@@ -79,6 +79,7 @@ final class FeedPage implements Arrayable, ArrayAccess, IteratorAggregate, JsonS
         return $this->nextCursor;
     }
 
+    /** @return array{payload_version: int, items: array<int, array<string, mixed>>, next_cursor: ?string, sync_token: ?string} */
     public function toArray(): array
     {
         return [

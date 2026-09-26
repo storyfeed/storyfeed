@@ -638,6 +638,23 @@ class FeedBuilder
     }
 
     /**
+     * Paginate the feed using the current request's opaque cursor.
+     */
+    public function cursorPaginate(?int $perPage = null, string $cursorName = 'cursor'): FeedPaginator
+    {
+        $perPage ??= $this->limit;
+
+        if ($perPage < 1) {
+            throw new InvalidArgumentException('The number of feed items per page must be at least 1.');
+        }
+
+        $cursor = FeedPaginator::resolveCurrentCursor($cursorName);
+        $page = (clone $this)->limit($perPage)->cursor($cursor?->encode())->get();
+
+        return new FeedPaginator($page, $perPage, $cursor, $cursorName);
+    }
+
+    /**
      * One page of the feed. An empty `items` means the end of the feed: a
      * read whose activities were all deleted mid-read follows its own cursor
      * and reads again, up to five times. Only a pruning burst that empties
