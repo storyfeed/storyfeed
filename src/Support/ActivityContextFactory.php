@@ -7,11 +7,13 @@ use Storyfeed\ActivityContext;
 use Storyfeed\FeedContext;
 use Storyfeed\Models\Activity;
 use Storyfeed\Models\Snapshot;
+use Storyfeed\StoryfeedManager;
 
 /** @internal Builds headline contexts from the read path's loaded snapshots. */
 final class ActivityContextFactory
 {
-    public static function make(Activity $activity, ?string $feed = null, ?ModelHydrator $hydrator = null): ActivityContext
+    /** @param  string|null  $type  the object type the headline was resolved for (a tombstoned object's former type) */
+    public static function make(Activity $activity, ?string $feed = null, ?ModelHydrator $hydrator = null, ?string $type = null): ActivityContext
     {
         $hydrator ??= new ModelHydrator;
         $roles = [];
@@ -36,6 +38,7 @@ final class ActivityContextFactory
             data: $activity->data ?? [],
             verb: $activity->verb,
             publishedAt: $activity->published_at === null ? null : CarbonImmutable::instance($activity->published_at),
+            casts: app(StoryfeedManager::class)->dataCasts($type ?? $activity->object_type, $activity->verb),
         );
     }
 }
