@@ -4,6 +4,11 @@
 
 ### Added
 
+- Optional `Storyfeed::requireFeedableMorphMap(bool $require = true)` rejects
+  unaliased Feedable roles. Disabled by default. Doctor reports missing aliases
+  and `storyfeed:cache` (including `optimize`) refuses to cache when either
+  this setting or Laravel requires aliases.
+
 - `Storyfeed\Support\FeedItem`, `Headline` and `Entity`: fluent readers over
   the payload, after `Illuminate\Support\Uri`. Iterating a `FeedPage` yields
   `FeedItem`s (`@foreach ($page as $item)`), and `$page->collect()` returns
