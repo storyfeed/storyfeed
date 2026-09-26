@@ -37,6 +37,7 @@ class StoryfeedServiceProvider extends PackageServiceProvider
         $package
             ->name('storyfeed')
             ->hasConfigFile()
+            ->hasTranslations()
             ->hasMigrations([
                 'create_feed_activities_table',
                 'create_feed_snapshots_table',

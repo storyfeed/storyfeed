@@ -6,8 +6,11 @@ use ArrayAccess;
 use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Contracts\Support\Responsable;
 use Illuminate\Support\Collection;
+use IteratorAggregate;
 use JsonSerializable;
 use LogicException;
+use Storyfeed\Support\FeedItem;
+use Traversable;
 
 /**
  * One page of the feed, emitting the Payload v1 envelope
@@ -18,10 +21,15 @@ use LogicException;
  * Read-only ArrayAccess mirrors the JSON envelope, so the first instinct
  * ($page['items']) works the same in PHP as it does client-side.
  *
+ * Iterating the page yields each item as a FeedItem reader, the way a
+ * paginator yields its models: `@foreach ($page as $item)`. `items()` stays
+ * the payload's arrays.
+ *
  * @implements ArrayAccess<string, mixed>
  * @implements Arrayable<string, mixed>
+ * @implements IteratorAggregate<int, FeedItem>
  */
-final class FeedPage implements Arrayable, ArrayAccess, JsonSerializable, Responsable
+final class FeedPage implements Arrayable, ArrayAccess, IteratorAggregate, JsonSerializable, Responsable
 {
     /**
      * @param  Collection<int, GroupSlice>  $slices  page items, already ordered
@@ -48,6 +56,22 @@ final class FeedPage implements Arrayable, ArrayAccess, JsonSerializable, Respon
             ->map(fn (GroupSlice $slice) => $presenter->node($slice))
             ->values()
             ->all();
+    }
+
+    /**
+     * The page's items as FeedItem readers.
+     *
+     * @return Collection<int, FeedItem>
+     */
+    public function collect(): Collection
+    {
+        return collect($this->items())->map(FeedItem::of(...));
+    }
+
+    /** @return Traversable<int, FeedItem> */
+    public function getIterator(): Traversable
+    {
+        return $this->collect()->getIterator();
     }
 
     public function nextCursor(): ?string

@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+### Added
+
+- `Storyfeed\Support\FeedItem`, `Headline` and `Entity`: fluent readers over
+  the payload, after `Illuminate\Support\Uri`. Iterating a `FeedPage` yields
+  `FeedItem`s (`@foreach ($page as $item)`), and `$page->collect()` returns
+  them as a Collection. `{{ $item->headline() }}` draws the sentence with entity
+  labels as links; `segments()` hands back its parts. The fallback words
+  ("Someone", "a removed order", "and 2 more", "5 activities") are lang lines,
+  `storyfeed::feed.*`. The payload is unchanged: `items()`, `toArray()` and the
+  JSON are the arrays they were, and each reader reads as that array too.
+
 ### Deprecated
 
 - Registry array setters `Storyfeed::grammar()`, `actorlessGrammar()`,
