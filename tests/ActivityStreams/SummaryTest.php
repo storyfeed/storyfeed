@@ -1,5 +1,6 @@
 <?php
 
+use Storyfeed\ActivityContext;
 use Storyfeed\ActivityStreams\ActivityType;
 use Storyfeed\Facades\Storyfeed;
 use Storyfeed\Models\Activity;
@@ -82,7 +83,7 @@ it('emits nothing when no grammar entry resolves', function () {
 });
 
 it('emits a closure-rendered headline as summary, and withholds it when the closure throws', function () {
-    Storyfeed::grammar(['delivery.confirm' => fn (Activity $activity) => "Delivery {$activity->object_id} confirmed"]);
+    Storyfeed::grammar(['delivery.confirm' => fn (ActivityContext $activity) => "Delivery {$activity->object()?->key()} confirmed"]);
 
     $activity = confirmed_delivery();
 

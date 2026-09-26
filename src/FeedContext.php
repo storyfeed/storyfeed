@@ -66,7 +66,7 @@ final readonly class FeedContext
      * The entity's route key — what Eloquent calls getRouteKey() — for a
      * `route()` call on a model routed by slug or UUID, with no query:
      *
-     *     route('menu.show', $context->routeKey())
+     *     route('posts.show', $context->routeKey())
      *
      * Recorded when the snapshot is written, the way the label is, so it is
      * as fresh as the snapshot and no fresher. It is kept in the snapshot's
@@ -113,14 +113,14 @@ final readonly class FeedContext
     }
 
     /**
-     * The registered name of the feed being read — `'kitchen'`,
-     * `'customer'` — or null when there is none to report.
+     * The registered name of the feed being read — `'editorial'`,
+     * `'reader'` — or null when there is none to report.
      *
      * DECLARED, NEVER SNIFFED. This is the name a FeedDefinition stamped on
      * the builder the page was read through, and nothing else: not the
      * request, not the route, not a panel, not who is logged in. Feeds render
      * with no request at all (queued digests, console, the AS2 serializer,
-     * tests), a Livewire poll arrives through a shared endpoint that says
+     * tests), a Livewire refresh arrives through a shared endpoint that says
      * nothing about the page, and a payload that varied by request would
      * have no stable cache key. A resolver that branches on this value is
      * therefore correct in every one of those places, or wrong in none.
@@ -138,15 +138,15 @@ final readonly class FeedContext
      * build() and inspect() in the hands of code that should only compare.
      *
      * ONE FEED, ONE NAME, WHATEVER DOOR. A class feed registered as
-     * `'kitchen' => CustomerFeed::class` reports 'kitchen' when read through
-     * `Storyfeed::feed('kitchen')`, through `CustomerFeed::make($order)`, and
+     * `'editorial' => ReaderFeed::class` reports 'editorial' when read through
+     * `Storyfeed::feed('editorial')`, through `ReaderFeed::make($post)`, and
      * through a class-string alike. It briefly reported the class-derived
-     * 'customer' on the last two, which made a resolver silently right on
+     * 'reader' on the last two, which made a resolver silently right on
      * one page and silently wrong on another — the exact failure a declared
      * surface exists to remove (journal 054, 055). The registered key wins;
      * the derived name is only what a class is called when nobody registered
      * it under anything. To survive a rename of either, compare against the
-     * class rather than a literal — `CustomerFeed::name() => …` — which
+     * class rather than a literal — `ReaderFeed::name() => …` — which
      * returns this same canonical name; that is why the Feed base class
      * exposes name() statically.
      */
@@ -170,8 +170,8 @@ final readonly class FeedContext
      *
      * BATCHED, NOT N+1. The presenter seeds the page's identity map with
      * every (type, id) it holds before any resolver runs, so the first
-     * Customer to ask loads every Customer on the page in one whereKey()
-     * and every later Customer is a map hit. Ten classes is ten queries
+     * Reader to ask loads every Reader on the page in one whereKey()
+     * and every later Reader is a map hit. Ten classes is ten queries
      * whether the page has twenty nodes or two hundred. The AS2 serializer
      * resolves one activity at a time and has no page to seed from, so
      * there a call is a single lookup — correct, only not amortised.
@@ -187,9 +187,9 @@ final readonly class FeedContext
      * collection rather than once per model. A resolver that needs a number
      * that moves has this instead of a query of its own.
      *
-     * NESTED ACCESS IS STILL A FOOTGUN. `$context->model()->customer->name`
+     * NESTED ACCESS IS STILL A FOOTGUN. `$context->model()->reader->name`
      * is an N+1 inside a hydrated model and invisible to the batch — the map
-     * loaded Deliveries, not their Customers. That is what `with:` is for:
+     * loaded Posts, not their Readers. That is what `with:` is for:
      * relations named there are eager loaded across the whole class. Named
      * on a later call than the first, they load once across every model
      * already in the map, not once per model, so the order of asking does

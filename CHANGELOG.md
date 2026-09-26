@@ -19,6 +19,23 @@
 
 ### Added
 
+- Optional `Storyfeed::requireFeedableMorphMap(bool $require = true)` rejects
+  unaliased Feedable roles. Disabled by default. Doctor reports missing aliases
+  and `storyfeed:cache` (including `optimize`) refuses to cache when either
+  this setting or Laravel requires aliases.
+- `Storyfeed::feed()->cursorPaginate(15)` returns a `Storyfeed\FeedPaginator`
+  implementing Laravel's cursor paginator contract, with request cursor resolution,
+  Laravel pagination views through `links()`, and URL/query-string helpers.
+  Pagination is forward-only and cursor tokens remain opaque and unchanged.
+  JSON retains the feed envelope and adds Laravel's cursor pagination keys;
+  `data` and `items` contain the same payload arrays. Iteration yields `FeedItem`s.
+  `get()` continues to return the existing `FeedPage`.
+- `ActivityContext` for headline closures, with Laravel's `InteractsWithData`
+  helpers, `verb()`, immutable `publishedAt()` and a `FeedContext` accessor
+  for each role. Normal, anonymous and missing headlines receive the context
+  in payloads and Activity Streams serialization. Closures typed `Activity`
+  must switch to `ActivityContext`; the raw activity model is not exposed.
+
 - `Storyfeed\Support\FeedItem`, `Headline` and `Entity`: fluent readers over
   the payload, after `Illuminate\Support\Uri`. Iterating a `FeedPage` yields
   `FeedItem`s (`@foreach ($page as $item)`), and `$page->collect()` returns
@@ -52,6 +69,17 @@
 
 ### Removed
 
+- **The `Change` body type and `FeedChange` leave core.** Gone:
+  `Storyfeed\Body\Change` (`Storyfeed/Body/Change`), `Storyfeed\FeedChange`,
+  `->change()` on a pending activity and a verb, `record(change:)`, the
+  payload node's `change` key and `FeedItem::changes()`. Record a before and
+  after in the activity's `data` (from and to) and say it in a dynamic
+  headline. A `$change` already stored stays in `data` as written and now
+  reaches `node.data` untouched; an app that drew it moves it to a key of its
+  own. Stored `Storyfeed/Body/Change` bodies are the app's to rename, and a
+  renderer that knew the type keeps its own copy. A job queued with
+  `->change()` before this release cannot be restored after it; drain the
+  queue first.
 - `storyfeed:doctor --stubs --arrays`. Use `storyfeed:doctor --stubs` for
   fluent `routes/feed.php` definitions. Generated `Fix::snippet()` output
   uses that same form, including the `snippet` field in JSON reports.

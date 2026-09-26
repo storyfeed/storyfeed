@@ -6,10 +6,10 @@ namespace Storyfeed\Grouping;
  * The closure form of `grouped()`: one method per built-in axis, each taking
  * the group headline and appending a {@see Group}.
  *
- *     Story::verb('place')->grouped(fn (GroupBuilder $group) => $group
- *         ->repeat(':actor placed :count orders')
- *         ->actors(':actors placed orders')
- *         ->axis('scene', ':actors worked the pass'));
+ *     Story::verb('complete')->grouped(fn (GroupBuilder $group) => $group
+ *         ->repeat(':actor completed :count tasks')
+ *         ->actors(':actors completed tasks')
+ *         ->axis('project', ':actors completed project tasks'));
  *
  * It produces exactly the Group objects `Group::repeat()->headline(…)` would,
  * so Story classes and the registrar share one concept. A custom axis goes
@@ -20,7 +20,7 @@ final class GroupBuilder
     /** @var list<Group> */
     private array $groups = [];
 
-    /** One actor repeating the same act — "Sally placed 5 orders". */
+    /** One actor repeating the same act — "Sally completed 5 tasks". */
     public function repeat(?string $headline = null): self
     {
         return $this->add(Group::repeat(), $headline);
@@ -44,7 +44,7 @@ final class GroupBuilder
         return $this->add(Group::byObject(), $headline);
     }
 
-    /** The digest's phrase, starting at the verb — "confirmed :count orders". */
+    /** The digest's phrase, starting at the verb — "completed :count tasks". */
     public function summary(?string $headline = null): self
     {
         return $this->add(Group::summary(), $headline);

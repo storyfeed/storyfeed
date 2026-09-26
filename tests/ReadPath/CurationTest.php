@@ -243,7 +243,7 @@ it('admits a singular fallback whose tokens are all pinned by the axis', functio
 });
 
 it('never uses a closure singular fallback for a group', function () {
-    Storyfeed::grammar(['delivery.revise' => fn ($activity) => "Somebody revised {$activity->object_id}"]);
+    Storyfeed::grammar(['delivery.revise' => fn ($activity) => "Somebody revised {$activity->object()?->key()}"]);
 
     $bob = User::create(['name' => 'Bob', 'email' => 'bob@example.com']);
     $doc = Delivery::create(['tracking_number' => 'Aut Beatae.docx']);

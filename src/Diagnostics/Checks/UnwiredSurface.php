@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Storyfeed\Diagnostics\Finding;
 use Storyfeed\StoryfeedManager;
+use Storyfeed\Support\Feedables;
 use Storyfeed\Support\SurfaceScanner;
 use Storyfeed\Testing\StoryfeedFake;
 
@@ -88,14 +89,20 @@ class UnwiredSurface extends Check
 
         $inherited = $parent === false ? null : array_search($parent, $map, true);
 
+        $requirement = Relation::requiresMorphMap()
+            ? 'Laravel\'s Relation::requireMorphMap() / enforceMorphMap() is enabled'
+            : 'Storyfeed::requireFeedableMorphMap() is enabled';
+        $exception = Relation::requiresMorphMap() ? 'ClassMorphViolationException' : 'FeedableMorphMapViolation';
+        $registration = Relation::requiresMorphMap() ? 'Relation::enforceMorphMap()' : 'Relation::morphMap()';
+
         return Finding::warning(
             'surface.unaliased',
-            "[{$model}] implements Feedable, but the morph map is enforced and has no alias for it, so publishing "
-            .'anything that names it throws ClassMorphViolationException. '
+            "[{$model}] is Feedable, but {$requirement} and it has no morph alias, so publishing "
+            ."anything that names it throws {$exception}. "
             .(is_string($inherited)
                 ? "It extends [{$parent}], stored as `{$inherited}`: return `{$inherited}` from its getMorphClass() "
-                    .'if it should appear as that, or give it an alias of its own in Relation::enforceMorphMap().'
-                : 'Give it an alias in Relation::enforceMorphMap().'),
+                    ."if it should appear as that, or give it an alias of its own in {$registration}."
+                : "Give it an alias in {$registration}."),
             ['model' => $model, 'inherits' => is_string($inherited) ? $inherited : null],
         );
     }
@@ -113,14 +120,14 @@ class UnwiredSurface extends Check
         /** @var array<class-string, string> $aliases model => the alias it stores under */
         $aliases = [];
 
-        foreach ($surface['feedable'] as $model) {
+        foreach (array_unique([...$surface['feedable'], ...app(Feedables::class)->registered()]) as $model) {
             // The scan admits any instantiable Feedable; only a model has an
             // alias to look for in the activities.
             if (! is_a($model, Model::class, true)) {
                 continue;
             }
 
-            $alias = $this->aliasFor($model);
+            $alias = app(Feedables::class)->morphAlias(new $model);
 
             if ($alias !== null) {
                 $aliases[$model] = $alias;

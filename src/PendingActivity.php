@@ -91,8 +91,6 @@ class PendingActivity
 
     protected ?FeedThread $thread = null;
 
-    protected ?FeedChange $change = null;
-
     /** Queued: snapshot the entities at `->queue()`, not on the worker. */
     private bool $snapshotNow = false;
 
@@ -340,14 +338,13 @@ class PendingActivity
     public function data(array|Arrayable $data): static
     {
         // A NESTED Arrayable is flattened too, not just the argument itself.
-        // `['ip' => $ip, 'diff' => Change::make(…)]` used to store `{}` for the
-        // diff unless the app remembered `->toArray()`, which is a silent loss
+        // `['ip' => $ip, 'facts' => KeyValue::make(…)]` used to store `{}` for the
+        // body unless the app remembered `->toArray()`, which is a silent loss
         // that shows up months later in rows nobody can regenerate. The entity
         // half was fixed on 2026-09-15 and this one was missed.
         $this->activity->data = BodySlot::data($data);
 
         $this->writeThread();
-        $this->writeChange();
 
         return $this;
     }
@@ -393,22 +390,6 @@ class PendingActivity
             ...($this->activity->data ?? []),
             FeedThread::KEY => $this->thread->toArray(),
         ];
-    }
-
-    /** Set the activity's before/after facts; order-independent with data(). */
-    public function change(FeedChange $change): static
-    {
-        $this->change = $change;
-        $this->writeChange();
-
-        return $this;
-    }
-
-    private function writeChange(): void
-    {
-        if ($this->change !== null) {
-            $this->activity->data = $this->change->toData($this->activity->data ?? []);
-        }
     }
 
     public function publishedAt(DateTimeInterface|string $date): static
@@ -598,7 +579,6 @@ class PendingActivity
             'entities' => array_map(fn (Model $model) => $this->getSerializedPropertyValue($model), $this->entities),
             'objects' => array_map(fn (Model $model) => $this->getSerializedPropertyValue($model), $this->objects),
             'thread' => $this->thread,
-            'change' => $this->change,
             'snapshotted' => $this->snapshotted,
         ];
     }
@@ -614,7 +594,6 @@ class PendingActivity
         $this->anonymous = (bool) $data['anonymous'];
         $this->activity->withoutDefaultActor($this->anonymous);
         $this->thread = $data['thread'];
-        $this->change = $data['change'];
         $this->snapshotted = $data['snapshotted'];
 
         foreach ($data['entities'] as $role => $identifier) {
@@ -1150,6 +1129,14 @@ class PendingActivity
      */
     private function assertRoleTypes(StoryfeedManager $manager): void
     {
+        $feedables = app(Feedables::class);
+
+        if ($feedables->requiresMorphMap()) {
+            foreach ([...array_values($this->entities), ...$this->objects] as $model) {
+                $feedables->assertMorphAlias($model);
+            }
+        }
+
         $type = $this->activity->object_type;
         $type = is_string($type) && $type !== '' ? $type : null;
         $verb = (string) $this->activity->verb;

@@ -6,7 +6,6 @@ use Storyfeed\Contracts\FeedBody;
 use Storyfeed\Diagnostics\Checks\Body;
 use Storyfeed\Diagnostics\Severity;
 use Storyfeed\Facades\Storyfeed;
-use Storyfeed\FeedChange;
 use Storyfeed\FeedThread;
 use Storyfeed\Models\Snapshot;
 use Workbench\App\Models\Customer;
@@ -112,16 +111,9 @@ it('does not mistake core’s own reserved key for a broken detail', function ()
     expect(Storyfeed::doctor(['body'])->all())->toBeEmpty();
 });
 
-it('does not mistake a revision’s change envelope for a broken detail', function () {
-    // `$change` is core's too, and carries a `$v` and no `$body` the same way.
-    recordWithData(FeedChange::make(['Status' => ['Draft', 'Ready']])->toData());
-
-    expect(Storyfeed::doctor(['body'])->all())->toBeEmpty();
-});
-
 it('steps over every core envelope that carries a version of its own', function () {
     // The next core-owned key with a `$v` would otherwise be reported as a
-    // broken body on every row that has it, the way `$change` was.
+    // broken body on every row that has it.
     $owned = collect(File::allFiles(dirname(__DIR__, 2).'/src'))
         ->map(fn ($file) => 'Storyfeed\\'.str_replace(['/', '.php'], ['\\', ''], $file->getRelativePathname()))
         ->filter(fn (string $class) => class_exists($class) || interface_exists($class))
@@ -134,7 +126,7 @@ it('steps over every core envelope that carries a version of its own', function 
 
     $reserved = (new ReflectionClassConstant(Body::class, 'RESERVED'))->getValue();
 
-    expect($owned)->toContain(FeedThread::KEY, FeedChange::KEY)
+    expect($owned)->toContain(FeedThread::KEY)
         ->and(array_diff($owned->all(), $reserved))->toBe([]);
 });
 

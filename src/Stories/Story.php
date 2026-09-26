@@ -187,6 +187,19 @@ abstract class Story implements PublishesToFeed
     }
 
     /**
+     * How this activity's data keys read back, as a model's `casts()`: an
+     * enum, a date, `AsCollection::of(LineItem::class)`, a `Castable` class.
+     * `$activity->get('order')` in a headline closure answers the cast value;
+     * the row and the payload keep what `data()` recorded.
+     *
+     * @return array<string, string|list<string>>
+     */
+    public function casts(): array
+    {
+        return [];
+    }
+
+    /**
      * Aggregate headlines, one per axis this activity can group on.
      *
      * @return array<int, Group>

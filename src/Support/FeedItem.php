@@ -13,6 +13,7 @@ use Illuminate\Support\Traits\Macroable;
 use Illuminate\Support\Traits\Tappable;
 use JsonSerializable;
 use Storyfeed\Concerns\ReadsPayloadArray;
+use Storyfeed\StoryfeedManager;
 
 /**
  * One item of a feed page, an activity or a group, read fluently. Iterating
@@ -254,28 +255,27 @@ final class FeedItem implements Arrayable, ArrayAccess, JsonSerializable
     }
 
     /**
-     * The activity-level data, as the recording call passed it.
+     * The activity-level data, read through the verb's Eloquent casts.
      *
      * @return Fluent<string, mixed>
      */
     public function data(): Fluent
     {
-        return new Fluent(is_array($this->payload['data'] ?? null) ? $this->payload['data'] : []);
-    }
+        $data = is_array($this->payload['data'] ?? null) ? $this->payload['data'] : [];
+        $verb = $this->verb();
 
-    /**
-     * The before/after rows of a change, each `label`, `before`, `after`.
-     *
-     * @return Collection<int, array<string, mixed>>
-     */
-    public function changes(): Collection
-    {
-        $changes = $this->payload['change']['changes'] ?? null;
+        if ($data === [] || $verb === null) {
+            return new Fluent($data);
+        }
 
-        return collect(is_array($changes) ? $changes : [])
-            ->filter(fn (mixed $row): bool => is_array($row))
-            ->map(fn (array $row): array => array_filter($row, is_string(...), ARRAY_FILTER_USE_KEY))
-            ->values();
+        $object = $this->object();
+        $casts = app(StoryfeedManager::class)->dataCasts($object?->formerType() ?? $object?->type(), $verb);
+
+        foreach (array_intersect_key($casts, $data) as $key => $cast) {
+            $data[$key] = DataCasts::get($this->payload['data'], $casts, $key);
+        }
+
+        return new Fluent($data);
     }
 
     /**

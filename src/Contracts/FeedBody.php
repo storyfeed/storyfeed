@@ -19,7 +19,7 @@ use Storyfeed\FeedThread;
  *
  *     $ticket->recordActivity('revise')->data([
  *         'reason' => $reason,
- *         'diff' => Change::make(['Status' => ['Draft', 'Ready']])->toArray(),
+ *         'facts' => KeyValue::make(['Status' => 'Ready', 'Owner' => 'Ana'])->toArray(),
  *     ])->publish();
  *
  * ## Core owns the SPEC, and ships a starter vocabulary beside it
@@ -28,7 +28,7 @@ use Storyfeed\FeedThread;
  * can draw a body type defined by a package it has never heard of, and a body
  * outlives whichever library defined it. Nothing below assumes otherwise.
  *
- * Core also ships eight body types under `Storyfeed\Body` — Change, Excerpt,
+ * Core also ships seven body types under `Storyfeed\Body` — Excerpt,
  * KeyValue, FileAttachment, Prose, ItemList, MediaObject, Component. **They are a vocabulary, not a
  * mechanism**: nothing in this package reads them, and an app may write its own
  * and owe them nothing. They were in `storyfeed/ui` until 2026-09-14 and moved
@@ -218,10 +218,10 @@ interface FeedBody extends Arrayable
      * and a fluent setter for that value needs the method name. It was
      * `name()` until 2026-09-23.
      *
-     * NAMESPACE IT TO THE VOCABULARY OWNER — `Storyfeed/Change`,
+     * NAMESPACE IT TO THE VOCABULARY OWNER — `Storyfeed/Excerpt`,
      * `Acme/Shipment`. The name outlives every class that writes it, so it
      * says whose vocabulary it is, and two libraries that both wanted the word
-     * "change" do not collide in a column.
+     * "excerpt" do not collide in a column.
      *
      * Use PascalCase for the owner and body type, never the shipping package: a
      * body outlives whichever library defined it. The name is a pure lookup

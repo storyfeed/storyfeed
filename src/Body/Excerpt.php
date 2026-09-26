@@ -43,10 +43,11 @@ use Stringable;
  * that was chosen for readability over precision — the same trade `Facts` lost
  * and this one wins, narrowly.
  *
- * ## Not `Change`
+ * ## Not a before and after
  *
- * A passage that was one thing and is now another is two passages and a pair,
- * which is {@see Change}. This body type carries ONE passage and says where it
+ * A passage that was one thing and is now another is two values, which belong
+ * in the activity's `data` as from and to, with a headline that says so. This
+ * body type carries ONE passage and says where it
  * came from; it never says what it used to be.
  *
  * The version travels in both storage and payload: core does not own the app's

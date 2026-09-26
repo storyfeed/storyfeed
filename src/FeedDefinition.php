@@ -15,9 +15,9 @@ use Storyfeed\Exceptions\FeedMisconfigured;
  * Two ways to declare one audience, one registry:
  *
  *   Storyfeed::feeds([
- *       'customer' => CustomerFeed::class,                        // a class
+ *       'project' => ProjectFeed::class,                           // a class
  *       AdminFeed::class,                                         // a class, name derived
- *       'kitchen' => fn (FeedBuilder $feed) => $feed->only(...),  // a closure, ad-hoc
+ *       'workspace' => fn (FeedBuilder $feed) => $feed->only(...),   // a closure, ad-hoc
  *   ]);
  *
  * The closure form is the Stories\Verb analogue and stays first-class: a
@@ -70,7 +70,7 @@ final class FeedDefinition
         if ($value instanceof Closure) {
             if (! is_string($key)) {
                 throw new InvalidArgumentException(
-                    'A closure feed preset needs a name: Storyfeed::feeds([\'customer\' => fn ($feed) => ...]). '
+                    'A closure feed preset needs a name: Storyfeed::feeds([\'project\' => fn ($feed) => ...]). '
                     .'Only Feed classes may be registered without one, because they carry their own.'
                 );
             }
@@ -80,8 +80,8 @@ final class FeedDefinition
 
         // A bare list entry names itself from the CLASS, not from name():
         // name() consults the registry this entry is about to join, and a
-        // class already registered under 'kitchen' would otherwise re-register
-        // as 'kitchen' rather than 'customer'. Registration derives; entry
+        // class already registered under 'workspace' would otherwise re-register
+        // as 'workspace' rather than 'project'. Registration derives; entry
         // canonicalizes.
         return self::fromFeed($value, is_string($key) ? $key : self::deriveName(is_string($value) ? $value : $value::class));
     }
@@ -107,8 +107,8 @@ final class FeedDefinition
      *
      * With no name given, the feed is named by Feed::name() — the registered
      * key when the class is registered, the derived name when it is not — so
-     * `CustomerFeed::make()` and `Storyfeed::feed(CustomerFeed::class)` stamp
-     * the same identity on the builder that `Storyfeed::feed('kitchen')` does.
+     * `ProjectFeed::make()` and `Storyfeed::feed(ProjectFeed::class)` stamp
+     * the same identity on the builder that `Storyfeed::feed('workspace')` does.
      */
     public static function fromFeed(Feed|string $feed, ?string $name = null): self
     {
@@ -140,7 +140,7 @@ final class FeedDefinition
         );
     }
 
-    /** `CustomerFeed` → `customer`; `KitchenWallFeed` → `kitchen-wall`. */
+    /** `ProjectFeed` → `project`; `EditorialFeed` → `editorial`. */
     public static function deriveName(string $class): string
     {
         $base = class_basename($class);
@@ -266,7 +266,7 @@ final class FeedDefinition
     }
 
     /**
-     * `app/Feeds/CustomerFeed.php:14` — what a finding points at.
+     * `app/Feeds/ProjectFeed.php:14` — what a finding points at.
      *
      * Closures reflect too, so the closure form gets this as well: a preset
      * naming a typo'd verb should jump to the provider line that named it. What

@@ -9,13 +9,13 @@ use Storyfeed\Support\ActivityRoles;
  * A headline registered as a translation key, translated when the feed is
  * READ — in the reader's locale, not the locale the app booted in.
  *
- *     Story::for(Order::class)->verb('place')
- *         ->headline(FeedHeadline::trans('feed.order_placed'));
+ *     Story::for(Task::class)->verb('complete')
+ *         ->headline(FeedHeadline::trans('feed.task_completed'));
  *
- *     Storyfeed::grammar(['order.place' => FeedHeadline::trans('feed.order_placed')]);
+ *     Storyfeed::grammar(['task.complete' => FeedHeadline::trans('feed.task_completed')]);
  *
  * WHY NOT `__()` AT REGISTRATION. Definitions run at boot, and boot runs
- * before the locale middleware: `__('feed.order_placed')` in a provider is
+ * before the locale middleware: `__('feed.task_completed')` in a provider is
  * translated once, in the default locale, and every reader gets that
  * language. Under `storyfeed:cache` it would be the locale of whoever ran the
  * deploy. The wrapper stores the key and defers the lookup to the one moment

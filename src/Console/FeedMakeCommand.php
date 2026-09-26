@@ -13,17 +13,17 @@ use Symfony\Component\Console\Input\InputOption;
 /**
  * Generate a Feed class.
  *
- *   php artisan make:feed Customer
- *   php artisan make:feed Customer --subject=App\Models\Order --role=context
- *   php artisan make:feed Customer --only=order.placed,order.paid --mode=log
- *   php artisan make:feed Customer --from-doctor
+ *   php artisan make:feed Ticket
+ *   php artisan make:feed Ticket --subject=App\Models\Ticket --role=context
+ *   php artisan make:feed Ticket --only=ticket.opened,ticket.resolved --mode=log
+ *   php artisan make:feed Ticket --from-doctor
  *
  * `make:feed`, not `make:storyfeed` — the latter reads like it generates the
  * package.
  *
  * WHAT THE GENERATOR IS FOR HERE, specifically: writing the typed constructor.
  * The subject being a constructor argument is what makes an unscoped build
- * impossible — `CustomerFeed::make()` cannot even be called — and writing that
+ * impossible — `TicketFeed::make()` cannot even be called — and writing that
  * argument by hand is the step people skip. Same move as `make:story` writing
  * $verb and $objectType into the file: the guarantee is in the generated code,
  * where a wrong guess is visible in the diff, rather than in runtime inference.
@@ -82,8 +82,8 @@ class FeedMakeCommand extends GeneratorCommand
      *
      * DELIBERATELY NOT ONE FEED PER VERB, which is what the make:story analogy
      * suggests. An unauthored (type, verb) pair genuinely needs its own story —
-     * finding and file correspond. A verb→feed mapping does not: `order.margin_note`
-     * does not want a MarginNoteFeed, it wants to be DENIED in the customer feed
+     * finding and file correspond. A verb→feed mapping does not: `ticket.internal_note`
+     * does not want an InternalNoteFeed, it wants to be DENIED in the ticket feed
      * and allowed in the admin one. And a generated single-verb feed would be a
      * RESTRICTED feed that MENTIONS its verb, which is exactly what FeedCoverage
      * counts as decided — so the generator would turn the check green while
@@ -124,7 +124,7 @@ class FeedMakeCommand extends GeneratorCommand
     }
 
     /**
-     * `Customer` → `CustomerFeed`. Said out loud, because a generator that
+     * `Ticket` → `TicketFeed`. Said out loud, because a generator that
      * quietly renames your class is a generator you stop trusting.
      */
     protected function qualifyClass($name): string
@@ -222,7 +222,7 @@ class FeedMakeCommand extends GeneratorCommand
         }
 
         return $lines === []
-            ? "            // 'order.placed', 'order.delivered' — the verbs this audience may see."
+            ? "            // 'ticket.opened', 'ticket.resolved' — the verbs this audience may see."
             : implode(PHP_EOL, $lines);
     }
 
@@ -298,7 +298,7 @@ class FeedMakeCommand extends GeneratorCommand
     protected function getArguments(): array
     {
         return [
-            ['name', InputArgument::REQUIRED, 'The feed class name, e.g. Customer or CustomerFeed'],
+            ['name', InputArgument::REQUIRED, 'The feed class name, e.g. Ticket or TicketFeed'],
         ];
     }
 }
