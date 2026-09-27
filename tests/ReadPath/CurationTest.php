@@ -352,6 +352,25 @@ it('names the replacement when a pre-0.7 mode is configured', function () {
         ->toThrow(InvalidArgumentException::class, 'storyfeed.grouping.curate');
 });
 
+it('reads repeats only once curation is disabled, even where winners were stamped before', function () {
+    $project = Customer::create(['name' => 'Concur']);
+
+    foreach (['Bob', 'Sally', 'Ann'] as $name) {
+        uploadsTo($project, $name);
+    }
+
+    expect(Storyfeed::feed()->live()->get()->toArray()['items'][0]['axis'])->toBe('actors');
+
+    config()->set('storyfeed.grouping.curate', false);
+
+    // The winner stamps are still stored; live no longer reads them.
+    $items = Storyfeed::feed()->live()->get()->toArray()['items'];
+
+    expect(Grouping::query()->where('winner', true)->count())->toBeGreaterThan(0)
+        ->and($items)->toHaveCount(3)
+        ->and(collect($items)->where('kind', 'group'))->toBeEmpty();
+});
+
 it('degrades to classic repeat-only grouping app-wide when curation is disabled', function () {
     config()->set('storyfeed.grouping.curate', false);
 
