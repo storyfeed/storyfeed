@@ -1,28 +1,11 @@
 # Changelog
 
-## Unreleased
+## v0.11.0 — Bodies, headlines and a live feed that reads curated (2026-09-30)
 
 Upgrading from v0.10.0: the body slot and its types (`Storyfeed\Body\*`),
 `FeedMedia`'s `files` and the `Change` body all arrived on `dev-main` after
 v0.10.0, so they are new to you. The renames under "Renamed on dev-main" and the
 `Change` removal under "Removed" only affect an app that tracked `dev-main`.
-
-### Renamed on dev-main
-
-- Rename `KeyValue::missingAs()` to `KeyValue::placeholder()`, and the body-level
-  `missing()` / `missing:` to `defaultPlaceholder()` / `defaultPlaceholder:`.
-  KeyValue v2 stores `placeholder` per item and `defaultPlaceholder` on the body;
-  `upgrade()` maps stored v1 `missing` keys without rewriting stored rows.
-- Rename `Storyfeed\Body\File` to `Storyfeed\Body\FileAttachment`, with the
-  `Storyfeed/Body/FileAttachment` token. Renderers continue to read stored
-  `Storyfeed/Body/File` tokens. The old PHP class has no alias.
-- Rename MediaObject `attachments()` / `attachments:` and `withAttachments()` to
-  `files()` / `files:` and `withFiles()`. MediaObject v2 stores `files`;
-  `upgrade()` maps stored v1 `attachments` to `files`.
-- Rename FeedMedia `attachments()` / `attachments:` / `$attachments` to
-  `files()` / `files:` / `$files`, and the entity reader to `files()`.
-  The read-time payload now carries `entity.media.files`; snapshots do not
-  persist this slot. AS2 continues to serialize the standard `attachment` key.
 
 ### Added
 
@@ -52,45 +35,302 @@ v0.10.0, so they are new to you. The renames under "Renamed on dev-main" and the
   `storyfeed::feed.*`. The payload is unchanged: `items()`, `toArray()` and the
   JSON are the arrays they were, and each reader reads as that array too.
 
-### Deprecated
 
-- Registry array setters `Storyfeed::grammar()`, `actorlessGrammar()`,
-  `aggregateGrammar()`, `icons()`, `glyphIntents()`, `nouns()` and
-  `objectTypes()`, and the declaration array form (`Verb::ARRAY_KEYS` /
-  `Verb::fill()`, including arrays returned by resource or invokable actions).
-  Declare them fluently in `routes/feed.php`; these forms will be removed
-  before v1. They still work without runtime deprecation notices.
-  `Storyfeed::verbs()` (including verb-enum registration) remains supported.
-- `storyfeed:heal --dry-run`. Use `--pretend`, as `migrate`, `model:prune`
-  and `storyfeed:prune` do. `--dry-run` still previews, and prints a one-line
-  deprecation notice.
-- `Storyfeed\Testing\GrammarCoverage`, renamed `HeadlineCoverage`, with
-  `assertCoversAggregates()` renamed `assertCoversGroups()` and
-  `assertCoversPossibleAggregates()` renamed `assertCoversPossibleGroups()`.
-  The old class keeps the old method names. Failures now read "group headline
-  coverage is incomplete".
-- `Storyfeed\Healing\StoryRetirement`, renamed `ActivityRetirement`: it
-  retires an activity, and a Story is the blueprint. The old name is an alias
-  of the same class.
-- These three will be removed before v1, alongside the registry arrays.
+- **Role constraints**, as route constraints: `->whereActor()`,
+  `->whereObject()`, `->whereTarget()`, `->whereContext()` and
+  `->whereRole('origin', A::class, B::class)` on a verb, a bound class, a
+  resource, a group, and the array form (`'where' => ['actor' =>
+  User::class]`). Model classes compare by `getMorphClass()`; `'party'` (or
+  the Party model) allows a Party. A publish that fills a role with another
+  type throws `Storyfeed\Exceptions\StoryRoleMismatch`, naming the verb,
+  role, expected and given types; an anonymous actor or an empty role never
+  does. They compile into the manifest (`wheres`), show in `storyfeed:list`
+  (`--json`, and a Where column with `-v`), and the doctor's
+  `role_constraints.violated` warns about stored rows that break one.
+- **`Story::resources([Model::class => StoryClass::class, …], $options)`**,
+  as `Route::resources()`: several resources in one call, a null class for
+  the four lifecycle verbs alone. Options by `Route::resource()`'s names:
+  `only`, `except`, `middleware`, `excluded_middleware`, `wheres`.
 
-### Removed
+- **Named stories**, modelled on named routes. `->name('checkout.confirm')`
+  names a verb on a line, a bound class's line or inside an action;
+  `Story::name('billing.')->group(fn)` prefixes the names inside it, as
+  `Route::name()->group()` does, and a verb given no name stays unnamed.
+  `Story::resource(Order::class)` names every verb it defines
+  `{type}.{verb}` (`order.create`, `order.confirm_payment`): the morph alias
+  as stored, singular, so a resource story's name is its key.
+  `->names('orders')`, `->names(['ship' => 'order.dispatch'])` and
+  `->name('ship', 'order.dispatch')` override it, as on `Route::resource()`.
+  Reference a name with `story($name, $object)` or its facade twin
+  `Storyfeed::route($name, $object)`; check one with `Story::has($name)`
+  (a list checks every one). A recorded activity's `storyName()` and
+  `storyIs('order.*')` (`routeIs()`'s twin, with wildcards) look the name up
+  from the row's type and verb when read: nothing is stored, so renaming a
+  story migrates nothing. At runtime the last of two stories with one name
+  wins, as routes do; `storyfeed:cache` refuses the duplicate, naming both
+  declarations and their keys, as `route:cache` does, and refuses one key
+  given two names. `storyfeed:list` shows a Name column (and `name` in
+  `--json`) and filters with `--name=`, as route:list does. A PHPStan rule,
+  `Storyfeed\PHPStan\StoryNameRule`, reports a literal name nothing defined
+  in `story()`, `Storyfeed::route()` and `Story::has()`, reading the names
+  from the application Larastan boots; without one it says nothing.
+  `make:story --invokable` prints its binding with the name,
+  `->name('order.ship')`.
+- **Grouping periods, declared per verb.** `->groupedHourly()`, `->groupedDaily()` (the default), `->groupedWeekly()` and `->groupedMonthly()` on a verb, or `->groupedPer(Period::Week)`, `'groupedPer' => 'week'` in the array form, and a `period(): ?Period` method on a Story class. The period is the value of the Day segment of every axis key, cut in `app.timezone` at publish: `2026-09-23T14`, `2026-09-23`, `2026-W39`, `2026-09`. A verb that declares nothing hashes byte for byte as before. A week is ISO, Monday to Sunday, whatever the locale, with no config key. Resolved on the `type.verb` ladder, so `Story::fallback()->groupedWeekly()` sets it for every verb that says nothing. It compiles into the manifest as a scalar, and `storyfeed:list` shows it in a Period column (`period` in `--json`). A bounded `storyfeed:curate --window` looks back over a weekly or monthly verb's whole period plus a day, for that verb only, and the doctor's `grouping.uncurated` reach agrees.
+- **Queued publishing, as Laravel queues a Mailable and a Notification.**
+  `PendingActivity` uses `Illuminate\Bus\Queueable` (`onConnection()`,
+  `onQueue()`, `delay()`, `afterCommit()`/`beforeCommit()`, `through()`,
+  `chain()`), and `->queue()` sits beside `->publish()`:
+  `Storyfeed::activity('confirm', $order)->onQueue('feed')->queue()`. It
+  rides in a `PublishQueuedActivity` job that carries its models by key,
+  never whole, and publishes on the worker through the verb's story
+  middleware. `published_at` is stamped at the call, so a delayed publish
+  lands when it happened. Snapshots are taken on the worker; `->snapshotNow()`
+  takes them at the call. `Storyfeed::as()`, `Storyfeed::context()` and the
+  signed-in user go with it, as they do into any job. A model deleted before
+  the worker takes it fails the job, as a job's does;
+  `->deleteWhenMissingModels()` drops it silently instead. With recording
+  off, nothing is queued. `record()` stays synchronous.
+- **A verb declares where its queued publishes go**, as a job class's
+  `$queue` does: `->onConnection()`, `->onQueue()`, `->delay()`,
+  `->afterCommit()`, `->beforeCommit()` and `->deleteWhenMissingModels()`
+  on a Verb, a resource action or a bound line
+  (`Story::verb('confirm', OrderConfirmed::class)->onQueue('feed')`). The
+  call site overrides each. They compile into a new `queue` registry, which
+  `storyfeed:cache` keeps.
+- **`->afterCommit()` holds a synchronous publish too**, until the
+  surrounding transaction commits, as an event that implements
+  `ShouldDispatchAfterCommit` does, and drops it on a rollback. Until then
+  `publish()` returns the Activity unsaved (`exists` false), and the same
+  instance is stored at the commit. Off by default; a verb can declare it.
+- **A message class that `implements ShouldQueue` and uses `Queueable` is
+  queued by `Storyfeed::publish()`**, which then returns null, as a queued
+  notification and a queued mailable are; `Storyfeed::publishNow()`
+  publishes it at once. Its toFeedActivity() runs on the worker. Its
+  Queueable properties, `$tries`, `$timeout`, `backoff()`, `retryUntil()`,
+  `$deleteWhenMissingModels` and `ShouldQueueAfterCommit` apply over the
+  line's declaration, and `failed()` is called when the job fails.
+  `ShouldBeUnique`, `ShouldBeUniqueUntilProcessing`, `uniqueId()` and
+  `uniqueFor` are forwarded the way a queued listener's are (a second
+  publish while one is pending is dropped). **Breaking:** `#[DebounceFor]`
+  or a `$debounceFor` property on a Story class now throws a `LogicException`
+  at the call site, before dispatch, naming the class. Laravel does not
+  forward debounce declarations from queued mailables, notifications or
+  listeners. Declare `->keepLatest(within: '…')` on the verb instead:
+  `ShouldBeUnique` keeps the first pending publish; `keepLatest()` keeps
+  the latest row. The base
+  `Story` class now uses `SerializesModels`.
+- **The fake keeps queued publishes apart**, as `Mail::fake()` does:
+  `Storyfeed::assertQueued('confirm', $order)` (or a message class, or a
+  callback), `assertNotQueued()`, `assertQueuedCount()`,
+  `assertNothingQueued()` and `queued()`. `assertPublished()` suggests
+  `assertQueued()` when something was queued.
+- **Invokable story classes**, as invokable controllers: one verb's declaration, grown too big for a line in routes/feed.php, in a class that extends nothing and declares `__invoke(Verb $verb)`, returning a Verb, a headline string or the array form, as a resource class's action does. Bind it with the line a message class uses, `Story::for(Order::class)->verb('ship', ShipStory::class)`, or `Story::verb('confirm', ConfirmStory::class)` for every type, which may give `->grouped(Group::byActors()->headline(…))` a headline that names no type. The class's shape tells the two apart, as the router checks for `__invoke`: a `Story` subclass is a message, a public `__invoke` is invokable, and a class that is both or neither fails at the line, naming the two shapes. Call sites never touch it: it publishes by its name, `story('order.ship', $order)` once the line says `->name('order.ship')`, as for any named story. It is stored as `ShipStory@__invoke`, as Laravel stores an invokable controller, so `storyfeed:cache` round-trips it, and `storyfeed:list` shows `ShipStory` in its Action column, as route:list does. `make:story ShipStory --invokable --object=Order` writes one from `stubs/story.invokable.stub`; an invokable class named for a declared verb (`ShipStory`, `ConfirmPaymentStory`) takes that verb, and `--object='*'` prints `Story::verb(…)`. `--invokable` with `--resource` is an error.
+- **A `Feedable` subclass deleted through its parent is tombstoned at
+  deletion time.** `FeedablePhoto extends Media implements Feedable` is
+  deleted as a `Media`, so Eloquent fires the parent's events and never the
+  subclass's own; its tombstone used to wait for the next trickle. Core now
+  also listens to the parent's `deleted`, `forceDeleted` and `restored`
+  events for every such class in the morph map or registered with
+  `Storyfeed::feedable()`, walking up to the first Feedable ancestor and
+  skipping abstract and framework classes. A parent row counts only when an
+  activity names the subclass's alias with its key: one indexed
+  `feed_participants` probe per deletion, nothing written otherwise, and no
+  listener at all in an app without such a subclass. A subclass with a table
+  of its own is ignored. The trickle still sweeps as the safety net. New
+  `Feedables::listenThroughParents()`, `nonFeedableParents()` and
+  `listensThroughParents()`.
+- **`storyfeed:doctor` names a `Feedable` subclass deleted through a
+  non-Feedable parent** (`inherited.parent_deletes`, Info): the class, its
+  alias, the parents, and whether the parent listener is active or its
+  tombstones arrive on the trickle's schedule. It also says that updates are
+  not heard through the parent: a subclass updated as its parent keeps its
+  snapshot until the trickle runs.
 
-- **The `Change` body type and `FeedChange` leave core** (dev-main only;
-  neither was in a tagged release). Gone:
-  `Storyfeed\Body\Change` (`Storyfeed/Body/Change`), `Storyfeed\FeedChange`,
-  `->change()` on a pending activity and a verb, `record(change:)`, the
-  payload node's `change` key and `FeedItem::changes()`. Record a before and
-  after in the activity's `data` (from and to) and say it in a dynamic
-  headline. A `$change` already stored stays in `data` as written and now
-  reaches `node.data` untouched; an app that drew it moves it to a key of its
-  own. Stored `Storyfeed/Body/Change` bodies are the app's to rename, and a
-  renderer that knew the type keeps its own copy. A job queued with
-  `->change()` before this release cannot be restored after it; drain the
-  queue first.
-- `storyfeed:doctor --stubs --arrays`. Use `storyfeed:doctor --stubs` for
-  fluent `routes/feed.php` definitions. Generated `Fix::snippet()` output
-  uses that same form, including the `snippet` field in JSON reports.
+- **`php artisan about` has a Storyfeed section.** It says whether
+  `routes/feed.php` is loaded, or cached and skipped at boot; whether
+  `storyfeed:cache` has run, and when; how many verbs (declared, and shipped
+  defaults), object types, stories and named feeds are registered; whether
+  recording is on; whether `storyfeed:curate`, `storyfeed:trickle` and
+  `storyfeed:close-batches` are scheduled; and what three cheap doctor checks
+  (`tables`, `recording`, `manifest`) report, with a pointer to the full
+  `storyfeed:doctor`. It scans no rows and renders with no definitions file,
+  no tables and no database. `--json` works as for every other section. New
+  `Storyfeed::registeredObjectTypes()`.
+
+- **`->missing(...$roles)` declares which roles an activity is about.** Once
+  one of them is a tombstone, the activity is redundant as news (still true as
+  history). `Story::verb('turn_into')->missing('object', 'result')`; on a type
+  scope, `Story::for(Question::class)->missing()` (the `type.*` rule); in the
+  array form, `'missing' => [...]`; on a Story class, a `missing()` method
+  returning the list. It REPLACES the default set, and `->missing()` with no
+  roles means none. The default, with no call: the object, except for a
+  removal verb (AS2 `Delete`, `Remove`, `Undo` or `Reject`, including
+  `Storyfeed\Verb` cases), which has none. Compiled through `CompileStories`
+  into a new `missing` registry (cached in the manifest, checked by
+  `ManifestStale`) and answered by `Support\TombstoneRules` on the
+  `type.verb` ladder. `Story::resource()` declares `delete` and `restore` as
+  removals.
+- **`FeedEntity::tombstone(fn (PendingTombstone $tombstone) => …)`** configures
+  what a model's tombstone keeps: `keepLabel()` stores the model's label on it
+  (the stories keep naming "Order #1042"), and `forgetActivities()` deletes,
+  through `ForceDeleteFromFeed`, the activities where the model fills a role
+  their verb is about, **on a hard delete only** (a soft-deleted model
+  forgets them when it's force-deleted). Both apply on the model-event path;
+  the trickle and `Storyfeed::tombstone()` have no model to ask.
+  `ForceDeleteFromFeed::activities($query)` deletes the activities a query
+  selects the same chunked way.
+- **Two Info doctor checks.** `removals.unclassified` names recorded verbs that
+  read like removals (`cancel`, `void_payment`, `trash`, …) but are treated
+  as being about their object; `labels.guessed` lists Feedable models labelled
+  by guesswork (no `describeFeed()`, `toFeed()`, `guessFeedLabel()` or
+  `toFeedUsing()`).
+
+- **`Storyfeed::tombstone(Order::class, $ids)`**, for rows deleted without
+  model events, straight after the bulk delete. It skips keys whose row still
+  exists, and takes a morph alias for a non-model `Feedable`.
+
+- **`describeFeed()` and `feedMediaUsing()`.** A model describes its snapshot
+  with `$this->feedEntity()->label(...)->body(...)` in `describeFeed(): void`,
+  and registers its read-time media with
+  `static::feedMediaUsing(fn ($context, $media) => ...)` in `booted()` (a URL
+  string, the `$media`, or null). Neither needs a `FeedEntity`, `FeedContext`
+  or `FeedMedia` import. A hand-written `toFeed()` or `feedMedia()` still wins.
+
+- **`Storyfeed::guessFeedLabelsUsing(fn (Model $model) => ...)`** sets the
+  label guess app-wide; returning null falls through to the ladder. A model
+  overriding `guessFeedLabel()` isn't asked.
+
+- **`Storyfeed::feedable(Media::class)->toFeedUsing(...)->feedMediaUsing(...)`**
+  makes a model you don't own Feedable from a service provider. Core treats it
+  as `Feedable` everywhere, its saves refresh its snapshot, and its `deleted`
+  and `forceDeleted` events reach the feed. Registration is by exact class; a
+  class that already implements `Feedable` can't be registered.
+
+- **`routes/feed.php`, the definitions file.** `Story::` definitions live
+  there the way routes live in `routes/web.php`. The package loads it after
+  every provider has booted (the `routes/channels.php` timing), so the morph
+  map is in place. `storyfeed.definitions` points elsewhere, or `false` turns
+  it off.
+
+- **`php artisan storyfeed:install`** publishes the config and migrations,
+  creates `routes/feed.php` from a stub (the Quickstart's example, commented
+  out) and offers to migrate. It never overwrites an existing
+  `routes/feed.php`. The stub alone publishes with
+  `vendor:publish --tag=storyfeed-definitions`.
+
+- **`storyfeed:cache` caches `routes/feed.php` the way `route:cache` caches
+  route files.** Once cached, the file isn't loaded at boot. Closure headlines
+  are serialised as closure routes are, and one that can't be fails the
+  command naming its `file:line`. The file may hold definitions only: a
+  `Storyfeed::grammar()` (or any hand-written registry) call in it makes the
+  command fail, since it would stop running once cached. `manifest.stale`
+  compares against the file as it is now. New dependency:
+  `laravel/serializable-closure` (already installed with the framework).
+
+- **`php artisan storyfeed:list`**: every definition, `route:list`-style, with
+  its headline, anonymous headline, icon, intent, group headlines and source
+  `file:line`. `--type=` (alias or class), `--verb=`, `--json`.
+
+- **`Story::resource(Order::class)`** defines `create`, `update`, `delete` and
+  `restore` in one line (`:actor created :object`, `:object was created`, an
+  icon each), narrowed with `->only()` / `->except()`, with `->noun()` for the
+  type's noun, which is how a group of them reads.
+
+- **Doctor: `grammar.unrecorded`** (Info), a type-and-verb pair defined but
+  never recorded while its verb is recorded on other types, naming the line.
+  `verbs.dead` names the line that defined the verb.
+
+- **`Storyfeed\Body\Component`, the eighth body type**, stored as
+  `Storyfeed/Body/Component`: an app's own frontend component by `name`
+  (verbatim) with its `props`.
+  `Component::make()->name('Common/ScoreCard')->props([...])`.
+
+- **The `Story` facade: define headlines the way routes are defined.**
+  `Storyfeed\Facades\Story` (→ `StoryManager`) registers `StoryDefinition`s
+  on call, which compile beside Story classes into the same registries:
+  `Story::for(Order::class)->group(fn () => Story::verb('place')->headline(…))`,
+  `Story::for(Order::class)->verb('place')->…`, a chained
+  `->verb('place', fn (StoryDefinition $verb) => …)`, `Story::verb('place')`
+  for `*.place`, and `Story::fallback()` / `Story::for(X)->fallback()` for
+  `*.*` / `x.*`. `for()` takes a model class (resolved through the morph map),
+  an alias, or a list. `Storyfeed::` stays the facade for recording and
+  reading.
+
+- **`StoryDefinition` covers every headline registry.** New:
+  `anonymousHeadline()`, `noun()`, `activityStreamsType()` (the object type's
+  AS2 type; `type()` stays the verb's activity type), `grouped()` taking
+  `Group` objects or a closure over the new `GroupBuilder`
+  (`fn ($group) => $group->repeat(…)->actors(…)->axis('scene', …)`), and
+  `Conditionable`. `headline()` takes a template, a closure or a
+  `FeedHeadline`. The array form accepts `anonymousHeadline`, `noun` and
+  `activityStreamsType` keys.
+
+- **Optional segments in headline templates:**
+  `':actor placed :object[ with :target]'`. A bracketed segment is dropped when
+  a role it names is empty, and core resolves it, so `headline_template` never
+  contains a bracket and renderers need no change.
+
+- **`FeedHeadline::trans('feed.order_placed')`**, a headline translated when
+  the feed is read, in the reader's locale. Usable in `headline()` and every
+  grammar registry, and cacheable by `storyfeed:cache`.
+
+- **`FeedContext::routeKey()`: the model's `getRouteKey()`, recorded when the
+  snapshot is written**, the way the label is. A resolver can write
+  `route('menu.show', $context->routeKey())` for a slug- or UUID-routed model
+  with no query and nothing added to `data`. When the route key is the primary
+  key, it equals `key()`.
+
+  **UPGRADING TAKES ONE STEP AND THE APP WILL NOT RUN WITHOUT IT:**
+
+      php artisan vendor:publish --tag=storyfeed-migrations
+      php artisan migrate
+
+  `feed_snapshots` gains a nullable `meta` JSON column
+  (`add_meta_to_feed_snapshots_table`). Every snapshot write sets it, so
+  without it every publish fails on an undefined column;
+  `storyfeed:doctor --only=columns` names it. `meta` holds the package's
+  snapshot extras that are never queried or indexed; the app's values stay in
+  `data`, and `data()` never returns `meta`. Rows written before it fall back
+  to `key()` until they are written again, by the next save or by
+  `storyfeed:trickle`.
+
+- **`FeedContext::data()` reads dot paths**, as `$request->input()` and
+  `config()` do: `$context->data('photo.width')`. A key that itself contains a
+  dot is found first. `data()` with no argument still returns the whole array.
+  One edge moves with it: a key stored with a null value now returns null, not
+  the default, as it does in `config()`.
+
+- **`php artisan optimize` now compiles recent snapshots.** `toFeed()` output is
+  cached, so changing that method changes what NEW snapshots store and leaves
+  every row already written saying what it said before. A consumer edits,
+  deploys, looks, and sees nothing change — with no error, no warning and no
+  line in the deploy telling them why. It cost two sessions an hour of
+  stylesheet forensics, and the owner, who wrote the machinery, waited for a fix
+  that had already shipped.
+
+  So a deploy compiles them, the way a deploy compiles assets. `storyfeed:rebuild
+  --recent=N` is bounded by **activities scanned rather than entities found** —
+  "the last thousand activities" is a number an operator can reason about, and
+  the entities behind it are however many they are. It runs newest-first, and so does the
+  trickle now: a deploy fixes what somebody is about to look at, and the tail
+  continues from where it stopped in the same direction. On a feed with ten
+  years of stories in it, the other order repairs 2016 while today stays wrong.
+
+  **The majority case is a no-op** — most deploys change no `toFeed()`, nothing
+  is rewritten, and nothing is printed. When it does speak there is a reason.
+  And it does not promise what it cannot keep: "older ones follow with the
+  trickle" is only printed when a trickle pass has actually run, because for an
+  app that never wired the scheduler that sentence would be false at the one
+  moment it would be believed.
+
+  It declines quietly when there is no database. `optimize` is routinely run on
+  a build machine that has the code and not the connection, and a deploy broken
+  by a cache warmer is a worse bug than a stale snapshot.
+
+- **`MorphResolver::feedables()`** — resolve many keys of one alias in a single
+  query. The singular form is a `find()` per entity, which is right for one and
+  three hundred round trips inside a deploy step.
 
 ### Changed
 
@@ -602,7 +842,46 @@ v0.10.0, so they are new to you. The renames under "Renamed on dev-main" and the
 - **`make:story --from-doctor` never names a class with a misspelled past tense.** A recorded `ship` became `DeliveryWasShiped.php`, and its headline read `shiped` back out of the name. Where the past tense is certain the class is named as before. Otherwise it asks, per verb, "How is 'ship' written in the past tense?", offering the spellings and "Skip this one". Without a terminal it skips the verb, writes nothing for it, and prints one complete command per spelling, to run as printed: `php artisan make:story DeliveryWasShipped --verb=ship --object=delivery` and `php artisan make:story DeliveryWasShiped --verb=ship --object=delivery`. It prints where to bind what it wrote before asking you to review it, and asks for no review when it wrote nothing.
 - **`make:story --model` writes a resource class, as `make:controller --model` writes a resource controller** (breaking). `make:story OrderStory --model=Order` alone now implies `--resource`, and `--model` no longer names the object of a one-verb story: use `--object=Order`. `--model` wins over `--invokable`, as it does in Laravel, with one line saying `--invokable` was ignored. With no name and no options, `make:story` asks the name, then "What will this story describe?": *One activity, published with its data* (like an event), *Every activity for one model* (like a resource controller, which then asks its model), or *A single verb* (like a single action controller). It then asks only what that shape needs. Passing any option skips the question, as `make:controller` does.
 
+### Deprecated
+
+- Registry array setters `Storyfeed::grammar()`, `actorlessGrammar()`,
+  `aggregateGrammar()`, `icons()`, `glyphIntents()`, `nouns()` and
+  `objectTypes()`, and the declaration array form (`Verb::ARRAY_KEYS` /
+  `Verb::fill()`, including arrays returned by resource or invokable actions).
+  Declare them fluently in `routes/feed.php`; these forms will be removed
+  before v1. They still work without runtime deprecation notices.
+  `Storyfeed::verbs()` (including verb-enum registration) remains supported.
+- `storyfeed:heal --dry-run`. Use `--pretend`, as `migrate`, `model:prune`
+  and `storyfeed:prune` do. `--dry-run` still previews, and prints a one-line
+  deprecation notice.
+- `Storyfeed\Testing\GrammarCoverage`, renamed `HeadlineCoverage`, with
+  `assertCoversAggregates()` renamed `assertCoversGroups()` and
+  `assertCoversPossibleAggregates()` renamed `assertCoversPossibleGroups()`.
+  The old class keeps the old method names. Failures now read "group headline
+  coverage is incomplete".
+- `Storyfeed\Healing\StoryRetirement`, renamed `ActivityRetirement`: it
+  retires an activity, and a Story is the blueprint. The old name is an alias
+  of the same class.
+- These three will be removed before v1, alongside the registry arrays.
+
 ### Removed
+
+- **The `Change` body type and `FeedChange` leave core** (dev-main only;
+  neither was in a tagged release). Gone:
+  `Storyfeed\Body\Change` (`Storyfeed/Body/Change`), `Storyfeed\FeedChange`,
+  `->change()` on a pending activity and a verb, `record(change:)`, the
+  payload node's `change` key and `FeedItem::changes()`. Record a before and
+  after in the activity's `data` (from and to) and say it in a dynamic
+  headline. A `$change` already stored stays in `data` as written and now
+  reaches `node.data` untouched; an app that drew it moves it to a key of its
+  own. Stored `Storyfeed/Body/Change` bodies are the app's to rename, and a
+  renderer that knew the type keeps its own copy. A job queued with
+  `->change()` before this release cannot be restored after it; drain the
+  queue first.
+- `storyfeed:doctor --stubs --arrays`. Use `storyfeed:doctor --stubs` for
+  fluent `routes/feed.php` definitions. Generated `Fix::snippet()` output
+  uses that same form, including the `snippet` field in JSON reports.
+
 
 - **Replacement at the call site is gone.** `PendingActivity::replace()`,
   `PendingActivity::publishAndReplace()`, the enum forwarders
@@ -651,316 +930,6 @@ v0.10.0, so they are new to you. The renames under "Renamed on dev-main" and the
   `forceDeleteFromFeed()` keeps its per-chunk transaction, which the removal
   recorder happened to be providing — `ForgetActivities` clearing grouping and
   participant rows and the `forceDelete` that follows it must still be atomic.
-
-### Added
-
-- **Role constraints**, as route constraints: `->whereActor()`,
-  `->whereObject()`, `->whereTarget()`, `->whereContext()` and
-  `->whereRole('origin', A::class, B::class)` on a verb, a bound class, a
-  resource, a group, and the array form (`'where' => ['actor' =>
-  User::class]`). Model classes compare by `getMorphClass()`; `'party'` (or
-  the Party model) allows a Party. A publish that fills a role with another
-  type throws `Storyfeed\Exceptions\StoryRoleMismatch`, naming the verb,
-  role, expected and given types; an anonymous actor or an empty role never
-  does. They compile into the manifest (`wheres`), show in `storyfeed:list`
-  (`--json`, and a Where column with `-v`), and the doctor's
-  `role_constraints.violated` warns about stored rows that break one.
-- **`Story::resources([Model::class => StoryClass::class, …], $options)`**,
-  as `Route::resources()`: several resources in one call, a null class for
-  the four lifecycle verbs alone. Options by `Route::resource()`'s names:
-  `only`, `except`, `middleware`, `excluded_middleware`, `wheres`.
-
-- **Named stories**, modelled on named routes. `->name('checkout.confirm')`
-  names a verb on a line, a bound class's line or inside an action;
-  `Story::name('billing.')->group(fn)` prefixes the names inside it, as
-  `Route::name()->group()` does, and a verb given no name stays unnamed.
-  `Story::resource(Order::class)` names every verb it defines
-  `{type}.{verb}` (`order.create`, `order.confirm_payment`): the morph alias
-  as stored, singular, so a resource story's name is its key.
-  `->names('orders')`, `->names(['ship' => 'order.dispatch'])` and
-  `->name('ship', 'order.dispatch')` override it, as on `Route::resource()`.
-  Reference a name with `story($name, $object)` or its facade twin
-  `Storyfeed::route($name, $object)`; check one with `Story::has($name)`
-  (a list checks every one). A recorded activity's `storyName()` and
-  `storyIs('order.*')` (`routeIs()`'s twin, with wildcards) look the name up
-  from the row's type and verb when read: nothing is stored, so renaming a
-  story migrates nothing. At runtime the last of two stories with one name
-  wins, as routes do; `storyfeed:cache` refuses the duplicate, naming both
-  declarations and their keys, as `route:cache` does, and refuses one key
-  given two names. `storyfeed:list` shows a Name column (and `name` in
-  `--json`) and filters with `--name=`, as route:list does. A PHPStan rule,
-  `Storyfeed\PHPStan\StoryNameRule`, reports a literal name nothing defined
-  in `story()`, `Storyfeed::route()` and `Story::has()`, reading the names
-  from the application Larastan boots; without one it says nothing.
-  `make:story --invokable` prints its binding with the name,
-  `->name('order.ship')`.
-- **Grouping periods, declared per verb.** `->groupedHourly()`, `->groupedDaily()` (the default), `->groupedWeekly()` and `->groupedMonthly()` on a verb, or `->groupedPer(Period::Week)`, `'groupedPer' => 'week'` in the array form, and a `period(): ?Period` method on a Story class. The period is the value of the Day segment of every axis key, cut in `app.timezone` at publish: `2026-09-23T14`, `2026-09-23`, `2026-W39`, `2026-09`. A verb that declares nothing hashes byte for byte as before. A week is ISO, Monday to Sunday, whatever the locale, with no config key. Resolved on the `type.verb` ladder, so `Story::fallback()->groupedWeekly()` sets it for every verb that says nothing. It compiles into the manifest as a scalar, and `storyfeed:list` shows it in a Period column (`period` in `--json`). A bounded `storyfeed:curate --window` looks back over a weekly or monthly verb's whole period plus a day, for that verb only, and the doctor's `grouping.uncurated` reach agrees.
-- **Queued publishing, as Laravel queues a Mailable and a Notification.**
-  `PendingActivity` uses `Illuminate\Bus\Queueable` (`onConnection()`,
-  `onQueue()`, `delay()`, `afterCommit()`/`beforeCommit()`, `through()`,
-  `chain()`), and `->queue()` sits beside `->publish()`:
-  `Storyfeed::activity('confirm', $order)->onQueue('feed')->queue()`. It
-  rides in a `PublishQueuedActivity` job that carries its models by key,
-  never whole, and publishes on the worker through the verb's story
-  middleware. `published_at` is stamped at the call, so a delayed publish
-  lands when it happened. Snapshots are taken on the worker; `->snapshotNow()`
-  takes them at the call. `Storyfeed::as()`, `Storyfeed::context()` and the
-  signed-in user go with it, as they do into any job. A model deleted before
-  the worker takes it fails the job, as a job's does;
-  `->deleteWhenMissingModels()` drops it silently instead. With recording
-  off, nothing is queued. `record()` stays synchronous.
-- **A verb declares where its queued publishes go**, as a job class's
-  `$queue` does: `->onConnection()`, `->onQueue()`, `->delay()`,
-  `->afterCommit()`, `->beforeCommit()` and `->deleteWhenMissingModels()`
-  on a Verb, a resource action or a bound line
-  (`Story::verb('confirm', OrderConfirmed::class)->onQueue('feed')`). The
-  call site overrides each. They compile into a new `queue` registry, which
-  `storyfeed:cache` keeps.
-- **`->afterCommit()` holds a synchronous publish too**, until the
-  surrounding transaction commits, as an event that implements
-  `ShouldDispatchAfterCommit` does, and drops it on a rollback. Until then
-  `publish()` returns the Activity unsaved (`exists` false), and the same
-  instance is stored at the commit. Off by default; a verb can declare it.
-- **A message class that `implements ShouldQueue` and uses `Queueable` is
-  queued by `Storyfeed::publish()`**, which then returns null, as a queued
-  notification and a queued mailable are; `Storyfeed::publishNow()`
-  publishes it at once. Its toFeedActivity() runs on the worker. Its
-  Queueable properties, `$tries`, `$timeout`, `backoff()`, `retryUntil()`,
-  `$deleteWhenMissingModels` and `ShouldQueueAfterCommit` apply over the
-  line's declaration, and `failed()` is called when the job fails.
-  `ShouldBeUnique`, `ShouldBeUniqueUntilProcessing`, `uniqueId()` and
-  `uniqueFor` are forwarded the way a queued listener's are (a second
-  publish while one is pending is dropped). **Breaking:** `#[DebounceFor]`
-  or a `$debounceFor` property on a Story class now throws a `LogicException`
-  at the call site, before dispatch, naming the class. Laravel does not
-  forward debounce declarations from queued mailables, notifications or
-  listeners. Declare `->keepLatest(within: '…')` on the verb instead:
-  `ShouldBeUnique` keeps the first pending publish; `keepLatest()` keeps
-  the latest row. The base
-  `Story` class now uses `SerializesModels`.
-- **The fake keeps queued publishes apart**, as `Mail::fake()` does:
-  `Storyfeed::assertQueued('confirm', $order)` (or a message class, or a
-  callback), `assertNotQueued()`, `assertQueuedCount()`,
-  `assertNothingQueued()` and `queued()`. `assertPublished()` suggests
-  `assertQueued()` when something was queued.
-- **Invokable story classes**, as invokable controllers: one verb's declaration, grown too big for a line in routes/feed.php, in a class that extends nothing and declares `__invoke(Verb $verb)`, returning a Verb, a headline string or the array form, as a resource class's action does. Bind it with the line a message class uses, `Story::for(Order::class)->verb('ship', ShipStory::class)`, or `Story::verb('confirm', ConfirmStory::class)` for every type, which may give `->grouped(Group::byActors()->headline(…))` a headline that names no type. The class's shape tells the two apart, as the router checks for `__invoke`: a `Story` subclass is a message, a public `__invoke` is invokable, and a class that is both or neither fails at the line, naming the two shapes. Call sites never touch it: it publishes by its name, `story('order.ship', $order)` once the line says `->name('order.ship')`, as for any named story. It is stored as `ShipStory@__invoke`, as Laravel stores an invokable controller, so `storyfeed:cache` round-trips it, and `storyfeed:list` shows `ShipStory` in its Action column, as route:list does. `make:story ShipStory --invokable --object=Order` writes one from `stubs/story.invokable.stub`; an invokable class named for a declared verb (`ShipStory`, `ConfirmPaymentStory`) takes that verb, and `--object='*'` prints `Story::verb(…)`. `--invokable` with `--resource` is an error.
-- **A `Feedable` subclass deleted through its parent is tombstoned at
-  deletion time.** `FeedablePhoto extends Media implements Feedable` is
-  deleted as a `Media`, so Eloquent fires the parent's events and never the
-  subclass's own; its tombstone used to wait for the next trickle. Core now
-  also listens to the parent's `deleted`, `forceDeleted` and `restored`
-  events for every such class in the morph map or registered with
-  `Storyfeed::feedable()`, walking up to the first Feedable ancestor and
-  skipping abstract and framework classes. A parent row counts only when an
-  activity names the subclass's alias with its key: one indexed
-  `feed_participants` probe per deletion, nothing written otherwise, and no
-  listener at all in an app without such a subclass. A subclass with a table
-  of its own is ignored. The trickle still sweeps as the safety net. New
-  `Feedables::listenThroughParents()`, `nonFeedableParents()` and
-  `listensThroughParents()`.
-- **`storyfeed:doctor` names a `Feedable` subclass deleted through a
-  non-Feedable parent** (`inherited.parent_deletes`, Info): the class, its
-  alias, the parents, and whether the parent listener is active or its
-  tombstones arrive on the trickle's schedule. It also says that updates are
-  not heard through the parent: a subclass updated as its parent keeps its
-  snapshot until the trickle runs.
-
-- **`php artisan about` has a Storyfeed section.** It says whether
-  `routes/feed.php` is loaded, or cached and skipped at boot; whether
-  `storyfeed:cache` has run, and when; how many verbs (declared, and shipped
-  defaults), object types, stories and named feeds are registered; whether
-  recording is on; whether `storyfeed:curate`, `storyfeed:trickle` and
-  `storyfeed:close-batches` are scheduled; and what three cheap doctor checks
-  (`tables`, `recording`, `manifest`) report, with a pointer to the full
-  `storyfeed:doctor`. It scans no rows and renders with no definitions file,
-  no tables and no database. `--json` works as for every other section. New
-  `Storyfeed::registeredObjectTypes()`.
-
-- **`->missing(...$roles)` declares which roles an activity is about.** Once
-  one of them is a tombstone, the activity is redundant as news (still true as
-  history). `Story::verb('turn_into')->missing('object', 'result')`; on a type
-  scope, `Story::for(Question::class)->missing()` (the `type.*` rule); in the
-  array form, `'missing' => [...]`; on a Story class, a `missing()` method
-  returning the list. It REPLACES the default set, and `->missing()` with no
-  roles means none. The default, with no call: the object, except for a
-  removal verb (AS2 `Delete`, `Remove`, `Undo` or `Reject`, including
-  `Storyfeed\Verb` cases), which has none. Compiled through `CompileStories`
-  into a new `missing` registry (cached in the manifest, checked by
-  `ManifestStale`) and answered by `Support\TombstoneRules` on the
-  `type.verb` ladder. `Story::resource()` declares `delete` and `restore` as
-  removals.
-- **`FeedEntity::tombstone(fn (PendingTombstone $tombstone) => …)`** configures
-  what a model's tombstone keeps: `keepLabel()` stores the model's label on it
-  (the stories keep naming "Order #1042"), and `forgetActivities()` deletes,
-  through `ForceDeleteFromFeed`, the activities where the model fills a role
-  their verb is about, **on a hard delete only** (a soft-deleted model
-  forgets them when it's force-deleted). Both apply on the model-event path;
-  the trickle and `Storyfeed::tombstone()` have no model to ask.
-  `ForceDeleteFromFeed::activities($query)` deletes the activities a query
-  selects the same chunked way.
-- **Two Info doctor checks.** `removals.unclassified` names recorded verbs that
-  read like removals (`cancel`, `void_payment`, `trash`, …) but are treated
-  as being about their object; `labels.guessed` lists Feedable models labelled
-  by guesswork (no `describeFeed()`, `toFeed()`, `guessFeedLabel()` or
-  `toFeedUsing()`).
-
-- **`Storyfeed::tombstone(Order::class, $ids)`**, for rows deleted without
-  model events, straight after the bulk delete. It skips keys whose row still
-  exists, and takes a morph alias for a non-model `Feedable`.
-
-- **`describeFeed()` and `feedMediaUsing()`.** A model describes its snapshot
-  with `$this->feedEntity()->label(...)->body(...)` in `describeFeed(): void`,
-  and registers its read-time media with
-  `static::feedMediaUsing(fn ($context, $media) => ...)` in `booted()` (a URL
-  string, the `$media`, or null). Neither needs a `FeedEntity`, `FeedContext`
-  or `FeedMedia` import. A hand-written `toFeed()` or `feedMedia()` still wins.
-
-- **`Storyfeed::guessFeedLabelsUsing(fn (Model $model) => ...)`** sets the
-  label guess app-wide; returning null falls through to the ladder. A model
-  overriding `guessFeedLabel()` isn't asked.
-
-- **`Storyfeed::feedable(Media::class)->toFeedUsing(...)->feedMediaUsing(...)`**
-  makes a model you don't own Feedable from a service provider. Core treats it
-  as `Feedable` everywhere, its saves refresh its snapshot, and its `deleted`
-  and `forceDeleted` events reach the feed. Registration is by exact class; a
-  class that already implements `Feedable` can't be registered.
-
-- **`routes/feed.php`, the definitions file.** `Story::` definitions live
-  there the way routes live in `routes/web.php`. The package loads it after
-  every provider has booted (the `routes/channels.php` timing), so the morph
-  map is in place. `storyfeed.definitions` points elsewhere, or `false` turns
-  it off.
-
-- **`php artisan storyfeed:install`** publishes the config and migrations,
-  creates `routes/feed.php` from a stub (the Quickstart's example, commented
-  out) and offers to migrate. It never overwrites an existing
-  `routes/feed.php`. The stub alone publishes with
-  `vendor:publish --tag=storyfeed-definitions`.
-
-- **`storyfeed:cache` caches `routes/feed.php` the way `route:cache` caches
-  route files.** Once cached, the file isn't loaded at boot. Closure headlines
-  are serialised as closure routes are, and one that can't be fails the
-  command naming its `file:line`. The file may hold definitions only: a
-  `Storyfeed::grammar()` (or any hand-written registry) call in it makes the
-  command fail, since it would stop running once cached. `manifest.stale`
-  compares against the file as it is now. New dependency:
-  `laravel/serializable-closure` (already installed with the framework).
-
-- **`php artisan storyfeed:list`**: every definition, `route:list`-style, with
-  its headline, anonymous headline, icon, intent, group headlines and source
-  `file:line`. `--type=` (alias or class), `--verb=`, `--json`.
-
-- **`Story::resource(Order::class)`** defines `create`, `update`, `delete` and
-  `restore` in one line (`:actor created :object`, `:object was created`, an
-  icon each), narrowed with `->only()` / `->except()`, with `->noun()` for the
-  type's noun, which is how a group of them reads.
-
-- **Doctor: `grammar.unrecorded`** (Info), a type-and-verb pair defined but
-  never recorded while its verb is recorded on other types, naming the line.
-  `verbs.dead` names the line that defined the verb.
-
-- **`Storyfeed\Body\Component`, the eighth body type**, stored as
-  `Storyfeed/Body/Component`: an app's own frontend component by `name`
-  (verbatim) with its `props`.
-  `Component::make()->name('Common/ScoreCard')->props([...])`.
-
-- **The `Story` facade: define headlines the way routes are defined.**
-  `Storyfeed\Facades\Story` (→ `StoryManager`) registers `StoryDefinition`s
-  on call, which compile beside Story classes into the same registries:
-  `Story::for(Order::class)->group(fn () => Story::verb('place')->headline(…))`,
-  `Story::for(Order::class)->verb('place')->…`, a chained
-  `->verb('place', fn (StoryDefinition $verb) => …)`, `Story::verb('place')`
-  for `*.place`, and `Story::fallback()` / `Story::for(X)->fallback()` for
-  `*.*` / `x.*`. `for()` takes a model class (resolved through the morph map),
-  an alias, or a list. `Storyfeed::` stays the facade for recording and
-  reading.
-
-- **`StoryDefinition` covers every headline registry.** New:
-  `anonymousHeadline()`, `noun()`, `activityStreamsType()` (the object type's
-  AS2 type; `type()` stays the verb's activity type), `grouped()` taking
-  `Group` objects or a closure over the new `GroupBuilder`
-  (`fn ($group) => $group->repeat(…)->actors(…)->axis('scene', …)`), and
-  `Conditionable`. `headline()` takes a template, a closure or a
-  `FeedHeadline`. The array form accepts `anonymousHeadline`, `noun` and
-  `activityStreamsType` keys.
-
-- **Optional segments in headline templates:**
-  `':actor placed :object[ with :target]'`. A bracketed segment is dropped when
-  a role it names is empty, and core resolves it, so `headline_template` never
-  contains a bracket and renderers need no change.
-
-- **`FeedHeadline::trans('feed.order_placed')`**, a headline translated when
-  the feed is read, in the reader's locale. Usable in `headline()` and every
-  grammar registry, and cacheable by `storyfeed:cache`.
-
-- **`FeedContext::routeKey()`: the model's `getRouteKey()`, recorded when the
-  snapshot is written**, the way the label is. A resolver can write
-  `route('menu.show', $context->routeKey())` for a slug- or UUID-routed model
-  with no query and nothing added to `data`. When the route key is the primary
-  key, it equals `key()`.
-
-  **UPGRADING TAKES ONE STEP AND THE APP WILL NOT RUN WITHOUT IT:**
-
-      php artisan vendor:publish --tag=storyfeed-migrations
-      php artisan migrate
-
-  `feed_snapshots` gains a nullable `meta` JSON column
-  (`add_meta_to_feed_snapshots_table`). Every snapshot write sets it, so
-  without it every publish fails on an undefined column;
-  `storyfeed:doctor --only=columns` names it. `meta` holds the package's
-  snapshot extras that are never queried or indexed; the app's values stay in
-  `data`, and `data()` never returns `meta`. Rows written before it fall back
-  to `key()` until they are written again, by the next save or by
-  `storyfeed:trickle`.
-
-- **`FeedContext::data()` reads dot paths**, as `$request->input()` and
-  `config()` do: `$context->data('photo.width')`. A key that itself contains a
-  dot is found first. `data()` with no argument still returns the whole array.
-  One edge moves with it: a key stored with a null value now returns null, not
-  the default, as it does in `config()`.
-
-- **`php artisan optimize` now compiles recent snapshots.** `toFeed()` output is
-  cached, so changing that method changes what NEW snapshots store and leaves
-  every row already written saying what it said before. A consumer edits,
-  deploys, looks, and sees nothing change — with no error, no warning and no
-  line in the deploy telling them why. It cost two sessions an hour of
-  stylesheet forensics, and the owner, who wrote the machinery, waited for a fix
-  that had already shipped.
-
-  So a deploy compiles them, the way a deploy compiles assets. `storyfeed:rebuild
-  --recent=N` is bounded by **activities scanned rather than entities found** —
-  "the last thousand activities" is a number an operator can reason about, and
-  the entities behind it are however many they are. It runs newest-first, and so does the
-  trickle now: a deploy fixes what somebody is about to look at, and the tail
-  continues from where it stopped in the same direction. On a feed with ten
-  years of stories in it, the other order repairs 2016 while today stays wrong.
-
-  **The majority case is a no-op** — most deploys change no `toFeed()`, nothing
-  is rewritten, and nothing is printed. When it does speak there is a reason.
-  And it does not promise what it cannot keep: "older ones follow with the
-  trickle" is only printed when a trickle pass has actually run, because for an
-  app that never wired the scheduler that sentence would be false at the one
-  moment it would be believed.
-
-  It declines quietly when there is no database. `optimize` is routinely run on
-  a build machine that has the code and not the connection, and a deploy broken
-  by a cache warmer is a worse bug than a stale snapshot.
-
-- **`MorphResolver::feedables()`** — resolve many keys of one alias in a single
-  query. The singular form is a `find()` per entity, which is right for one and
-  three hundred round trips inside a deploy step.
-
-### Also
-
-- **Two concurrent first publishes by an actor that is not `Feedable` can open
-  two batches.** Measured on PostgreSQL 18 with two worker processes: when the
-  actor has no open batch, there is no row for either publish to lock, so each
-  opens one, and each later fires its own `BatchClosed` for what was one burst.
-  A `Feedable` actor (a Party, or a model using `InteractsWithFeed`) was
-  serialized by a row lock taken earlier in the publish and got one batch.
-  Nothing is fixed yet; the opt-in probe in `tests/Queue/ConcurrencyTest.php`
-  characterizes both cases. Separately, two overlapping `storyfeed:close-batches`
-  runs still close each batch once. MySQL and MariaDB are untested.
 
 ### Fixed
 
@@ -1161,6 +1130,35 @@ v0.10.0, so they are new to you. The renames under "Renamed on dev-main" and the
   those groupings as a commented `routes/feed.php` line, and `storyfeed:stories`
   counts a type's own group headlines and no longer lists a line that only
   gives a verb its group headlines as a story of its own.
+
+### Renamed on dev-main
+
+- Rename `KeyValue::missingAs()` to `KeyValue::placeholder()`, and the body-level
+  `missing()` / `missing:` to `defaultPlaceholder()` / `defaultPlaceholder:`.
+  KeyValue v2 stores `placeholder` per item and `defaultPlaceholder` on the body;
+  `upgrade()` maps stored v1 `missing` keys without rewriting stored rows.
+- Rename `Storyfeed\Body\File` to `Storyfeed\Body\FileAttachment`, with the
+  `Storyfeed/Body/FileAttachment` token. Renderers continue to read stored
+  `Storyfeed/Body/File` tokens. The old PHP class has no alias.
+- Rename MediaObject `attachments()` / `attachments:` and `withAttachments()` to
+  `files()` / `files:` and `withFiles()`. MediaObject v2 stores `files`;
+  `upgrade()` maps stored v1 `attachments` to `files`.
+- Rename FeedMedia `attachments()` / `attachments:` / `$attachments` to
+  `files()` / `files:` / `$files`, and the entity reader to `files()`.
+  The read-time payload now carries `entity.media.files`; snapshots do not
+  persist this slot. AS2 continues to serialize the standard `attachment` key.
+
+### Also
+
+- **Two concurrent first publishes by an actor that is not `Feedable` can open
+  two batches.** Measured on PostgreSQL 18 with two worker processes: when the
+  actor has no open batch, there is no row for either publish to lock, so each
+  opens one, and each later fires its own `BatchClosed` for what was one burst.
+  A `Feedable` actor (a Party, or a model using `InteractsWithFeed`) was
+  serialized by a row lock taken earlier in the publish and got one batch.
+  Nothing is fixed yet; the opt-in probe in `tests/Queue/ConcurrencyTest.php`
+  characterizes both cases. Separately, two overlapping `storyfeed:close-batches`
+  runs still close each batch once. MySQL and MariaDB are untested.
 
 ## v0.10.0 — The slot that was read as an instruction (2026-09-10)
 
