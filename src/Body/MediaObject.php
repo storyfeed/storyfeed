@@ -22,7 +22,7 @@ use Storyfeed\MediaSlot;
  *             ->body(MediaObject::make()
  *                 ->subject($this->name)
  *                 ->content($this->summary)
- *                 ->image($this->feedMediaIcon()));
+ *                 ->withIcon());
  *     }
  *
  * Stored:
@@ -133,7 +133,7 @@ use Storyfeed\MediaSlot;
  * labels the sculpture in a catalogue — rather than as a photograph under a
  * reply.
  *
- *     MediaObject::make(subject: $note->title, content: $note->body, image: $note->feedMediaIcon())
+ *     MediaObject::make(subject: $note->title, content: $note->body)->withIcon()
  *
  * **`image` — what the thing looks like.** The photo row. "Ben added a
  * photo of Bronze Figure" is about the picture. The sculpture is a non-image
@@ -142,7 +142,7 @@ use Storyfeed\MediaSlot;
  * stopping on, at the size the feed gives a picture. Same rows, same
  * photograph, and only this one stays a photograph.
  *
- *     MediaObject::make(subject: $dish->name, content: $photo->caption, image: $dish->feedMediaImage())
+ *     MediaObject::make(subject: $dish->name, content: $photo->caption)->withImage()
  *
  * **`preview` — a stand-in that previews the thing without depicting it.**
  * A link card. An app stores a URL, scrapes its og:title, og:description
@@ -155,7 +155,7 @@ use Storyfeed\MediaSlot;
  * the thing itself). Every reader has seen this card in a chat app, so the
  * case is recognised rather than taught.
  *
- *     MediaObject::make(subject: $link->og_title, content: $link->og_description, image: $link->feedMediaPreview())
+ *     MediaObject::make(subject: $link->og_title, content: $link->og_description)->withPreview()
  *
  * THE PACKAGE FETCHES NOTHING. The app scraped and cached those values
  * before it recorded the row; the resolver turns the cached og:image into a URL
