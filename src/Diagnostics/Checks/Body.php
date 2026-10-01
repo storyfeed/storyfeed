@@ -332,7 +332,14 @@ class Body extends Check
 
         $found = [];
 
-        foreach ($data as $value) {
+        foreach ($data as $key => $value) {
+            // Historical thread envelopes are ordinary data now, not bodies.
+            // Their old $v must not prompt an operator to rewrite history.
+            // An app that explicitly supplies $body still opts into this check.
+            if ($depth === 0 && $key === '$thread' && is_array($value) && ! array_key_exists(FeedBody::KEY, $value)) {
+                continue;
+            }
+
             if (is_array($value)) {
                 $found = [...$found, ...$this->walk($value, $depth + 1)];
             }

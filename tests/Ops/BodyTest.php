@@ -154,3 +154,15 @@ it('is silent when the tables are not there, rather than throwing', function () 
 
     expect(Storyfeed::doctor(['body'])->all())->toBeEmpty();
 });
+
+it('does not diagnose historical thread versions as malformed bodies', function () {
+    recordWithData(['$thread' => ['$v' => 1, 'text' => 'Original words', 'replies' => 3]]);
+
+    expect(Storyfeed::doctor(['body'])->all())->toBeEmpty();
+});
+
+it('still checks an explicit application body stored under the old thread key', function () {
+    recordWithData(['$thread' => ['$body' => 'app/utterance', '$v' => 0, 'text' => 'New body']]);
+
+    expect(Storyfeed::doctor(['body'])->all())->not->toBeEmpty();
+});
