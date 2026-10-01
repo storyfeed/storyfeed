@@ -1,0 +1,125 @@
+## Storyfeed
+
+Storyfeed records activity feeds for Laravel: an app publishes activities explicitly ("who did what to what") and reads them back as a timeline, grouped rows or per-actor summaries, all from one JSON payload contract. Core is headless; `storyfeed/ui` renders it in Blade. Storyfeed is pre-1.0, so check https://docs.storyfeed.dev before relying on a remembered API. The `storyfeed-development` skill covers grouping, bodies and parties in more depth.
+
+### Conventions
+
+- Models that appear in activities implement `Storyfeed\Contracts\Feedable` and use `Storyfeed\Concerns\InteractsWithFeed`; `toFeed()` returns a `FeedEntity`.
+- Headlines, icons and group headlines live in `routes/feed.php` (created by `php artisan storyfeed:install`), never inline where the activity is published.
+- Verbs are free-form strings in the base form (`place`, `complete`, `reprice`); the headline turns them into prose.
+- Roles follow Activity Streams 2.0: `actor`, `object`, `target`, `context`, `origin`, `result`, `instrument`.
+- An activity with no actor is anonymous (who did it is unknown). A named non-model participant such as Stripe is a party, not a null actor.
+- Run `php artisan storyfeed:doctor` to check definitions against what is recorded.
+
+### Feedable models
+
+@verbatim
+<code-snippet name="A Feedable model" lang="php">
+use Illuminate\Database\Eloquent\Model;
+use Storyfeed\Concerns\InteractsWithFeed;
+use Storyfeed\Contracts\Feedable;
+use Storyfeed\FeedEntity;
+
+class Order extends Model implements Feedable
+{
+    use InteractsWithFeed;
+
+    public function toFeed(): FeedEntity
+    {
+        return FeedEntity::make()->label("Order #{$this->reference}");
+    }
+}
+</code-snippet>
+@endverbatim
+
+### Publishing activities
+
+`by()` sets the actor (defaulting to the signed-in user), `action($verb, $object)` sets the verb and object, and `to()` sets the target. `data()` stores values frozen at publication.
+
+@verbatim
+<code-snippet name="Publish an activity" lang="php">
+use Storyfeed\Facades\Storyfeed;
+
+Storyfeed::activity()
+    ->by($customer)
+    ->action('place', $order)
+    ->to($shop)
+    ->publish();
+
+// Equivalent, with named arguments:
+Storyfeed::record(verb: 'place', object: $order, actor: $customer, target: $shop);
+</code-snippet>
+@endverbatim
+
+### Headlines in routes/feed.php
+
+Role tokens (`:actor`, `:object`, `:target`, …) become linked labels. Square brackets mark an optional segment that is dropped when its role is empty.
+
+@verbatim
+<code-snippet name="Define a headline" lang="php">
+use App\Models\Order;
+use Storyfeed\Facades\Story;
+
+Story::for(Order::class)
+    ->verb('place')
+    ->headline(':actor placed :object[ with :target]')
+    ->icon('shopping-bag');
+</code-snippet>
+@endverbatim
+
+### Grouping
+
+Related activities collapse into one row. Give each group axis its own headline with `grouped()`. `:count` is the number of activities in the group.
+
+@verbatim
+<code-snippet name="Group headlines" lang="php">
+use App\Models\Order;
+use Storyfeed\Facades\Story;
+use Storyfeed\Grouping\GroupBuilder;
+
+Story::for(Order::class)->verb('place')->grouped(
+    fn (GroupBuilder $group) => $group->repeat(':actor placed :count orders with :target'),
+);
+
+// Groups that may mix types go on the verb alone:
+Story::verb('place')->grouped(
+    fn (GroupBuilder $group) => $group->actors(':actors ordered from :target'),
+);
+</code-snippet>
+@endverbatim
+
+### Reading the feed
+
+`Storyfeed::feed()` returns a builder. `get()` returns a `FeedPage` and `cursorPaginate()` a paginator. Both serialize to the payload, so you can return them from a route. The read modes are `live()` (grouped, and the default), `summary()` (per actor per period) and `log()` (one row per activity). Filter with `involving($model)`, `actor()`, `object()`, `target()` or `context()`.
+
+@verbatim
+<code-snippet name="Read the feed" lang="php">
+use Storyfeed\Facades\Storyfeed;
+use Storyfeed\Grouping\Period;
+
+Storyfeed::feed()->get();
+Storyfeed::feed()->involving($order)->log()->limit(20)->get();
+Storyfeed::feed()->summary(Period::Week)->get();
+$order->storyfeed()->get(); // the same as involving($order)
+</code-snippet>
+@endverbatim
+
+### Rendering
+
+Use `storyfeed/ui` (Tailwind v4 and the Typography plugin) with @verbatim`<x-storyfeed::feed :page="$page" />`@endverbatim, or iterate the page yourself. Each item is a `Storyfeed\Support\FeedItem` with `headline()`, `actor()`, `publishedAt()`, `children()` and `count()`.
+
+### Bodies
+
+An entity can carry bodies (`Storyfeed\Body\Prose`, `KeyValue`, `ItemList`, `Excerpt`, `MediaObject`, `FileAttachment`). Bodies added in `toFeed()` are stored and updated with the model. Bodies added in `feedMedia()` are built from current values each time the feed is read.
+
+@verbatim
+<code-snippet name="Bodies on an entity" lang="php">
+use Storyfeed\Body\KeyValue;
+use Storyfeed\Body\Prose;
+
+return FeedEntity::make()
+    ->label($this->name)
+    ->body(Prose::make($this->description))
+    ->body(KeyValue::make()->items('Station', $this->station));
+</code-snippet>
+@endverbatim
