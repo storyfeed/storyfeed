@@ -1498,8 +1498,9 @@ class FeedBuilder
      * live: `winner = true` is the curated answer, and a row with NO winner
      * stamped anywhere for its activity falls back to `repeat` — so adopters
      * upgrade into the winner column with no backfill cliff
-     * (`storyfeed:curate` settles history incrementally), and an app with
-     * curation stamping disabled reads as repeat-only.
+     * (`storyfeed:curate` settles history incrementally). An app with
+     * `grouping.curate => false` reads repeats only, ignoring any winner
+     * an earlier curation run stamped.
      *
      * summary: the period's partition bucket, one equality. Every activity
      * with an actor has exactly one such row, and nothing is ever stamped
@@ -1513,6 +1514,12 @@ class FeedBuilder
             $bucket = $this->summaryBucket();
 
             return fn ($query) => $query->where("{$groupings}.bucket", $bucket);
+        }
+
+        // With curation off, live is repeats only, whatever an earlier
+        // curation run left stamped.
+        if (! config('storyfeed.grouping.curate', true)) {
+            return fn ($query) => $query->where("{$groupings}.bucket", 'repeat');
         }
 
         return function ($query) use ($groupings) {

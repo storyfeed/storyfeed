@@ -87,7 +87,7 @@ use Storyfeed\FeedThread;
  * 2. **Upgraded at READ time** ({@see upgrade()}), never written back. Every
  *    renderer sees the current shape, so there is one render path per body
  *    forever. The alternative — each renderer branching on `$v` — multiplies
- *    that branching across Blade, Vue, Filament and everything after them.
+ *    that branching across Blade, Vue, admin panels and everything after them.
  * 3. **An unknown body renders as NOTHING, and never as an error.** The same
  *    rule this package already applies to unknown verbs and to extension
  *    types, and the same reason: activities are never withheld by the read
@@ -184,7 +184,7 @@ interface FeedBody extends Arrayable
      *
      * `$kind`, `$type`, `$component` and `$template` are all taken by the
      * payload contract in the same JSON document, and `form`, `schema`,
-     * `section` and `widget` are Filament's. This collides with nothing.
+     * `section` and `widget` are admin-panel frameworks'. This collides with nothing.
      *
      * `$`-PREFIXED BECAUSE THE MAP IS THE APP'S. A package writing into
      * someone else's map must be unmistakable about which key is not theirs —
