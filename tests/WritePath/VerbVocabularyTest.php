@@ -2,6 +2,7 @@
 
 use Storyfeed\Act;
 use Storyfeed\ActivityStreams\ActivityType;
+use Storyfeed\Facades\Storyfeed;
 use Workbench\App\Models\Customer;
 use Workbench\App\Models\User;
 
@@ -76,7 +77,15 @@ it('registers only the verbs an app actually says', function () {
     ]);
 
     // And it is the shape Storyfeed::verbs() accepts: a MAP, never a list.
-    Storyfeed\Facades\Storyfeed::verbs($map);
+    Storyfeed::verbs($map);
 
     expect(array_keys($map))->each->toBeString();
 });
+
+it('leaves domain verbs to the application', function (string $verb) {
+    expect(Act::tryFrom($verb))->toBeNull();
+
+    $activity = Storyfeed::activity($verb)->publish();
+
+    expect($activity->fresh()->verb)->toBe($verb);
+})->with(['reply', 'settle', 'deliver', 'approve', 'sign']);

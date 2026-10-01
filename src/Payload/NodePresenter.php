@@ -7,7 +7,6 @@ use Illuminate\Support\Collection;
 use Storyfeed\FeedContext;
 use Storyfeed\FeedHeadline;
 use Storyfeed\FeedNoun;
-use Storyfeed\FeedThread;
 use Storyfeed\Models\Activity;
 use Storyfeed\Models\FeedTombstone;
 use Storyfeed\Models\Snapshot;
@@ -133,8 +132,6 @@ class NodePresenter
             ? $this->render($this->storyfeed->missingTemplate($type, $activity->verb), $activity, $type)
             : [null, null];
 
-        [$data, $thread] = $this->thread($activity);
-
         return [
             'kind' => 'activity',
             'id' => $activity->uid,
@@ -164,11 +161,7 @@ class NodePresenter
             'origin' => $this->entity($activity->origin_type, $activity->origin_id, $activity->cachedOrigin),
             'result' => $this->entity($activity->result_type, $activity->result_id, $activity->cachedResult),
             'instrument' => $this->entity($activity->instrument_type, $activity->instrument_id, $activity->cachedInstrument),
-            'data' => $data,
-            // Additive (2026-09-06): the utterance this row is about and the
-            // size of the conversation around it, or null — which is every
-            // activity that has not opted in. See docs/payload.md, `thread`.
-            'thread' => $thread?->toPayload(),
+            'data' => $activity->data,
             // Additive (2026-09-23): the roles whose entity was deleted, and
             // whether one of them is constitutive for this verb, so the
             // activity is redundant as news though still true as history.
@@ -188,37 +181,6 @@ class NodePresenter
             'missing_headline_template' => $missingTemplate,
             'missing_headline' => $missingHeadline,
         ];
-    }
-
-    /**
-     * Split the stored `data` into the app's half and the reserved thread
-     * key, so `data` on the node is exactly what the recording call passed
-     * to `data()` and the thread arrives as its own typed key.
-     *
-     * The stored value carries a version key; the node does not. `fromArray()`
-     * upgrades it to the current shape here, on the read path, so every
-     * renderer downstream is handed one shape forever and never branches on
-     * `$v` — see {@see FeedThread::upgrade()}. The version is stripped with
-     * the rest of the reserved key, so it reaches neither `thread` nor `data`.
-     *
-     * A null `data` column stays null rather than becoming an empty map:
-     * the shape a pre-thread payload emitted is the shape it still emits.
-     *
-     * @return array{0: array<array-key, mixed>|null, 1: FeedThread|null}
-     */
-    protected function thread(Activity $activity): array
-    {
-        $data = $activity->data;
-
-        if (! is_array($data) || ! array_key_exists(FeedThread::KEY, $data)) {
-            return [$data, null];
-        }
-
-        $thread = FeedThread::fromArray($data[FeedThread::KEY]);
-
-        unset($data[FeedThread::KEY]);
-
-        return [$data, $thread];
     }
 
     /**

@@ -508,7 +508,6 @@ class StoryfeedManager
         array $data = [],
         DateTimeInterface|string|null $publishedAt = null,
         iterable $objects = [],
-        ?FeedThread $thread = null,
         Model|string|null $origin = null,
         Model|string|null $result = null,
         Model|string|null $instrument = null,
@@ -527,7 +526,6 @@ class StoryfeedManager
             ->result($result)
             ->instrument($instrument)
             ->when($data !== [], fn (PendingActivity $a) => $a->data($data))
-            ->when($thread !== null, fn (PendingActivity $a) => $a->thread($thread))
             ->when($publishedAt !== null, fn (PendingActivity $a) => $a->publishedAt($publishedAt))
             ->when($anonymous, fn (PendingActivity $a) => $a->anonymously())
             ->publish();

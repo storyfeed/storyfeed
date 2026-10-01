@@ -1,12 +1,10 @@
 <?php
 
-use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;
 use Storyfeed\Contracts\FeedBody;
 use Storyfeed\Diagnostics\Checks\Body;
 use Storyfeed\Diagnostics\Severity;
 use Storyfeed\Facades\Storyfeed;
-use Storyfeed\FeedThread;
 use Storyfeed\Models\Snapshot;
 use Workbench\App\Models\Customer;
 use Workbench\App\Models\Delivery;
@@ -95,41 +93,6 @@ it('stops looking below the depth a detail can legally sit at', function () {
     expect(Storyfeed::doctor(['body'])->all())->toBeEmpty();
 });
 
-it('does not mistake core’s own reserved key for a broken detail', function () {
-    // `$thread` carries a `$v` of its own and no `$body`. A walk that did
-    // not step over it would report every threaded activity in the table.
-    $user = User::create(['name' => 'Ines', 'email' => 'thread@example.com']);
-    $customer = Customer::create(['name' => 'Concur']);
-
-    Storyfeed::activity()
-        ->actor($user)
-        ->verb('reply', Delivery::create(['tracking_number' => 'TN-T', 'customer_id' => $customer->id]))
-        ->for($customer)
-        ->thread(FeedThread::make(text: 'the reply', kind: 'replied', replies: 2))
-        ->publish();
-
-    expect(Storyfeed::doctor(['body'])->all())->toBeEmpty();
-});
-
-it('steps over every core envelope that carries a version of its own', function () {
-    // The next core-owned key with a `$v` would otherwise be reported as a
-    // broken body on every row that has it.
-    $owned = collect(File::allFiles(dirname(__DIR__, 2).'/src'))
-        ->map(fn ($file) => 'Storyfeed\\'.str_replace(['/', '.php'], ['\\', ''], $file->getRelativePathname()))
-        ->filter(fn (string $class) => class_exists($class) || interface_exists($class))
-        ->filter(fn (string $class) => defined("{$class}::KEY") && defined("{$class}::VERSION"))
-        ->map(fn (string $class) => constant("{$class}::KEY"))
-        // A body is what the walk is looking for, not something to step over.
-        ->reject(fn (string $key) => $key === FeedBody::KEY)
-        ->unique()
-        ->values();
-
-    $reserved = (new ReflectionClassConstant(Body::class, 'RESERVED'))->getValue();
-
-    expect($owned)->toContain(FeedThread::KEY)
-        ->and(array_diff($owned->all(), $reserved))->toBe([]);
-});
-
 it('reports rows with no version as a fact, because a missing version IS version 1', function () {
     recordWithData(['diff' => detail('acme/change', null)]);
 
@@ -190,4 +153,16 @@ it('is silent when the tables are not there, rather than throwing', function () 
     Schema::drop(config('storyfeed.tables.snapshots'));
 
     expect(Storyfeed::doctor(['body'])->all())->toBeEmpty();
+});
+
+it('does not diagnose historical thread versions as malformed bodies', function () {
+    recordWithData(['$thread' => ['$v' => 1, 'text' => 'Original words', 'replies' => 3]]);
+
+    expect(Storyfeed::doctor(['body'])->all())->toBeEmpty();
+});
+
+it('still checks an explicit application body stored under the old thread key', function () {
+    recordWithData(['$thread' => ['$body' => 'app/utterance', '$v' => 0, 'text' => 'New body']]);
+
+    expect(Storyfeed::doctor(['body'])->all())->not->toBeEmpty();
 });

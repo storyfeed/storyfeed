@@ -6,7 +6,6 @@ use DateTimeInterface;
 use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Database\Eloquent\Model;
 use Storyfeed\ActivityStreams\ActivityType;
-use Storyfeed\FeedThread;
 use Storyfeed\Models\Activity;
 use Storyfeed\PendingActivity;
 use Storyfeed\StoryfeedManager;
@@ -74,8 +73,8 @@ trait AsFeedVerb
      *
      * **The parameter ORDER here deliberately differs from
      * {@see StoryfeedManager::record()}**, which takes `objects`
-     * and `thread` before `origin`/`result`/`instrument`. This trait shipped
-     * the three AS2 roles first and the two older parameters second, so they
+     * before `origin`/`result`/`instrument`. This trait shipped
+     * the three AS2 roles first and `objects` second, so it
      * could only be appended: reordering to match would silently change what
      * every existing positional argument means. Named arguments make the
      * difference invisible in practice, which is exactly why it needs saying
@@ -96,7 +95,6 @@ trait AsFeedVerb
         Model|string|null $result = null,
         Model|string|null $instrument = null,
         iterable $objects = [],
-        ?FeedThread $thread = null,
     ): Activity {
         return storyfeed()->record(
             verb: $this,
@@ -110,7 +108,6 @@ trait AsFeedVerb
             result: $result,
             instrument: $instrument,
             objects: $objects,
-            thread: $thread,
         );
     }
 
@@ -222,11 +219,6 @@ trait AsFeedVerb
     public function data(array|Arrayable $data): PendingActivity
     {
         return $this->of()->data($data);
-    }
-
-    public function thread(FeedThread $thread): PendingActivity
-    {
-        return $this->of()->thread($thread);
     }
 
     public function publishedAt(DateTimeInterface|string $date): PendingActivity

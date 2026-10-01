@@ -279,16 +279,6 @@ final class FeedItem implements Arrayable, ArrayAccess, JsonSerializable
     }
 
     /**
-     * The utterance this activity quotes (`text`, `by`, `kind`, `replies`, `truncated`), or null.
-     *
-     * @return Fluent<string, mixed>|null
-     */
-    public function thread(): ?Fluent
-    {
-        return is_array($this->payload['thread'] ?? null) ? new Fluent($this->payload['thread']) : null;
-    }
-
-    /**
      * The roles holding a tombstone, in role order.
      *
      * @return list<string>

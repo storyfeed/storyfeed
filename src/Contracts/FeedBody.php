@@ -4,7 +4,6 @@ namespace Storyfeed\Contracts;
 
 use Illuminate\Contracts\Support\Arrayable;
 use Storyfeed\Concerns\HasPayload;
-use Storyfeed\FeedThread;
 
 /**
  * A recognised body type a value inside `data` can take, so that a renderer can
@@ -50,31 +49,10 @@ use Storyfeed\FeedThread;
  * That is what lets the vocabulary evolve on a library's timeline instead of
  * being frozen with the payload.
  *
- * ## The versioning rule, and why it is the OPPOSITE of FeedThread's
+ * ## The versioning rule
  *
- * Two versioning postures live in the same `data` column, and read side by
- * side they look like an inconsistency until you know the branch. The branch
- * is one question:
- *
- * **DOES CORE OWN THE KEY? If yes, core normalizes and the version never
- * reaches the renderer. If no, the version travels and the RENDERER upgrades.**
- *
- * {@see FeedThread} is the first case: it lands at a fixed reserved
- * key (`$thread`), so the read path can find it, upgrade it, strip its `$v`
- * and emit one shape forever — a renderer never learns that core versions
- * anything.
- *
- * A body is the second case, and the difference is STRUCTURAL rather than a
- * preference. A body lands at an APP-CHOSEN key inside the app's own map, so
- * core cannot find it to normalize it: a reader has to walk `data` looking for
- * {@see KEY}, and core does not walk the app's data. Therefore {@see VERSION}
- * travels all the way to the renderer, and the renderer calls
- * {@see upgrade()} before it draws.
- *
- * This paragraph is the point of writing it here rather than in a design doc:
- * it is what stops someone later "fixing" one of the two to match the other.
- * Neither is the mistake. They are the same rule applied to a key core owns
- * and a key it does not.
+ * Core carries bodies unchanged. The version travels to the renderer,
+ * which calls {@see upgrade()} before it draws.
  *
  * ## Four rules
  *
@@ -82,8 +60,7 @@ use Storyfeed\FeedThread;
  *    COLUMN. A row recorded today outlives the class that recorded it, and a
  *    v1 row will still be in that table when the vocabulary is on v3. "We will
  *    add the version later" is provably wrong: later, the unversioned rows
- *    already exist. `FeedThread` shipped without a version on 2026-09-06 and
- *    spent a commit the following day defining what its absence meant.
+ *    already exist.
  * 2. **Upgraded at READ time** ({@see upgrade()}), never written back. Every
  *    renderer sees the current shape, so there is one render path per body
  *    forever. The alternative — each renderer branching on `$v` — multiplies
@@ -188,18 +165,13 @@ interface FeedBody extends Arrayable
      *
      * `$`-PREFIXED BECAUSE THE MAP IS THE APP'S. A package writing into
      * someone else's map must be unmistakable about which key is not theirs —
-     * the same reason `$thread` is spelled that way. Core strips the reserved
-     * keys core owns and passes every other one through untouched, which is
-     * precisely what lets this one survive the read path.
+     * core passes the app's data through untouched.
      */
     public const string KEY = '$body';
 
     /**
      * The reserved key carrying the version — see rule 1, and the versioning
      * rule above for who acts on it.
-     *
-     * Spelled as `FeedThread::VERSION` is: two kinds of value sharing one
-     * `data` column follow one spelling, or the spelling is not a rule.
      *
      * **A MISSING VERSION IS 1. That is a definition, not a fallback**, and it
      * is the reader's rule as much as the writer's: hand-written arrays in

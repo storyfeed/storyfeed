@@ -89,8 +89,6 @@ class PendingActivity
     /** @var array<int, Model> composite members-to-be (see objects()) */
     protected array $objects = [];
 
-    protected ?FeedThread $thread = null;
-
     /** Queued: snapshot the entities at `->queue()`, not on the worker. */
     private bool $snapshotNow = false;
 
@@ -344,52 +342,7 @@ class PendingActivity
         // half was fixed on 2026-09-15 and this one was missed.
         $this->activity->data = BodySlot::data($data);
 
-        $this->writeThread();
-
         return $this;
-    }
-
-    /**
-     * The utterance this row is about, and the size of the conversation
-     * around it: `->thread(FeedThread::make(text: $comment->body, kind:
-     * 'replied', replies: 12))`.
-     *
-     * ACTIVITY-SCOPED ON PURPOSE, and this is the whole design. The same
-     * thread shows a different utterance on every row about it — the
-     * opening on the opened row, the newest reply on the replied row — so
-     * it cannot hang off the entity. See {@see FeedThread}.
-     *
-     * Stored inside the `data` column under the reserved `$thread` key
-     * rather than in a column of its own: the shape is new and the read
-     * path strips the key back out, so nothing about the storage is a
-     * promise yet and no consumer has to run a migration to try it. The
-     * app's own keys are untouched, and the payload's `data` is exactly
-     * what `data()` was given — which is why this and `data()` are
-     * ORDER-INDEPENDENT: whichever is called last, both survive.
-     */
-    public function thread(FeedThread $thread): static
-    {
-        $this->thread = $thread;
-
-        $this->writeThread();
-
-        return $this;
-    }
-
-    /**
-     * Merge the reserved key into whatever `data` currently holds. Called
-     * from both setters so neither can clobber the other.
-     */
-    private function writeThread(): void
-    {
-        if ($this->thread === null) {
-            return;
-        }
-
-        $this->activity->data = [
-            ...($this->activity->data ?? []),
-            FeedThread::KEY => $this->thread->toArray(),
-        ];
     }
 
     public function publishedAt(DateTimeInterface|string $date): static
@@ -578,7 +531,6 @@ class PendingActivity
             'anonymous' => $this->anonymous,
             'entities' => array_map(fn (Model $model) => $this->getSerializedPropertyValue($model), $this->entities),
             'objects' => array_map(fn (Model $model) => $this->getSerializedPropertyValue($model), $this->objects),
-            'thread' => $this->thread,
             'snapshotted' => $this->snapshotted,
         ];
     }
@@ -593,7 +545,6 @@ class PendingActivity
         $this->activity->setRawAttributes($activity[1]);
         $this->anonymous = (bool) $data['anonymous'];
         $this->activity->withoutDefaultActor($this->anonymous);
-        $this->thread = $data['thread'];
         $this->snapshotted = $data['snapshotted'];
 
         foreach ($data['entities'] as $role => $identifier) {

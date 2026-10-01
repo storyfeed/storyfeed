@@ -25,7 +25,7 @@ it('emits the same payload shape as before the recording API change', function (
     expect(array_keys($payload))->toBe(['payload_version', 'items', 'next_cursor', 'sync_token']);
     expect(array_keys($payload['items'][0]))->toBe([
         'kind', 'id', 'verb', 'published_at', 'headline_template', 'headline',
-        'glyph', 'glyph_intent', 'actor', 'object', 'target', 'context', 'origin', 'result', 'instrument', 'data', 'thread',
+        'glyph', 'glyph_intent', 'actor', 'object', 'target', 'context', 'origin', 'result', 'instrument', 'data',
         'tombstoned', 'redundant', 'missing_headline_template', 'missing_headline',
     ]);
     expect(array_keys($payload['items'][0]['object']))->toBe([
@@ -67,12 +67,10 @@ it('emits the frozen group-node shape', function () {
     // totals (replacing others_count).
     expect(array_keys($item['sample']))->toBe(['actors', 'objects', 'targets', 'contexts', 'origins', 'results', 'instruments']);
     expect(array_keys($item['distinct']))->toBe(['actors', 'objects', 'targets', 'contexts', 'origins', 'results', 'instruments']);
-    // A group's children are ordinary activity nodes and carry `thread` the
-    // same way. The GROUP node has none: the utterance is per activity, and
-    // a group is many of them.
+    // A group's children are ordinary activity nodes.
     expect(array_keys($item['children'][0]))->toBe([
         'kind', 'id', 'verb', 'published_at', 'headline_template', 'headline',
-        'glyph', 'glyph_intent', 'actor', 'object', 'target', 'context', 'origin', 'result', 'instrument', 'data', 'thread',
+        'glyph', 'glyph_intent', 'actor', 'object', 'target', 'context', 'origin', 'result', 'instrument', 'data',
         'tombstoned', 'redundant', 'missing_headline_template', 'missing_headline',
     ]);
 });
