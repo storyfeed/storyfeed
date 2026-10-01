@@ -26,18 +26,18 @@ use Stringable;
  * ## Why `KeyValue` and not `Details`
  *
  * A member cannot share a name with its own category. `detail` is the category
- * — it is already the name of the seam in the Filament adapter's
- * `detail_view` config, in `.sf-detail`, and in its README's "Rendering your
- * own facts under a headline" — so the row list needs its own.
+ * — it is already the name of the seam in renderers' config, in `.sf-detail`,
+ * and in their docs on rendering your own facts under a headline — so the row
+ * list needs its own.
  *
  * `Facts` over-claims, in a package whose voice is built on not over-claiming:
  * the app supplies whatever it supplies, and calling it a fact dresses an
  * app's `is_bot` guess as truth. `Fields` was the name until 2026-09-14 and
  * lost it to a collision that matters where this package is consumed — in
- * Filament a `Field` is an editable form input, and the read-only counterpart
- * is an `Entry`, which a feed cannot borrow either because Atom already spends
- * `entry` on a feed item. `KeyValue` is what Filament calls the read-only
- * shape itself, minus the suffix.
+ * admin-panel frameworks a `Field` is an editable form input, and the
+ * read-only counterpart is an `Entry`, which a feed cannot borrow either
+ * because Atom already spends `entry` on a feed item. `KeyValue` is what those
+ * frameworks call the read-only shape itself, minus the suffix.
  *
  * ## What this never learns
  *
@@ -198,7 +198,7 @@ class KeyValue implements FeedBody
      *
      * A body outlives whichever library defined it ({@see FeedBody}), so the
      * name must not contain the library: this body type has already moved
-     * packages once, and a `storyfeed-ui/` or `storyfeed-filament/` prefix
+     * packages once, and a `storyfeed-ui/` or any other package's prefix
      * would have moved with it. The name is a pure lookup key — no reflection,
      * no autoloading — so it need not resolve to anything. PascalCase matches
      * AS2's own type casing, which the payload already carries (`FeedResource`
