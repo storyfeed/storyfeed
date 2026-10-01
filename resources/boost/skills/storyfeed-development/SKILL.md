@@ -76,7 +76,7 @@ Story::verb('place')->grouped(
 
 - `composer require storyfeed/ui`, then `<x-storyfeed::feed :page="$page" />` (Tailwind v4 + `@tailwindcss/typography`).
 - Customise the views with `vendor:publish --tag=storyfeed-views`.
-- Custom views iterate the page: each item is a `Storyfeed\Support\FeedItem` with `headline()`, `actor()`, `publishedAt()`, `glyph()`, `intent()`, `thread()`, `object()->bodies()`, `children()` and `count()`.
+- Custom views iterate the page: each item is a `Storyfeed\Support\FeedItem` with `headline()`, `actor()`, `publishedAt()`, `glyph()`, `intent()`, `object()->bodies()`, `children()` and `count()`.
 
 ## Bodies
 

@@ -32,10 +32,6 @@ use Stringable;
  * retainer") are the same body type; they differ only in what the attribution
  * points at, which is a field.
  *
- * A CONVERSATION is core's `FeedThread` (node-level `thread`, painted by the
- * renderer's presenter), not this: the tell is a reply count. This body type
- * stays the generic one-passage one and is unchanged by it.
- *
  * ## `truncated` exists because the NAME over-claims
  *
  * "Excerpt" asserts the text is partial, and a comment rendered in full is not.

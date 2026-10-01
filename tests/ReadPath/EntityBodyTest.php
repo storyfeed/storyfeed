@@ -59,7 +59,7 @@ it('persists an authored note and emits its body without a thread or an inferred
             ->and($object)->not->toHaveKeys(['$v', '$body']);
     }
     expect($item['object']['data'])->toBe($snapshot->data)
-        ->and($item['thread'])->toBeNull()
+        ->and($item)->not->toHaveKey('thread')
         ->and($wire['object']['type'])->toBe('Note');
 
     $note->update(['name' => 'cleared']);

@@ -36,7 +36,6 @@ function readerActivity(array $overrides = []): array
         'object' => readerEntity('delivery', 'Delivery #1042'),
         'target' => null, 'context' => null, 'origin' => null, 'result' => null, 'instrument' => null,
         'data' => ['source' => 'import'],
-        'thread' => null,
         'tombstoned' => [],
         'redundant' => false,
         'missing_headline_template' => null,
@@ -105,17 +104,11 @@ it('reads an activity by named accessors', function () {
         ->and($item->phrases())->toBeEmpty();
 });
 
-it('reads activity data and thread', function () {
-    $item = FeedItem::of(readerActivity([
-        'thread' => ['text' => 'Thursday?', 'by' => 'Nayani', 'kind' => 'asked', 'replies' => 3, 'truncated' => false],
-    ]));
+it('reads activity data', function () {
+    $item = FeedItem::of(readerActivity());
 
     expect($item->data())->toBeInstanceOf(Fluent::class)
-        ->and($item->data()->string('source')->toString())->toBe('import')
-        ->and($item->thread()->get('text'))->toBe('Thursday?')
-        ->and($item->thread()->integer('replies'))->toBe(3);
-
-    expect(FeedItem::of(readerActivity())->thread())->toBeNull();
+        ->and($item->data()->string('source')->toString())->toBe('import');
 });
 
 it('reads an activity role as a one-or-none plural', function () {

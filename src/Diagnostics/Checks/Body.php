@@ -5,7 +5,6 @@ namespace Storyfeed\Diagnostics\Checks;
 use Illuminate\Support\Collection;
 use Storyfeed\Contracts\FeedBody;
 use Storyfeed\Diagnostics\Finding;
-use Storyfeed\FeedThread;
 use Storyfeed\Models\Snapshot;
 use Storyfeed\StoryfeedManager;
 
@@ -92,18 +91,6 @@ class Body extends Check
 
     /** Rows quoted per finding — enough to go and look at, never a listing. */
     protected const EXAMPLES = 3;
-
-    /**
-     * Keys inside `data` that core owns and reads itself.
-     *
-     * The walk steps over them. Each is a core envelope that carries a `$v` of
-     * its own and no `$body` — `$thread` on every threaded activity — so a
-     * naive walk would report each of those rows as a broken body. A new core envelope with a VERSION belongs here too; a
-     * test holds the list to that.
-     *
-     * @var list<string>
-     */
-    protected const RESERVED = [FeedThread::KEY];
 
     public function name(): string
     {
@@ -345,8 +332,8 @@ class Body extends Check
 
         $found = [];
 
-        foreach ($data as $key => $value) {
-            if (is_array($value) && ! in_array($key, self::RESERVED, true)) {
+        foreach ($data as $value) {
+            if (is_array($value)) {
                 $found = [...$found, ...$this->walk($value, $depth + 1)];
             }
         }

@@ -63,7 +63,6 @@ enum Act: string implements FeedVerb
     case Create = 'create';
     case Upload = 'upload';
     case Draft = 'draft';
-    case Reply = 'reply';
 
     // ── Update ───────────────────────────────────────────────────────────
     // The coarse one. Each of these is a different fact that AS2 spells the
@@ -85,7 +84,6 @@ enum Act: string implements FeedVerb
     case Shorten = 'shorten';
     case Enable = 'enable';
     case Disable = 'disable';
-    case Settle = 'settle';
 
     // ── Delete ───────────────────────────────────────────────────────────
 
@@ -133,11 +131,6 @@ enum Act: string implements FeedVerb
 
     case Offer = 'offer';
     case Send = 'send';
-    // Delivery completed. The one act in the surveyed corpus with no clean
-    // AS2 home: `Arrive` is intransitive and the thing arriving is the
-    // object, not the actor. Mapped to Create, matching the corpus decision
-    // that a delivery outcome is a delivery record coming into existence.
-    case Deliver = 'deliver';
     case Propose = 'propose';
     case Request = 'request';
     case Invite = 'invite';
@@ -146,11 +139,7 @@ enum Act: string implements FeedVerb
     // These answer a prior Offer or Invite. An unprompted signal is Like.
 
     case Accept = 'accept';
-    case Approve = 'approve';
     case Agree = 'agree';
-    // Signing is accepting, and worth its own word: no reader of a feed
-    // thinks "accepted the agreement" when they mean a signature.
-    case Sign = 'sign';
     case Reject = 'reject';
     case Decline = 'decline';
 
@@ -217,14 +206,12 @@ enum Act: string implements FeedVerb
     public function activityType(): ActivityType
     {
         return match ($this) {
-            self::Create, self::Upload, self::Draft, self::Reply,
-            self::Deliver => ActivityType::Create,
+            self::Create, self::Upload, self::Draft => ActivityType::Create,
 
             self::Update, self::Rename, self::Amend, self::Correct,
             self::Supersede, self::Complete, self::Confirm, self::Cancel,
             self::Begin, self::End, self::Pause, self::Resume,
-            self::Extend, self::Shorten, self::Enable, self::Disable,
-            self::Settle => ActivityType::Update,
+            self::Extend, self::Shorten, self::Enable, self::Disable => ActivityType::Update,
 
             self::Delete, self::Discard => ActivityType::Delete,
 
@@ -242,7 +229,7 @@ enum Act: string implements FeedVerb
             self::Offer, self::Send, self::Propose, self::Request => ActivityType::Offer,
             self::Invite => ActivityType::Invite,
 
-            self::Accept, self::Approve, self::Agree, self::Sign => ActivityType::Accept,
+            self::Accept, self::Agree => ActivityType::Accept,
             self::Reject, self::Decline => ActivityType::Reject,
             self::TentativelyAccept => ActivityType::TentativeAccept,
             self::TentativelyReject => ActivityType::TentativeReject,

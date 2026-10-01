@@ -2,7 +2,6 @@
 
 use Storyfeed\Concerns\AsFeedVerb;
 use Storyfeed\Facades\Storyfeed;
-use Storyfeed\FeedThread;
 use Storyfeed\Models\Activity;
 use Storyfeed\Models\Grouping;
 use Storyfeed\PendingActivity;
@@ -124,16 +123,14 @@ it('never records anything from a bare enum case', function () {
     expect(Activity::query()->count())->toBe(0);
 });
 
-it('records a thread and iterable objects from an enum case', function () {
+it('records iterable objects from an enum case', function () {
     $objects = collect([
         Delivery::create(['tracking_number' => 'A']),
         Delivery::create(['tracking_number' => 'B']),
     ]);
-    $thread = FeedThread::make(text: 'Ready.', by: 'Sally', kind: 'replied', replies: 2);
-    $activity = ActivityVerb::Upload->record(objects: $objects, thread: $thread);
+    $activity = ActivityVerb::Upload->record(objects: $objects);
 
-    expect($activity->fresh()->data[FeedThread::KEY])->toBe($thread->toArray())
-        ->and($activity->object_id)->toBeNull()
+    expect($activity->object_id)->toBeNull()
         ->and(Activity::query()->whereNotNull('object_id')->pluck('object_id')->all())
         ->toEqual($objects->pluck('id')->all())
         ->and(Activity::query()->count())->toBe(3);
@@ -161,9 +158,8 @@ it('preserves all existing positional enum record arguments', function () {
 it('treats null enum record defaults as absence and still resolves the actor', function () {
     $user = User::create(['name' => 'Sally', 'email' => 'sally@example.com']);
     Storyfeed::resolveActorUsing(fn () => $user);
-    $activity = ActivityVerb::Confirm->record(actor: null, objects: [], thread: null)->fresh();
+    $activity = ActivityVerb::Confirm->record(actor: null, objects: [])->fresh();
 
     expect($activity->actor_id)->toEqual($user->id)
-        ->and($activity->data ?? [])->not->toHaveKey(FeedThread::KEY)
         ->and(Activity::query()->count())->toBe(1);
 });

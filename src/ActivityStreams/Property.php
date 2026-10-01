@@ -31,8 +31,7 @@ enum Property: string implements VocabularyTerm
     case OrderedItems = 'orderedItems';
 
     // The responses to what an activity is about — a Collection carrying
-    // `totalItems`, and the one clean AS2 mapping FeedThread has
-    // (docs/payload.md, `thread`).
+    // `totalItems`.
     case Replies = 'replies';
 
     // The sentence. AS2 core's own first examples are activities carrying

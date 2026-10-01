@@ -244,8 +244,7 @@ use Storyfeed\MediaSlot;
  * {@see Prose}, which says so and is sanitised at read time; prose
  * pasted into `content` renders as its own asterisks. A field that was one
  * thing and is now another is from and to in the activity's `data`, with a
- * headline that says so, and a conversation is core's
- * `FeedThread`, painted by the presenter — the tell is a reply count. A
+ * headline that says so. A
  * list of files BESIDE a sentence is `files`; ONE artefact whose own
  * facts are the row — how big it is, what type it is — is {@see FileAttachment}, and
  * a `MediaObject` carrying a single file and nothing else is usually

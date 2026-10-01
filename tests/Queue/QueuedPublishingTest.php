@@ -15,7 +15,6 @@ use PHPUnit\Framework\ExpectationFailedException;
 use Storyfeed\Exceptions\UnknownStory;
 use Storyfeed\Facades\Story;
 use Storyfeed\Facades\Storyfeed;
-use Storyfeed\FeedThread;
 use Storyfeed\Models\Activity;
 use Storyfeed\Models\Party;
 use Storyfeed\Models\Snapshot;
@@ -129,8 +128,7 @@ it('restores everything the builder was given', function () {
     $pending = Storyfeed::activity('ship', $delivery)
         ->by($user)
         ->to('Warehouse')
-        ->data(['note' => 'fragile'])
-        ->thread(FeedThread::make(text: 'Handle with care', replies: 2));
+        ->data(['note' => 'fragile', '$thread' => ['$v' => 1, 'text' => 'Handle with care', 'replies' => 2]]);
 
     $restored = unserialize(serialize($pending));
 

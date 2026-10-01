@@ -3,7 +3,6 @@
 use Storyfeed\Concerns\HasPayload;
 use Storyfeed\Contracts\FeedBody;
 use Storyfeed\Facades\Storyfeed;
-use Storyfeed\FeedThread;
 use Workbench\App\Models\Delivery;
 
 final class ShipmentDetail implements FeedBody
@@ -31,24 +30,20 @@ final class ShipmentDetail implements FeedBody
     }
 }
 
-it('records a payload-only detail author and preserves renderer metadata beside a thread', function () {
+it('records a payload-only detail author and preserves renderer metadata', function () {
     $body = new ShipmentDetail;
-    $thread = FeedThread::make(text: 'Shipped.');
     $activity = Storyfeed::activity('confirm', Delivery::create(['tracking_number' => 'DETAIL-1']))
         ->data(['shipment' => $body->toArray(), '$acme' => ['keep' => true]])
-        ->thread($thread)
         ->publish();
 
     $stored = $activity->fresh()->data;
-    expect($stored['shipment'])->toBe($body->toPayload())
-        ->and($stored[FeedThread::KEY][FeedThread::VERSION])->toBe(1);
+    expect($stored['shipment'])->toBe($body->toPayload());
 
     $node = Storyfeed::feed()->get()->toArray()['items'][0];
     expect($node['data'])->toBe([
         'shipment' => ['$body' => 'acme/shipment', '$v' => 2, 'status' => 'shipped'],
         '$acme' => ['keep' => true],
-    ])->and($node['thread'])->toBe($thread->toPayload())
-        ->and($node['thread'])->not->toHaveKey('$v');
+    ]);
 });
 
 it('allows a storage override without leaking its extras into the authored payload', function () {

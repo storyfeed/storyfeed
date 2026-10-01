@@ -1,5 +1,24 @@
 # Changelog
 
+## Unreleased
+
+### Removed
+
+- `FeedThread`, the `thread()` builder/reader/enum helpers, the `thread:`
+  recording argument, the top-level payload `thread` key, and automatic AS2
+  `replies` serialization. Stored `$thread` and `thread` data stays in `data`
+  exactly as written; core no longer upgrades or strips it.
+- Domain verbs `Act::Reply`, `Settle`, `Deliver`, `Approve`, and `Sign`.
+
+### Upgrade
+
+Own discussion content as an application body type and register it with your
+renderer before upgrading. Use `Excerpt` for a generic quotation. Replace
+the five removed Act cases with app-owned verbs and explicit Activity Streams
+mappings; stored verb strings are unchanged. Remove `thread:` arguments
+(including positional arguments) from recording calls. There are no aliases
+or compatibility shims. Upgrade the UI/Filament renderers together with core.
+
 ## v0.11.0 — Bodies, headlines and a live feed that reads curated (2026-09-30)
 
 Upgrading from v0.10.0: the body slot and its types (`Storyfeed\Body\*`),
