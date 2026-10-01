@@ -2,8 +2,28 @@
 
 ## Unreleased
 
+## v0.12.0 — Pictures only when a body asks, and the thread leaves core (2026-10-01)
+
+### Added
+
+- `Storyfeed\Body\Image` (`Storyfeed/Body/Image`): a picture with an optional
+  `caption`, `alt`, `width` and `height`. It stores no URL; it names one of the
+  entity's `feedMedia()` slots with `withPreview()` (the default), `withImage()`
+  or `withIcon()`, resolved when the feed is retrieved.
+- Laravel Boost guidelines and a `storyfeed-development` skill ship with the
+  package, so `boost:install` picks up Storyfeed guidance.
+
+### Changed
+
+- A body names its media slot itself: `MediaObject::make()->withPreview()` and
+  `Image::make()->withPreview()`. Renderers (storyfeed/ui, the docs kit) no
+  longer paint an object's picture unless a body asks for it, and never treat
+  the entity URL as a picture. The icon/avatar badge is unchanged.
+
 ### Removed
 
+- `feedMediaIcon()`, `feedMediaPreview()` and `feedMediaImage()` on
+  `InteractsWithFeed`. Name the slot on the body instead (above).
 - `FeedThread`, the `thread()` builder/reader/enum helpers, the `thread:`
   recording argument, the top-level payload `thread` key, and automatic AS2
   `replies` serialization. Stored `$thread` and `thread` data stays in `data`
@@ -17,7 +37,9 @@ renderer before upgrading. Use `Excerpt` for a generic quotation. Replace
 the five removed Act cases with app-owned verbs and explicit Activity Streams
 mappings; stored verb strings are unchanged. Remove `thread:` arguments
 (including positional arguments) from recording calls. There are no aliases
-or compatibility shims. Upgrade the UI/Filament renderers together with core.
+or compatibility shims. Upgrade the UI/Filament renderers together with core,
+and add an `Image` body to any model whose rows relied on the automatically
+painted picture.
 
 ## v0.11.0 — Bodies, headlines and a live feed that reads curated (2026-09-30)
 

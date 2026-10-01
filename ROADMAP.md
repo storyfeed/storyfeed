@@ -52,6 +52,15 @@ work leads to is a demonstration of a working package, not a launch event, so
       nodes carry their pinned roles as singulars instead of leaving every renderer to
       reconstruct them, an activity's `data` accepts a typed DTO, and the trickle
       reports activities it cannot resolve instead of deleting them.
+- [x] **v0.10 — Bodies as data** *(tagged `v0.10.0`)*. Entity media slots are
+      named by the forms that draw them, so a stored body never carries an
+      instruction a renderer has to guess at.
+- [x] **v0.11 — Pre-launch preview** *(tagged `v0.11.0`, unveiled at GPUG on
+      Sep 30, 2026)*. Body types, headlines and a live feed that reads curated
+      groups; `storyfeed/ui` v0.2.0 renders it with Tailwind.
+- [x] **v0.12 — Pictures and quotes are bodies** *(tagged `v0.12.0`)*. An `Image`
+      body names the picture a row shows; quoted words are an `Excerpt`; the
+      discussion-specific thread leaves core.
 - [ ] **v1.0 — Stable.** Frozen payload contract, semver promise, both authoring
       APIs (fluent builder + `Story` classes).
 
