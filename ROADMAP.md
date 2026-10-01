@@ -52,9 +52,10 @@ work leads to is a demonstration of a working package, not a launch event, so
       nodes carry their pinned roles as singulars instead of leaving every renderer to
       reconstruct them, an activity's `data` accepts a typed DTO, and the trickle
       reports activities it cannot resolve instead of deleting them.
-- [x] **v0.10 — Bodies as data** *(tagged `v0.10.0`)*. Entity media slots are
-      named by the forms that draw them, so a stored body never carries an
-      instruction a renderer has to guess at.
+- [x] **v0.10 — Diagnostics and read-time media** *(tagged `v0.10.0`)*. New doctor
+      checks on a redrawn severity axis, so `--fail-on=error` fires on a feed that
+      renders wrong today; the `feedMedia()` read-time resolver contract on
+      `Feedable`; and `FeedLink` back as a label with an optional link.
 - [x] **v0.11 — Pre-launch preview** *(tagged `v0.11.0`, unveiled at GPUG on
       Sep 30, 2026)*. Body types, headlines and a live feed that reads curated
       groups; `storyfeed/ui` v0.2.0 renders it with Tailwind.
