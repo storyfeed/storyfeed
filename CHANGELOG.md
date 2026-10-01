@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+Upgrading from v0.10.0: the body slot and its types (`Storyfeed\Body\*`),
+`FeedMedia`'s `files` and the `Change` body all arrived on `dev-main` after
+v0.10.0, so they are new to you. The renames under "Renamed on dev-main" and the
+`Change` removal under "Removed" only affect an app that tracked `dev-main`.
+
+### Renamed on dev-main
+
 - Rename `KeyValue::missingAs()` to `KeyValue::placeholder()`, and the body-level
   `missing()` / `missing:` to `defaultPlaceholder()` / `defaultPlaceholder:`.
   KeyValue v2 stores `placeholder` per item and `defaultPlaceholder` on the body;
@@ -69,7 +76,8 @@
 
 ### Removed
 
-- **The `Change` body type and `FeedChange` leave core.** Gone:
+- **The `Change` body type and `FeedChange` leave core** (dev-main only;
+  neither was in a tagged release). Gone:
   `Storyfeed\Body\Change` (`Storyfeed/Body/Change`), `Storyfeed\FeedChange`,
   `->change()` on a pending activity and a verb, `record(change:)`, the
   payload node's `change` key and `FeedItem::changes()`. Record a before and
