@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+Upgrading from v0.10.0: the body slot and its types (`Storyfeed\Body\*`),
+`FeedMedia`'s `files` and the `Change` body all arrived on `dev-main` after
+v0.10.0, so they are new to you. The renames under "Renamed on dev-main" and the
+`Change` removal under "Removed" only affect an app that tracked `dev-main`.
+
+### Renamed on dev-main
+
 - Rename `KeyValue::missingAs()` to `KeyValue::placeholder()`, and the body-level
   `missing()` / `missing:` to `defaultPlaceholder()` / `defaultPlaceholder:`.
   KeyValue v2 stores `placeholder` per item and `defaultPlaceholder` on the body;
@@ -69,7 +76,8 @@
 
 ### Removed
 
-- **The `Change` body type and `FeedChange` leave core.** Gone:
+- **The `Change` body type and `FeedChange` leave core** (dev-main only;
+  neither was in a tagged release). Gone:
   `Storyfeed\Body\Change` (`Storyfeed/Body/Change`), `Storyfeed\FeedChange`,
   `->change()` on a pending activity and a verb, `record(change:)`, the
   payload node's `change` key and `FeedItem::changes()`. Record a before and
@@ -1513,8 +1521,8 @@ reaching into a renderer's markup to add one.
   one recorded from the array that detail produces, which is exactly what lets the
   vocabulary evolve on a library's timeline instead of being frozen with a payload
   that is about to freeze at v0.3. The first library of prefabricated forms is
-  `storyfeed/ui` (free, MIT); the paid Filament adapter renders any conforming detail
-  by shape; an app may write its own and owe nothing to either.
+  `storyfeed/ui` (free, MIT); any renderer can draw a conforming detail
+  by shape, and an app may write its own and owe nothing to either.
 
   **The versioning rule is the OPPOSITE of `FeedThread`'s, and the difference is
   structural rather than a preference.** Read side by side they look like an
@@ -1549,7 +1557,7 @@ reaching into a renderer's markup to add one.
 - **The stored `$thread` map is versioned.** It now carries `"$v": 1` alongside its
   five keys, and `FeedThread::fromArray()` normalizes a stored value to the current
   shape at read time (`FeedThread::version()`, `versionOf()`, `upgrade()` — the same
-  contract the Filament adapter's `Detail` has had since its first commit). A
+  contract a detail has had since its first commit). A
   **missing `$v` is version 1, forever**: that is the definition of every row written
   between `d992c13` and this change, not a fallback, and nothing is migrated or
   backfilled. Those rows are correct; only their self-description was missing.
@@ -1596,8 +1604,8 @@ reaching into a renderer's markup to add one.
   the first feed with two rows would make one of them wrong.
 
   **Why core and not the renderer.** AS2 already has this vocabulary: `replies` is a
-  property of an Activity and `inReplyTo` is one too. Compare the Filament adapter's
-  `Detail\Excerpt`, `Change` and `Fields`, which have no AS2 term and are correctly
+  property of an Activity and `inReplyTo` is one too. Compare the detail forms
+  `Excerpt`, `Change` and `Fields`, which have no AS2 term and are correctly
   the renderer's. `Excerpt` is not replaced: it stays the generic one-passage form,
   hung off an entity's snapshot. The tell for which you want is `replies` — no
   conversation to count, no thread.
@@ -2457,7 +2465,7 @@ ordering that reversed itself on a mode switch.
   into `exemplars.actors[0]`.
 
   Two renderers met it and handled it differently. The Vue one quietly
-  reconstructs the singular; the Filament adapter rendered the **anonymous**
+  reconstructs the singular; another renderer drew the **anonymous**
   branch — "The link sent to Someone was opened 5 times", sitting directly above
   five member rows naming the recipient correctly, on an audit vault. A promise
   the payload does not keep is the payload's bug, and "Someone" is a shrug with
