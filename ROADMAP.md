@@ -70,12 +70,6 @@ work leads to is a demonstration of a working package, not a launch event, so
   available on Packagist now. Vue/Inertia and plain Blade components are planned
   first; Livewire and React follow as sponsorship allows the time (see Sponsoring
   in the README).
-- **`storyfeed/filament`** — the Filament plugin, in its own repository and
-  **commercial from its first commit** (~$49 one-time, sold through Anystack).
-  It is the one paid piece; the core and `storyfeed/ui` stay MIT and render a
-  complete feed without it. Why one adapter is priced differently — and why that
-  narrowing of an earlier all-MIT statement is written down rather than quietly
-  applied — is in the README under *How this is packaged*.
 - A public demo API, so any frontend — Nuxt, Next, SvelteKit, mobile — can be
   pointed at a live Storyfeed and render it however it likes.
 - Laravel notifications, bridged both ways — a notification class that

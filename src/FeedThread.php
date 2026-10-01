@@ -205,7 +205,7 @@ final class FeedThread
      *
      * Called at READ time and never persisted back — `FeedBody`'s rule 2. The
      * point is that every renderer sees ONE shape forever, so no Blade, Vue
-     * or Filament view ever branches on `$v`. Core owns this class and
+     * or admin-panel view ever branches on `$v`. Core owns this class and
      * upgrades before anyone downstream looks, which is why the payload does
      * not carry the version at all ({@see toPayload()}).
      *

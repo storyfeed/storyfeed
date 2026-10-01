@@ -105,7 +105,7 @@ class FileAttachment implements FeedBody
      *
      * A body outlives whichever library defined it ({@see FeedBody}), so the
      * name must not contain the library: this body type has already moved
-     * packages once, and a `storyfeed-ui/` or `storyfeed-filament/` prefix
+     * packages once, and a `storyfeed-ui/` or any other package's prefix
      * would have moved with it. The name is a pure lookup key — no reflection,
      * no autoloading — so it need not resolve to anything. PascalCase matches
      * AS2's own type casing, which the payload already carries (`FeedResource`

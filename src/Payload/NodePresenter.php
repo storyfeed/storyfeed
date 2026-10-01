@@ -536,8 +536,8 @@ class NodePresenter
          *
          * So the registry promised a token the node did not carry, and every
          * renderer had to discover that for itself. Two did: the Vue renderer
-         * quietly reconstructs the singular from `sample[0]`, and the
-         * Filament adapter rendered ":actor" as "Someone" — a shrug with the
+         * quietly reconstructs the singular from `sample[0]`, and an
+         * admin-panel renderer rendered ":actor" as "Someone" — a shrug with the
          * authority of a fact — on a vault row summarising client link opens.
          * A promise the payload does not keep is the payload's bug.
          *

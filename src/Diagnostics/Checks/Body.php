@@ -84,7 +84,7 @@ class Body extends Check
      *
      * A body sits ALONGSIDE the app's own keys, so finding one means walking
      * the map rather than reading a fixed key — the same walk, and deliberately
-     * the same cap, as the Filament adapter's `Detail\Registry`. Bodies never
+     * the same cap, as the renderers' own detail registries. Bodies never
      * nest (rule 4), so anything deeper is an app's own data structure that
      * happens to be deep, not a body hiding.
      */
