@@ -74,6 +74,9 @@
             "includes": [
                 "extension.neon"
             ]
+        },
+        "branch-alias": {
+            "dev-main": "0.12.x-dev"
         }
     },
     "minimum-stability": "dev",
