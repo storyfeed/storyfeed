@@ -1,10 +1,13 @@
 {
     "name": "storyfeed/storyfeed",
-    "description": "Activity streams for Laravel",
+    "description": "Activity feeds for Laravel, aligned with the W3C Activity Streams 2.0 standard.",
     "keywords": [
-        "Storyfeed",
         "laravel",
-        "storyfeed"
+        "storyfeed",
+        "activity-feed",
+        "activity-stream",
+        "activitystreams",
+        "timeline"
     ],
     "homepage": "https://storyfeed.dev",
     "license": "MIT",
