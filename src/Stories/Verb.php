@@ -1426,7 +1426,7 @@ final class Verb
                 $value instanceof FeedHeadline => "trans:{$value->key}",
                 $value instanceof FeedNoun => 'noun:'.($value->translated ? 't:' : '').$value->value,
                 $value instanceof BackedEnum => (string) $value->value,
-                $value instanceof Group => json_encode([$value->axis, $value->template(), $value->parentTemplate()]) ?: '',
+                $value instanceof Group => json_encode([$value->axis, $describe($value->template()), $value->parentTemplate()]) ?: '',
                 is_array($value) => implode('|', array_map($describe, $value)),
                 is_bool($value) => $value ? '1' : '0',
                 default => (string) $value,

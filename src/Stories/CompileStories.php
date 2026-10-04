@@ -36,7 +36,7 @@ use Storyfeed\StoryfeedManager;
  *
  * @phpstan-type Compiled array{
  *     grammar: array<string, string|Closure|FeedHeadline>,
- *     aggregateGrammar: array<string, string>,
+ *     aggregateGrammar: array<string, string|Closure>,
  *     actorlessGrammar: array<string, string|Closure|FeedHeadline>,
  *     icons: array<string, string>,
  *     glyphIntents: array<string, string>,
@@ -378,7 +378,7 @@ class CompileStories
     }
 
     /**
-     * @param  array<string, string>  $aggregateGrammar
+     * @param  array<string, string|Closure>  $aggregateGrammar
      * @param  array<string, string|Closure|FeedHeadline>  $grammar
      * @param  array<string, string>  $owners
      */
@@ -403,10 +403,12 @@ class CompileStories
         }
 
         if ($template !== null) {
-            preg_match_all('/:[a-z]+/', $template, $matches);
+            if (is_string($template)) {
+                preg_match_all('/:[a-z]+/', $template, $matches);
 
-            foreach (array_diff(array_unique($matches[0]), $allowed) as $token) {
-                throw StoryMisconfigured::unpinnedToken($source, $group->axis, $token, $allowed);
+                foreach (array_diff(array_unique($matches[0]), $allowed) as $token) {
+                    throw StoryMisconfigured::unpinnedToken($source, $group->axis, $token, $allowed);
+                }
             }
 
             foreach ($this->groupKeys($group, $definition, $storyfeed) as $key) {

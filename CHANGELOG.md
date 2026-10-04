@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Added
+
+- Fluent `Group::headline()` accepts a closure receiving the `GroupSlice`,
+  with its true count and sampled members, and returning finished headline text.
+  Group closures support `storyfeed:cache` like single-activity headline closures.
+
 ## v0.12.0 — Pictures only when a body asks, and the thread leaves core (2026-10-01)
 
 ### Added
