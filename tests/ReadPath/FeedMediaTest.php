@@ -303,7 +303,7 @@ it('reports the class-derived name for a feed entered through its constructor', 
     // class has — canonical because it is the only one.
     $customer = Customer::create(['name' => 'Acme']);
 
-    Storyfeed::activity('order.placed', $customer)->context($customer)->publish();
+    Storyfeed::activity('order_placed', $customer)->context($customer)->publish();
 
     CustomerFeed::make($customer)->get()->toArray();
 
@@ -342,7 +342,7 @@ it('reports one identity whichever door a registered class feed is entered by', 
 
     $customer = Customer::create(['name' => 'Acme']);
 
-    Storyfeed::activity('order.placed', $customer)->context($customer)->publish();
+    Storyfeed::activity('order_placed', $customer)->context($customer)->publish();
 
     // A subject feed has one door in — its constructor — and it now reports
     // the key it was registered under, not the name of its class.

@@ -47,7 +47,7 @@ Write it while it's fresh; never reconstruct after the fact. See
   independently of the app's morph map — the trickle counts activities with
   uncached, unresolvable roles by default and soft-deletes them only when
   `storyfeed.trickle.prune` is enabled or `storyfeed:trickle --prune` is used.
-- Verbs stay free-form strings in storage. Enums are an authoring convenience;
+- Verbs stay free-form strings in storage, except a verb may not contain a dot. Enums are an authoring convenience;
   AS2.0 enums are pure vocabulary transcriptions that never throw and never
   gate validation. Unknown/extension types are preserved verbatim, never dropped.
 - Support policy: rolling current + previous Laravel major; PHP ^8.4 only,

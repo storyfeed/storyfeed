@@ -129,17 +129,17 @@ it('resolves grammar for group nodes too', function () {
 });
 
 it('refuses a list of verbs, which would register the integer 0 as a verb', function () {
-    // The silent version of this bug: `0 => 'order.placed'` registers a
+    // The silent version of this bug: `0 => 'placed'` registers a
     // vocabulary doctor believes in, and `verbs.strict` then rejects every real
     // verb against it. Found while writing tests for FeedAudience.
-    expect(fn () => Storyfeed::verbs(['order.placed', 'order.delivered']))
-        ->toThrow(InvalidArgumentException::class, "Storyfeed::verbs(['order.placed' => ActivityType::Update])");
+    expect(fn () => Storyfeed::verbs(['placed', 'delivered']))
+        ->toThrow(InvalidArgumentException::class, "Storyfeed::verbs(['placed' => ActivityType::Update])");
 
     // The map form and the enum form are untouched.
-    Storyfeed::verbs(['order.placed' => ActivityType::Create]);
+    Storyfeed::verbs(['placed' => ActivityType::Create]);
     Storyfeed::verbs(ActivityVerb::class);
 
-    expect(Storyfeed::declaredVerb('order.placed'))->toBeTrue()
+    expect(Storyfeed::declaredVerb('placed'))->toBeTrue()
         ->and(Storyfeed::declaredVerb('confirm'))->toBeTrue();
 });
 

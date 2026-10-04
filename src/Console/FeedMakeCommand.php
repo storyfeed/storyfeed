@@ -82,7 +82,7 @@ class FeedMakeCommand extends GeneratorCommand
      *
      * DELIBERATELY NOT ONE FEED PER VERB, which is what the make:story analogy
      * suggests. An unauthored (type, verb) pair genuinely needs its own story —
-     * finding and file correspond. A verb→feed mapping does not: `ticket.internal_note`
+     * finding and file correspond. A verb→feed mapping does not: `note`
      * does not want an InternalNoteFeed, it wants to be DENIED in the ticket feed
      * and allowed in the admin one. And a generated single-verb feed would be a
      * RESTRICTED feed that MENTIONS its verb, which is exactly what FeedCoverage
@@ -222,7 +222,7 @@ class FeedMakeCommand extends GeneratorCommand
         }
 
         return $lines === []
-            ? "            // 'ticket.opened', 'ticket.resolved' — the verbs this audience may see."
+            ? "            // 'open', 'resolve' — the verbs this audience may see."
             : implode(PHP_EOL, $lines);
     }
 

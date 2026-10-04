@@ -4,6 +4,7 @@ namespace Storyfeed\Stories;
 
 use Closure;
 use InvalidArgumentException;
+use Storyfeed\Exceptions\DottedVerb;
 use Storyfeed\Exceptions\StoryMisconfigured;
 use Storyfeed\FeedNoun;
 
@@ -320,6 +321,8 @@ final class PendingResource
         $verbs = array_merge(...array_map(fn (string|array $verb) => array_values((array) $verb), $verbs));
 
         foreach ($verbs as $verb) {
+            DottedVerb::assertValid($verb);
+
             if ($this->class === null && ! array_key_exists($verb, self::VERBS)) {
                 throw new InvalidArgumentException(
                     "Story::resource() has no [{$verb}] verb. It defines ".implode(', ', array_keys(self::VERBS)).'.',

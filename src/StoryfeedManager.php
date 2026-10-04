@@ -26,6 +26,7 @@ use Storyfeed\Contracts\HasActivityStreamsType;
 use Storyfeed\Contracts\PublishesToFeed;
 use Storyfeed\Diagnostics\Doctor;
 use Storyfeed\Diagnostics\Report;
+use Storyfeed\Exceptions\DottedVerb;
 use Storyfeed\Exceptions\StoryMisconfigured;
 use Storyfeed\Exceptions\StoryNotFound;
 use Storyfeed\Exceptions\StoryObjectMismatch;
@@ -2193,6 +2194,8 @@ class StoryfeedManager
                     .'a backed enum implementing FeedVerb and let it declare its own mappings.',
                 );
             }
+
+            DottedVerb::assertValid($verb);
 
             $normalized[$verb] = $this->normalizeTerm($type, ActivityType::class);
         }

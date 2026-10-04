@@ -33,47 +33,47 @@ function verbsOf(array $items): array
 it('restricts a feed to an allowlist of verbs', function () {
     $file = Delivery::create(['tracking_number' => 'menu.pdf']);
 
-    foreach (['order.placed', 'order.delivered', 'order.margin_note'] as $verb) {
+    foreach (['order_placed', 'order_delivered', 'order_margin_note'] as $verb) {
         Storyfeed::activity()->actor($this->ines)->verb($verb, $file)->to($this->project)->publish();
     }
 
-    $page = $this->project->storyfeed()->only(['order.placed', 'order.delivered'])->log()->get();
+    $page = $this->project->storyfeed()->only(['order_placed', 'order_delivered'])->log()->get();
 
-    expect(verbsOf($page->items()))->toBe(['order.delivered', 'order.placed']);
+    expect(verbsOf($page->items()))->toBe(['order_delivered', 'order_placed']);
 });
 
 it('excludes a denylist of verbs', function () {
     $file = Delivery::create(['tracking_number' => 'menu.pdf']);
 
-    foreach (['order.placed', 'order.margin_note'] as $verb) {
+    foreach (['order_placed', 'order_margin_note'] as $verb) {
         Storyfeed::activity()->actor($this->ines)->verb($verb, $file)->to($this->project)->publish();
     }
 
-    $page = $this->project->storyfeed()->except(['order.margin_note'])->log()->get();
+    $page = $this->project->storyfeed()->except(['order_margin_note'])->log()->get();
 
-    expect(verbsOf($page->items()))->toBe(['order.placed']);
+    expect(verbsOf($page->items()))->toBe(['order_placed']);
 });
 
 it('takes verb strings, FeedVerb cases and wildcards in one list', function () {
     $file = Delivery::create(['tracking_number' => 'menu.pdf']);
 
-    foreach (['confirm', 'order.placed', 'order.paid', 'internal.note'] as $verb) {
+    foreach (['confirm', 'order_placed', 'order_paid', 'internal_note'] as $verb) {
         Storyfeed::activity()->actor($this->ines)->verb($verb, $file)->to($this->project)->publish();
     }
 
     $page = $this->project->storyfeed()
-        ->only([ActivityVerb::Confirm, 'order.*'])
+        ->only([ActivityVerb::Confirm, 'order_*'])
         ->log()
         ->get();
 
-    expect(verbsOf($page->items()))->toBe(['confirm', 'order.paid', 'order.placed']);
+    expect(verbsOf($page->items()))->toBe(['confirm', 'order_paid', 'order_placed']);
 });
 
 it('never throws on a verb that exists nowhere in the registry', function () {
     // Verbs are free-form strings in storage by guarantee. An allowlist naming a
     // verb nobody ever declared or recorded is a query that matches nothing —
     // it is doctor's job to complain, not the read path's.
-    Storyfeed::activity()->actor($this->ines)->verb('order.placed', $this->project)->publish();
+    Storyfeed::activity()->actor($this->ines)->verb('order_placed', $this->project)->publish();
 
     $page = $this->project->storyfeed()->only(['a.verb.that.never.was'])->log()->get();
 
@@ -83,13 +83,13 @@ it('never throws on a verb that exists nowhere in the registry', function () {
 it('treats a wildcard prefix literally, not as a LIKE pattern', function () {
     // Verbs may legally contain % and _, so an unescaped prefix would widen the
     // allowlist — the one direction a safety filter must never fail in.
-    foreach (['a%b.leak', 'axb.leak'] as $verb) {
+    foreach (['a%b_leak', 'axb_leak'] as $verb) {
         Storyfeed::activity()->actor($this->ines)->verb($verb, $this->project)->publish();
     }
 
-    $page = $this->project->storyfeed()->only(['a%b.*'])->log()->get();
+    $page = $this->project->storyfeed()->only(['a%b_*'])->log()->get();
 
-    expect(verbsOf($page->items()))->toBe(['a%b.leak']);
+    expect(verbsOf($page->items()))->toBe(['a%b_leak']);
 });
 
 it('refuses an empty allowlist rather than rendering an empty feed', function () {
@@ -97,18 +97,18 @@ it('refuses an empty allowlist rather than rendering an empty feed', function ()
 })->throws(InvalidArgumentException::class, 'was given an empty list of verbs');
 
 it('narrows on repeat calls instead of widening', function () {
-    foreach (['order.placed', 'order.paid'] as $verb) {
+    foreach (['order_placed', 'order_paid'] as $verb) {
         Storyfeed::activity()->actor($this->ines)->verb($verb, $this->project)->publish();
     }
 
     $page = $this->project->storyfeed()
-        ->only(['order.placed', 'order.paid'])
-        ->only(['order.paid'])
+        ->only(['order_placed', 'order_paid'])
+        ->only(['order_paid'])
         ->log()
         ->get();
 
     // Union would give both; intersection is what makes a preset unwidenable.
-    expect(verbsOf($page->items()))->toBe(['order.paid']);
+    expect(verbsOf($page->items()))->toBe(['order_paid']);
 });
 
 it('recomputes group counts inside the allowlist', function () {
@@ -120,11 +120,11 @@ it('recomputes group counts inside the allowlist', function () {
     );
 
     foreach ($files as $file) {
-        Storyfeed::activity()->actor($this->ines)->verb('photo.approved', $file)->to($this->project)->publish();
+        Storyfeed::activity()->actor($this->ines)->verb('photo_approved', $file)->to($this->project)->publish();
     }
 
-    Storyfeed::activity()->actor($this->ines)->verb('photo.approved', Delivery::create(
-        ['tracking_number' => 'internal.jpg'],
+    Storyfeed::activity()->actor($this->ines)->verb('photo_approved', Delivery::create(
+        ['tracking_number' => 'internal_jpg'],
     ))->to($this->project)->publish();
 
     $unfiltered = $this->project->storyfeed()->live()->get()->items()[0];
@@ -132,7 +132,7 @@ it('recomputes group counts inside the allowlist', function () {
     // Exclude by object, inside a feed already narrowed by verb, so the group
     // spans the allowlist boundary in both dimensions.
     $filtered = $this->project->storyfeed()
-        ->only(['photo.*'])
+        ->only(['photo_*'])
         ->query(fn (ActivityBuilder $q) => $q->whereNot('object_id', 4))
         ->live()
         ->get()
@@ -153,11 +153,11 @@ it('leaks no excluded actor into the distinct-role counts', function () {
     $priya = User::create(['name' => 'Priya', 'email' => 'priya@example.com']);
 
     foreach ([$this->ines, $marcus] as $actor) {
-        Storyfeed::activity()->actor($actor)->verb('order.confirmed', $file)->to($this->project)->publish();
+        Storyfeed::activity()->actor($actor)->verb('order_confirmed', $file)->to($this->project)->publish();
     }
 
-    Storyfeed::activity()->actor($priya)->verb('order.confirmed', $file)->to($this->project)->publish();
-    Storyfeed::activity()->actor($priya)->verb('order.margin_note', $file)->to($this->project)->publish();
+    Storyfeed::activity()->actor($priya)->verb('order_confirmed', $file)->to($this->project)->publish();
+    Storyfeed::activity()->actor($priya)->verb('order_margin_note', $file)->to($this->project)->publish();
 
     $unfiltered = $this->project->storyfeed()->get()->items()[0];
 
@@ -166,8 +166,8 @@ it('leaks no excluded actor into the distinct-role counts', function () {
     // Priya's only allowed activity removed as well: she is now invisible to
     // this feed entirely, so the overflow count must say 2.
     $filtered = $this->project->storyfeed()
-        ->only(['order.*'])
-        ->except(['order.margin_note'])
+        ->only(['order_*'])
+        ->except(['order_margin_note'])
         ->query(fn (ActivityBuilder $q) => $q->whereNot('actor_id', $priya->getKey()))
         ->get()
         ->items()[0];
@@ -179,14 +179,14 @@ it('drops a group whose members are all excluded rather than emitting an empty n
     $file = Delivery::create(['tracking_number' => 'notes.txt']);
 
     foreach (range(1, 3) as $ignored) {
-        Storyfeed::activity()->actor($this->ines)->verb('order.margin_note', $file)->to($this->project)->publish();
+        Storyfeed::activity()->actor($this->ines)->verb('order_margin_note', $file)->to($this->project)->publish();
     }
 
-    Storyfeed::activity()->actor($this->ines)->verb('order.placed', $this->project)->publish();
+    Storyfeed::activity()->actor($this->ines)->verb('order_placed', $this->project)->publish();
 
-    $page = $this->project->storyfeed()->only(['order.placed'])->summary()->get();
+    $page = $this->project->storyfeed()->only(['order_placed'])->summary()->get();
 
-    expect(verbsOf($page->items()))->toBe(['order.placed']);
+    expect(verbsOf($page->items()))->toBe(['order_placed']);
 });
 
 it('cannot be widened by a query() callback using a top-level orWhere', function () {
@@ -195,26 +195,26 @@ it('cannot be widened by a query() callback using a top-level orWhere', function
     // straight back. The callbacks are nested precisely to make this impossible.
     $file = Delivery::create(['tracking_number' => 'menu.pdf']);
 
-    foreach (['order.placed', 'order.margin_note'] as $verb) {
+    foreach (['order_placed', 'order_margin_note'] as $verb) {
         Storyfeed::activity()->actor($this->ines)->verb($verb, $file)->to($this->project)->publish();
     }
 
     $page = $this->project->storyfeed()
-        ->only(['order.placed'])
-        ->query(fn (ActivityBuilder $q) => $q->where('verb', 'order.placed')->orWhere('verb', 'order.margin_note'))
+        ->only(['order_placed'])
+        ->query(fn (ActivityBuilder $q) => $q->where('verb', 'order_placed')->orWhere('verb', 'order_margin_note'))
         ->log()
         ->get();
 
-    expect(verbsOf($page->items()))->toBe(['order.placed']);
+    expect(verbsOf($page->items()))->toBe(['order_placed']);
 });
 
 it('still refuses a limit set inside a callback when a filter is active', function () {
     // The callbacks always run inside a nested group; the limit/offset guard
     // must still see them there, filter or no filter.
-    Storyfeed::activity()->actor($this->ines)->verb('order.placed', $this->project)->publish();
+    Storyfeed::activity()->actor($this->ines)->verb('order_placed', $this->project)->publish();
 
     $this->project->storyfeed()
-        ->only(['order.placed'])
+        ->only(['order_placed'])
         ->query(fn (ActivityBuilder $q) => $q->limit(1))
         ->get();
 })->throws(InvalidArgumentException::class, 'set a limit or offset on the candidate activities');
@@ -222,46 +222,46 @@ it('still refuses a limit set inside a callback when a filter is active', functi
 it('changes nothing for a feed that declares no filter', function () {
     // The constraint the whole lane is built under: an app that never calls
     // feeds() or only() must see the feed it saw yesterday.
-    foreach (['order.placed', 'order.margin_note'] as $verb) {
+    foreach (['order_placed', 'order_margin_note'] as $verb) {
         Storyfeed::activity()->actor($this->ines)->verb($verb, $this->project)->publish();
     }
 
     $page = $this->project->storyfeed()->log()->get();
 
-    expect(verbsOf($page->items()))->toBe(['order.margin_note', 'order.placed']);
+    expect(verbsOf($page->items()))->toBe(['order_margin_note', 'order_placed']);
 });
 
 /* --- the registry ---------------------------------------------------- */
 
 it('enters a registered preset by name from the facade and from a model', function () {
     Storyfeed::feeds([
-        'customer' => fn (FeedBuilder $feed) => $feed->only(['order.*'])->log(),
+        'customer' => fn (FeedBuilder $feed) => $feed->only(['order_*'])->log(),
     ]);
 
     $file = Delivery::create(['tracking_number' => 'menu.pdf']);
 
-    foreach (['order.placed', 'internal.note'] as $verb) {
+    foreach (['order_placed', 'internal_note'] as $verb) {
         Storyfeed::activity()->actor($this->ines)->verb($verb, $file)->to($this->project)->publish();
     }
 
     $viaFacade = Storyfeed::feed('customer')->involving($this->project)->get();
     $viaModel = $this->project->storyfeed('customer')->get();
 
-    expect(verbsOf($viaFacade->items()))->toBe(['order.placed'])
-        ->and(verbsOf($viaModel->items()))->toBe(['order.placed']);
+    expect(verbsOf($viaFacade->items()))->toBe(['order_placed'])
+        ->and(verbsOf($viaModel->items()))->toBe(['order_placed']);
 });
 
 it('accepts a preset closure that mutates without returning', function () {
     Storyfeed::feeds([
         'customer' => function (FeedBuilder $feed) {
-            $feed->only(['order.*'])->log();
+            $feed->only(['order_*'])->log();
         },
     ]);
 
-    Storyfeed::activity()->actor($this->ines)->verb('internal.note', $this->project)->publish();
-    Storyfeed::activity()->actor($this->ines)->verb('order.placed', $this->project)->publish();
+    Storyfeed::activity()->actor($this->ines)->verb('internal_note', $this->project)->publish();
+    Storyfeed::activity()->actor($this->ines)->verb('order_placed', $this->project)->publish();
 
-    expect(verbsOf(Storyfeed::feed('customer')->get()->items()))->toBe(['order.placed']);
+    expect(verbsOf(Storyfeed::feed('customer')->get()->items()))->toBe(['order_placed']);
 });
 
 it('refuses a preset closure that returns something other than a builder', function () {
@@ -271,39 +271,39 @@ it('refuses a preset closure that returns something other than a builder', funct
 })->throws(InvalidArgumentException::class, 'returned string instead of a FeedBuilder');
 
 it('throws on an unknown preset name instead of falling back to the whole feed', function () {
-    Storyfeed::feeds(['customer' => fn (FeedBuilder $feed) => $feed->only(['order.*'])]);
+    Storyfeed::feeds(['customer' => fn (FeedBuilder $feed) => $feed->only(['order_*'])]);
 
     Storyfeed::feed('custommer');
 })->throws(UnknownFeed::class, 'Registered feeds: customer');
 
 it('cannot be widened by a call site adding only() on top of a preset', function () {
     Storyfeed::feeds([
-        'customer' => fn (FeedBuilder $feed) => $feed->only(['order.placed'])->log(),
+        'customer' => fn (FeedBuilder $feed) => $feed->only(['order_placed'])->log(),
     ]);
 
-    foreach (['order.placed', 'order.margin_note'] as $verb) {
+    foreach (['order_placed', 'order_margin_note'] as $verb) {
         Storyfeed::activity()->actor($this->ines)->verb($verb, $this->project)->publish();
     }
 
-    $page = Storyfeed::feed('customer')->only(['order.placed', 'order.margin_note'])->get();
+    $page = Storyfeed::feed('customer')->only(['order_placed', 'order_margin_note'])->get();
 
-    expect(verbsOf($page->items()))->toBe(['order.placed']);
+    expect(verbsOf($page->items()))->toBe(['order_placed']);
 });
 
 it('lets a call site override the preset mode but not the allowlist', function () {
     // A preset carries two different kinds of thing: a safety property (the
     // allowlist) and a presentation default (the mode). Only one of them binds.
     Storyfeed::feeds([
-        'customer' => fn (FeedBuilder $feed) => $feed->only(['order.placed'])->log(),
+        'customer' => fn (FeedBuilder $feed) => $feed->only(['order_placed'])->log(),
     ]);
 
     $file = Delivery::create(['tracking_number' => 'menu.pdf']);
 
     foreach (range(1, 3) as $ignored) {
-        Storyfeed::activity()->actor($this->ines)->verb('order.placed', $file)->to($this->project)->publish();
+        Storyfeed::activity()->actor($this->ines)->verb('order_placed', $file)->to($this->project)->publish();
     }
 
-    Storyfeed::activity()->actor($this->ines)->verb('order.margin_note', $file)->to($this->project)->publish();
+    Storyfeed::activity()->actor($this->ines)->verb('order_margin_note', $file)->to($this->project)->publish();
 
     $log = Storyfeed::feed('customer')->involving($this->project)->get();
     $live = Storyfeed::feed('customer')->involving($this->project)->live()->get();
@@ -314,8 +314,8 @@ it('lets a call site override the preset mode but not the allowlist', function (
 });
 
 it('merges registrations by default and replaces when asked', function () {
-    Storyfeed::feeds(['customer' => fn (FeedBuilder $feed) => $feed->only(['order.*'])]);
-    Storyfeed::feeds(['kitchen' => fn (FeedBuilder $feed) => $feed->only(['photo.*'])]);
+    Storyfeed::feeds(['customer' => fn (FeedBuilder $feed) => $feed->only(['order_*'])]);
+    Storyfeed::feeds(['kitchen' => fn (FeedBuilder $feed) => $feed->only(['photo_*'])]);
 
     expect(Storyfeed::feedNames())->toBe(['customer', 'kitchen']);
 
@@ -326,17 +326,17 @@ it('merges registrations by default and replaces when asked', function () {
 
 it('composes a preset with involving(), context() and a cursor', function () {
     Storyfeed::feeds([
-        'customer' => fn (FeedBuilder $feed) => $feed->only(['order.*'])->log()->limit(2),
+        'customer' => fn (FeedBuilder $feed) => $feed->only(['order_*'])->log()->limit(2),
     ]);
 
     $other = Customer::create(['name' => 'Somebody Else']);
 
     foreach (range(1, 3) as $n) {
-        Storyfeed::activity()->actor($this->ines)->verb('order.placed', $this->project)->publish();
+        Storyfeed::activity()->actor($this->ines)->verb('order_placed', $this->project)->publish();
     }
 
-    Storyfeed::activity()->actor($this->ines)->verb('order.placed', $other)->publish();
-    Storyfeed::activity()->actor($this->ines)->verb('internal.note', $this->project)->publish();
+    Storyfeed::activity()->actor($this->ines)->verb('order_placed', $other)->publish();
+    Storyfeed::activity()->actor($this->ines)->verb('internal_note', $this->project)->publish();
 
     $first = $this->project->storyfeed('customer')->get();
     $second = $this->project->storyfeed('customer')->cursor($first->toArray()['next_cursor'])->get();

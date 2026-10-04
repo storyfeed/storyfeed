@@ -19,7 +19,7 @@ use Storyfeed\Support\SyncToken;
  * does. A demo that took a shortcut past that would be showing the audience code
  * nobody runs, and would stop catching regressions the moment it diverged.
  *
- * Teardown is the half that has to be trustworthy. It matches on the `demo.`
+ * Teardown is the half that has to be trustworthy. It matches on the `demo:`
  * verb prefix and nothing else: no truncation, no JSON path expression, no
  * "delete everything published before X". The worst case for a mistake here is
  * an application losing real activities to a demo command, so the query is one a
@@ -113,7 +113,9 @@ class DemoSeeder
         while (true) {
             $ids = $activityModel::query()
                 ->withTrashed()
-                ->where('verb', 'like', Vocabulary::PREFIX.'%')
+                ->where(fn ($query) => $query
+                    ->where('verb', 'like', Vocabulary::PREFIX.'%')
+                    ->orWhere('verb', 'like', 'demo.%'))
                 ->limit(500)
                 ->pluck('id');
 

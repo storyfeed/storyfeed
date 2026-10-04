@@ -16,6 +16,6 @@ class ForgetfulFeed extends Feed
 
     public function define(FeedBuilder $feed): void
     {
-        $feed->only(['order.placed']);
+        $feed->only(['order_placed']);
     }
 }

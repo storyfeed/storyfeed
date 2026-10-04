@@ -57,7 +57,7 @@ it('keeps the timeline when the same one verb keeps every row', function () use 
 
 it('keeps the timeline with a verb per transition, keeping the latest or not', function () use ($states) {
     foreach (array_slice($states, 1) as $to) {
-        Story::for(Delivery::class)->verb('order.'.$to)->keepLatest();
+        Story::for(Delivery::class)->verb($to)->keepLatest();
     }
 
     $order = Delivery::create(['tracking_number' => 'ORDER-3']);
@@ -65,7 +65,7 @@ it('keeps the timeline with a verb per transition, keeping the latest or not', f
     foreach (array_slice($states, 1) as $to) {
         // The key is object + verb, so distinct verbs never collide: each
         // transition is idempotent against ITSELF and nothing else.
-        Storyfeed::activity('order.'.$to, $order)->publish();
+        Storyfeed::activity($to, $order)->publish();
     }
 
     expect($order->storyfeed()->log()->get()->items())->toHaveCount(6);
@@ -73,15 +73,15 @@ it('keeps the timeline with a verb per transition, keeping the latest or not', f
 
 it('collapses a re-fired transition without touching its neighbours', function () {
     foreach (['confirmed', 'cooking', 'ready'] as $to) {
-        Story::for(Delivery::class)->verb('order.'.$to)->keepLatest();
+        Story::for(Delivery::class)->verb($to)->keepLatest();
     }
 
     $order = Delivery::create(['tracking_number' => 'ORDER-4']);
 
-    Storyfeed::activity('order.confirmed', $order)->publish();
-    Storyfeed::activity('order.cooking', $order)->publish();
-    Storyfeed::activity('order.cooking', $order)->publish(); // double-click, retried job
-    Storyfeed::activity('order.ready', $order)->publish();
+    Storyfeed::activity('confirmed', $order)->publish();
+    Storyfeed::activity('cooking', $order)->publish();
+    Storyfeed::activity('cooking', $order)->publish(); // double-click, retried job
+    Storyfeed::activity('ready', $order)->publish();
 
     expect($order->storyfeed()->log()->get()->items())->toHaveCount(3);
 });
@@ -96,8 +96,8 @@ it('reads an order timeline with no authenticated user', function () {
     $customer = Customer::create(['name' => 'Guest Customer']);
     $order = Delivery::create(['tracking_number' => 'ORDER-5']);
 
-    Storyfeed::activity()->actor($customer)->verb('order.placed', $order)->context($order)->publish();
-    Storyfeed::activity()->actor($cook)->verb('order.cooking', $order)->to($customer)->context($order)->publish();
+    Storyfeed::activity()->actor($customer)->verb('placed', $order)->context($order)->publish();
+    Storyfeed::activity()->actor($cook)->verb('cooking', $order)->to($customer)->context($order)->publish();
 
     Auth::logout();
 
@@ -112,8 +112,8 @@ it('misses the placement activity when context() is scoped but never set', funct
 
     // The natural authoring of "an order was placed": the order is the OBJECT,
     // and there is no container to be the context yet.
-    Storyfeed::activity()->actor($customer)->verb('order.placed', $order)->publish();
-    Storyfeed::activity()->verb('order.cooking', $order)->context($order)->publish();
+    Storyfeed::activity()->actor($customer)->verb('placed', $order)->publish();
+    Storyfeed::activity()->verb('cooking', $order)->context($order)->publish();
 
     expect(Storyfeed::feed()->context($order)->log()->get()->items())->toHaveCount(1)
         ->and($order->storyfeed()->log()->get()->items())->toHaveCount(2);
@@ -126,11 +126,11 @@ it('misses the placement activity when context() is scoped but never set', funct
 it('restricts a customer timeline to an allowlist of verbs', function () {
     $order = Delivery::create(['tracking_number' => 'ORDER-7']);
 
-    Storyfeed::activity('order.confirmed', $order)->publish();
-    Storyfeed::activity('order.margin_reviewed', $order)->publish();
-    Storyfeed::activity('order.delivered', $order)->publish();
+    Storyfeed::activity('confirmed', $order)->publish();
+    Storyfeed::activity('margin_reviewed', $order)->publish();
+    Storyfeed::activity('delivered', $order)->publish();
 
-    $public = ['order.confirmed', 'order.delivered'];
+    $public = ['confirmed', 'delivered'];
 
     $items = $order->storyfeed()
         ->query(fn ($q) => $q->whereIn('verb', $public))

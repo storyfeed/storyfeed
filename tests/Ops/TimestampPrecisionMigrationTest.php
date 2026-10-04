@@ -19,7 +19,7 @@ function legacyRows(): void
 {
     DB::table('feed_activities')->insert([
         'uid' => '01J0000000000000000000LEGA',
-        'verb' => 'legacy.row',
+        'verb' => 'import',
         'published_at' => '2026-09-01 10:00:00',
         'created_at' => '2026-09-01 10:00:00',
         'updated_at' => '2026-09-01 10:00:01',
@@ -72,14 +72,14 @@ it('pads legacy SQLite values to the width the model now writes, so text order s
     // and as time — the property the padding exists to keep.
     DB::table('feed_activities')->insert([
         'uid' => '01J0000000000000000000LATE',
-        'verb' => 'later.row',
+        'verb' => 'append',
         'published_at' => '2026-09-01 10:00:00.000001',
         'created_at' => '2026-09-01 10:00:00.000001',
         'updated_at' => '2026-09-01 10:00:00.000001',
     ]);
 
     expect(DB::table('feed_activities')->orderByDesc('published_at')->pluck('verb')->all())
-        ->toBe(['later.row', 'legacy.row']);
+        ->toBe(['append', 'import']);
 });
 
 it('runs twice without touching a value it already widened', function () {

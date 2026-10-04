@@ -41,13 +41,13 @@ function twoInTheSameSecond(): array
 
     $first = Storyfeed::activity()
         ->actor($user)
-        ->verb('client.renamed', Delivery::create(['tracking_number' => 'FIRST']))
+        ->verb('renamed', Delivery::create(['tracking_number' => 'FIRST']))
         ->publishedAt($at)
         ->publish();
 
     $second = Storyfeed::activity()
         ->actor($user)
-        ->verb('client.renamed', Delivery::create(['tracking_number' => 'SECOND']))
+        ->verb('renamed', Delivery::create(['tracking_number' => 'SECOND']))
         ->publishedAt($at)
         ->publish();
 

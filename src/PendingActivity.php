@@ -26,6 +26,7 @@ use Storyfeed\Contracts\Feedable;
 use Storyfeed\Contracts\FeedVerb;
 use Storyfeed\Events\ActivityPublished;
 use Storyfeed\Events\Snapshots\ActivitySnapshot;
+use Storyfeed\Exceptions\DottedVerb;
 use Storyfeed\Exceptions\IncompleteActivity;
 use Storyfeed\Exceptions\StoryRoleMismatch;
 use Storyfeed\Exceptions\UnauthoredActivity;
@@ -998,6 +999,8 @@ class PendingActivity
             $verb instanceof BackedEnum => (string) $verb->value,
             default => trim($verb),
         };
+
+        DottedVerb::assertValid($resolved);
 
         if ($resolved === '') {
             throw IncompleteActivity::missingVerb();

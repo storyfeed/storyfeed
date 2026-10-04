@@ -16,7 +16,7 @@ class CustomerFeed extends Feed
 
     public function define(FeedBuilder $feed): void
     {
-        $feed->only(['order.placed', 'order.delivered'])->log();
+        $feed->only(['order_placed', 'order_delivered'])->log();
     }
 
     protected function scope(FeedBuilder $feed): void

@@ -32,8 +32,8 @@ it('records a DTO as an ordinary array, byte-identical to the array it produces'
     $document = Delivery::create(['tracking_number' => 'DOC-1']);
     $dto = new LinkFetch('99.225.169.111', 'Guelph, Ontario', false);
 
-    $fromDto = Storyfeed::activity()->verb('link.opened', $document)->data($dto)->publish();
-    $fromArray = Storyfeed::activity()->verb('link.opened', $document)->data($dto->toArray())->publish();
+    $fromDto = Storyfeed::activity()->verb('opened', $document)->data($dto)->publish();
+    $fromArray = Storyfeed::activity()->verb('opened', $document)->data($dto->toArray())->publish();
 
     expect($fromDto->data)->toBe($dto->toArray())
         // The point of the whole arrangement: a DTO can be introduced or
@@ -44,7 +44,7 @@ it('records a DTO as an ordinary array, byte-identical to the array it produces'
 it('carries the DTO payload through to the feed, still uninterpreted', function () {
     $document = Delivery::create(['tracking_number' => 'DOC-2']);
 
-    Storyfeed::activity()->verb('link.opened', $document)->data(new LinkFetch('1.2.3.4'))->publish();
+    Storyfeed::activity()->verb('opened', $document)->data(new LinkFetch('1.2.3.4'))->publish();
 
     $item = Storyfeed::feed()->get()->toArray()['items'][0];
     $node = $item['kind'] === 'group' ? $item['children'][0] : $item;

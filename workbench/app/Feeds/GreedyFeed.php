@@ -13,7 +13,7 @@ class GreedyFeed extends Feed
 
     public function define(FeedBuilder $feed): void
     {
-        $feed->only(['order.'.$this->customer->id]);
+        $feed->only(['order_'.$this->customer->id]);
     }
 
     protected function scope(FeedBuilder $feed): void

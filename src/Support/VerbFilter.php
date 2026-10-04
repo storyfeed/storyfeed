@@ -15,7 +15,7 @@ use Storyfeed\Models\Builders\ActivityBuilder;
  * of the `feeds` findings; this class exists so the pattern semantics have ONE
  * implementation — the read path applies them as SQL, and the FeedCoverage
  * check reads the same patterns back to decide whether a verb was classified.
- * Two implementations of "does `order.*` cover `order.paid`" would drift, and
+ * Two implementations of "does `update*` cover `updateStatus`" would drift, and
  * the drift would be a doctor check that says a verb is safe when it is not.
  *
  * Constraints accumulate and only ever NARROW: every only()/except() call adds
@@ -121,7 +121,7 @@ final class VerbFilter
      * asks "would this feed SHOW it", which is the app's question.
      *
      * A parity test asserts this agrees with applyTo() over the same rows —
-     * two implementations of "does `order.*` admit `order.paid`" would drift,
+     * two implementations of "does `update*` admit `updateStatus`" would drift,
      * and the drift would be a test that passes while the feed leaks.
      */
     public function admits(string $verb): bool
@@ -198,7 +198,7 @@ final class VerbFilter
     /**
      * The explicit `escape` clause is the whole point of dropping to raw SQL
      * here. SQLite has NO default LIKE escape character, so the escaping below
-     * would be inert there and `a%b.*` would match `axb.leak` — a wildcard
+     * would be inert there and `a%b_*` would match `axb_leak` — a wildcard
      * silently WIDENING an allowlist, which is the one direction a safety
      * filter must never fail in. Declaring it is standard SQL and portable
      * across the drivers this package supports.
@@ -209,7 +209,7 @@ final class VerbFilter
     }
 
     /**
-     * `order.*` becomes `order.%`. The prefix is escaped so a verb vocabulary
+     * `update*` becomes `update%`. The prefix is escaped so a verb vocabulary
      * containing `%`, `_` or a backslash — all legal, since verbs are free-form
      * strings — cannot turn into an accidental wildcard that widens the
      * allowlist.

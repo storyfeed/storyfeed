@@ -65,11 +65,11 @@ it('reports a RECORDED verb nobody ever declared', function () {
     // universe would miss precisely this case.
     Storyfeed::verbs(ActivityVerb::class);
 
-    Storyfeed::activity('order.margin_note', Delivery::create(['tracking_number' => 'TN-1']))->publish();
+    Storyfeed::activity('order_margin_note', Delivery::create(['tracking_number' => 'TN-1']))->publish();
 
     Storyfeed::feeds(['customer' => fn (FeedBuilder $feed) => $feed->only(['confirm'])]);
 
-    $finding = feedFindings()->firstWhere('subject.verb', 'order.margin_note');
+    $finding = feedFindings()->firstWhere('subject.verb', 'order_margin_note');
 
     expect($finding['code'])->toBe('feeds.unclassified')
         ->and($finding['severity'])->toBe(Severity::Warning->value)
@@ -106,12 +106,12 @@ it('counts a DENIED verb as decided', function () {
 });
 
 it('counts a wildcard as deciding the verbs it covers', function () {
-    Storyfeed::verbs(['order.placed' => 'Create', 'order.paid' => 'Update', 'internal.note' => 'Create']);
+    Storyfeed::verbs(['order_placed' => 'Create', 'order_paid' => 'Update', 'internal_note' => 'Create']);
 
-    Storyfeed::feeds(['customer' => fn (FeedBuilder $feed) => $feed->only(['order.*'])]);
+    Storyfeed::feeds(['customer' => fn (FeedBuilder $feed) => $feed->only(['order_*'])]);
 
     expect(feedFindings()->where('code', 'feeds.unclassified')->pluck('subject.verb')->all())
-        ->toBe(['internal.note']);
+        ->toBe(['internal_note']);
 });
 
 it('flags a verb an allowlist names that is neither declared nor recorded', function () {
@@ -138,7 +138,7 @@ it('flags a verb an allowlist names that is neither declared nor recorded', func
 it('softens the unknown-verb finding for an app with no declared vocabulary', function () {
     // Same rule VerbDrift uses: before there is a vocabulary to deviate from,
     // an unrecognised verb is not evidence of anything.
-    Storyfeed::feeds(['customer' => fn (FeedBuilder $feed) => $feed->only(['order.placed'])]);
+    Storyfeed::feeds(['customer' => fn (FeedBuilder $feed) => $feed->only(['order_placed'])]);
 
     expect(feedFindings()->firstWhere('code', 'feeds.unknown_verb')['severity'])
         ->toBe(Severity::Info->value);
@@ -147,9 +147,9 @@ it('softens the unknown-verb finding for an app with no declared vocabulary', fu
 it('never demands an audience decision on the shipped default verbs', function () {
     // The 29 built-ins are not this app's vocabulary; asking someone to classify
     // `tentativeReject` would bury the real signal under a screenful of noise.
-    Storyfeed::verbs(['order.placed' => 'Create']);
+    Storyfeed::verbs(['order_placed' => 'Create']);
 
-    Storyfeed::feeds(['customer' => fn (FeedBuilder $feed) => $feed->only(['order.placed'])]);
+    Storyfeed::feeds(['customer' => fn (FeedBuilder $feed) => $feed->only(['order_placed'])]);
 
     expect(feedCodes())->toBe([]);
 });
@@ -190,7 +190,7 @@ it('sees verbs a Story declared, live and through a cached manifest', function (
     // registeredVerbs(), which resolves story-declared verbs whether they came
     // from a live compile or from the manifest.
     Story::verb(ActivityVerb::Confirm, DeliveryWasConfirmed::class);
-    Storyfeed::feeds(['customer' => fn (FeedBuilder $feed) => $feed->only(['order.placed'])]);
+    Storyfeed::feeds(['customer' => fn (FeedBuilder $feed) => $feed->only(['order_placed'])]);
 
     expect(feedFindings()->where('code', 'feeds.unclassified')->pluck('subject.verb'))
         ->toContain('confirm');
@@ -231,7 +231,7 @@ it('classifies verbs a Feed CLASS named, without being able to construct it', fu
 
     expect(feedFindings()->where('code', 'feeds.unclassified')->pluck('subject.verb'))
         ->toContain('confirm')
-        ->not->toContain('order.placed');
+        ->not->toContain('order_placed');
 });
 
 it('points a finding at the class file, not just the feed name', function () {
@@ -275,14 +275,14 @@ it('checks class feeds identically through a cached manifest', function () {
 
     expect(feedFindings()->where('code', 'feeds.unclassified')->pluck('subject.verb'))
         ->toContain('deliver')
-        ->not->toContain('order.placed');
+        ->not->toContain('order_placed');
 });
 
 it('counts a single verb() feed as a restriction that classifies its verb', function () {
     // ->verb('confirm') narrows a feed exactly as only(['confirm']) does. Read
     // through verbFilter() alone it looked wide open: classifying nothing, and
     // hiding a typo the same way a typo'd allowlist entry hides one.
-    Storyfeed::verbs(['confirm' => ActivityType::Update, 'internal.note' => ActivityType::Create]);
+    Storyfeed::verbs(['confirm' => ActivityType::Update, 'internal_note' => ActivityType::Create]);
     Storyfeed::feeds(['confirmations' => fn (FeedBuilder $feed) => $feed->verb('confirm')]);
 
     $codes = collect(Storyfeed::doctor(['feeds'])->all())->pluck('code')->all();
@@ -294,8 +294,8 @@ it('counts a single verb() feed as a restriction that classifies its verb', func
         ->filter(fn ($finding) => $finding->code === 'feeds.unclassified')
         ->pluck('subject.verb')->all();
 
-    // `confirm` was decided by the single-verb feed; `internal.note` was not.
-    expect($unclassified)->toBe(['internal.note']);
+    // `confirm` was decided by the single-verb feed; `internal_note` was not.
+    expect($unclassified)->toBe(['internal_note']);
 });
 
 it('reports a typo in a single verb() feed, as it does for an allowlist', function () {
@@ -346,7 +346,7 @@ it('keeps an OMITTED allowlist a Warning even beside a declared-unrestricted fee
 it('still surfaces a verb recorded after the declaration — unrestricted decides nothing', function () {
     // The hole the docblock was written around: a declaration that made
     // covered verbs DECIDED would be green on day one and green on the day
-    // someone records `order.margin_note`. So the twelfth verb is reported on
+    // someone records `order_margin_note`. So the twelfth verb is reported on
     // every run, just not as an open problem.
     Storyfeed::verbs(ActivityVerb::class);
 
@@ -357,9 +357,9 @@ it('still surfaces a verb recorded after the declaration — unrestricted decide
 
     expect(feedCodes())->toBe([]);
 
-    Storyfeed::activity('order.margin_note', Delivery::create(['tracking_number' => 'TN-1']))->publish();
+    Storyfeed::activity('order_margin_note', Delivery::create(['tracking_number' => 'TN-1']))->publish();
 
-    $finding = feedFindings()->firstWhere('subject.verb', 'order.margin_note');
+    $finding = feedFindings()->firstWhere('subject.verb', 'order_margin_note');
 
     expect($finding['code'])->toBe('feeds.unrestricted')
         ->and($finding['severity'])->toBe(Severity::Info->value);

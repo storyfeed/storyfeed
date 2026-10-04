@@ -43,8 +43,8 @@ function record(string $verb, Customer $context): void
 }
 
 it('scopes to the subject its constructor was given', function () {
-    record('order.placed', $this->mine);
-    record('order.placed', $this->theirs);
+    record('order_placed', $this->mine);
+    record('order_placed', $this->theirs);
 
     $page = CustomerFeed::make($this->mine)->get();
 
@@ -53,11 +53,11 @@ it('scopes to the subject its constructor was given', function () {
 });
 
 it('applies the allowlist and the scope together', function () {
-    record('order.placed', $this->mine);
-    record('order.margin_note', $this->mine);
-    record('order.placed', $this->theirs);
+    record('order_placed', $this->mine);
+    record('order_margin_note', $this->mine);
+    record('order_placed', $this->theirs);
 
-    expect(classVerbsOf(CustomerFeed::make($this->mine)->get()->items()))->toBe(['order.placed']);
+    expect(classVerbsOf(CustomerFeed::make($this->mine)->get()->items()))->toBe(['order_placed']);
 });
 
 it('cannot be built without its subject — PHP refuses, not us', function () {
@@ -74,8 +74,8 @@ it('refuses to build a subject feed from its registered name', function () {
 });
 
 it('refuses to rebind a bound scope, rather than letting it silently win', function () {
-    record('order.placed', $this->mine);
-    record('order.placed', $this->theirs);
+    record('order_placed', $this->mine);
+    record('order_placed', $this->theirs);
 
     $feed = CustomerFeed::make($this->mine);
 
@@ -89,16 +89,16 @@ it('refuses to rebind a bound scope, rather than letting it silently win', funct
 });
 
 it('still lets a call site NARROW a scoped feed', function () {
-    record('order.placed', $this->mine);
-    record('order.delivered', $this->mine);
+    record('order_placed', $this->mine);
+    record('order_delivered', $this->mine);
 
     $page = CustomerFeed::make($this->mine)
-        ->only(['order.placed'])
+        ->only(['order_placed'])
         ->query(fn ($q) => $q->whereNotNull('actor_id'))
         ->actor($this->ines)
         ->get();
 
-    expect(classVerbsOf($page->items()))->toBe(['order.placed']);
+    expect(classVerbsOf($page->items()))->toBe(['order_placed']);
 });
 
 it('throws when a hand-written feed takes a subject and never binds it', function () {
@@ -110,10 +110,10 @@ it('throws when a hand-written feed takes a subject and never binds it', functio
 });
 
 it('builds a global feed with no subject at all', function () {
-    record('order.placed', $this->mine);
-    record('order.margin_note', $this->mine);
+    record('order_placed', $this->mine);
+    record('order_margin_note', $this->mine);
 
-    expect(classVerbsOf(AdminFeed::make()->log()->get()->items()))->toBe(['order.placed']);
+    expect(classVerbsOf(AdminFeed::make()->log()->get()->items()))->toBe(['order_placed']);
 });
 
 it('has no for(), and says where the name went', function () {
@@ -167,12 +167,12 @@ it('never sends a tombstone reader to a method that does not exist', function ()
 it('produces the same query as the equivalent closure preset', function () {
     // The two authoring forms compile to one registry. If this ever diverges,
     // the docs are lying about one of them.
-    record('order.placed', $this->mine);
-    record('order.margin_note', $this->mine);
-    record('order.placed', $this->theirs);
+    record('order_placed', $this->mine);
+    record('order_margin_note', $this->mine);
+    record('order_placed', $this->theirs);
 
     Storyfeed::feeds([
-        'closure' => fn (FeedBuilder $feed) => $feed->only(['order.placed', 'order.delivered'])->log(),
+        'closure' => fn (FeedBuilder $feed) => $feed->only(['order_placed', 'order_delivered'])->log(),
     ]);
 
     expect(classVerbsOf(CustomerFeed::make($this->mine)->get()->items()))
@@ -183,15 +183,15 @@ it('registers class feeds by key, by bare class, and alongside closures', functi
     Storyfeed::feeds([
         'customers' => CustomerFeed::class,
         AdminFeed::class,
-        'kitchen' => fn (FeedBuilder $feed) => $feed->only(['order.*']),
+        'kitchen' => fn (FeedBuilder $feed) => $feed->only(['order_*']),
     ]);
 
     expect(Storyfeed::feedNames())->toBe(['customers', 'admin', 'kitchen']);
 });
 
 it('leaves plain builders unlocked — nothing changes for a feed with no class', function () {
-    record('order.placed', $this->mine);
-    record('order.placed', $this->theirs);
+    record('order_placed', $this->mine);
+    record('order_placed', $this->theirs);
 
     $page = Storyfeed::feed()->context($this->mine)->context($this->theirs)->log()->get();
 

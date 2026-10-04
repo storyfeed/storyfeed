@@ -174,3 +174,12 @@ it('seeds offline pictures and one visible snapshot-loss entity', function (int 
     }
     expect($portraits)->toBeGreaterThan(0)->and($previews)->toBeGreaterThan(0);
 })->with([17, 839, 6203]);
+
+it('clears both demo verb generations without reaching a similar application verb', function () {
+    foreach (['demo.upload', 'demo:upload', 'demoUpload'] as $verb) {
+        Activity::create(['verb' => $verb, 'published_at' => now()]);
+    }
+
+    expect(DemoSeeder::fresh()['activities'])->toBe(2)
+        ->and(Activity::pluck('verb')->all())->toBe(['demoUpload']);
+});

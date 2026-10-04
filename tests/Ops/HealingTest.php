@@ -28,7 +28,7 @@ beforeEach(function () {
 
 function healingStory(int $sourceId = 1): Activity
 {
-    $story = Storyfeed::activity()->verb('asset.published')->anonymously()->publishedAt(now()->subDays(60));
+    $story = Storyfeed::activity()->verb('published')->anonymously()->publishedAt(now()->subDays(60));
     $story->activity->object_type = 'external_asset';
     $story->activity->object_id = $sourceId;
 
@@ -40,7 +40,7 @@ function healingRetirement(Activity $activity): ActivityRetirement
     return new ActivityRetirement(
         label: 'Absent asset',
         activityId: $activity->id,
-        whenAbsent: fn (Activity $live): bool => $live->verb === 'asset.published'
+        whenAbsent: fn (Activity $live): bool => $live->verb === 'published'
             && $live->object_type === 'external_asset'
             && ! DB::table('healing_sources')->where('id', $live->object_id)->exists(),
         meta: ['reason' => 'source permanently absent'],

@@ -33,7 +33,7 @@ beforeEach(function () {
     $this->order = Customer::create(['name' => 'Order 1001']);
 });
 
-function rawInsert(string $uid, User $actor, Customer $object, string $publishedAt, string $verb = 'order.note'): void
+function rawInsert(string $uid, User $actor, Customer $object, string $publishedAt, string $verb = 'note'): void
 {
     DB::table('feed_activities')->insert([
         'uid' => $uid,
@@ -51,7 +51,7 @@ function rawInsert(string $uid, User $actor, Customer $object, string $published
 it('buckets backdated activities by the day they happened, not the day they were imported', function () {
     for ($i = 5; $i > 0; $i--) {
         Storyfeed::activity()->actor($this->ines)
-            ->verb('order.note', $this->order)
+            ->verb('note', $this->order)
             ->publishedAt(now()->subDays($i))
             ->publish();
     }
@@ -65,7 +65,7 @@ it('buckets backdated activities by the day they happened, not the day they were
 it('separates a bulk backdated import into event-time batches', function () {
     foreach (range(1, 6) as $i) {
         Storyfeed::activity()->actor($this->ines)
-            ->verb("order.step{$i}", $this->order)
+            ->verb("step{$i}", $this->order)
             ->publishedAt(now()->subMonths($i))
             ->publish();
     }
@@ -84,7 +84,7 @@ it('paginates history that shares one timestamp without dropping or repeating a 
     // Date-only legacy columns produce exactly this: every row at midnight.
     foreach (range(1, 15) as $i) {
         Storyfeed::activity()->actor($this->ines)
-            ->verb('order.note', Customer::create(['name' => "Order {$i}"]))
+            ->verb('note', Customer::create(['name' => "Order {$i}"]))
             ->publishedAt('2024-03-01 00:00:00')
             ->publish();
     }
@@ -107,7 +107,7 @@ it('paginates history that shares one timestamp without dropping or repeating a 
 it('renders a hand-rolled timeline shape only in log() mode — the default groups it', function () {
     foreach (['09:00', '10:00', '11:00'] as $time) {
         Storyfeed::activity()->actor($this->ines)
-            ->verb('order.note', $this->order)
+            ->verb('note', $this->order)
             ->publishedAt("2024-03-01 {$time}:00")
             ->publish();
     }
@@ -161,13 +161,13 @@ it('hides raw-inserted rows from involving() until storyfeed:participants runs',
 
 it('resolves headlines at read time, so grammar may be registered after the backfill', function () {
     Storyfeed::activity()->actor($this->ines)
-        ->verb('order.placed', $this->order)
+        ->verb('placed', $this->order)
         ->publishedAt('2024-03-01 09:00:00')
         ->publish();
 
     expect(Storyfeed::feed()->log()->get()->items()[0]['headline_template'])->toBeNull();
 
-    Storyfeed::grammar(['customer.order.placed' => ':actor placed :object']);
+    Storyfeed::grammar(['customer.placed' => ':actor placed :object']);
 
     $item = Storyfeed::feed()->log()->get()->items()[0];
 
@@ -180,12 +180,12 @@ it('resolves headlines at read time, so grammar may be registered after the back
 it('duplicates a naive re-import, and dedupes on a source key recorded in data', function () {
     foreach ([1, 2] as $pass) {
         Storyfeed::activity()->actor($this->ines)
-            ->verb('order.placed', $this->order)
+            ->verb('placed', $this->order)
             ->publishedAt('2024-03-01 09:00:00')
             ->publish();
     }
 
-    expect(Activity::query()->where('verb', 'order.placed')->count())->toBe(2);
+    expect(Activity::query()->where('verb', 'placed')->count())->toBe(2);
 
     foreach ([1, 2] as $pass) {
         $done = Activity::query()->where('data->import', 'orders-v1')
@@ -196,27 +196,27 @@ it('duplicates a naive re-import, and dedupes on a source key recorded in data',
         }
 
         Storyfeed::activity()->actor($this->ines)
-            ->verb('order.paid', $this->order)
+            ->verb('paid', $this->order)
             ->data(['import' => 'orders-v1', 'source_id' => 42])
             ->publishedAt('2024-03-02 09:00:00')
             ->publish();
     }
 
-    expect(Activity::query()->where('verb', 'order.paid')->count())->toBe(1);
+    expect(Activity::query()->where('verb', 'paid')->count())->toBe(1);
 });
 
 it('collapses legitimately repeated history under keepLatest(), which is why a transition log must not declare it', function () {
-    Story::verb('order.paid')->keepLatest();
+    Story::verb('paid')->keepLatest();
 
     // pending → paid → refunded → paid: the second `paid` is real history.
     foreach (['2024-03-01', '2024-03-03'] as $day) {
         Storyfeed::activity()->actor($this->ines)
-            ->verb('order.paid', $this->order)
+            ->verb('paid', $this->order)
             ->publishedAt("{$day} 09:00:00")
             ->publish();
     }
 
-    expect(Activity::query()->where('verb', 'order.paid')->count())->toBe(1);
+    expect(Activity::query()->where('verb', 'paid')->count())->toBe(1);
 });
 
 it('dispatches ActivityPublished for every backfilled row, and Event::forget silences it', function () {
@@ -228,7 +228,7 @@ it('dispatches ActivityPublished for every backfilled row, and Event::forget sil
 
     foreach (range(1, 3) as $i) {
         Storyfeed::activity()->actor($this->ines)
-            ->verb('order.note', $this->order)
+            ->verb('note', $this->order)
             ->publishedAt("2024-03-0{$i} 09:00:00")
             ->publish();
     }
@@ -239,7 +239,7 @@ it('dispatches ActivityPublished for every backfilled row, and Event::forget sil
 
     foreach (range(4, 6) as $i) {
         Storyfeed::activity()->actor($this->ines)
-            ->verb('order.note', $this->order)
+            ->verb('note', $this->order)
             ->publishedAt("2024-03-0{$i} 09:00:00")
             ->publish();
     }
@@ -293,21 +293,21 @@ it('refuses an unauthored or undeclared verb only when the strict switches are o
     config()->set('storyfeed.grammar.strict', true);
 
     expect(fn () => Storyfeed::activity()->actor($this->ines)
-        ->verb('order.placed', $this->order)->publishedAt('2024-03-01')->publish())
+        ->verb('placed', $this->order)->publishedAt('2024-03-01')->publish())
         ->toThrow(UnauthoredActivity::class);
 
     config()->set('storyfeed.grammar.strict', false);
     config()->set('storyfeed.verbs.strict', true);
 
     expect(fn () => Storyfeed::activity()->actor($this->ines)
-        ->verb('order.placed', $this->order)->publishedAt('2024-03-01')->publish())
+        ->verb('placed', $this->order)->publishedAt('2024-03-01')->publish())
         ->toThrow(UnknownVerb::class);
 });
 
 it('reports freshness.stale straight after a successful history-only import', function () {
     foreach (range(1, 3) as $i) {
         Storyfeed::activity()->actor($this->ines)
-            ->verb('order.note', $this->order)
+            ->verb('note', $this->order)
             ->publishedAt(now()->subYear()->addDays($i))
             ->publish();
     }
@@ -384,7 +384,7 @@ it('declines quietly when the deploy has not run its migrations yet', function (
      * same map, so they cannot disagree about it again.
      */
     Storyfeed::activity()->actor($this->ines)
-        ->verb('order.note', $this->order)
+        ->verb('note', $this->order)
         ->publish();
 
     Schema::table(config('storyfeed.tables.snapshots', 'feed_snapshots'), function ($table) {

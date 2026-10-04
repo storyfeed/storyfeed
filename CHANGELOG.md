@@ -2,6 +2,32 @@
 
 ## Unreleased
 
+### Changed
+
+- Verbs may no longer contain a dot. Story declarations, vocabulary registries
+  (including enums), and inline publishing throw `DottedVerb`. Other free-form
+  strings, including `updateStatus`, remain valid. Dotted story names still work.
+- Doctor reports stored dotted verbs with counts and a migration hint; existing
+  rows remain readable.
+- Demo verbs now use `demo:` instead of `demo.`; teardown recognizes both
+  prefixes so earlier demo rows can still be cleared.
+
+### Upgrade
+
+Use the action alone in base form (`email`, not `document.emailed`); the object
+already stores its type. Migrate each old verb explicitly, using your configured
+activities table, for example:
+
+```sql
+UPDATE feed_activities SET verb = 'email' WHERE verb = 'document.emailed';
+```
+
+Update declarations, publishing calls, feed allowlists and grammar keys together:
+`document.document.emailed` becomes `document.email`, and actorless
+`*.document.emailed` becomes `email` (or `*.email`). Rebuild stored grouping hashes
+with `storyfeed:curate --rehash` and regenerate `storyfeed:cache` after migration.
+Use `->name('document.emailed')` for dotted story lookups.
+
 ## v0.12.0 — Pictures only when a body asks, and the thread leaves core (2026-10-01)
 
 ### Added
@@ -740,8 +766,7 @@ v0.10.0, so they are new to you. The renames under "Renamed on dev-main" and the
 - **Actorless headlines are keyed on the type → verb ladder.**
   `Storyfeed::actorlessGrammar()` keys are now `type.verb` patterns with the
   usual wildcards, resolved `order.confirm → order.* → *.confirm → *.*`. A key
-  with no dot means `*.verb`, so existing entries keep working, except a dotted
-  verb, which now reads as `type.verb` (write `*.document.shared`).
+  with no dot means `*.verb`, so existing entries keep working.
   `actorlessTemplate()` takes `(?string $type, string $verb)`. The doctor's
   `actorless.missing` finding names the `type.verb` pair. The AS2 `summary`
   now uses the actorless headline for an actorless row, as the payload does.

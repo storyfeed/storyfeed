@@ -14,9 +14,9 @@ use Storyfeed\Support\VerbFilter;
  * Assertions that pin a named feed's AUDIENCE — "this feed cannot render this
  * verb" — in the app's own suite.
  *
- *   FeedAudience::assertRefuses('customer', 'order.margin_note');
- *   FeedAudience::assertAllows('customer', ['order.placed', OrderVerb::Paid]);
- *   FeedAudience::assertAllowsOnly('customer', ['order.*']);
+ *   FeedAudience::assertRefuses('customer', 'reviewMargin');
+ *   FeedAudience::assertAllows('customer', ['place', OrderVerb::Paid]);
+ *   FeedAudience::assertAllowsOnly('customer', ['place', OrderVerb::Paid]);
  *
  * The distinction from the `feeds` doctor check (Diagnostics\Checks\FeedCoverage):
  * that one asks "is every verb DECIDED — named by SOMEBODY's allowlist or
@@ -24,7 +24,7 @@ use Storyfeed\Support\VerbFilter;
  * whole registry. This asks "would THIS feed show THIS verb", which is the
  * question an app has when it adopted named feeds precisely because it feared
  * leaking an internal verb to customers. Doctor can be entirely green while the
- * customer feed shows `order.margin_note`, because being denied SOMEWHERE
+ * customer feed shows `reviewMargin`, because being denied SOMEWHERE
  * counts as decided.
  *
  * Registration is not the assertion. An app that trusts `Storyfeed::feeds()`
@@ -98,7 +98,7 @@ class FeedAudience
         ));
 
         // An unrestricted feed shows everything, so the failure is real — but
-        // "customer allows order.margin_note" without saying WHY reads as a
+        // "customer allows reviewMargin" without saying WHY reads as a
         // pattern bug, and sends the reader to the allowlist they never wrote.
         $why = $builder->isVerbRestricted()
             ? "Its only()/except() patterns: {$definition->source} — ".self::describe($builder->declaredVerbFilter()).'.'

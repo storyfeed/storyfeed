@@ -15,6 +15,7 @@ use Storyfeed\ActivityContext;
 use Storyfeed\ActivityStreams\ActivityType;
 use Storyfeed\ActivityStreams\ObjectType;
 use Storyfeed\Contracts\FeedVerb;
+use Storyfeed\Exceptions\DottedVerb;
 use Storyfeed\Exceptions\StoryMisconfigured;
 use Storyfeed\FeedHeadline;
 use Storyfeed\FeedNoun;
@@ -132,7 +133,9 @@ final class Verb
         public readonly array $objectTypes,
         public readonly string $verb,
         public readonly string $source,
-    ) {}
+    ) {
+        DottedVerb::assertValid($verb);
+    }
 
     /**
      * From a registry key — `'document.upload'`, or `'*.upload'` for an

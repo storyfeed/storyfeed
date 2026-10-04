@@ -33,7 +33,7 @@ function insertUngrouped(User $actor, ?Customer $object, string $uid): void
 {
     DB::table('feed_activities')->insert([
         'uid' => $uid,
-        'verb' => 'order.note',
+        'verb' => 'note',
         'actor_type' => $actor === null ? null : 'user',
         'actor_id' => $actor?->id,
         'object_type' => $object === null ? null : 'customer',
@@ -45,7 +45,7 @@ function insertUngrouped(User $actor, ?Customer $object, string $uid): void
 }
 
 it('says nothing about a feed whose activities are all grouped', function () {
-    Storyfeed::activity()->actor($this->ines)->verb('order.note', $this->order)->publish();
+    Storyfeed::activity()->actor($this->ines)->verb('note', $this->order)->publish();
 
     expect(codes(Storyfeed::doctor(['grouping'])->all()))->toBe([]);
 });
@@ -105,7 +105,7 @@ it('counts a bare verb as groupable, because the repeat axis requires no roles',
     // axes there is no such thing as a correctly-ungrouped activity.
     DB::table('feed_activities')->insert([
         'uid' => 'bare-1',
-        'verb' => 'system.heartbeat',
+        'verb' => 'heartbeat',
         'published_at' => '2024-03-01 09:00:00',
         'created_at' => now(),
         'updated_at' => now(),
@@ -155,7 +155,7 @@ it('names imported rows the trickle grouped but never curated', function () {
 });
 
 it('says the next scheduled run will handle it when the rows are inside the window', function () {
-    Storyfeed::activity()->actor($this->ines)->verb('order.note', $this->order)->publish();
+    Storyfeed::activity()->actor($this->ines)->verb('note', $this->order)->publish();
 
     Grouping::query()->update(['winner' => null]);
 
@@ -170,7 +170,7 @@ it('says nothing about uncurated rows when inline curation is switched off', fun
     // Then an unstamped row is the configured state of the install, not a gap.
     config()->set('storyfeed.grouping.curate', false);
 
-    Storyfeed::activity()->actor($this->ines)->verb('order.note', $this->order)->publish();
+    Storyfeed::activity()->actor($this->ines)->verb('note', $this->order)->publish();
 
     expect(codes(Storyfeed::doctor(['grouping'])->all()))->toBe([]);
 });
@@ -179,7 +179,7 @@ it('does not mistake a composite parent for an uncurated row', function () {
     // A composite parent is stamped `winner => null` by construction, and its
     // members carry only the composite row. Counting row-backed buckets here
     // would fire on every healthy install that uses composites.
-    $parent = Storyfeed::activity()->actor($this->ines)->verb('order.note', $this->order)->publish();
+    $parent = Storyfeed::activity()->actor($this->ines)->verb('note', $this->order)->publish();
 
     Grouping::query()->where('activity_id', $parent->getKey())->delete();
     Grouping::query()->create([

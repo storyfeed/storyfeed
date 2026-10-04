@@ -21,31 +21,31 @@ use Workbench\App\Models\User;
  * pattern, or this whole surface is a test that passes while the feed leaks.
  */
 it('asserts a feed refuses an internal verb', function () {
-    Storyfeed::feeds(['customer' => fn (FeedBuilder $feed) => $feed->only(['order.placed', 'order.delivered'])]);
+    Storyfeed::feeds(['customer' => fn (FeedBuilder $feed) => $feed->only(['order_placed', 'order_delivered'])]);
 
-    FeedAudience::assertRefuses('customer', 'order.margin_note');
-    FeedAudience::assertAllows('customer', ['order.placed', 'order.delivered']);
+    FeedAudience::assertRefuses('customer', 'order_margin_note');
+    FeedAudience::assertAllows('customer', ['order_placed', 'order_delivered']);
 });
 
 it('fails when a verb the feed was meant to refuse would render', function () {
-    Storyfeed::feeds(['customer' => fn (FeedBuilder $feed) => $feed->only(['order.*'])]);
+    Storyfeed::feeds(['customer' => fn (FeedBuilder $feed) => $feed->only(['order_*'])]);
 
-    expect(fn () => FeedAudience::assertRefuses('customer', 'order.margin_note'))
-        ->toThrow(AssertionFailedError::class, 'order.margin_note');
+    expect(fn () => FeedAudience::assertRefuses('customer', 'order_margin_note'))
+        ->toThrow(AssertionFailedError::class, 'order_margin_note');
 });
 
 it('says WHY an unrestricted feed shows everything', function () {
     Storyfeed::feeds(['admin' => fn (FeedBuilder $feed) => $feed->summary()]);
 
-    expect(fn () => FeedAudience::assertRefuses('admin', 'order.margin_note'))
+    expect(fn () => FeedAudience::assertRefuses('admin', 'order_margin_note'))
         ->toThrow(AssertionFailedError::class, 'declares no only()/except() at all');
 });
 
 it('reads a denylist the same way the read path does', function () {
-    Storyfeed::feeds(['admin' => fn (FeedBuilder $feed) => $feed->except(['order.margin_note', 'internal.*'])]);
+    Storyfeed::feeds(['admin' => fn (FeedBuilder $feed) => $feed->except(['order_margin_note', 'internal_*'])]);
 
-    FeedAudience::assertRefuses('admin', ['order.margin_note', 'internal.note']);
-    FeedAudience::assertAllows('admin', ['order.placed', 'internalish.note']);
+    FeedAudience::assertRefuses('admin', ['order_margin_note', 'internal_note']);
+    FeedAudience::assertAllows('admin', ['order_placed', 'internalish_note']);
 });
 
 it('takes FeedVerb cases and plain backed enum cases, like only() does', function () {
@@ -68,86 +68,86 @@ it('inspects a subject feed it cannot construct', function () {
     // CustomerFeed takes its Customer through the constructor, so nothing
     // holding only the name can build one — but define() is still readable,
     // which is the whole reason the hooks are separate.
-    FeedAudience::assertRefuses('customer', 'order.margin_note');
-    FeedAudience::assertAllows('customer', 'order.placed');
+    FeedAudience::assertRefuses('customer', 'order_margin_note');
+    FeedAudience::assertAllows('customer', 'order_placed');
 });
 
 it('resolves a Feed class-string without registration', function () {
-    FeedAudience::assertRefuses(CustomerFeed::class, 'order.margin_note');
+    FeedAudience::assertRefuses(CustomerFeed::class, 'order_margin_note');
 });
 
 it('throws for a feed nobody registered', function () {
-    expect(fn () => FeedAudience::assertRefuses('nope', 'order.placed'))
+    expect(fn () => FeedAudience::assertRefuses('nope', 'order_placed'))
         ->toThrow(UnknownFeed::class);
 });
 
 it('pins the whole allowlist against the declared vocabulary', function () {
     Storyfeed::verbs([
-        'order.placed' => ActivityType::Create,
-        'order.delivered' => ActivityType::Arrive,
-        'order.margin_note' => ActivityType::Create,
+        'order_placed' => ActivityType::Create,
+        'order_delivered' => ActivityType::Arrive,
+        'order_margin_note' => ActivityType::Create,
     ]);
-    Storyfeed::feeds(['customer' => fn (FeedBuilder $feed) => $feed->only(['order.placed', 'order.delivered'])]);
+    Storyfeed::feeds(['customer' => fn (FeedBuilder $feed) => $feed->only(['order_placed', 'order_delivered'])]);
 
-    FeedAudience::assertAllowsOnly('customer', ['order.placed', 'order.delivered']);
+    FeedAudience::assertAllowsOnly('customer', ['order_placed', 'order_delivered']);
 
     // The verb nobody thought about, added six months later.
-    Storyfeed::verbs(['order.internal_cost' => ActivityType::Create]);
-    Storyfeed::feeds(['loose' => fn (FeedBuilder $feed) => $feed->only(['order.*'])]);
+    Storyfeed::verbs(['order_internal_cost' => ActivityType::Create]);
+    Storyfeed::feeds(['loose' => fn (FeedBuilder $feed) => $feed->only(['order_*'])]);
 
-    expect(fn () => FeedAudience::assertAllowsOnly('loose', ['order.placed', 'order.delivered']))
-        ->toThrow(AssertionFailedError::class, 'order.internal_cost');
+    expect(fn () => FeedAudience::assertAllowsOnly('loose', ['order_placed', 'order_delivered']))
+        ->toThrow(AssertionFailedError::class, 'order_internal_cost');
 });
 
 it('pins the allowlist against what was actually recorded, under the fake', function () {
-    Storyfeed::feeds(['customer' => fn (FeedBuilder $feed) => $feed->only(['order.*'])]);
+    Storyfeed::feeds(['customer' => fn (FeedBuilder $feed) => $feed->only(['order_*'])]);
     Storyfeed::fake();
 
     $delivery = Delivery::create(['tracking_number' => 'TN-1']);
 
-    Storyfeed::activity('order.placed', $delivery)->publish();
-    Storyfeed::activity('order.margin_note', $delivery)->publish();
+    Storyfeed::activity('order_placed', $delivery)->publish();
+    Storyfeed::activity('order_margin_note', $delivery)->publish();
 
-    expect(fn () => FeedAudience::assertAllowsOnly('customer', ['order.placed']))
-        ->toThrow(AssertionFailedError::class, 'order.margin_note');
+    expect(fn () => FeedAudience::assertAllowsOnly('customer', ['order_placed']))
+        ->toThrow(AssertionFailedError::class, 'order_margin_note');
 });
 
 it('pins the allowlist against real tables too', function () {
-    Storyfeed::feeds(['customer' => fn (FeedBuilder $feed) => $feed->only(['order.*'])]);
+    Storyfeed::feeds(['customer' => fn (FeedBuilder $feed) => $feed->only(['order_*'])]);
 
     $customer = Customer::create(['name' => 'Order 1001']);
 
-    Storyfeed::activity('order.placed', $customer)->publish();
-    Storyfeed::activity('order.margin_note', $customer)->publish();
+    Storyfeed::activity('order_placed', $customer)->publish();
+    Storyfeed::activity('order_margin_note', $customer)->publish();
 
-    expect(fn () => FeedAudience::assertAllowsOnly('customer', ['order.placed']))
-        ->toThrow(AssertionFailedError::class, 'order.margin_note');
+    expect(fn () => FeedAudience::assertAllowsOnly('customer', ['order_placed']))
+        ->toThrow(AssertionFailedError::class, 'order_margin_note');
 });
 
 it('refuses to pin an allowlist with no vocabulary and nothing recorded', function () {
-    Storyfeed::feeds(['customer' => fn (FeedBuilder $feed) => $feed->only(['order.placed'])]);
+    Storyfeed::feeds(['customer' => fn (FeedBuilder $feed) => $feed->only(['order_placed'])]);
 
-    expect(fn () => FeedAudience::assertAllowsOnly('customer', ['order.placed']))
+    expect(fn () => FeedAudience::assertAllowsOnly('customer', ['order_placed']))
         ->toThrow(AssertionFailedError::class, 'proves nothing');
 });
 
 it('fails a pin that has rotted into verbs the feed stopped showing', function () {
-    Storyfeed::verbs(['order.placed' => ActivityType::Create]);
-    Storyfeed::feeds(['customer' => fn (FeedBuilder $feed) => $feed->only(['order.placed'])]);
+    Storyfeed::verbs(['order_placed' => ActivityType::Create]);
+    Storyfeed::feeds(['customer' => fn (FeedBuilder $feed) => $feed->only(['order_placed'])]);
 
-    expect(fn () => FeedAudience::assertAllowsOnly('customer', ['order.placed', 'order.delivered']))
+    expect(fn () => FeedAudience::assertAllowsOnly('customer', ['order_placed', 'order_delivered']))
         ->toThrow(AssertionFailedError::class, 'refuses verbs it was expected to show');
 });
 
 it('cannot see narrowing done inside query(), and fails in the safe direction', function () {
     Storyfeed::feeds([
         'customer' => fn (FeedBuilder $feed) => $feed->query(
-            fn (ActivityBuilder $query) => $query->where('verb', '!=', 'order.margin_note'),
+            fn (ActivityBuilder $query) => $query->where('verb', '!=', 'order_margin_note'),
         ),
     ]);
 
     // The feed genuinely refuses the verb; the declaration does not say so.
-    expect(fn () => FeedAudience::assertRefuses('customer', 'order.margin_note'))
+    expect(fn () => FeedAudience::assertRefuses('customer', 'order_margin_note'))
         ->toThrow(AssertionFailedError::class, 'query()');
 });
 
@@ -155,20 +155,20 @@ it('agrees with the SQL the read path runs, pattern for pattern', function () {
     $customer = Customer::create(['name' => 'Order 1001']);
     $ines = User::create(['name' => 'Ines', 'email' => 'ines@example.com']);
 
-    $verbs = ['order.placed', 'order.margin_note', 'orderly', 'order', 'confirm', 'internal.note', 'a%b.leak'];
+    $verbs = ['order_placed', 'order_margin_note', 'orderly', 'order', 'confirm', 'internal_note', 'a%b_leak'];
 
     foreach ($verbs as $verb) {
         Storyfeed::activity()->actor($ines)->verb($verb, $customer)->publish();
     }
 
     $presets = [
-        fn (FeedBuilder $feed) => $feed->only(['order.placed']),
-        fn (FeedBuilder $feed) => $feed->only(['order.*']),
-        fn (FeedBuilder $feed) => $feed->except(['order.margin_note']),
-        fn (FeedBuilder $feed) => $feed->except(['order.*']),
-        fn (FeedBuilder $feed) => $feed->only(['order.*'])->except(['order.margin_note']),
-        fn (FeedBuilder $feed) => $feed->only(['order.*'])->only(['*']),
-        fn (FeedBuilder $feed) => $feed->only(['a%b.*']),
+        fn (FeedBuilder $feed) => $feed->only(['order_placed']),
+        fn (FeedBuilder $feed) => $feed->only(['order_*']),
+        fn (FeedBuilder $feed) => $feed->except(['order_margin_note']),
+        fn (FeedBuilder $feed) => $feed->except(['order_*']),
+        fn (FeedBuilder $feed) => $feed->only(['order_*'])->except(['order_margin_note']),
+        fn (FeedBuilder $feed) => $feed->only(['order_*'])->only(['*']),
+        fn (FeedBuilder $feed) => $feed->only(['a%b_*']),
         fn (FeedBuilder $feed) => $feed->verb('confirm'),
     ];
 

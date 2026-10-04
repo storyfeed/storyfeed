@@ -33,7 +33,7 @@ function renameBy(string $label, DateTimeInterface $at): Activity
 
     return Storyfeed::activity()
         ->actor($user)
-        ->verb('client.renamed', Delivery::create(['tracking_number' => $label]))
+        ->verb('renamed', Delivery::create(['tracking_number' => $label]))
         ->publishedAt($at)
         ->publish();
 }
@@ -210,9 +210,9 @@ it('does not change a grouping hash — grouping pins the day, which microsecond
     $user = User::create(['name' => 'Sally', 'email' => 'sally@example.com']);
     $delivery = Delivery::create(['tracking_number' => 'SAME']);
 
-    $whole = Storyfeed::activity()->actor($user)->verb('client.renamed', $delivery)
+    $whole = Storyfeed::activity()->actor($user)->verb('renamed', $delivery)
         ->publishedAt($second)->publish();
-    $fractional = Storyfeed::activity()->actor($user)->verb('client.renamed', $delivery)
+    $fractional = Storyfeed::activity()->actor($user)->verb('renamed', $delivery)
         ->publishedAt($second->copy()->addMicroseconds(999_999))->publish();
 
     $hashes = Grouping::query()

@@ -26,7 +26,7 @@ it('hands a string role id to the resolver unchanged, not cast to its key type',
 
     DB::table('feed_activities')->insert([
         'uid' => (string) Str::ulid(),
-        'verb' => 'order.note',
+        'verb' => 'note',
         'actor_type' => 'user',
         'actor_id' => $ulid,
         'published_at' => now(),
@@ -65,8 +65,8 @@ it('snapshots a ULID-keyed role model and stamps that snapshot on its own activi
     $courier = Courier::create(['name' => 'Ada']);
     $user = User::create(['name' => 'Grace', 'email' => 'grace@example.test']);
 
-    $byCourier = Storyfeed::activity('delivery.handoff')->by($courier)->publish();
-    $byUser = Storyfeed::activity('delivery.handoff')->by($user)->publish();
+    $byCourier = Storyfeed::activity('handoff')->by($courier)->publish();
+    $byUser = Storyfeed::activity('handoff')->by($user)->publish();
 
     // The write path already stamps these. Clear them so what is asserted
     // below is the rebuild's own work and not the publish's.

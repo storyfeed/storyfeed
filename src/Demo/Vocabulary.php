@@ -8,38 +8,38 @@ use Storyfeed\Facades\Storyfeed;
 /**
  * The demo kit's verb vocabulary, grammar, aggregate grammar and icons.
  *
- * Every verb is prefixed `demo.` and that prefix is load-bearing rather than
+ * Every verb is prefixed `demo:` and that prefix is load-bearing rather than
  * decorative. It is what makes teardown safe: `storyfeed:demo --fresh` deletes
- * activities whose verb starts with `demo.` and can therefore never reach a row
+ * activities whose verb starts with `demo:` and can therefore never reach a row
  * the application published, on any driver, without a JSON path expression and
  * without truncating a table. A demo kit that could delete real activities would
  * be a worse hazard than the one this kit exists to remove.
  *
  * It is also visible: an operator reading the payload in dev tools on stage sees
- * `demo.upload` and knows immediately which world they are looking at. The
+ * `demo:upload` and knows immediately which world they are looking at. The
  * rendered headline is unaffected — that comes from the grammar below — so the
  * prefix costs the audience nothing and tells the truth to anyone who looks.
  *
- * Grammar is keyed by verb (`*.demo.upload`) rather than by type, because every
+ * Grammar is keyed by verb (`*.demo:upload`) rather than by type, because every
  * entity in the shipped cast is a Party and therefore shares one morph alias.
  * See docs/demo-data.md for what that trade buys and what it costs.
  */
 class Vocabulary
 {
     /** The prefix every demo verb carries. Teardown matches on it. */
-    public const PREFIX = 'demo.';
+    public const PREFIX = 'demo:';
 
-    public const UPLOAD = 'demo.upload';
+    public const UPLOAD = 'demo:upload';
 
-    public const COMMENT = 'demo.comment';
+    public const COMMENT = 'demo:comment';
 
-    public const COMPLETE = 'demo.complete';
+    public const COMPLETE = 'demo:complete';
 
-    public const APPROVE = 'demo.approve';
+    public const APPROVE = 'demo:approve';
 
-    public const CREATE = 'demo.create';
+    public const CREATE = 'demo:create';
 
-    public const INVITE = 'demo.invite';
+    public const INVITE = 'demo:invite';
 
     /**
      * Register the whole vocabulary. Merges, so an app's own registrations are

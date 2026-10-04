@@ -54,7 +54,7 @@ class CurateScheduleTest extends TestCase
 
         $ancient = Storyfeed::activity()
             ->actor(User::create(['name' => 'Ines', 'email' => 'ines@example.com']))
-            ->verb('order.note', Customer::create(['name' => 'Order 1001']))
+            ->verb('note', Customer::create(['name' => 'Order 1001']))
             ->publish();
 
         $this->travelBack();
@@ -80,10 +80,10 @@ class CurateScheduleTest extends TestCase
         $order = Customer::create(['name' => 'Order 1001']);
 
         $this->travelTo(now()->subMonths(6));
-        $ancient = Storyfeed::activity()->actor($ines)->verb('order.note', $order)->publish();
+        $ancient = Storyfeed::activity()->actor($ines)->verb('note', $order)->publish();
         $this->travelBack();
 
-        $recent = Storyfeed::activity()->actor($ines)->verb('order.note', $order)->publish();
+        $recent = Storyfeed::activity()->actor($ines)->verb('note', $order)->publish();
 
         Grouping::query()->update(['winner' => null]);
 

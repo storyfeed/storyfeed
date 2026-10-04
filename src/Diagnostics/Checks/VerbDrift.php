@@ -48,6 +48,19 @@ class VerbDrift extends Check
         $known = array_keys($storyfeed->registeredVerbs());
         $recorded = $this->activities()->distinct()->pluck('verb')->all();
 
+        foreach ($recorded as $verb) {
+            if (str_contains($verb, '.')) {
+                $count = $this->activities()->where('verb', $verb)->count();
+
+                yield Finding::warning(
+                    'verbs.dotted',
+                    "Stored verb `{$verb}` contains a dot ({$count} activities). Migrate it to the action alone, "
+                    .'keeping the type as the object; update grammar keys and use ->name() for dotted lookups. Existing rows remain readable.',
+                    ['verb' => $verb, 'count' => $count],
+                );
+            }
+        }
+
         // Has the app opted into a vocabulary at all? Verbs are free-form
         // strings by GUARANTEE, so an undeclared verb is only evidence of a
         // typo once the app has declared some vocabulary to deviate from.
