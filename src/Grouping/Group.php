@@ -2,7 +2,9 @@
 
 namespace Storyfeed\Grouping;
 
+use Closure;
 use Storyfeed\Exceptions\StoryMisconfigured;
+use Storyfeed\Payload\GroupSlice;
 
 /**
  * One aggregate headline, attached to an axis — the `groups()` entry on a Story.
@@ -31,7 +33,7 @@ use Storyfeed\Exceptions\StoryMisconfigured;
  */
 final class Group
 {
-    protected ?string $headline = null;
+    protected string|Closure|null $headline = null;
 
     protected ?string $parentHeadline = null;
 
@@ -91,7 +93,13 @@ final class Group
         return new self('*');
     }
 
-    public function headline(string $template): self
+    /**
+     * A template or a closure receiving the group with its true count and sampled members.
+     * Closures return finished text, as aggregate registry callbacks do.
+     *
+     * @param  string|Closure(GroupSlice): string  $template
+     */
+    public function headline(string|Closure $template): self
     {
         $this->headline = $template;
 
@@ -143,7 +151,7 @@ final class Group
         );
     }
 
-    public function template(): ?string
+    public function template(): string|Closure|null
     {
         return $this->headline;
     }
