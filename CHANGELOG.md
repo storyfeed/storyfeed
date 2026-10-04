@@ -9,8 +9,11 @@
   strings, including `updateStatus`, remain valid. Dotted story names still work.
 - Doctor reports stored dotted verbs with counts and a migration hint; existing
   rows remain readable.
-- Demo verbs now use `demo:` instead of `demo.`; teardown recognizes both
-  prefixes so earlier demo rows can still be cleared.
+
+### Removed
+
+- `storyfeed:demo`, its demo kit, and the `demo.enabled` configuration key.
+  A feed is personal data from its first row; Storyfeed ships no redactor, so seed demo data rather than redact real data.
 
 ### Upgrade
 
