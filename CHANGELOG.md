@@ -10,6 +10,7 @@
 
 ### Changed
 
+- FeedPage presents each node once, reusing its items across array access and repeated reads.
 - Verbs may no longer contain a dot. Story declarations, vocabulary registries
   (including enums), and inline publishing throw `DottedVerb`. Other free-form
   strings, including `updateStatus`, remain valid. Dotted story names still work.

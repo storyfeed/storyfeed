@@ -31,6 +31,9 @@ use Traversable;
  */
 final class FeedPage implements Arrayable, ArrayAccess, IteratorAggregate, JsonSerializable, Responsable
 {
+    /** @var array<int, array<string, mixed>>|null */
+    protected ?array $presentedItems = null;
+
     /**
      * @param  Collection<int, GroupSlice>  $slices  page items, already ordered
      */
@@ -46,13 +49,16 @@ final class FeedPage implements Arrayable, ArrayAccess, IteratorAggregate, JsonS
      */
     public function items(): array
     {
+        if ($this->presentedItems !== null) {
+            return $this->presentedItems;
+        }
+
         // One identity map per build, seeded with everything this page holds,
         // so a resolver's first $context->model() loads its whole class at
-        // once. Rebuilt on every call: two calls are two builds, and neither
-        // may see the other's models.
+        // once. Each page builds once; distinct pages never share models.
         $presenter = $this->presenter->forPage($this->slices);
 
-        return $this->slices
+        return $this->presentedItems = $this->slices
             ->map(fn (GroupSlice $slice) => $presenter->node($slice))
             ->values()
             ->all();
