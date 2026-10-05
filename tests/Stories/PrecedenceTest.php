@@ -16,14 +16,14 @@ use Workbench\App\Stories\DeliveryWasConfirmed;
  * provider registration order. Ordinary competing owners remain errors.
  */
 
-it('lets a explicit override win when registered after the story', function () {
+it('lets an explicit override win when registered after the story', function () {
     Story::verb(ActivityVerb::Confirm, DeliveryWasConfirmed::class);
     Story::for(Delivery::class)->verb('confirm')->override()->headline('OVERRIDDEN');
 
     expect(Storyfeed::template('delivery', 'confirm'))->toBe('OVERRIDDEN');
 });
 
-it('lets a explicit override win when registered BEFORE the story', function () {
+it('lets an explicit override win when registered BEFORE the story', function () {
     // The order-independence is the point: an app cannot be expected to know
     // that its provider runs before or after another's.
     Story::for(Delivery::class)->verb('confirm')->override()->headline('OVERRIDDEN');

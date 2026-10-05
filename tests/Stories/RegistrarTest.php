@@ -210,7 +210,8 @@ it('names both lines when the registrar defines one key twice', function () {
 });
 
 it('lets two definitions of one key set different registries', function () {
-    Story::verb('confirm')->headline(':actor confirmed :object')->grouped(Group::repeat()->headline(':actor confirmed :count things'));
+    Story::verb('confirm')->headline(':actor confirmed :object');
+    Story::verb('confirm')->grouped(Group::repeat()->headline(':actor confirmed :count things'));
 
     expect(Storyfeed::registeredGrammar())->toHaveKey('*.confirm')
         ->and(Storyfeed::registeredAggregateGrammar())->toHaveKey('repeat.confirm');
