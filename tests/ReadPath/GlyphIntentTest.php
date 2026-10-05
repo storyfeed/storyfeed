@@ -29,8 +29,7 @@ function publishConfirm(): array
 }
 
 it('emits null for an app that registers bare string icons and nothing else', function () {
-    Storyfeed::grammar(['delivery.confirm' => ':actor confirmed :object'])
-        ->icons(['delivery.confirm' => 'bi-truck']);
+    StoryFacade::for('delivery')->verb('confirm')->headline(':actor confirmed :object')->icon('bi-truck');
 
     $node = publishConfirm();
 
@@ -43,9 +42,9 @@ it('resolves the intent on the icon ladder, independently of the token', functio
     // The reason for a second registry: the token is per type, the intent is
     // said ONCE on the wildcard. Folded into the icon value, `delivery.confirm`
     // would shadow `*.confirm` and the intent would never resolve.
-    Storyfeed::grammar(['*.*' => ':actor did :object'])
-        ->icons(['delivery.confirm' => 'bi-truck'])
-        ->glyphIntents(['*.confirm' => 'success']);
+    StoryFacade::fallback()->headline(':actor did :object');
+    StoryFacade::for('delivery')->verb('confirm')->icon('bi-truck');
+    StoryFacade::verb('confirm')->intent('success');
 
     $node = publishConfirm();
 
@@ -56,12 +55,10 @@ it('resolves the intent on the icon ladder, independently of the token', functio
 });
 
 it('walks type.verb → type.* → *.verb → *.* like the token does', function () {
-    Storyfeed::glyphIntents([
-        '*.*' => 'neutral',
-        '*.confirm' => 'success',
-        'delivery.*' => 'shipping',
-        'delivery.confirm' => 'delivered',
-    ]);
+    StoryFacade::fallback()->intent('neutral');
+    StoryFacade::verb('confirm')->intent('success');
+    StoryFacade::for('delivery')->fallback()->intent('shipping');
+    StoryFacade::for('delivery')->verb('confirm')->intent('delivered');
 
     expect(Storyfeed::glyphIntent('delivery', 'confirm'))->toBe('delivered')
         ->and(Storyfeed::glyphIntent('delivery', 'cancel'))->toBe('shipping')
@@ -72,24 +69,13 @@ it('walks type.verb → type.* → *.verb → *.* like the token does', function
 });
 
 it('carries any app word verbatim — core owns no vocabulary', function () {
-    Storyfeed::glyphIntents(['*.*' => 'brand-warm-2']);
+    StoryFacade::fallback()->intent('brand-warm-2');
 
     expect(Storyfeed::glyphIntent('delivery', 'confirm'))->toBe('brand-warm-2');
 });
 
-it('refuses a list where a map was meant, like the icon registry', function () {
-    Storyfeed::glyphIntents(['success']);
-})->throws(InvalidArgumentException::class, 'Storyfeed::glyphIntents()');
-
-it('replaces the whole registry with merge: false', function () {
-    Storyfeed::glyphIntents(['*.*' => 'a'])->glyphIntents(['*.confirm' => 'b'], merge: false);
-
-    expect(Storyfeed::registeredGlyphIntents())->toBe(['*.confirm' => 'b']);
-});
-
 it('emits the intent on a group node from the same pair as its glyph', function () {
-    Storyfeed::icons(['*.upload' => 'bi-cloud-arrow-up'])
-        ->glyphIntents(['*.upload' => 'info']);
+    StoryFacade::verb('upload')->icon('bi-cloud-arrow-up')->intent('info');
 
     $user = User::create(['name' => 'Sally', 'email' => 's@example.com']);
 
@@ -165,11 +151,11 @@ it('leaves the registry empty when no story declares an intent', function () {
         ->and(Storyfeed::glyphIntent('delivery', 'confirm'))->toBeNull();
 });
 
-it('lets a hand-written registration win over a compiled one, like every registry', function () {
+it('lets an explicit intent override preserve the compiled headline', function () {
     defineStories(
         Verb::make('delivery.confirm')->headline(':actor confirmed :object')->intent('success')
     );
-    Storyfeed::glyphIntents(['delivery.confirm' => 'overridden']);
+    StoryFacade::for('delivery')->verb('confirm')->override()->intent('overridden');
 
     expect(Storyfeed::glyphIntent('delivery', 'confirm'))->toBe('overridden');
 });
@@ -208,9 +194,7 @@ it('round-trips through the cached manifest and tolerates a manifest written bef
 });
 
 it('never reaches the AS2 document — the vocabulary has no term for it', function () {
-    Storyfeed::grammar(['*.*' => ':actor did :object'])
-        ->icons(['*.*' => 'bi-truck'])
-        ->glyphIntents(['*.*' => 'success']);
+    StoryFacade::fallback()->headline(':actor did :object')->icon('bi-truck')->intent('success');
 
     publishConfirm();
 

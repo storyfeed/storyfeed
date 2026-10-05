@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Support\Facades\DB;
+use Storyfeed\Facades\Story;
 use Storyfeed\Facades\Storyfeed;
 use Storyfeed\FeedBuilder;
 use Storyfeed\Payload\NodePresenter;
@@ -12,7 +13,7 @@ it('hydrates each promoted role through the ordinary entity presenter and preser
     try {
         Customer::$hydrates = true;
         $entity = Customer::create(['name' => 'Named entity']);
-        Storyfeed::grammar(['*.*' => "via :{$role}"]);
+        Story::fallback()->headline("via :{$role}");
         $activity = Storyfeed::activity('confirm')->{$role}($entity)->publish();
         $node = app(NodePresenter::class)->activityNode($activity->fresh());
         $control = app(NodePresenter::class)->activityNode(Storyfeed::activity('confirm')->target($entity)->publish());

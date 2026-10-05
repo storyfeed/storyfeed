@@ -4,6 +4,7 @@ use Storyfeed\Contracts\DiagnosticCheck;
 use Storyfeed\Diagnostics\Finding;
 use Storyfeed\Diagnostics\Fix;
 use Storyfeed\Diagnostics\Severity;
+use Storyfeed\Facades\Story;
 use Storyfeed\Facades\Storyfeed;
 use Storyfeed\StoryfeedManager;
 use Symfony\Component\Console\Exception\RuntimeException;
@@ -35,7 +36,8 @@ it('returns findings as data with stable codes', function () {
 });
 
 it('counts only warnings and errors, never info', function () {
-    Storyfeed::grammar(['*.confirm' => ':actor confirmed'])->icons(['*.confirm' => 'bi-check']);
+    // Fallback presentation declares no concrete verb: preserve the undeclared-vocabulary Info control.
+    Story::fallback()->headline(':actor confirmed')->icon('bi-check');
 
     confirmOne();
 
@@ -214,7 +216,7 @@ it('lists every check name, including app-registered ones', function () {
 it('exits zero by default and non-zero only when asked', function () {
     // Grammar authored, icon not: a missing glyph is an absence rather than a
     // sentence reading wrong, so the report carries a warning and no error.
-    Storyfeed::grammar(['*.confirm' => ':actor confirmed']);
+    Story::verb('confirm')->headline(':actor confirmed');
 
     confirmOne();
 
@@ -271,7 +273,7 @@ it('reports a throwing check as a finding instead of dying with it', function ()
 
 it('warns when the feed has stopped being written to', function () {
     config()->set('storyfeed.doctor.stale_after', 30);
-    Storyfeed::grammar(['*.*' => ':actor acted'])->icons(['*.*' => 'bi-dot']);
+    Story::fallback()->headline(':actor acted')->icon('bi-dot');
 
     Storyfeed::activity('confirm', Delivery::create(['tracking_number' => 'TN-1']))
         ->publishedAt(now()->subDays(45))
@@ -285,7 +287,7 @@ it('warns when the feed has stopped being written to', function () {
 });
 
 it('renders verb drift from the same check doctor uses', function () {
-    Storyfeed::grammar(['*.*' => ':actor acted'])->icons(['*.*' => 'bi-dot']);
+    Story::fallback()->headline(':actor acted')->icon('bi-dot');
 
     Storyfeed::activity()->verb('confrim')->publish();
 

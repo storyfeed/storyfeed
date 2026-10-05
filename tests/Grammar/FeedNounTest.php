@@ -1,5 +1,6 @@
 <?php
 
+use Storyfeed\Facades\Story;
 use Storyfeed\Facades\Storyfeed;
 use Storyfeed\FeedNoun;
 
@@ -53,19 +54,17 @@ it('refuses to inflect, and says so where the developer is looking', function ()
     // "terms sheet" pluralises on the head noun; Str::plural() would say
     // "terms sheets" only by luck and "7 terms sheet" is a typo the package
     // would have shipped on the app's behalf. Both forms, always.
-    expect(fn () => Storyfeed::nouns(['terms_sheet' => 'terms sheet']))
+    expect(fn () => Story::for('terms_sheet')->fallback()->noun('terms sheet'))
         ->toThrow(InvalidArgumentException::class, 'has only one form');
 
-    Storyfeed::nouns(['terms_sheet' => 'terms sheet|terms sheets']);
+    Story::for('terms_sheet')->fallback()->noun('terms sheet|terms sheets');
 
     expect(FeedNoun::form(Storyfeed::noun('terms_sheet', 'sign'), 4))->toBe('terms sheets');
 });
 
 it('looks nouns up by type, then by type and verb', function () {
-    Storyfeed::nouns([
-        'delivery' => 'delivery|deliveries',
-        'delivery.upload' => 'file|files',
-    ]);
+    Story::for('delivery')->fallback()->noun('delivery|deliveries');
+    Story::for('delivery')->verb('upload')->noun('file|files');
 
     expect(Storyfeed::noun('delivery', 'upload'))->toBe('file|files')
         ->and(Storyfeed::noun('delivery', 'revise'))->toBe('delivery|deliveries')
@@ -74,14 +73,9 @@ it('looks nouns up by type, then by type and verb', function () {
 });
 
 it('lets a generic entry stand in for every unregistered type', function () {
-    Storyfeed::nouns(['*' => 'record|records']);
+    Story::fallback()->noun('record|records');
 
     expect(FeedNoun::form(Storyfeed::noun('anything', 'upload'), 3))->toBe('records');
-});
-
-it('refuses a list where a map of nouns was meant', function () {
-    expect(fn () => Storyfeed::nouns(['clause|clauses']))
-        ->toThrow(InvalidArgumentException::class, 'takes a MAP');
 });
 
 it('suppresses :count inside a translated noun rather than doubling the number', function () {

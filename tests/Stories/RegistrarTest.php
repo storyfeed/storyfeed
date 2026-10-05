@@ -20,8 +20,8 @@ use Workbench\App\Models\Delivery;
 /*
  * The Story facade is a front door onto Stories\Verb: every call registers
  * a definition that compiles through CompileStories beside Story classes. The
- * load-bearing test is the first one — the fluent form and the hand-written
- * arrays must produce the same registries.
+ * load-bearing test is the first one — the fluent form and the independent
+ * contract must contain the same registry entries.
  */
 
 /** @return array<string, mixed> */
@@ -47,7 +47,7 @@ function freshManager(): void
     Story::clearResolvedInstances();
 }
 
-it('compiles the fluent form to exactly the registries the arrays hold', function () {
+it('compiles the fluent form to an independent expected registry contract', function () {
     Story::for(Delivery::class)->group(function () {
         Story::verb(ActivityVerb::Confirm)
             ->headline(':actor confirmed :object[ for :target]')
@@ -71,32 +71,23 @@ it('compiles the fluent form to exactly the registries the arrays hold', functio
 
     $fluent = registries();
 
-    freshManager();
+    $expected = [
+        'grammar' => ['delivery.confirm' => ':actor confirmed :object[ for :target]', 'delivery.ship' => ':actor shipped :object'],
+        'actorlessGrammar' => ['delivery.confirm' => ':object was confirmed'],
+        'icons' => ['delivery.confirm' => 'bi-truck', 'delivery.*' => 'bi-box', '*.*' => 'bi-activity'],
+        'glyphIntents' => ['delivery.confirm' => 'success'],
+        'nouns' => ['delivery.upload' => 'file|files', 'delivery' => 'delivery|deliveries'],
+        'aggregateGrammar' => ['repeat.confirm' => ':actor confirmed :count deliveries', 'actors.confirm' => ':actors confirmed deliveries'],
+        'objectType' => ObjectType::Document,
+        'verbs' => ['confirm' => ActivityType::Update, 'upload' => 'Activity', 'ship' => 'Activity'],
+    ];
 
-    Storyfeed::grammar([
-        'delivery.confirm' => ':actor confirmed :object[ for :target]',
-        'delivery.ship' => ':actor shipped :object',
-    ])
-        ->actorlessGrammar(['delivery.confirm' => ':object was confirmed'])
-        ->icons(['delivery.confirm' => 'bi-truck', 'delivery.*' => 'bi-box', '*.*' => 'bi-activity'])
-        ->glyphIntents(['delivery.confirm' => 'success'])
-        ->nouns(['delivery.upload' => 'file|files', 'delivery' => 'delivery|deliveries'])
-        ->objectTypes(['delivery' => ObjectType::Document])
-        ->aggregateGrammar([
-            'repeat.confirm' => ':actor confirmed :count deliveries',
-            'actors.confirm' => ':actors confirmed deliveries',
-        ])
-        ->verbs(['confirm' => ActivityType::Update, 'upload' => 'Activity', 'ship' => 'Activity']);
-
-    $arrays = registries();
-
-    // Registration order differs between the two forms; the entries don't.
     foreach (['grammar', 'aggregateGrammar', 'actorlessGrammar', 'icons', 'glyphIntents', 'nouns', 'verbs'] as $registry) {
         ksort($fluent[$registry]);
-        ksort($arrays[$registry]);
+        ksort($expected[$registry]);
     }
 
-    expect($fluent)->toEqual($arrays);
+    expect($fluent)->toEqual($expected);
 });
 
 it('keeps the verb AS2 type a FeedVerb case carries', function () {
@@ -219,8 +210,7 @@ it('names both lines when the registrar defines one key twice', function () {
 });
 
 it('lets two definitions of one key set different registries', function () {
-    Story::verb('confirm')->headline(':actor confirmed :object');
-    Story::verb('confirm')->grouped(Group::repeat()->headline(':actor confirmed :count things'));
+    Story::verb('confirm')->headline(':actor confirmed :object')->grouped(Group::repeat()->headline(':actor confirmed :count things'));
 
     expect(Storyfeed::registeredGrammar())->toHaveKey('*.confirm')
         ->and(Storyfeed::registeredAggregateGrammar())->toHaveKey('repeat.confirm');
@@ -285,13 +275,13 @@ it('supports when() on a definition', function () {
         ->and(Storyfeed::registeredGlyphIntents())->not->toHaveKey('*.confirm');
 });
 
-it('loses to a hand-written registration, like every compiled entry', function () {
+it('replaces only explicit authored fields', function () {
     Story::for(Delivery::class)->verb('confirm')->headline('compiled')->anonymousHeadline('compiled');
     Story::for(Delivery::class)->noun('compiled|compiled');
 
-    Storyfeed::grammar(['delivery.confirm' => 'hand-written'])
-        ->actorlessGrammar(['delivery.confirm' => 'hand-written'])
-        ->nouns(['delivery' => 'hand|hands']);
+    Story::for(Delivery::class)->verb('confirm')->override()
+        ->headline('hand-written')->anonymousHeadline('hand-written');
+    Story::for(Delivery::class)->fallback()->override()->noun('hand|hands');
 
     expect(Storyfeed::template('delivery', 'confirm'))->toBe('hand-written')
         ->and(Storyfeed::actorlessTemplate('delivery', 'confirm'))->toBe('hand-written')

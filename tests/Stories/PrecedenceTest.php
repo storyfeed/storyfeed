@@ -12,33 +12,30 @@ use Workbench\App\Models\User;
 use Workbench\App\Stories\DeliveryWasConfirmed;
 
 /*
- * The registries remain the documented substrate and the PERMANENT escape
- * hatch. An escape hatch you cannot use to override is not an escape hatch —
- * so a hand-written entry wins, and it wins regardless of registration order,
- * because compilation is deferred to App::booted().
+ * Explicit supplied-field overrides retain package behavior regardless of
+ * provider registration order. Ordinary competing owners remain errors.
  */
 
-it('lets a hand-written entry win when registered after the story', function () {
+it('lets a explicit override win when registered after the story', function () {
     Story::verb(ActivityVerb::Confirm, DeliveryWasConfirmed::class);
-    Storyfeed::grammar(['delivery.confirm' => 'OVERRIDDEN']);
+    Story::for(Delivery::class)->verb('confirm')->override()->headline('OVERRIDDEN');
 
     expect(Storyfeed::template('delivery', 'confirm'))->toBe('OVERRIDDEN');
 });
 
-it('lets a hand-written entry win when registered BEFORE the story', function () {
+it('lets a explicit override win when registered BEFORE the story', function () {
     // The order-independence is the point: an app cannot be expected to know
     // that its provider runs before or after another's.
-    Storyfeed::grammar(['delivery.confirm' => 'OVERRIDDEN']);
+    Story::for(Delivery::class)->verb('confirm')->override()->headline('OVERRIDDEN');
     Story::verb(ActivityVerb::Confirm, DeliveryWasConfirmed::class);
 
     expect(Storyfeed::template('delivery', 'confirm'))->toBe('OVERRIDDEN');
 });
 
-it('keeps closures legal through the hand-written path', function () {
-    // Compiled output is closure-free so it can be cached; closures remain
-    // available where they always were.
+it('keeps closures legal through the explicit override', function () {
+    // Fluent overrides preserve deferred closure headline resolution.
     Story::verb(ActivityVerb::Confirm, DeliveryWasConfirmed::class);
-    Storyfeed::grammar(['delivery.confirm' => fn ($activity) => 'rendered '.$activity->verb()]);
+    Story::for(Delivery::class)->verb('confirm')->override()->headline(fn ($activity) => 'rendered '.$activity->verb());
 
     expect(Storyfeed::template('delivery', 'confirm'))->toBeInstanceOf(Closure::class);
 });

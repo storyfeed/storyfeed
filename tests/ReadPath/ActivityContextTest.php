@@ -106,8 +106,8 @@ it('passes a context through every headline registration path', function (string
         'headline' => Story::verb('inspect')->headline($headline),
         'anonymous' => Story::verb('inspect')->headline('Normal')->anonymousHeadline($headline),
         'missing' => Story::verb('inspect')->headline('Normal')->missingHeadline($headline),
-        'grammar' => Storyfeed::grammar(['*.inspect' => $headline]),
-        'actorless grammar' => Storyfeed::actorlessGrammar(['inspect' => $headline]),
+        'type headline' => Story::for(Delivery::class)->verb('inspect')->headline($headline),
+        'type anonymous' => Story::for(Delivery::class)->verb('inspect')->anonymousHeadline($headline),
     };
     $delivery = Delivery::create(['tracking_number' => 'CTX']);
     Storyfeed::anonymous()->verb('inspect', $delivery)->data(['rush' => true])->publish();
@@ -117,7 +117,7 @@ it('passes a context through every headline registration path', function (string
     }
     $node = Storyfeed::feed()->get()->toArray()['items'][0];
     expect($node[$missing ? 'missing_headline' : 'headline'])->toBe('Rushed');
-})->with(['headline', 'anonymous', 'missing', 'grammar', 'actorless grammar']);
+})->with(['headline', 'anonymous', 'missing', 'type headline', 'type anonymous']);
 
 it('passes contexts to normal and anonymous Activity Streams headlines', function (bool $anonymous) {
     $seen = null;
@@ -141,11 +141,11 @@ it('passes contexts to normal and anonymous Activity Streams headlines', functio
 
 it('preserves recorded identity when a role snapshot is absent', function () {
     $seen = null;
-    Storyfeed::grammar(['*.inspect' => function (object $activity) use (&$seen) {
+    Story::verb('inspect')->headline(function (object $activity) use (&$seen) {
         $seen = $activity;
 
         return 'Inspected';
-    }]);
+    });
     $activity = new Activity(['verb' => 'inspect', 'object_type' => 'unknown', 'object_id' => 42]);
     app(NodePresenter::class)->activityNode($activity);
     expect($seen)->toBeInstanceOf(ActivityContext::class)

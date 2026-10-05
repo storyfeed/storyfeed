@@ -4,6 +4,7 @@ namespace Storyfeed\Grouping;
 
 use Closure;
 use Storyfeed\Exceptions\StoryMisconfigured;
+use Storyfeed\FeedHeadline;
 use Storyfeed\Payload\GroupSlice;
 
 /**
@@ -33,7 +34,7 @@ use Storyfeed\Payload\GroupSlice;
  */
 final class Group
 {
-    protected string|Closure|null $headline = null;
+    protected string|Closure|FeedHeadline|null $headline = null;
 
     protected ?string $parentHeadline = null;
 
@@ -95,11 +96,13 @@ final class Group
 
     /**
      * A template or a closure receiving the group with its true count and sampled members.
-     * Closures return finished text, as aggregate registry callbacks do.
+     * Closures return finished text. FeedHeadline translation keys remain
+     * deferred until the reader locale is known; their translated tokens
+     * cannot be validated at boot without freezing that locale.
      *
-     * @param  string|Closure(GroupSlice): string  $template
+     * @param  string|FeedHeadline|Closure(GroupSlice): string  $template
      */
-    public function headline(string|Closure $template): self
+    public function headline(string|Closure|FeedHeadline $template): self
     {
         $this->headline = $template;
 
@@ -151,7 +154,7 @@ final class Group
         );
     }
 
-    public function template(): string|Closure|null
+    public function template(): string|Closure|FeedHeadline|null
     {
         return $this->headline;
     }

@@ -84,12 +84,10 @@ it('replaces a hand-partitioned matrix with one derived assertion', function () 
 
     // Authored for every axis the recipe says `upload` can reach — and
     // NOTHING was hand-listed to get here.
-    Storyfeed::aggregateGrammar([
-        'actors.upload' => ':actors uploaded :count files to :target',
-        'targets.upload' => ':actor uploaded files to :targets',
-        'object.upload' => ':actor uploaded :object :count times',
-        'repeat.upload' => ':actor uploaded :count files',
-    ]);
+    Story::verb('upload')->grouped(Group::on('actors')->headline(':actors uploaded :count files to :target'));
+    Story::verb('upload')->grouped(Group::on('targets')->headline(':actor uploaded files to :targets'));
+    Story::verb('upload')->grouped(Group::on('object')->headline(':actor uploaded :object :count times'));
+    Story::verb('upload')->grouped(Group::on('repeat')->headline(':actor uploaded :count files'));
 
     HeadlineCoverage::assertCoversPossibleGroups();
 });

@@ -30,10 +30,8 @@ use InvalidArgumentException;
  * files, so a new `file.php` translation file could silently rewrite a
  * headline. The wrapper is explicit and cannot drift:
  *
- *     Storyfeed::nouns([
- *         'clause' => 'clause|clauses',
- *         'document' => FeedNoun::trans('nouns.document'),
- *     ]);
+ *     Story::for('clause')->noun('clause|clauses');
+ *     Story::for('document')->noun(FeedNoun::trans('nouns.document'));
  *
  * Literal forms go through Laravel's MessageSelector rather than an English
  * `Str::plural()`, so a locale with more than two forms is served by adding

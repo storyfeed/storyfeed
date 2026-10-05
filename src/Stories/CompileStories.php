@@ -12,23 +12,22 @@ use Storyfeed\Grouping\Group;
 use Storyfeed\StoryfeedManager;
 
 /**
- * Compiles story definitions into the five registry arrays.
+ * Compiles modern story definitions into the internal registry arrays.
  *
- * This is where the layer earns its keep. Four conditions the raw registries
- * accept silently become boot failures:
+ * The compiler rejects four authoring mistakes before traffic reaches the
+ * read path:
  *
  *   1. A composite group with no `*.{verb}` singular entry — the second,
  *      unlisted registry a consumer only discovered from doctor output after
  *      following every documented step.
  *   2. An aggregate token the axis does not pin — the documented lie class,
  *      caught before any traffic exists rather than after.
- *   3. An unregistered axis, whose grammar would never resolve. Today that is
- *      only a doctor note, after the fact.
- *   4. Two ordinary stories authoring the same key. The arrays are last-writer-wins, so
- *      this currently picks one at random and says nothing. Every registry
- *      entry is claimed, and the error names both sources (`file:line` for
+ *   3. An unregistered axis, whose grammar would never resolve. The doctor can
+ *      still diagnose historical cached entries after an axis is removed.
+ *   4. Two ordinary stories authoring the same field/key. Every registry entry
+ *      is claimed, and the error names both sources (`file:line` for
  *      the registrar and ad-hoc definitions, the class for Story classes).
- *      A verb an action or a message class defines is claimed whole. Explicit
+ *      Action bindings retain their original owner. Explicit
  *      override() declarations replace only supplied fields in a second
  *      layer, whose competing owners still conflict.
  *
@@ -38,7 +37,7 @@ use Storyfeed\StoryfeedManager;
  *
  * @phpstan-type Compiled array{
  *     grammar: array<string, string|Closure|FeedHeadline>,
- *     aggregateGrammar: array<string, string|Closure>,
+ *     aggregateGrammar: array<string, string|Closure|FeedHeadline>,
  *     actorlessGrammar: array<string, string|Closure|FeedHeadline>,
  *     icons: array<string, string>,
  *     glyphIntents: array<string, string>,
@@ -423,7 +422,7 @@ class CompileStories
     }
 
     /**
-     * @param  array<string, string|Closure>  $aggregateGrammar
+     * @param  array<string, string|Closure|FeedHeadline>  $aggregateGrammar
      * @param  array<string, string|Closure|FeedHeadline>  $grammar
      * @param  array<string, string>  $owners
      */
@@ -538,7 +537,7 @@ class CompileStories
      * A composite parent carries no object of its own, so `{type}.{verb}` never
      * resolves for it and it needs `*.{verb}`. Accept that entry from ANY
      * source — this story's parentHeadline(), another story declaring
-     * objectType '*', or a hand-written grammar() call — because all three are
+     * objectType '*', or an unscoped fluent declaration — because all three are
      * legitimate and the point is only that it exists.
      *
      * @param  array<string, string|Closure|FeedHeadline>  $grammar

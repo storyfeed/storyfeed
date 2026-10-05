@@ -2,17 +2,16 @@
 
 use Storyfeed\ActivityStreams\ActivityType;
 use Storyfeed\ActivityStreams\ObjectType;
+use Storyfeed\Facades\Story;
 use Storyfeed\Facades\Storyfeed;
 use Workbench\App\Enums\ActivityVerb;
 use Workbench\App\Models\Delivery;
 
 it('resolves grammar in specificity order', function () {
-    Storyfeed::grammar([
-        'delivery.confirm' => ':actor confirmed :object for :target',
-        'delivery.*' => ':actor did something with :object',
-        '*.confirm' => ':actor confirmed :object',
-        '*.*' => ':actor acted',
-    ]);
+    Story::for('delivery')->verb('confirm')->headline(':actor confirmed :object for :target');
+    Story::for('delivery')->fallback()->headline(':actor did something with :object');
+    Story::verb('confirm')->headline(':actor confirmed :object');
+    Story::fallback()->headline(':actor acted');
 
     expect(Storyfeed::template('delivery', 'confirm'))->toBe(':actor confirmed :object for :target')
         ->and(Storyfeed::template('delivery', 'cancel'))->toBe(':actor did something with :object')
@@ -26,10 +25,8 @@ it('returns null for unregistered grammar instead of guessing', function () {
 });
 
 it('resolves icons with the same wildcard order', function () {
-    Storyfeed::icons([
-        'delivery.confirm' => 'bi-truck',
-        '*.*' => 'bi-lightning',
-    ]);
+    Story::for('delivery')->verb('confirm')->icon('bi-truck');
+    Story::fallback()->icon('bi-lightning');
 
     expect(Storyfeed::icon('delivery', 'confirm'))->toBe('bi-truck')
         ->and(Storyfeed::icon('anything', 'else'))->toBe('bi-lightning');
@@ -46,7 +43,8 @@ it('maps verbs to AS2.0 activity types with overridable defaults', function () {
 });
 
 it('maps morph aliases to AS2.0 object types', function () {
-    Storyfeed::objectTypes(['user' => 'Person', 'delivery' => 'Document']);
+    Story::for('user')->fallback()->activityStreamsType('Person');
+    Story::for('delivery')->fallback()->activityStreamsType('Document');
 
     expect(Storyfeed::objectType('user'))->toBe(ObjectType::Person)
         ->and(Storyfeed::objectType('unknown'))->toBeNull();
@@ -60,7 +58,7 @@ it('always yields a wire value, falling back for unmapped terms', function () {
 
 it('preserves unrecognized extension types verbatim', function () {
     Storyfeed::verbs(['frobnicate' => 'sf:Frobnicate']);
-    Storyfeed::objectTypes(['widget' => 'ext:Widget']);
+    Story::for('widget')->fallback()->activityStreamsType('ext:Widget');
 
     // tryFrom-then-discard is the data-loss bug that breaks federation.
     expect(Storyfeed::activityType('frobnicate'))->toBe('sf:Frobnicate')
@@ -89,8 +87,7 @@ it('registers a whole vocabulary from a FeedVerb enum', function () {
 });
 
 it('emits headline templates and glyph tokens in the payload', function () {
-    Storyfeed::grammar(['delivery.confirm' => ':actor confirmed :object']);
-    Storyfeed::icons(['delivery.confirm' => 'bi-truck']);
+    Story::for('delivery')->verb('confirm')->headline(':actor confirmed :object')->icon('bi-truck');
 
     Storyfeed::activity('confirm', Delivery::create(['tracking_number' => 'TN-1']))->publish();
 
@@ -102,9 +99,7 @@ it('emits headline templates and glyph tokens in the payload', function () {
 });
 
 it('pre-renders closure grammar as headline with a null template', function () {
-    Storyfeed::grammar([
-        'delivery.confirm' => fn ($activity) => "Delivery {$activity->object()?->key()} confirmed",
-    ]);
+    Story::for('delivery')->verb('confirm')->headline(fn ($activity) => "Delivery {$activity->object()?->key()} confirmed");
 
     $delivery = Delivery::create(['tracking_number' => 'TN-1']);
     Storyfeed::activity('confirm', $delivery)->publish();
@@ -116,7 +111,7 @@ it('pre-renders closure grammar as headline with a null template', function () {
 });
 
 it('resolves grammar for group nodes too', function () {
-    Storyfeed::grammar(['delivery.upload' => ':actor uploaded deliveries']);
+    Story::for('delivery')->verb('upload')->headline(':actor uploaded deliveries');
 
     foreach (range(1, 2) as $i) {
         Storyfeed::activity('upload', Delivery::create(['tracking_number' => "TN-{$i}"]))->publish();
@@ -143,52 +138,10 @@ it('refuses a list of verbs, which would register the integer 0 as a verb', func
         ->and(Storyfeed::declaredVerb('confirm'))->toBeTrue();
 });
 
-it('refuses a list of grammar templates, which would resolve for nothing', function () {
-    // The silent shape of the same bug verbs() had: key 0 matches no
-    // (type, verb) pair that will ever be asked for, so every headline stays
-    // null and doctor reports the grammar as missing — pointing at the very
-    // templates the developer is looking at.
-    expect(fn () => Storyfeed::grammar([':actor confirmed :object']))
-        ->toThrow(InvalidArgumentException::class, "Storyfeed::grammar(['delivery.confirm' => ':actor confirmed :object'])");
-
-    Storyfeed::grammar(['delivery.confirm' => ':actor confirmed :object']);
-
-    expect(Storyfeed::templateKey('delivery', 'confirm'))->toBe('delivery.confirm');
-});
-
 it('still accepts a closure grammar entry under a string key', function () {
-    Storyfeed::grammar(['delivery.confirm' => fn () => 'rendered']);
+    Story::for('delivery')->verb('confirm')->headline(fn () => 'rendered');
 
     expect(Storyfeed::templateKey('delivery', 'confirm'))->toBe('delivery.confirm');
-});
-
-it('refuses a list of aggregate templates', function () {
-    expect(fn () => Storyfeed::aggregateGrammar([':actors uploaded :count files']))
-        ->toThrow(InvalidArgumentException::class, 'actors.upload');
-
-    Storyfeed::aggregateGrammar(['actors.upload' => ':actors uploaded :count files']);
-
-    expect(Storyfeed::aggregateTemplateKey('actors', 'upload'))->toBe('actors.upload');
-});
-
-it('refuses a list of icons', function () {
-    expect(fn () => Storyfeed::icons(['bi-truck']))
-        ->toThrow(InvalidArgumentException::class, "Storyfeed::icons(['delivery.confirm' => 'bi-truck'])");
-
-    Storyfeed::icons(['delivery.confirm' => 'bi-truck']);
-
-    expect(Storyfeed::iconKey('delivery', 'confirm'))->toBe('delivery.confirm');
-});
-
-it('refuses a list of object types, the fifth registry with the same hole', function () {
-    // Key 0 is not a morph alias, so every activity would serialize with no
-    // AS2.0 object type and the JSON-LD would look merely under-specified.
-    expect(fn () => Storyfeed::objectTypes(['delivery']))
-        ->toThrow(InvalidArgumentException::class, "Storyfeed::objectTypes(['delivery' => 'Document'])");
-
-    Storyfeed::objectTypes(['delivery' => ObjectType::Document]);
-
-    expect(Storyfeed::objectType('delivery'))->toBe(ObjectType::Document);
 });
 
 it('refuses an enum that forgot to implement FeedVerb, instead of registering nothing', function () {

@@ -3,6 +3,7 @@
 use Illuminate\Support\Carbon;
 use Storyfeed\Actions\SnapshotEntity;
 use Storyfeed\Actions\TrickleSnapshots;
+use Storyfeed\Facades\Story;
 use Storyfeed\Facades\Storyfeed;
 use Storyfeed\Models\Activity;
 use Storyfeed\Models\FeedTombstone;
@@ -167,8 +168,9 @@ it('resolves rules on the type → verb ladder, with removals and the default be
 });
 
 it('keeps the deleted model\'s headline and glyph', function () {
-    Storyfeed::grammar(['delivery.confirm' => ':actor confirmed :object', '*.confirm' => ':actor confirmed something']);
-    Storyfeed::icons(['delivery.confirm' => 'truck']);
+    Story::for('delivery')->verb('confirm')->headline(':actor confirmed :object');
+    Story::verb('confirm')->headline(':actor confirmed something');
+    Story::for('delivery')->verb('confirm')->icon('truck');
     Storyfeed::activity()->actor($this->ines)->verb('confirm', $this->delivery)->publish();
 
     $this->delivery->delete();

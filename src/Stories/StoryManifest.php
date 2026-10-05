@@ -14,11 +14,9 @@ use Storyfeed\Support\ManifestClosure;
  * Owns the path, the read and the write so the two commands, the provider and
  * the staleness check cannot disagree about any of them.
  *
- * WHAT IT HOLDS — only the story-compiled arrays. Hand-written registrations
- * stay boot-time and keep winning: they may legally contain closures (closure
- * grammar is a documented feature) and Axis objects can hold closure recipes,
- * so neither is serializable. Leaving the precedence rule untouched is what
- * makes this safe to bolt on rather than a redesign.
+ * WHAT IT HOLDS — story-compiled arrays, including deferred headline closures
+ * and translation keys. Retained boot registrations such as axes and feeds
+ * belong in providers: definitions files cannot cache those side effects.
  *
  * THE RISK, NAMED UP FRONT. A cached manifest is a new instance of the
  * silent-drift class that cost this package a production outage: edit a Story,

@@ -127,7 +127,7 @@ class ListCommand extends Command
 
         foreach ($definition->groupList() as $group) {
             /** @var Group $group */
-            $groups[$group->axis] = $group->template();
+            $groups[$group->axis] = $this->describe($group->template());
         }
 
         return [

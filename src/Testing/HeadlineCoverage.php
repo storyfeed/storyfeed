@@ -78,7 +78,7 @@ class HeadlineCoverage
             [],
             $missing,
             "Storyfeed headline coverage is incomplete:\n  - ".implode("\n  - ", $missing)
-            ."\n\nRegister the missing entries with Storyfeed::grammar() / Storyfeed::icons().",
+            ."\n\nRegister the missing entries with Story::for()->verb()->headline() / ->icon().",
         );
     }
 
@@ -206,7 +206,7 @@ class HeadlineCoverage
             [],
             $missing,
             "Storyfeed group headline coverage is incomplete:\n  - ".implode("\n  - ", $missing)
-            ."\n\nRegister the missing entries with Storyfeed::aggregateGrammar().",
+            ."\n\nRegister the missing entries with Story::verb()->grouped().",
         );
     }
 
@@ -263,7 +263,7 @@ class HeadlineCoverage
             [],
             $missing,
             "Storyfeed group headline coverage is incomplete:\n  - ".implode("\n  - ", $missing)
-            ."\n\nRegister the missing entries with Storyfeed::aggregateGrammar().",
+            ."\n\nRegister the missing entries with Story::verb()->grouped().",
         );
     }
 
@@ -358,7 +358,7 @@ class HeadlineCoverage
             [],
             $missing,
             "Storyfeed group headline coverage is incomplete:\n  - ".implode("\n  - ", $missing)
-            ."\n\nRegister the missing entries with Storyfeed::aggregateGrammar(), or run "
+            ."\n\nRegister the missing entries with Story::verb()->grouped(), or run "
             .'`php artisan storyfeed:doctor --stubs` to print them.'.$caveat,
         );
     }

@@ -1,7 +1,9 @@
 <?php
 
 use PHPUnit\Framework\AssertionFailedError;
+use Storyfeed\Facades\Story;
 use Storyfeed\Facades\Storyfeed;
+use Storyfeed\Grouping\Group;
 use Storyfeed\Testing\GrammarCoverage;
 use Storyfeed\Testing\HeadlineCoverage;
 use Workbench\App\Models\Customer;
@@ -9,21 +11,20 @@ use Workbench\App\Models\Delivery;
 use Workbench\App\Models\User;
 
 it('passes when every pair has a headline and an icon', function () {
-    Storyfeed::grammar(['delivery.confirm' => ':actor confirmed :object'])
-        ->icons(['delivery.confirm' => 'bi-truck']);
+    Story::for('delivery')->verb('confirm')->headline(':actor confirmed :object')->icon('bi-truck');
 
     HeadlineCoverage::assertCovers([['delivery', 'confirm']]);
 });
 
 it('fails and names what is missing', function () {
-    Storyfeed::grammar(['delivery.confirm' => ':actor confirmed :object']);
+    Story::for('delivery')->verb('confirm')->headline(':actor confirmed :object');
 
     expect(fn () => HeadlineCoverage::assertCovers([['delivery', 'confirm']]))
         ->toThrow(AssertionFailedError::class, 'delivery.confirm (no icon)');
 });
 
 it('does not accept a wildcard catch-all as coverage', function () {
-    Storyfeed::grammar(['*.*' => ':actor acted'])->icons(['*.*' => 'bi-lightning']);
+    Story::fallback()->headline(':actor acted')->icon('bi-lightning');
 
     // A *.* entry resolves for everything, which would make coverage vacuous.
     expect(fn () => HeadlineCoverage::assertCovers([['delivery', 'confirm']]))
@@ -33,20 +34,17 @@ it('does not accept a wildcard catch-all as coverage', function () {
 });
 
 it('accepts a partial wildcard as deliberate authoring', function () {
-    Storyfeed::grammar(['delivery.*' => ':actor did something to :object'])
-        ->icons(['*.confirm' => 'bi-check']);
+    Story::for('delivery')->fallback()->headline(':actor did something to :object');
+    Story::verb('confirm')->icon('bi-check');
 
     HeadlineCoverage::assertCovers([['delivery', 'confirm']]);
 });
 
 it('asserts coverage for everything the fake recorded', function () {
-    Storyfeed::grammar([
-        'delivery.confirm' => ':actor confirmed :object',
-        'delivery.upload' => ':actor uploaded :object',
-    ])->icons([
-        'delivery.confirm' => 'bi-truck',
-        'delivery.upload' => 'bi-upload',
-    ]);
+    Story::for('delivery')->verb('confirm')->headline(':actor confirmed :object');
+    Story::for('delivery')->verb('upload')->headline(':actor uploaded :object');
+    Story::for('delivery')->verb('confirm')->icon('bi-truck');
+    Story::for('delivery')->verb('upload')->icon('bi-upload');
 
     Storyfeed::fake();
 
@@ -59,8 +57,7 @@ it('asserts coverage for everything the fake recorded', function () {
 });
 
 it('catches an activity type nobody authored', function () {
-    Storyfeed::grammar(['delivery.confirm' => ':actor confirmed :object'])
-        ->icons(['delivery.confirm' => 'bi-truck']);
+    Story::for('delivery')->verb('confirm')->headline(':actor confirmed :object')->icon('bi-truck');
 
     Storyfeed::fake();
 
@@ -84,8 +81,7 @@ it('refuses to pass vacuously when nothing was published', function () {
 });
 
 it('asserts coverage against persisted activities', function () {
-    Storyfeed::grammar(['delivery.confirm' => ':actor confirmed :object'])
-        ->icons(['delivery.confirm' => 'bi-truck']);
+    Story::for('delivery')->verb('confirm')->headline(':actor confirmed :object')->icon('bi-truck');
 
     Storyfeed::activity('confirm', Delivery::create(['tracking_number' => 'TN-1']))->publish();
 
@@ -108,7 +104,7 @@ it('asserts aggregate grammar for the axes curation actually selected', function
     expect(fn () => HeadlineCoverage::assertCoversGroups())
         ->toThrow(AssertionFailedError::class, 'actors.upload (no group headline)');
 
-    Storyfeed::aggregateGrammar(['actors.upload' => ':actors uploaded :count files to :target']);
+    Story::verb('upload')->grouped(Group::on('actors')->headline(':actors uploaded :count files to :target'));
 
     HeadlineCoverage::assertCoversGroups();
 });
@@ -122,17 +118,15 @@ it('fails aggregate coverage when nothing is grouped on an aggregate axis', func
 });
 
 it('asserts a declared aggregate matrix proactively', function () {
-    Storyfeed::aggregateGrammar(['actors.upload' => ':actors uploaded :count files']);
+    Story::verb('upload')->grouped(Group::on('actors')->headline(':actors uploaded :count files'));
 
     // assertCoversGroups() only sees combinations the data produced;
     // the matrix form asserts what COULD occur.
     expect(fn () => HeadlineCoverage::assertCoversAggregateMatrix(['actors', 'targets'], ['upload', 'comment']))
         ->toThrow(AssertionFailedError::class, 'targets.upload (no group headline)');
 
-    Storyfeed::aggregateGrammar([
-        'actors.comment' => ':actors commented on :target',
-        'targets.*' => ':actor acted on :count things',
-    ]);
+    Story::verb('comment')->grouped(Group::on('actors')->headline(':actors commented on :target'));
+    Story::fallback()->grouped(Group::on('targets')->headline(':actor acted on :count things'));
 
     HeadlineCoverage::assertCoversAggregateMatrix(['actors', 'targets'], ['upload', 'comment']);
 });
@@ -155,12 +149,10 @@ it('keeps GrammarCoverage and its aggregate method names as deprecated aliases',
     expect(fn () => GrammarCoverage::assertCoversPossibleAggregates())
         ->toThrow(AssertionFailedError::class, 'group headline coverage is incomplete');
 
-    Storyfeed::aggregateGrammar([
-        'actors.upload' => ':actors uploaded :count files to :target',
-        'targets.upload' => ':actor uploaded files to :targets',
-        'object.upload' => ':actor uploaded :object :count times',
-        'repeat.upload' => ':actor uploaded :count files',
-    ]);
+    Story::verb('upload')->grouped(Group::on('actors')->headline(':actors uploaded :count files to :target'));
+    Story::verb('upload')->grouped(Group::on('targets')->headline(':actor uploaded files to :targets'));
+    Story::verb('upload')->grouped(Group::on('object')->headline(':actor uploaded :object :count times'));
+    Story::verb('upload')->grouped(Group::on('repeat')->headline(':actor uploaded :count files'));
 
     GrammarCoverage::assertCoversAggregates();
     GrammarCoverage::assertCoversPossibleAggregates();

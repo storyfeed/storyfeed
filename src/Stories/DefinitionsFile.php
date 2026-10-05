@@ -22,7 +22,7 @@ use Storyfeed\StoryfeedManager;
  * demand through StoryfeedManager::storyDefinitions(); the read path only
  * reads registries, so it never does.
  *
- * THE FILE HOLDS DEFINITIONS ONLY. A `Storyfeed::grammar()` or `axes()` call
+ * THE FILE HOLDS DEFINITIONS ONLY. A `Storyfeed::axes()` or `feeds()` call
  * in it would stop running once cached, so the loader notes which registries
  * the file wrote to, and `storyfeed:cache` refuses to cache while any did.
  */
@@ -94,7 +94,7 @@ class DefinitionsFile
     }
 
     /**
-     * The hand-written registries (`grammar()`, `axes()`, …) the file wrote
+     * The hand-written registries (`axes()`, `feeds()`, …) the file wrote
      * to. They run at boot but can't be cached with the file.
      *
      * @return list<string>

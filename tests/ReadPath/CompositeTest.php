@@ -1,7 +1,9 @@
 <?php
 
 use Storyfeed\Actions\CloseBatches;
+use Storyfeed\Facades\Story;
 use Storyfeed\Facades\Storyfeed;
+use Storyfeed\Grouping\Group;
 use Storyfeed\Models\Activity;
 use Storyfeed\Models\Batch;
 use Storyfeed\Models\Grouping;
@@ -23,7 +25,7 @@ function sixFiles(): array
 }
 
 it('publishes an explicit composite: one story, six atomic members', function () {
-    Storyfeed::aggregateGrammar(['composite.upload' => ':actor uploaded :count files to :target']);
+    Story::verb('upload')->grouped(Group::composite()->headline(':actor uploaded :count files to :target')->parentHeadline(':actor uploaded files to :target'));
 
     $campaign = Customer::create(['name' => 'Spring Campaign']);
 

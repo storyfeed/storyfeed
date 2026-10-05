@@ -2,8 +2,10 @@
 
 use Storyfeed\Diagnostics\Reachability;
 use Storyfeed\Diagnostics\Severity;
+use Storyfeed\Facades\Story;
 use Storyfeed\Facades\Storyfeed;
 use Storyfeed\FeedBuilder;
+use Storyfeed\Grouping\Group;
 use Storyfeed\Models\Grouping;
 use Storyfeed\StoryfeedManager;
 use Workbench\App\Models\Delivery;
@@ -159,7 +161,7 @@ it('detects unstamped repeat gaps with curation off in the actual live payload',
         ->and($report->has('aggregates.latent'))->toBeFalse()
         ->and($report->has('aggregates.reachability_unknown'))->toBeFalse();
 
-    Storyfeed::aggregateGrammar(['repeat.delivery.upload' => ':actor uploaded :count deliveries']);
+    Story::for('delivery')->verb('upload')->grouped(Group::on('repeat')->headline(':actor uploaded :count deliveries'));
 
     expect(Storyfeed::doctor(['aggregates'])->all())->toBeEmpty();
 });
@@ -186,7 +188,7 @@ it('ignores historical non-repeat winners with curation off while auditing live 
 
     // Resolving repeat must clear the report, even though the old object
     // winners remain stored with no object grammar registered.
-    Storyfeed::aggregateGrammar(['repeat.delivery.upload' => ':actor uploaded :count deliveries']);
+    Story::for('delivery')->verb('upload')->grouped(Group::on('repeat')->headline(':actor uploaded :count deliveries'));
 
     expect(Storyfeed::doctor(['aggregates'])->all())->toBeEmpty();
 });

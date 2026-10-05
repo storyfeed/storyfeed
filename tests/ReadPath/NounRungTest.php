@@ -1,10 +1,13 @@
 <?php
 
+use Storyfeed\Facades\Story;
 use Storyfeed\Facades\Storyfeed;
 use Storyfeed\FeedNoun;
 use Storyfeed\Models\Activity;
 use Storyfeed\Payload\GroupSlice;
 use Storyfeed\Payload\NodePresenter;
+use Storyfeed\Stories\Registrar;
+use Storyfeed\StoryfeedManager;
 use Workbench\App\Models\Customer;
 use Workbench\App\Models\Delivery;
 use Workbench\App\Models\User;
@@ -43,8 +46,8 @@ function onlyRepeatGroups(): void
 }
 
 beforeEach(function () {
-    Storyfeed::grammar(['delivery.upload' => ':actor uploaded :object']);
-    Storyfeed::nouns(['delivery' => 'file|files']);
+    Story::for('delivery')->verb('upload')->headline(':actor uploaded :object');
+    Story::for('delivery')->fallback()->noun('file|files');
 });
 
 it('pluralises an unpinned role instead of throwing the sentence away', function () {
@@ -142,7 +145,7 @@ it('names a role shared by every member rather than saying "1 file"', function (
 });
 
 it('falls to the verb label when the template names a role nothing carries', function () {
-    Storyfeed::grammar(['delivery.upload' => ':actor uploaded :object in :context']);
+    Story::for('delivery')->verb('upload')->override()->headline(':actor uploaded :object in :context');
 
     $project = Customer::create(['name' => 'Concur']);
 
@@ -158,7 +161,7 @@ it('falls to the verb label when the template names a role nothing carries', fun
 });
 
 it('refuses to pluralise a token that is not a role', function () {
-    Storyfeed::grammar(['delivery.upload' => ':actor uploaded :object on :day']);
+    Story::for('delivery')->verb('upload')->override()->headline(':actor uploaded :object on :day');
 
     $project = Customer::create(['name' => 'Concur']);
 
@@ -172,7 +175,7 @@ it('refuses to pluralise a token that is not a role', function () {
 });
 
 it('refuses a noun that could be read back as a token', function () {
-    Storyfeed::nouns(['delivery' => 'clause :object|clauses :objects']);
+    Story::for('delivery')->fallback()->override()->noun('clause :object|clauses :objects');
 
     $project = Customer::create(['name' => 'Concur']);
 
@@ -187,7 +190,12 @@ it('refuses a noun that could be read back as a token', function () {
 });
 
 it('renders a generic noun rather than skipping the rung', function () {
-    Storyfeed::nouns([], merge: false);
+    // Start with no authored noun; registry-clearing is not a public API.
+    app()->forgetInstance(StoryfeedManager::class);
+    app()->forgetInstance(Registrar::class);
+    Storyfeed::clearResolvedInstances();
+    Story::clearResolvedInstances();
+    Story::for('delivery')->verb('upload')->headline(':actor uploaded :object');
 
     $project = Customer::create(['name' => 'Concur']);
 
@@ -201,7 +209,7 @@ it('renders a generic noun rather than skipping the rung', function () {
 });
 
 it('does not eat the plural token that shares a prefix', function () {
-    Storyfeed::grammar(['delivery.upload' => ':actor uploaded :object of :objects']);
+    Story::for('delivery')->verb('upload')->override()->headline(':actor uploaded :object of :objects');
 
     $project = Customer::create(['name' => 'Concur']);
 
@@ -219,8 +227,8 @@ it('still picks the form by count in a locale with more than two of them', funct
     // Polish "klauzule" (2–4) and "klauzul" (5+) are a fact about how many
     // there really are, and only the true distinct count can choose.
     app()->setLocale('pl');
-    Storyfeed::grammar(['delivery.upload' => ':actor wgrał :object']);
-    Storyfeed::nouns(['delivery' => 'klauzula|klauzule|klauzul']);
+    Story::for('delivery')->verb('upload')->override()->headline(':actor wgrał :object');
+    Story::for('delivery')->fallback()->override()->noun('klauzula|klauzule|klauzul');
 
     $project = Customer::create(['name' => 'Concur']);
 
@@ -233,7 +241,7 @@ it('still picks the form by count in a locale with more than two of them', funct
 it('accepts a translated noun through the wrapper', function () {
     app('translator')->addLines(['nouns.delivery' => 'file|files'], 'en');
 
-    Storyfeed::nouns(['delivery' => FeedNoun::trans('nouns.delivery')]);
+    Story::for('delivery')->fallback()->override()->noun(FeedNoun::trans('nouns.delivery'));
 
     $project = Customer::create(['name' => 'Concur']);
 
@@ -244,7 +252,7 @@ it('accepts a translated noun through the wrapper', function () {
 });
 
 it('still suppresses a fallback whose role KIND the axis does not pin', function () {
-    Storyfeed::nouns(['user' => 'person|people']);
+    Story::for('user')->fallback()->noun('person|people');
 
     $project = Customer::create(['name' => 'Concur']);
 

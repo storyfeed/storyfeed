@@ -1,5 +1,6 @@
 <?php
 
+use Storyfeed\Facades\Story;
 use Storyfeed\Facades\Storyfeed;
 use Storyfeed\Models\Party;
 
@@ -14,7 +15,8 @@ it('discovers distinct null actor verbs and supplies actorless registration stub
         ->expectsOutputToContain("Story::verb('confirm')->anonymousHeadline('Confirmed');")
         ->doesntExpectOutputToContain('TODO')
         ->doesntExpectOutputToContain(':actor')->assertSuccessful();
-    Storyfeed::actorlessGrammar(['confirm' => 'Confirmed', 'publish' => fn () => 'Published']);
+    Story::verb('confirm')->anonymousHeadline('Confirmed');
+    Story::verb('publish')->anonymousHeadline(fn () => 'Published');
     expect(Storyfeed::doctor(['actorless'])->all())->toBeEmpty();
 });
 

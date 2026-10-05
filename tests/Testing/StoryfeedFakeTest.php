@@ -1,6 +1,8 @@
 <?php
 
+use Storyfeed\Facades\Story;
 use Storyfeed\Facades\Storyfeed;
+use Storyfeed\Grouping\Group;
 use Storyfeed\Models\Activity;
 use Storyfeed\Models\Grouping;
 use Storyfeed\Models\Party;
@@ -90,9 +92,8 @@ it('still resolves the actor while faking', function () {
 });
 
 it('inherits registries from the real manager', function () {
-    Storyfeed::grammar(['delivery.confirm' => ':actor confirmed :object'])
-        ->icons(['delivery.confirm' => 'bi-truck'])
-        ->verbs(['confirm' => 'Update']);
+    Story::for('delivery')->verb('confirm')->headline(':actor confirmed :object')->icon('bi-truck');
+    Storyfeed::verbs(['confirm' => 'Update']);
 
     Storyfeed::fake();
 
@@ -148,8 +149,8 @@ it('is returned from fake() for direct use', function () {
 });
 
 it('inherits every manager registry, including ones added later', function () {
-    Storyfeed::aggregateGrammar(['actors.upload' => ':actors uploaded :count files']);
-    Storyfeed::grammar(['delivery.upload' => ':actor uploaded :object'])->icons(['delivery.upload' => 'bi-up']);
+    Story::verb('upload')->grouped(Group::on('actors')->headline(':actors uploaded :count files'));
+    Story::for('delivery')->verb('upload')->headline(':actor uploaded :object')->icon('bi-up');
 
     $manager = app(StoryfeedManager::class);
 

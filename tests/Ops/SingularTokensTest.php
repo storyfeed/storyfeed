@@ -1,6 +1,7 @@
 <?php
 
 use Storyfeed\Diagnostics\Severity;
+use Storyfeed\Facades\Story;
 use Storyfeed\Facades\Storyfeed;
 use Workbench\App\Models\Customer;
 use Workbench\App\Models\Delivery;
@@ -33,7 +34,7 @@ function anActor(string $name = 'Sally'): User
 }
 
 it('warns when a singular template names a role its activities never carry', function () {
-    Storyfeed::grammar(['delivery.clause_restored' => ':actor restored a clause in :object :target']);
+    Story::for('delivery')->verb('clause_restored')->headline(':actor restored a clause in :object :target');
 
     restoreOne(anActor());
     restoreOne(anActor('Bob'));
@@ -60,7 +61,7 @@ it('warns when a singular template names a role its activities never carry', fun
 });
 
 it('stays quiet when the role IS sometimes carried — that is the placeholder working', function () {
-    Storyfeed::grammar(['delivery.clause_restored' => ':actor restored a clause in :object :target']);
+    Story::for('delivery')->verb('clause_restored')->headline(':actor restored a clause in :object :target');
 
     restoreOne(anActor(), Customer::create(['name' => 'Concur']));
     restoreOne(anActor('Bob'));
@@ -71,7 +72,7 @@ it('stays quiet when the role IS sometimes carried — that is the placeholder w
 });
 
 it('says nothing about roles the template never names', function () {
-    Storyfeed::grammar(['delivery.clause_restored' => ':actor restored a clause in :object']);
+    Story::for('delivery')->verb('clause_restored')->headline(':actor restored a clause in :object');
 
     restoreOne(anActor());
 
@@ -81,7 +82,7 @@ it('says nothing about roles the template never names', function () {
 });
 
 it('reports an always-anonymous actor as a note, not a warning', function () {
-    Storyfeed::grammar(['delivery.clause_restored' => ':actor restored a clause in :object']);
+    Story::for('delivery')->verb('clause_restored')->headline(':actor restored a clause in :object');
 
     restoreOne();
 
@@ -97,7 +98,7 @@ it('reports an always-anonymous actor as a note, not a warning', function () {
 });
 
 it('judges a wildcard template by everything it renders, not one pair', function () {
-    Storyfeed::grammar(['*.*' => ':actor did something to :target']);
+    Story::fallback()->headline(':actor did something to :target');
 
     $user = anActor();
 
@@ -111,7 +112,7 @@ it('judges a wildcard template by everything it renders, not one pair', function
 
     // ...and when NOTHING it renders carries the role, it is one finding for
     // the one edit to make, naming the pairs that proved it.
-    Storyfeed::grammar(['*.*' => ':actor did something in :context']);
+    Story::fallback()->override()->headline(':actor did something in :context');
 
     $report = Storyfeed::doctor(['roles']);
     $findings = $report->withCode('roles.never_carried');
@@ -124,7 +125,7 @@ it('judges a wildcard template by everything it renders, not one pair', function
 });
 
 it('cannot inspect a closure template, and does not pretend to', function () {
-    Storyfeed::grammar(['delivery.clause_restored' => fn () => 'restored a clause somewhere']);
+    Story::for('delivery')->verb('clause_restored')->headline(fn () => 'restored a clause somewhere');
 
     restoreOne(anActor());
 

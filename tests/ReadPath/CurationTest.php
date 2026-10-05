@@ -1,7 +1,9 @@
 <?php
 
 use Storyfeed\Actions\CurateCluster;
+use Storyfeed\Facades\Story;
 use Storyfeed\Facades\Storyfeed;
+use Storyfeed\Grouping\Group;
 use Storyfeed\Models\Activity;
 use Storyfeed\Models\Grouping;
 use Workbench\App\Models\Customer;
@@ -189,9 +191,7 @@ it('backfills winners with storyfeed:curate', function () {
 });
 
 it('renders an aggregate headline for the winning axis', function () {
-    Storyfeed::aggregateGrammar([
-        'actors.upload' => ':actors uploaded :count files to :target',
-    ]);
+    Story::verb('upload')->grouped(Group::on('actors')->headline(':actors uploaded :count files to :target'));
 
     $project = Customer::create(['name' => 'Concur']);
 
@@ -205,7 +205,7 @@ it('renders an aggregate headline for the winning axis', function () {
 });
 
 it('suppresses a singular fallback whose tokens would lie about the group', function () {
-    Storyfeed::grammar(['delivery.upload' => ':actor uploaded :object']);
+    Story::for('delivery')->verb('upload')->headline(':actor uploaded :object');
 
     $project = Customer::create(['name' => 'Concur']);
 
@@ -225,7 +225,7 @@ it('suppresses a singular fallback whose tokens would lie about the group', func
 });
 
 it('admits a singular fallback whose tokens are all pinned by the axis', function () {
-    Storyfeed::grammar(['delivery.revise' => ':actor revised :object']);
+    Story::for('delivery')->verb('revise')->headline(':actor revised :object');
 
     $bob = User::create(['name' => 'Bob', 'email' => 'bob@example.com']);
     $doc = Delivery::create(['tracking_number' => 'Aut Beatae.docx']);
@@ -243,7 +243,7 @@ it('admits a singular fallback whose tokens are all pinned by the axis', functio
 });
 
 it('never uses a closure singular fallback for a group', function () {
-    Storyfeed::grammar(['delivery.revise' => fn ($activity) => "Somebody revised {$activity->object()?->key()}"]);
+    Story::for('delivery')->verb('revise')->headline(fn ($activity) => "Somebody revised {$activity->object()?->key()}");
 
     $bob = User::create(['name' => 'Bob', 'email' => 'bob@example.com']);
     $doc = Delivery::create(['tracking_number' => 'Aut Beatae.docx']);
@@ -396,7 +396,7 @@ it('degrades to classic repeat-only grouping app-wide when curation is disabled'
 });
 
 it('collapses repeated acts on one object onto the object axis', function () {
-    Storyfeed::aggregateGrammar(['object.revise' => ':actor made :count revisions to :object']);
+    Story::verb('revise')->grouped(Group::on('object')->headline(':actor made :count revisions to :object'));
 
     $bob = User::create(['name' => 'Bob Callahan', 'email' => 'bob@example.com']);
     $doc = Delivery::create(['tracking_number' => 'Aut Beatae.docx']);
@@ -499,7 +499,7 @@ it('backfills a newly added axis with storyfeed:curate --rehash', function () {
 });
 
 it('names the collapsed projects on a targets-axis group — the "added 5 items" fix', function () {
-    Storyfeed::aggregateGrammar(['targets.add' => ':actor added :count items in :targets']);
+    Story::verb('add')->grouped(Group::on('targets')->headline(':actor added :count items in :targets'));
 
     $sally = User::create(['name' => 'Sally Nguyen', 'email' => 'sn@example.com']);
 
@@ -525,7 +525,7 @@ it('names the collapsed projects on a targets-axis group — the "added 5 items"
 });
 
 it('names the collapsed tasks on a repeat-axis group — the "completed 3 tasks" fix', function () {
-    Storyfeed::aggregateGrammar(['repeat.complete' => ':actor completed :objects']);
+    Story::verb('complete')->grouped(Group::on('repeat')->headline(':actor completed :objects'));
 
     $sally = User::create(['name' => 'Sally Nguyen', 'email' => 'sn@example.com']);
 

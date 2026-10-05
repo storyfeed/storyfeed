@@ -43,7 +43,10 @@ it('names the story class as the source of what it publishes', function () {
 it('reports pairs recorded from call sites the package never saw', function () {
     // The inventory must describe the APP, not only the part that adopted the
     // Story layer — otherwise it is a list of what already migrated.
-    Storyfeed::grammar(['delivery.archive' => ':actor archived :object']);
+    // Historical compiled snapshot without authored declarations: preserve call-site provenance.
+    $compiled = Storyfeed::compiledStories();
+    $compiled['grammar']['delivery.archive'] = ':actor archived :object';
+    Storyfeed::useCompiledStories($compiled);
 
     Storyfeed::activity('archive', Delivery::create(['tracking_number' => 'TN-1']))->publish();
 
@@ -104,7 +107,7 @@ it('names a declared model that never appears, once there is data to judge again
     // check refuses a verdict rather than reporting the whole app as broken —
     // the defect its first consumer hit. Give it one activity and the answer
     // becomes real: Delivery appears, User and Customer do not.
-    Storyfeed::grammar(['delivery.confirm' => ':actor confirmed :object']);
+    Story::for('delivery')->verb('confirm')->headline(':actor confirmed :object');
     Storyfeed::activity('confirm', Delivery::create(['tracking_number' => 'TN-1']))->publish();
 
     // Order matters to the helper: each expectation consumes the first matching
@@ -121,7 +124,7 @@ it('reports every story as ok when there is nothing to flag', function () {
     // run — which is itself the derivation working: nobody hand-listed which
     // axes apply.
     require __DIR__.'/../../workbench/routes/feed.php';
-    Storyfeed::aggregateGrammar(['object.confirm' => ':actor confirmed :object :count times']);
+    Story::verb('confirm')->grouped(Group::on('object')->headline(':actor confirmed :object :count times'));
 
     $user = User::create(['name' => 'Sally', 'email' => 's@example.com']);
     $customer = Customer::create(['name' => 'Acme']);
@@ -182,7 +185,7 @@ it('passes once every declared model appears in SOME role', function () {
 });
 
 it('names a model that never appears, and does not conflate that with publishing', function () {
-    Storyfeed::grammar(['delivery.confirm' => ':actor confirmed :object']);
+    Story::for('delivery')->verb('confirm')->headline(':actor confirmed :object');
     Storyfeed::activity('confirm', Delivery::create(['tracking_number' => 'TN-1']))->publish();
 
     try {
@@ -219,7 +222,7 @@ it('works under Storyfeed::fake(), like its two sibling assertions', function ()
 
 it('still names unwired surface when faked', function () {
     Storyfeed::fake();
-    Storyfeed::grammar(['delivery.confirm' => ':actor confirmed :object']);
+    Story::for('delivery')->verb('confirm')->headline(':actor confirmed :object');
 
     // Only Delivery appears — the fake must not be a blanket pass either.
     Storyfeed::activity('confirm', Delivery::create(['tracking_number' => 'TN-1']))->publish();
@@ -233,7 +236,7 @@ it('still names unwired surface when faked', function () {
 });
 
 it('accepts deliberately absent surface via $except', function () {
-    Storyfeed::grammar(['delivery.confirm' => ':actor confirmed :object']);
+    Story::for('delivery')->verb('confirm')->headline(':actor confirmed :object');
     Storyfeed::activity('confirm', Delivery::create(['tracking_number' => 'TN-1']))->publish();
 
     StorySurface::assertNoUnwiredSurface(except: [User::class, Customer::class, Courier::class]);
@@ -256,7 +259,7 @@ it('names the aliases it compared against, so a stale morph alias is visible wit
      * alias that is not the alias the model reports today, because the rows
      * predate a morph-map entry.
      */
-    Storyfeed::grammar(['delivery.confirm' => ':actor confirmed :object']);
+    Story::for('delivery')->verb('confirm')->headline(':actor confirmed :object');
     Storyfeed::activity('confirm', Delivery::create(['tracking_number' => 'TN-1']))->publish();
 
     $findings = [];

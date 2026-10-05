@@ -1,7 +1,9 @@
 <?php
 
 use Storyfeed\Diagnostics\Severity;
+use Storyfeed\Facades\Story;
 use Storyfeed\Facades\Storyfeed;
+use Storyfeed\Grouping\Group;
 use Storyfeed\Models\Activity;
 use Storyfeed\Models\Grouping;
 use Workbench\App\Models\Customer;
@@ -18,9 +20,8 @@ it('reports missing grammar and icons for emitted verbs', function () {
 });
 
 it('reports healthy when coverage is complete', function () {
-    Storyfeed::grammar(['*.*' => ':actor acted'])
-        ->icons(['*.*' => 'bi-lightning'])
-        ->verbs(['confirm' => 'Update']);
+    Story::fallback()->headline(':actor acted')->icon('bi-lightning');
+    Storyfeed::verbs(['confirm' => 'Update']);
 
     Storyfeed::activity('confirm', Delivery::create(['tracking_number' => 'TN-1']))->publish();
 
@@ -37,7 +38,7 @@ it('reports the snapshot backlog', function () {
         'published_at' => now(),
     ]);
 
-    Storyfeed::grammar(['*.*' => ':actor acted'])->icons(['*.*' => 'bi-lightning']);
+    Story::fallback()->headline(':actor acted')->icon('bi-lightning');
 
     $this->artisan('storyfeed:doctor')
         ->expectsOutputToContain('uncached entities')
@@ -61,7 +62,7 @@ it('reports missing aggregate grammar for axes actually in use', function () {
         ->expectsOutputToContain('No group headline resolves for `actors.upload`')
         ->assertSuccessful();
 
-    Storyfeed::aggregateGrammar(['actors.upload' => ':actors uploaded :count files to :target']);
+    Story::verb('upload')->grouped(Group::on('actors')->headline(':actors uploaded :count files to :target'));
 
     $this->artisan('storyfeed:doctor')
         ->doesntExpectOutputToContain('No group headline resolves for `actors.upload`')
@@ -84,11 +85,14 @@ it('warns about grouping hashes at the column length limit', function () {
 it('warns when an aggregate template references a token its axis does not pin', function () {
     // The screenshot bug: ":object" on the repeat axis rendered "made 5
     // revisions to Aut Beatae.docx" over five different documents.
-    Storyfeed::aggregateGrammar([
+    // Malformed historical snapshot, bypassing modern compile-time token validation.
+    $compiled = Storyfeed::compiledStories();
+    $compiled['aggregateGrammar'] = [
         'repeat.revise' => ':actor made :count revisions to :object',
         'object.revise' => ':actor made :count revisions to :object',
         '*.upload' => ':actors uploaded :count files',
-    ]);
+    ];
+    Storyfeed::useCompiledStories($compiled);
 
     $this->artisan('storyfeed:doctor')
         ->expectsOutputToContain('Group headline `repeat.revise` references `:object`')
@@ -101,7 +105,10 @@ it('warns on :context outside a context-pinning axis — stricter than the old h
     // The hand-maintained token map allowed :context on repeat/actors by
     // accident; no built-in recipe includes the context pair, so it was
     // never homogeneous. Derivation from the recipe fixed the leniency.
-    Storyfeed::aggregateGrammar(['actors.upload' => ':actors uploaded :count files in :context']);
+    // Malformed cached token must remain diagnosable even though modern authoring refuses it.
+    $compiled = Storyfeed::compiledStories();
+    $compiled['aggregateGrammar']['actors.upload'] = ':actors uploaded :count files in :context';
+    Storyfeed::useCompiledStories($compiled);
 
     $this->artisan('storyfeed:doctor')
         ->expectsOutputToContain('Group headline `actors.upload` references `:context`')
@@ -109,7 +116,10 @@ it('warns on :context outside a context-pinning axis — stricter than the old h
 });
 
 it('notes aggregate grammar keys that reference unregistered axes', function () {
-    Storyfeed::aggregateGrammar(['actrs.upload' => ':actors uploaded :count files']);
+    // A stale cache may name an axis the current app no longer registers.
+    $compiled = Storyfeed::compiledStories();
+    $compiled['aggregateGrammar']['actrs.upload'] = ':actors uploaded :count files';
+    Storyfeed::useCompiledStories($compiled);
 
     $this->artisan('storyfeed:doctor')
         ->expectsOutputToContain('references axis `actrs`, which is not registered')
@@ -131,7 +141,7 @@ it('audits the fallback axis for aggregate coverage — a missing repeat.* key i
         ->expectsOutputToContain('No group headline resolves for `repeat.delivery.archive`')
         ->assertSuccessful();
 
-    Storyfeed::aggregateGrammar(['repeat.archive' => ':actor archived :count deliveries']);
+    Story::verb('archive')->grouped(Group::on('repeat')->headline(':actor archived :count deliveries'));
 
     $this->artisan('storyfeed:doctor')
         ->doesntExpectOutputToContain('No group headline resolves for `repeat.delivery.archive`')
@@ -198,12 +208,15 @@ it('can produce a coverage finding for EVERY registered axis', function () {
 });
 
 it('accepts plural tokens on every axis, singular still pinned-only', function () {
-    Storyfeed::aggregateGrammar([
+    // Malformed historical snapshot: retain safe controls beside the unpinned singular.
+    $compiled = Storyfeed::compiledStories();
+    $compiled['aggregateGrammar'] = [
         'targets.add' => ':actor added :count items in :targets',   // plural: fine
         'repeat.complete' => ':actor completed :objects',            // plural: fine
         '*.archive' => ':actors archived :objects in :contexts',     // wildcard + plurals: fine
         'repeat.revise' => ':actor revised :object',                 // singular unpinned: still a lie
-    ]);
+    ];
+    Storyfeed::useCompiledStories($compiled);
 
     $this->artisan('storyfeed:doctor')
         ->doesntExpectOutputToContain('`targets.add`')

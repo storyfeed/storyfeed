@@ -20,7 +20,7 @@ it('persists explicit anonymity without consulting any resolver', function (stri
         app()->bind('anonymity.resolver', fn () => $fail);
         config(['storyfeed.actor_resolver' => 'anonymity.resolver']);
     }
-    Storyfeed::actorlessGrammar(['confirm' => 'Confirmed anonymously']);
+    StoryFacade::verb('confirm')->anonymousHeadline('Confirmed anonymously');
     $pending = Storyfeed::activity('confirm');
     $method === 'anonymously' ? $pending->anonymously() : $pending->{$method}(null);
     $activity = $pending->publish()->fresh();

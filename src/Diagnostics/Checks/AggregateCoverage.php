@@ -155,7 +155,7 @@ class AggregateCoverage extends Check
                 'aggregates.missing',
                 "No group headline resolves for `{$key}` — those group nodes fall back "
                 .'to the singular headline only when its tokens are safe for the axis, and otherwise render '
-                .'with NO headline at all. Register one with Storyfeed::aggregateGrammar().',
+                .'with NO headline at all. Register one with Story::verb()->grouped().',
                 [
                     'axis' => $axis,
                     'verb' => $verb,
