@@ -1,3 +1,4 @@
+<p align="center">
 <a href="https://storyfeed.dev/">
   <picture>
     <source media="(prefers-reduced-motion: reduce)" srcset="https://raw.githubusercontent.com/storyfeed/storyfeed/2d5d84e351d606dff9521769b32960676bbbbbb0/art/storyfeed-static-light.png">
@@ -5,6 +6,7 @@
     <img src="https://raw.githubusercontent.com/storyfeed/storyfeed/2d5d84e351d606dff9521769b32960676bbbbbb0/art/storyfeed-animated-light.gif" width="800" height="214" alt="Storyfeed. New activities advance through a three-card feed.">
   </picture>
 </a>
+</p>
 
 # Storyfeed — Activity Feeds for Laravel
 
