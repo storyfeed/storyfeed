@@ -124,12 +124,19 @@ final class PackageRegistrationTest extends TestCase
             }
             // Assert the canonical parent BEFORE creating artifacts: a ../
             // or a build symlink must never escape the owned worktree.
-            self::assertSame($checkout.'/build', realpath(dirname($this->sandbox)));
+            self::assertSame(self::normalizedPath($checkout.'/build'), self::normalizedPath(realpath(dirname($this->sandbox))));
             mkdir($this->sandbox.'/bootstrap/cache', 0755, true);
         }
-        self::assertStringStartsWith(realpath(dirname(__DIR__, 2)).'/build/', realpath($this->sandbox));
+        self::assertStringStartsWith(self::normalizedPath(realpath(dirname(__DIR__, 2))).'/build/', self::normalizedPath(realpath($this->sandbox)));
         $app->useBootstrapPath($this->sandbox.'/bootstrap');
         config()->set('storyfeed.definitions', $this->definitions);
+    }
+
+    private static function normalizedPath(string|false $path): string
+    {
+        self::assertIsString($path);
+
+        return str_replace('\\', '/', $path);
     }
 
     private function reboot(): void
@@ -143,7 +150,7 @@ final class PackageRegistrationTest extends TestCase
     {
         try {
             if ($this->sandbox !== null && is_dir($this->sandbox)) {
-                self::assertStringStartsWith(realpath(dirname(__DIR__, 2)).'/build/', realpath($this->sandbox));
+                self::assertStringStartsWith(self::normalizedPath(realpath(dirname(__DIR__, 2))).'/build/', self::normalizedPath(realpath($this->sandbox)));
                 $iterator = new \RecursiveIteratorIterator(
                     new \RecursiveDirectoryIterator($this->sandbox, \FilesystemIterator::SKIP_DOTS),
                     \RecursiveIteratorIterator::CHILD_FIRST,
@@ -210,7 +217,7 @@ final class PackageRegistrationTest extends TestCase
 
         $this->artisan('storyfeed:cache')->assertSuccessful();
         $manifest = app(StoryManifest::class);
-        expect($manifest->path())->toStartWith($this->sandbox.'/bootstrap/cache/')
+        expect(self::normalizedPath($manifest->path()))->toStartWith(self::normalizedPath($this->sandbox).'/bootstrap/cache/')
             ->and($manifest->read()['grammar']['delivery.ship'])->toBe(':actor sent :object');
         $boots = OverridePackageProvider::$boots;
         $this->reboot();
@@ -274,7 +281,7 @@ final class PackageRegistrationTest extends TestCase
         $rows = collect(json_decode(Artisan::output(), true));
         $overlay = $rows->first(fn ($row) => $row['override']);
         expect(app(DefinitionsFile::class)->isLoaded())->toBeTrue()
-            ->and($overlay['source'])->toEndWith('/feed.php:2')
+            ->and(self::normalizedPath($overlay['source']))->toEndWith('/feed.php:2')
             ->and($overlay['headline'])->toBe(':actor sent :object');
     }
 
