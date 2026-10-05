@@ -29,13 +29,19 @@ final class Report
     }
 
     /**
-     * Warnings and errors — what "N finding(s)" counts.
+     * Unacknowledged warnings and errors — what "N finding(s)" counts.
      *
      * @return Collection<int, Finding>
      */
     public function problems(): Collection
     {
-        return $this->all()->filter(fn (Finding $f) => $f->severity->isFinding())->values();
+        return $this->all()->filter(fn (Finding $f) => $f->acknowledgment === null && $f->severity->isFinding())->values();
+    }
+
+    /** @return Collection<int, Finding> */
+    public function acknowledged(): Collection
+    {
+        return $this->all()->filter(fn (Finding $f) => $f->acknowledgment !== null)->values();
     }
 
     public function count(): int
@@ -59,7 +65,7 @@ final class Report
         return $this->withCode($code)->isNotEmpty();
     }
 
-    /** Highest severity present, or null when there is nothing to report. */
+    /** Highest unacknowledged problem severity, or null when none remains. */
     public function severity(): ?Severity
     {
         return $this->problems()
@@ -68,7 +74,7 @@ final class Report
     }
 
     /**
-     * Every fix, deduped by registry+key. Two findings can name the same edit
+     * Every unacknowledged fix, deduped by registry+key. Two findings can name the same edit
      * (a pair missing both grammar and an icon is two findings, one snippet
      * each), and printing a key twice invites pasting it twice.
      *
@@ -77,6 +83,7 @@ final class Report
     public function fixes(): Collection
     {
         return $this->all()
+            ->filter(fn (Finding $f) => $f->acknowledgment === null)
             ->map(fn (Finding $f) => $f->fix)
             ->filter()
             ->unique(fn (Fix $fix) => $fix->registry.'|'.$fix->key)
@@ -101,6 +108,7 @@ final class Report
         return [
             'healthy' => $this->isHealthy(),
             'count' => $this->count(),
+            'acknowledged_count' => $this->acknowledged()->count(),
             'severity' => $this->severity()?->value,
             'findings' => $this->all()->map(fn (Finding $f) => $f->toArray())->all(),
         ];

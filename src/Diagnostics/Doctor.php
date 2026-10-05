@@ -69,6 +69,8 @@ class Doctor
     public function run(StoryfeedManager $storyfeed, array $only = []): Report
     {
         $findings = $this->unknownNames($only);
+        $completed = [];
+        $failed = [];
 
         foreach ($this->checks as $check) {
             if ($only !== [] && ! in_array($check->name(), $only, true)) {
@@ -79,7 +81,9 @@ class Doctor
                 foreach ($check->run($storyfeed) as $finding) {
                     $findings[] = $finding;
                 }
+                $completed[] = $check->name();
             } catch (Throwable $e) {
+                $failed[] = $check->name();
                 $findings[] = Finding::error(
                     'doctor.check_failed',
                     "Check `{$check->name()}` threw ".$e::class.': '.$e->getMessage()
@@ -89,7 +93,11 @@ class Doctor
             }
         }
 
-        return new Report($findings);
+        return (new Acknowledgments)->apply(
+            $findings,
+            array_values(array_diff($completed, $failed)),
+            config('storyfeed.doctor.acknowledgments', []),
+        );
     }
 
     /**

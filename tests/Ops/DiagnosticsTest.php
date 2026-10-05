@@ -177,8 +177,10 @@ it('emits a machine-readable report', function () {
     $report = Storyfeed::doctor()->toArray();
 
     expect(json_decode((string) json_encode($report), true))
-        ->toHaveKeys(['healthy', 'count', 'severity', 'findings'])
-        ->and($report['findings'][0])->toHaveKeys(['code', 'severity', 'message', 'subject', 'fix']);
+        ->toHaveKeys(['healthy', 'count', 'severity', 'findings', 'acknowledged_count'])
+        ->and($report['findings'][0])->toHaveKeys(['code', 'severity', 'message', 'subject', 'fix', 'acknowledgment'])
+        ->and($report['acknowledged_count'])->toBe(0)
+        ->and($report['findings'][0]['acknowledgment'])->toBeNull();
 
     $fix = Storyfeed::doctor(['grammar'])->withCode('grammar.missing')->first()->fix->toArray();
 

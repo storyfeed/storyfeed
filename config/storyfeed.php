@@ -489,6 +489,13 @@ return [
 
     'doctor' => [
         'stale_after' => 30,
+
+        // Deliberate grammar gaps: exact code + complete subject from doctor JSON.
+        // Each entry is ['code' => 'grammar.missing', 'subject' =>
+        // ['type' => 'delivery', 'verb' => 'confirm'], 'reason' => 'Rendered by the app.'].
+        // Supported: grammar.missing, grammar.icon_missing, aggregates.missing,
+        // axes.verbless_no_grammar. No patterns or partial subjects.
+        'acknowledgments' => [],
     ],
 
     /*

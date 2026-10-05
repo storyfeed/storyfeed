@@ -23,6 +23,7 @@ final class Finding
 {
     /**
      * @param  array<string, scalar|null>  $subject
+     * @param  ?string  $acknowledgment  Application reason for accepting this gap; severity stays unchanged.
      */
     public function __construct(
         public readonly string $code,
@@ -30,6 +31,7 @@ final class Finding
         public readonly string $message,
         public readonly array $subject = [],
         public readonly ?Fix $fix = null,
+        public readonly ?string $acknowledgment = null,
     ) {}
 
     /**
@@ -71,6 +73,7 @@ final class Finding
             'message' => $this->message,
             'subject' => $this->subject,
             'fix' => $this->fix?->toArray(),
+            'acknowledgment' => $this->acknowledgment,
         ];
     }
 }
