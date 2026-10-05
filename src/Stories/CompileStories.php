@@ -12,23 +12,24 @@ use Storyfeed\Grouping\Group;
 use Storyfeed\StoryfeedManager;
 
 /**
- * Compiles story definitions into the five registry arrays.
+ * Compiles modern story definitions into the internal registry arrays.
  *
- * This is where the layer earns its keep. Four conditions the raw registries
- * accept silently become boot failures:
+ * The compiler rejects four authoring mistakes before traffic reaches the
+ * read path:
  *
  *   1. A composite group with no `*.{verb}` singular entry — the second,
  *      unlisted registry a consumer only discovered from doctor output after
  *      following every documented step.
  *   2. An aggregate token the axis does not pin — the documented lie class,
  *      caught before any traffic exists rather than after.
- *   3. An unregistered axis, whose grammar would never resolve. Today that is
- *      only a doctor note, after the fact.
- *   4. Two stories authoring the same key. The arrays are last-writer-wins, so
- *      this currently picks one at random and says nothing. Every registry
- *      entry is claimed, and the error names both sources (`file:line` for
+ *   3. An unregistered axis, whose grammar would never resolve. The doctor can
+ *      still diagnose historical cached entries after an axis is removed.
+ *   4. Two ordinary stories authoring the same field/key. Every registry entry
+ *      is claimed, and the error names both sources (`file:line` for
  *      the registrar and ad-hoc definitions, the class for Story classes).
- *      A verb an action or a message class defines is claimed whole.
+ *      Action bindings retain their original owner. Explicit
+ *      override() declarations replace only supplied fields in a second
+ *      layer, whose competing owners still conflict.
  *
  * Output is closure-free unless a definition authored a closure headline
  * (the registrar allows it). Closure-free output is var_export-able into the
@@ -36,7 +37,7 @@ use Storyfeed\StoryfeedManager;
  *
  * @phpstan-type Compiled array{
  *     grammar: array<string, string|Closure|FeedHeadline>,
- *     aggregateGrammar: array<string, string|Closure>,
+ *     aggregateGrammar: array<string, string|Closure|FeedHeadline>,
  *     actorlessGrammar: array<string, string|Closure|FeedHeadline>,
  *     icons: array<string, string>,
  *     glyphIntents: array<string, string>,
@@ -100,26 +101,45 @@ class CompileStories
         /** @var array<string, string> $classVerbs a message class => its verb */
         $classVerbs = [];
 
+        // Names keep their existing registration-order/uniqueness rules.
+        foreach ($definitions as $definition) {
+            foreach ($definition->names() as $key => $name) {
+                $names[$name] = $key;
+            }
+        }
+
+        // Validate ordinary owners before applying explicit supplied fields.
+        // An overlay must neither hide an ordinary conflict nor depend on
+        // which provider booted first. Each layer has its own owner map.
+        $overrides = array_values(array_filter($definitions, fn (Verb $definition) => $definition->isOverride()));
+        // Stable for same-source duplicates; disjoint explicit contributions
+        // get the same serialized order regardless of provider boot order.
+        usort($overrides, fn (Verb $a, Verb $b) => $a->source <=> $b->source);
+        $definitions = [
+            ...array_filter($definitions, fn (Verb $definition) => ! $definition->isOverride()),
+            ...$overrides,
+        ];
+        $overriding = false;
+
         foreach ($definitions as $definition) {
             $verb = $definition->verb;
             $source = $definition->source;
+            $override = $definition->isOverride();
+
+            if ($override && ! $overriding) {
+                $owners = [];
+                $overriding = true;
+            }
 
             if (($uses = $definition->action()) !== null && ! str_contains($uses, '@')
                 && ($classVerbs[$uses] ??= $verb) !== $verb) {
                 throw StoryMisconfigured::storyBoundTwice($uses, [$classVerbs[$uses], $verb]);
             }
 
-            // `name → type.verb`, as the router's nameList maps a name to its
-            // route: the last declaration of a name wins, as it does there,
-            // and storyfeed:cache refuses the duplicate (see assertNamesCacheable()).
-            foreach ($definition->names() as $key => $name) {
-                $names[$name] = $key;
-            }
-
             foreach ($definition->objectTypes as $alias) {
                 $key = "{$alias}.{$verb}";
 
-                if ($verb !== '*') {
+                if ($verb !== '*' && ! $override) {
                     $this->define($defined, $key, $source, $definition->action());
                 }
 
@@ -186,8 +206,15 @@ class CompileStories
                         }
                     }
 
-                    $this->claim($owners, 'casts', $key, $source);
-                    $casts[$key] = $dataCasts;
+                    if ($override) {
+                        foreach (array_keys($dataCasts) as $dataKey) {
+                            $this->claim($owners, 'casts', "{$key}:{$dataKey}", $source);
+                        }
+                    } else {
+                        $this->claim($owners, 'casts', $key, $source);
+                    }
+
+                    $casts[$key] = $override ? [...($casts[$key] ?? []), ...$dataCasts] : $dataCasts;
                 }
 
                 // Which rows a publish supersedes: the roles it keys on and
@@ -208,8 +235,15 @@ class CompileStories
                 // `$connection` and `$queue` are. Unsaid, the call site's
                 // and then the queue config's defaults stand.
                 if (($queueing = $definition->queueing()) !== null) {
-                    $this->claim($owners, 'queue', $key, $source);
-                    $queue[$key] = $queueing;
+                    if ($override) {
+                        foreach (array_keys($queueing) as $option) {
+                            $this->claim($owners, 'queue', "{$key}:{$option}", $source);
+                        }
+                    } else {
+                        $this->claim($owners, 'queue', $key, $source);
+                    }
+
+                    $queue[$key] = $override ? [...($queue[$key] ?? []), ...$queueing] : $queueing;
                 }
 
                 // Story middleware as declared: names, not classes, as
@@ -218,7 +252,7 @@ class CompileStories
                 // `Story::middleware()` group around two lines for one key)
                 // is one declaration, not a conflict.
                 if (($declared = $definition->declaredMiddleware()) !== null) {
-                    if (! isset($middleware[$key]) || $middleware[$key] !== $declared) {
+                    if ($override || ! isset($middleware[$key]) || $middleware[$key] !== $declared) {
                         $this->claim($owners, 'middleware', $key, $source);
                     }
 
@@ -230,11 +264,15 @@ class CompileStories
                 // `wheres` the same way. Identical constraints from two lines
                 // (a group around both) are one declaration.
                 if (($constraints = $definition->wheres()) !== []) {
-                    if (! isset($wheres[$key]) || $wheres[$key] !== $constraints) {
+                    if ($override) {
+                        foreach (array_keys($constraints) as $role) {
+                            $this->claim($owners, 'wheres', "{$key}:{$role}", $source);
+                        }
+                    } elseif (! isset($wheres[$key]) || $wheres[$key] !== $constraints) {
                         $this->claim($owners, 'wheres', $key, $source);
                     }
 
-                    $wheres[$key] = $constraints;
+                    $wheres[$key] = $override ? [...($wheres[$key] ?? []), ...$constraints] : $constraints;
                 }
 
                 // A fixed actor. An action that takes the request chooses its
@@ -272,6 +310,12 @@ class CompileStories
             // `order.*` is a wildcard KEY, not a verb: declaring `*` would put
             // it in storyfeed:verbs and let it satisfy verbs.strict.
             if ($verb !== '*') {
+                // AS2 activity type belongs to the VERB, not type.verb.
+                // Ordinary declarations retain their existing convention.
+                if ($override && $definition->activityType() !== null) {
+                    $this->claim($owners, 'verbs', $verb, $source);
+                }
+
                 // Registered even when $type is null, reusing the verb
                 // registry's own fallback. Without this, strict mode throws
                 // UnknownVerb for every story-authored verb whose vocabulary
@@ -378,7 +422,7 @@ class CompileStories
     }
 
     /**
-     * @param  array<string, string|Closure>  $aggregateGrammar
+     * @param  array<string, string|Closure|FeedHeadline>  $aggregateGrammar
      * @param  array<string, string|Closure|FeedHeadline>  $grammar
      * @param  array<string, string>  $owners
      */
@@ -418,6 +462,7 @@ class CompileStories
         }
 
         if ($group->parentTemplate() !== null) {
+            $this->claim($owners, 'grammar', "*.{$verb}", $source);
             $grammar["*.{$verb}"] = $group->parentTemplate();
         }
     }
@@ -492,7 +537,7 @@ class CompileStories
      * A composite parent carries no object of its own, so `{type}.{verb}` never
      * resolves for it and it needs `*.{verb}`. Accept that entry from ANY
      * source — this story's parentHeadline(), another story declaring
-     * objectType '*', or a hand-written grammar() call — because all three are
+     * objectType '*', or an unscoped fluent declaration — because all three are
      * legitimate and the point is only that it exists.
      *
      * @param  array<string, string|Closure|FeedHeadline>  $grammar

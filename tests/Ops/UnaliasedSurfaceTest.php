@@ -2,6 +2,7 @@
 
 use PHPUnit\Framework\AssertionFailedError;
 use Storyfeed\Diagnostics\Severity;
+use Storyfeed\Facades\Story;
 use Storyfeed\Facades\Storyfeed;
 use Storyfeed\Support\SurfaceScanner;
 use Storyfeed\Testing\StorySurface;
@@ -36,7 +37,7 @@ afterEach(function () {
 
 function publishDelivery(): void
 {
-    Storyfeed::grammar(['delivery.confirm' => ':actor confirmed :object']);
+    Story::for('delivery')->verb('confirm')->headline(':actor confirmed :object');
     Storyfeed::activity('confirm', Delivery::create(['tracking_number' => 'TN-1']))->publish();
 }
 

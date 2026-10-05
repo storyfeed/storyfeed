@@ -23,12 +23,12 @@ class UnauthoredActivity extends LogicException
     public static function make(?string $type, string $verb): self
     {
         $label = ($type ?? '(no object)').'.'.$verb;
-        $key = ($type ?? '*').'.'.$verb;
+        $declaration = $type === null ? "Story::verb('{$verb}')" : "Story::for('{$type}')->verb('{$verb}')";
 
         return new self(
             "Publishing [{$label}] but no headline is authored for it — the feed would render a blank line. "
-            ."Author it as a Story, or register it directly:\n\n"
-            ."    Storyfeed::grammar(['{$key}' => ':actor …']);\n\n"
+            ."Author it with a modern Story declaration:\n\n"
+            ."    {$declaration}->headline(':actor …');\n\n"
             .'Resist `*.*`: a catch-all silences every future gap and makes coverage reports meaningless. '
             .'Set storyfeed.grammar.strict = false to disable this assertion.'
         );

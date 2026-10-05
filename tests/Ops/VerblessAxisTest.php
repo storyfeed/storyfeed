@@ -1,8 +1,10 @@
 <?php
 
 use Storyfeed\Diagnostics\Severity;
+use Storyfeed\Facades\Story;
 use Storyfeed\Facades\Storyfeed;
 use Storyfeed\Grouping\Axis;
+use Storyfeed\Grouping\Group;
 
 /*
  * The check that needs no traffic.
@@ -55,7 +57,7 @@ it('offers the wildcard key as the fix, with tokens the recipe actually pins', f
 
 it('flags a per-verb template registered on an axis that cannot promise the verb', function () {
     Storyfeed::axes([photoAxis()]);
-    Storyfeed::aggregateGrammar(['photo.uploaded' => ':count photos uploaded']);
+    Story::verb('uploaded')->grouped(Group::on('photo')->headline(':count photos uploaded'));
 
     $finding = Storyfeed::doctor(['axes'])->withCode('axes.verbless_per_verb_grammar')->first();
 
@@ -70,10 +72,8 @@ it('flags a per-verb template registered on an axis that cannot promise the verb
 
 it('names the wildcard rival when one is registered, because the head decides between them', function () {
     Storyfeed::axes([photoAxis()]);
-    Storyfeed::aggregateGrammar([
-        'photo.*' => ':count things happened to :object',
-        'photo.uploaded' => ':count photos uploaded',
-    ]);
+    Story::fallback()->grouped(Group::on('photo')->headline(':count things happened to :object'));
+    Story::verb('uploaded')->grouped(Group::on('photo')->headline(':count photos uploaded'));
 
     $report = Storyfeed::doctor(['axes']);
 
@@ -90,14 +90,14 @@ it('is silent on the built-in axes, all four of which pin the verb', function ()
 
 it('says nothing about a verbless axis that is correctly served by one verb-agnostic sentence', function () {
     Storyfeed::axes([photoAxis()]);
-    Storyfeed::aggregateGrammar(['photo.*' => ':count things happened to :object']);
+    Story::fallback()->grouped(Group::on('photo')->headline(':count things happened to :object'));
 
     expect(Storyfeed::doctor(['axes'])->all())->toBeEmpty();
 });
 
 it('accepts a global fallback as the verb-agnostic answer', function () {
     Storyfeed::axes([photoAxis()]);
-    Storyfeed::aggregateGrammar(['*.*' => ':count updates']);
+    Story::fallback()->grouped(Group::on('*')->headline(':count updates'));
 
     expect(Storyfeed::doctor(['axes'])->all())->toBeEmpty();
 });
@@ -124,7 +124,7 @@ it('reports the axis the moment it is registered, before anything has grouped', 
 
 it('reads the verb from a type\'s own key, not the type', function () {
     Storyfeed::axes([photoAxis()]);
-    Storyfeed::aggregateGrammar(['photo.delivery.upload' => ':count photos uploaded']);
+    Story::for('delivery')->verb('upload')->grouped(Group::on('photo')->headline(':count photos uploaded'));
 
     $finding = Storyfeed::doctor(['axes'])->withCode('axes.verbless_per_verb_grammar')->first();
 

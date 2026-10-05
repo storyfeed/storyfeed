@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\DB;
 use Storyfeed\Actions\SyncParticipants;
 use Storyfeed\Facades\Story;
 use Storyfeed\Facades\Storyfeed;
+use Storyfeed\Grouping\Group;
 use Storyfeed\Models\Activity;
 use Workbench\App\Models\Customer;
 use Workbench\App\Models\Delivery;
@@ -85,8 +86,7 @@ it('finds activities involving a party', function () {
 });
 
 it('keeps group counts scope-correct when involving narrows a group', function () {
-    Storyfeed::grammar(['*.upload' => ':actor uploaded :object']);
-    Storyfeed::aggregateGrammar(['repeat.upload' => ':actor uploaded :count files']);
+    Story::verb('upload')->headline(':actor uploaded :object')->grouped(Group::on('repeat')->headline(':actor uploaded :count files'));
 
     $user = User::create(['name' => 'Bob', 'email' => 'bob@example.com']);
     $project = Customer::create(['name' => 'Concur']);

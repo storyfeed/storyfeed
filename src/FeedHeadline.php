@@ -12,8 +12,6 @@ use Storyfeed\Support\ActivityRoles;
  *     Story::for(Task::class)->verb('complete')
  *         ->headline(FeedHeadline::trans('feed.task_completed'));
  *
- *     Storyfeed::grammar(['task.complete' => FeedHeadline::trans('feed.task_completed')]);
- *
  * WHY NOT `__()` AT REGISTRATION. Definitions run at boot, and boot runs
  * before the locale middleware: `__('feed.task_completed')` in a provider is
  * translated once, in the default locale, and every reader gets that

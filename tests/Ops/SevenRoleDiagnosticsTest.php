@@ -2,6 +2,7 @@
 
 use Storyfeed\Diagnostics\Checks\Check;
 use Storyfeed\Diagnostics\Severity;
+use Storyfeed\Facades\Story;
 use Storyfeed\Facades\Storyfeed;
 use Storyfeed\Models\Party;
 use Storyfeed\StoryfeedManager;
@@ -20,7 +21,7 @@ it('counts a party used solely in a promoted role as used', function (string $ro
 
 it('errors when a singular template names a promoted role never carried', function (string $role) {
     Storyfeed::activity('confirm')->publish();
-    Storyfeed::grammar(['*.confirm' => ':'.$role]);
+    Story::verb('confirm')->headline(':'.$role);
 
     $finding = Storyfeed::doctor(['roles'])->withCode('roles.never_carried')->sole();
 
@@ -37,7 +38,7 @@ it('errors when a singular template names a promoted role never carried', functi
 it('stays quiet when a singular template sometimes carries its promoted role', function (string $role) {
     Storyfeed::activity('confirm')->publish();
     Storyfeed::activity('confirm')->{$role}('Present')->publish();
-    Storyfeed::grammar(['*.confirm' => ':'.$role]);
+    Story::verb('confirm')->headline(':'.$role);
 
     expect(Storyfeed::doctor(['roles'])->all())->toBeEmpty();
 })->with(['origin', 'result', 'instrument']);

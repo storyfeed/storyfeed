@@ -286,7 +286,7 @@ it('conflicts when a line adds to a bound class\'s verb', function () {
     Story::for(Delivery::class)->verb('icon_only', DeliveryWasDispatched::class);
 
     expect(fn () => Storyfeed::compiledStories())
-        ->toThrow(StoryMisconfigured::class, 'A verb a Story class defines is defined there whole');
+        ->toThrow(StoryMisconfigured::class, 'The action binding already has an owner. Keep one action definition; use ->override() for an intentional presentation-only replacement, which retains the original action binding.');
 });
 
 it('conflicts when a class is bound twice to one verb', function () {

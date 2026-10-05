@@ -59,16 +59,23 @@ class AggregateCoverage extends Check
         $groupings = $this->table('groupings');
         $activities = $this->table('activities');
 
+        // Match live's curation-off predicate in BOTH queries: repeat groups
+        // need no winner stamp, and historical winners on other axes are no
+        // longer read. Keep the existing winner sampling with curation on.
+        $curate = config('storyfeed.grouping.curate', true);
+        $selectionColumn = $curate ? "{$groupings}.winner" : "{$groupings}.bucket";
+        $selectionValue = $curate ? true : 'repeat';
+
         // ALL registered axes, fallback included: the fallback's exclusion
         // from aggregateAxes() is about curation priority — a different
         // question from whether a headline resolves. Repeat groups render
         // aggregate headlines like any other axis, and a missing repeat.*
         // key used to be structurally invisible here (found live: `archive`
         // slipped four rounds of audits). Only clusters of 2+ count —
-        // winners in a cluster of one render as plain activity nodes.
+        // groups with one member render as plain activity nodes.
         $clustered = $this->groupings()
             ->select(["{$groupings}.bucket", "{$groupings}.hash"])
-            ->where("{$groupings}.winner", true)
+            ->where($selectionColumn, $selectionValue)
             ->whereIn("{$groupings}.bucket", array_keys($storyfeed->registeredAxes()))
             ->groupBy(["{$groupings}.bucket", "{$groupings}.hash"])
             ->havingRaw('count(*) > 1');
@@ -80,7 +87,7 @@ class AggregateCoverage extends Check
 
         $pairs = $query
             ->join($groupings, "{$groupings}.activity_id", '=', "{$activities}.id")
-            ->where("{$groupings}.winner", true)
+            ->where($selectionColumn, $selectionValue)
             ->joinSub($clustered, 'clustered', function ($join) use ($groupings) {
                 $join->on('clustered.bucket', '=', "{$groupings}.bucket")
                     ->on('clustered.hash', '=', "{$groupings}.hash");
@@ -148,7 +155,7 @@ class AggregateCoverage extends Check
                 'aggregates.missing',
                 "No group headline resolves for `{$key}` — those group nodes fall back "
                 .'to the singular headline only when its tokens are safe for the axis, and otherwise render '
-                .'with NO headline at all. Register one with Storyfeed::aggregateGrammar().',
+                .'with NO headline at all. Register one with Story::verb()->grouped().',
                 [
                     'axis' => $axis,
                     'verb' => $verb,

@@ -187,7 +187,7 @@ trait InteractsWithFeed
      * else is valid, and this is its label.
      *
      * The ladder: a `name` or `title` attribute, then the registered noun and
-     * the key ("Ticket #42", from `Storyfeed::nouns()`), then the class name as
+     * the key ("Ticket #42", from `Story::for()->noun()`), then the class name as
      * words and the key ("Support Ticket #42"). An app-wide guesser registered with
      * `Storyfeed::guessFeedLabelsUsing()` is asked first; returning null falls
      * through to the ladder. Override this method on a model, or a base

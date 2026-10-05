@@ -222,7 +222,10 @@ it('reads each phrase from summary grammar, and never from a wildcard', function
     Story::verb('ride')->grouped(fn (GroupBuilder $group) => $group->summary('went on :count rides'));
     Story::verb('balloon')->grouped(Group::summary()->headline('got a balloon'));
     // A whole sentence with a subject: it must not become a phrase.
-    Storyfeed::aggregateGrammar(['*.check_in' => ':actors checked in at :target']);
+    // Historical wildcard cache entry: it must never masquerade as a digest phrase.
+    $compiled = Storyfeed::compiledStories();
+    $compiled['aggregateGrammar']['*.check_in'] = ':actors checked in at :target';
+    Storyfeed::useCompiledStories($compiled);
 
     $jasper = person('Jasper Tey');
 
@@ -237,13 +240,13 @@ it('reads each phrase from summary grammar, and never from a wildcard', function
         ->and($row['headline_template'])->toBeNull();
 
     // `summary.*` is the row's own sentence, when an app wants one.
-    Storyfeed::aggregateGrammar(['summary.*' => ':actor had a busy day']);
+    Story::fallback()->grouped(Group::on('summary')->headline(':actor had a busy day'));
 
     expect(digest()[0]['headline_template'])->toBe(':actor had a busy day');
 });
 
 it('places a composite parent under its person, with its members told by it', function () {
-    Storyfeed::aggregateGrammar(['composite.upload' => ':actor uploaded :count files to :target']);
+    Story::verb('upload')->grouped(Group::composite()->headline(':actor uploaded :count files to :target')->parentHeadline(':actor uploaded files to :target'));
 
     $tomas = person('Tomás');
 

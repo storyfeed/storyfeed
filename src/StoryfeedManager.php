@@ -125,8 +125,7 @@ class StoryfeedManager
     protected array $icons = [];
 
     /**
-     * Glyph intents, keyed like icons but resolved on their own — see
-     * glyphIntents().
+     * Glyph intents, authored with ->intent(), resolved independently of icons.
      *
      * @var array<string, string>
      */
@@ -951,9 +950,9 @@ class StoryfeedManager
      *       'operations' => fn (FeedBuilder $feed) => $feed->only(['order.*']), // a closure
      *   ]);
      *
-     * The same register-once-at-boot shape as grammar(), axes(), verbs(),
-     * icons() and checks(), one level up: those describe how an
-     * activity READS, this describes which activities a surface is about.
+     * The same register-once-at-boot shape as axes(), verbs() and checks(),
+     * one level up: those describe how an activity READS, this describes
+     * which activities a surface is about.
      *
      * Both forms normalize into one FeedDefinition, exactly as a Story class
      * and an ad-hoc Stories\Verb do — so the closure stays first-class (a
@@ -1094,64 +1093,6 @@ class StoryfeedManager
     }
 
     /**
-     * Register headline grammar. Keys are "type.verb" (wildcards allowed:
-     * "delivery.*", "*.confirm", "*.*"); values are template strings with
-     * :actor/:object/:target/:context placeholders (and optional segments,
-     * `[ with :target]`), FeedHeadline::trans() keys translated when the feed
-     * is read, or closures receiving an ActivityContext. A closure's result that
-     * names a role token is a template; one without is finished text.
-     *
-     * Typed loosely on the KEY on purpose — see assertKeyed().
-     *
-     * @param  array<array-key, string|Closure|FeedHeadline>  $grammar
-     *
-     * @deprecated Declare it in routes/feed.php; removed before v1.
-     */
-    public function grammar(array $grammar, bool $merge = true): static
-    {
-        $this->assertKeyed($grammar, 'grammar', 'delivery.confirm', ':actor confirmed :object');
-
-        $this->grammar = $merge ? [...$this->grammar, ...$grammar] : $grammar;
-
-        return $this;
-    }
-
-    /**
-     * Register singular actorless headlines — the sentence for an activity
-     * with no actor. Keyed like grammar(), on the same type → verb ladder
-     * (`order.confirm`, `order.*`, `*.confirm`, `*.*`), and tried before it
-     * for actorless rows. A key with no dot is a verb, and means `*.verb`.
-     * No aggregate forms.
-     *
-     * Strings are tokenizable templates and cannot name :actor or :actors.
-     * Closures receive an ActivityContext, as in grammar().
-     *
-     * @param  array<array-key, string|Closure|FeedHeadline>  $grammar
-     *
-     * @deprecated Declare it in routes/feed.php; removed before v1.
-     */
-    public function actorlessGrammar(array $grammar, bool $merge = true): static
-    {
-        $this->assertKeyed($grammar, 'actorlessGrammar', 'order.confirm', ':object was confirmed');
-
-        $keyed = [];
-
-        foreach ($grammar as $key => $entry) {
-            if (is_string($entry) && str_contains($entry, ':actor')) {
-                throw new InvalidArgumentException(
-                    "Storyfeed::actorlessGrammar() template for `{$key}` must not contain :actor or :actors — actorless templates omit the actor.",
-                );
-            }
-
-            $keyed[str_contains((string) $key, '.') ? (string) $key : "*.{$key}"] = $entry;
-        }
-
-        $this->actorlessGrammar = $merge ? [...$this->actorlessGrammar, ...$keyed] : $keyed;
-
-        return $this;
-    }
-
-    /**
      * Resolve the actorless entry for an object type + verb.
      * Resolution order: type.verb → type.* → *.verb → *.*
      */
@@ -1185,41 +1126,6 @@ class StoryfeedManager
     private static function headlineEntry(string|Closure|FeedHeadline|null $entry): string|Closure|null
     {
         return $entry instanceof FeedHeadline ? $entry->toTemplate() : $entry;
-    }
-
-    /**
-     * Refuse a LIST where a keyed registry was meant.
-     *
-     * The failure this exists for is silent in the worst way: `grammar([':actor
-     * confirmed :object'])` registers the integer 0 as the key, which resolves
-     * for no (type, verb) pair that will ever be asked for, so every headline
-     * stays null and the feed renders exactly as it did before anyone authored
-     * anything. Nothing throws, nothing warns, and `storyfeed:doctor` reports
-     * the grammar as missing — which is true, and points at the templates the
-     * developer is looking straight at.
-     *
-     * Same shape as the bug in verbs(), where a list registered `0` as a verb.
-     * One guard per registry rather than one shared abstraction over all of
-     * them, because each needs to name its OWN key shape to be useful.
-     *
-     * @param  array<array-key, mixed>  $entries
-     */
-    private function assertKeyed(array $entries, string $method, string $key, string $value): void
-    {
-        foreach ($entries as $entryKey => $entryValue) {
-            if (is_string($entryKey)) {
-                continue;
-            }
-
-            $shown = is_string($entryValue) ? $entryValue : get_debug_type($entryValue);
-
-            throw new InvalidArgumentException(
-                "Storyfeed::{$method}() takes a MAP of key => value, not a list. Received [{$shown}] under "
-                .'a numeric key, which resolves for nothing and fails silently. Write '
-                ."Storyfeed::{$method}(['{$key}' => '{$value}'])"
-                .' — keys are patterns, and wildcards (`type.*`, `*.verb`, `*.*`) are allowed.',
-            );
-        }
     }
 
     /**
@@ -1512,8 +1418,8 @@ class StoryfeedManager
      * app's axes() call would otherwise get a confusing "unknown axis" throw for a correct
      * configuration.
      *
-     * Hand-written registrations WIN, whichever order they were made in. An
-     * escape hatch you cannot use to override is not an escape hatch.
+     * Explicit modern overrides replace only their supplied fields. Other
+     * boot registries retain their own registration semantics.
      */
     public function compileStories(): void
     {
@@ -1587,11 +1493,10 @@ class StoryfeedManager
      *
      * Compiled entries are merged INTO the registries so the readers stay a
      * single array lookup. That means a second compile would otherwise find its
-     * own earlier output sitting in `$this->grammar` and treat it as
-     * hand-written — so a story whose headline CHANGED between compiles would
+     * own earlier output sitting in `$this->grammar` and retain it as
+     * externally supplied — so a story whose headline CHANGED between compiles would
      * keep the old text, silently. Only entries still identical to what this
-     * layer put there are withdrawn; anything a hand-written call has since
-     * replaced is left exactly where it is.
+     * layer put there are withdrawn; any subsequently supplied compiled value is left exactly where it is.
      */
     protected function retractApplied(): void
     {
@@ -1662,7 +1567,7 @@ class StoryfeedManager
      * with the Story facade (2026-09-23): actorless grammar, nouns and object
      * types.
      *
-     * @param  array{grammar: array<string, string|Closure|FeedHeadline>, aggregateGrammar: array<string, string>, actorlessGrammar?: array<string, string|Closure|FeedHeadline>, icons: array<string, string>, glyphIntents?: array<string, string>, nouns?: array<string, string|FeedNoun>, objectTypes?: array<string, ObjectType|string>, verbs: array<string, mixed>, missing?: array<string, list<string>>, missingGrammar?: array<string, string|Closure|FeedHeadline>, forget?: array<string, bool>, retention?: array<string, string>, casts?: array<string, array<string, string|list<string>>>, keepLatest?: array<string, array{per: list<string>, within: string|null}>, periods?: array<string, string>, queue?: array<string, array{connection?: string, queue?: string, delay?: int, afterCommit?: bool, deleteWhenMissingModels?: bool}>, middleware?: array<string, array{middleware: list<string|Closure>, excluded: list<string>}>, actors?: array<string, string>, actions?: array<string, array{uses: string, request: bool, parts: array<string, string>|null}>, names?: array<string, string>, wheres?: array<string, array<string, list<string>>>}  $compiled
+     * @param  array{grammar: array<string, string|Closure|FeedHeadline>, aggregateGrammar: array<string, string|Closure|FeedHeadline>, actorlessGrammar?: array<string, string|Closure|FeedHeadline>, icons: array<string, string>, glyphIntents?: array<string, string>, nouns?: array<string, string|FeedNoun>, objectTypes?: array<string, ObjectType|string>, verbs: array<string, mixed>, missing?: array<string, list<string>>, missingGrammar?: array<string, string|Closure|FeedHeadline>, forget?: array<string, bool>, retention?: array<string, string>, casts?: array<string, array<string, string|list<string>>>, keepLatest?: array<string, array{per: list<string>, within: string|null}>, periods?: array<string, string>, queue?: array<string, array{connection?: string, queue?: string, delay?: int, afterCommit?: bool, deleteWhenMissingModels?: bool}>, middleware?: array<string, array{middleware: list<string|Closure>, excluded: list<string>}>, actors?: array<string, string>, actions?: array<string, array{uses: string, request: bool, parts: array<string, string>|null}>, names?: array<string, string>, wheres?: array<string, array<string, list<string>>>}  $compiled
      * @param  list<string>  $stories  the Story classes the manifest was compiled from
      */
     public function useCompiledStories(array $compiled, array $stories = []): static
@@ -1960,54 +1865,6 @@ class StoryfeedManager
     }
 
     /**
-     * Register the plural forms of the things a role holds, so a group can
-     * say "7 clauses" where its axis leaves the role unpinned:
-     *
-     *   Storyfeed::nouns([
-     *       'clause' => 'clause|clauses',        // per TYPE
-     *       'document.upload' => 'file|files',   // per (type, verb)
-     *       'delivery' => FeedNoun::trans('nouns.delivery'),
-     *   ]);
-     *
-     * Keys are MORPH ALIASES — the value stored in `object_type` — never
-     * class names, matching how every other comparison in the package is
-     * made. Lookup runs type.verb, then type, then the `*` entry, then the
-     * generic noun; there are no `type.*` or `*.verb` wildcards, because a
-     * noun describes a KIND of thing and the verb is only ever a refinement
-     * of it ("uploads of a document are files").
-     *
-     * A type with no noun registered still renders, as "7 items". That is
-     * deliberate: the screen belongs to the reader, and the nagging belongs
-     * on the developer's terminal.
-     *
-     * BOTH FORMS ARE REQUIRED — 'terms sheet|terms sheets'. The core never
-     * inflects, so a single-form value throws here rather than rendering
-     * "7 terms sheet" to somebody's customer. See FeedNoun::of().
-     *
-     * Typed loosely on the KEY on purpose — see assertKeyed().
-     *
-     * @param  array<array-key, string|FeedNoun>  $nouns
-     *
-     * @deprecated Declare it in routes/feed.php; removed before v1.
-     */
-    public function nouns(array $nouns, bool $merge = true): static
-    {
-        $this->assertKeyed($nouns, 'nouns', 'clause', 'clause|clauses');
-
-        // Validate at REGISTRATION, not at render: a one-form noun is an
-        // authoring mistake, and the core never inflects to cover it.
-        foreach ($nouns as $noun) {
-            if (is_string($noun)) {
-                FeedNoun::of($noun);
-            }
-        }
-
-        $this->nouns = $merge ? [...$this->nouns, ...$nouns] : $nouns;
-
-        return $this;
-    }
-
-    /**
      * The noun registered for a type (optionally refined by verb), or null
      * when none is — which the caller renders as the generic noun.
      */
@@ -2079,80 +1936,6 @@ class StoryfeedManager
     }
 
     /**
-     * Register aggregate headline grammar for GROUP nodes. Keys are
-     * "axis.verb" (wildcards allowed: "actors.*", "*.upload", "*.*"):
-     *
-     *   Storyfeed::aggregateGrammar([
-     *       'actors.upload' => ':actors uploaded :count files to :target',
-     *       'targets.comment' => ':actor commented on :count projects',
-     *   ]);
-     *
-     * Templates add the aggregate tokens :actors, :count and :others to the
-     * standard role tokens (docs/payload.md). Without an entry a group falls
-     * back to the singular grammar of its head member — which is why a
-     * multi-actor group reads "Sally uploaded a file" until this is authored.
-     *
-     * Typed loosely on the KEY on purpose — see assertKeyed().
-     *
-     * @param  array<array-key, string|Closure|FeedHeadline>  $grammar
-     *
-     * @deprecated Declare it in routes/feed.php; removed before v1.
-     */
-    public function aggregateGrammar(array $grammar, bool $merge = true): static
-    {
-        $this->assertKeyed($grammar, 'aggregateGrammar', 'actors.upload', ':actors uploaded :count files');
-
-        $this->aggregateGrammar = $merge ? [...$this->aggregateGrammar, ...$grammar] : $grammar;
-
-        return $this;
-    }
-
-    /**
-     * Register icons, keyed like grammar ("type.verb", wildcards allowed).
-     *
-     * Typed loosely on the KEY on purpose — see assertKeyed().
-     *
-     * @param  array<array-key, string>  $icons
-     *
-     * @deprecated Declare it in routes/feed.php; removed before v1.
-     */
-    public function icons(array $icons, bool $merge = true): static
-    {
-        $this->assertKeyed($icons, 'icons', 'delivery.confirm', 'bi-truck');
-
-        $this->icons = $merge ? [...$this->icons, ...$icons] : $icons;
-
-        return $this;
-    }
-
-    /**
-     * Register glyph intents, keyed like icons ("type.verb", wildcards
-     * allowed) and resolved on the same ladder — but in a registry of their
-     * own, so an app says `'*.finalize' => 'success'` ONCE and it holds for
-     * every finalize whose token is registered per type. Folded into the icon
-     * value, the more specific token entry would shadow the wildcard intent
-     * and the intent would have to be repeated at every rung.
-     *
-     * The value is a free-form app-owned string, the same posture as the
-     * token and as verbs: core ships no vocabulary of intents and no colours.
-     * A renderer maps whatever the app chose onto its own palette; unknown
-     * intents are passed through, never dropped. See docs/payload.md,
-     * `glyph_intent`.
-     *
-     * @param  array<array-key, string>  $intents
-     *
-     * @deprecated Declare it in routes/feed.php; removed before v1.
-     */
-    public function glyphIntents(array $intents, bool $merge = true): static
-    {
-        $this->assertKeyed($intents, 'glyphIntents', '*.finalize', 'success');
-
-        $this->glyphIntents = $merge ? [...$this->glyphIntents, ...$intents] : $intents;
-
-        return $this;
-    }
-
-    /**
      * Register verb → AS2.0 activity type mappings.
      *
      * Accepts either a map, or the class-string of a backed enum
@@ -2218,32 +2001,6 @@ class StoryfeedManager
         $this->ensureStoriesCompiled();
 
         return isset($this->declaredVerbs[$verb]);
-    }
-
-    /**
-     * Register morph alias → AS2.0 object type mappings.
-     *
-     * Typed loosely on the KEY on purpose — see assertKeyed().
-     *
-     * @param  array<array-key, ObjectType|string>  $objectTypes
-     *
-     * @deprecated Declare it in routes/feed.php; removed before v1.
-     */
-    public function objectTypes(array $objectTypes, bool $merge = true): static
-    {
-        $this->assertKeyed($objectTypes, 'objectTypes', 'delivery', 'Document');
-
-        $normalized = [];
-
-        foreach ($objectTypes as $alias => $type) {
-            $normalized[$alias] = $this->normalizeTerm($type, ObjectType::class);
-        }
-
-        $this->objectTypes = $merge ? [...$this->objectTypes, ...$normalized] : $normalized;
-
-        $this->resolvedObjectTypes = [];
-
-        return $this;
     }
 
     /**

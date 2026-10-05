@@ -68,7 +68,7 @@ it('treats a null return as a deliberate skip', function () {
 });
 
 it('supports declaring the activity inline, with no Story class', function () {
-    Storyfeed::grammar(['delivery.archive' => ':actor archived :object']);
+    StoryFacade::for('delivery')->verb('archive')->headline(':actor archived :object');
 
     $delivery = Delivery::create(['tracking_number' => 'TN-1']);
 
@@ -88,7 +88,7 @@ it('supports declaring the activity inline, with no Story class', function () {
 });
 
 it('accepts a verb enum inline', function () {
-    Storyfeed::grammar(['delivery.confirm' => ':actor confirmed :object']);
+    StoryFacade::for('delivery')->verb('confirm')->headline(':actor confirmed :object');
 
     expect(PendingActivity::inline(ActivityVerb::Confirm)->activity->verb)->toBe('confirm');
 });

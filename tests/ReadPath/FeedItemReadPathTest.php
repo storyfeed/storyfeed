@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Blade;
+use Storyfeed\Facades\Story;
 use Storyfeed\Facades\Storyfeed;
 use Storyfeed\Support\FeedItem;
 use Workbench\App\Models\Customer;
@@ -24,7 +25,7 @@ beforeEach(function () {
 afterEach(fn () => Carbon::setTestNow());
 
 it('iterates a page as FeedItems that read the page\'s own arrays', function () {
-    Storyfeed::grammar(['delivery.confirm' => ':actor confirmed :object']);
+    Story::for('delivery')->verb('confirm')->headline(':actor confirmed :object');
     Storyfeed::activity('confirm', $this->delivery)->by($this->dana)->publish();
 
     $page = Storyfeed::feed()->get();
@@ -99,7 +100,7 @@ it('reads a real tombstone', function () {
 });
 
 it('renders in Blade', function () {
-    Storyfeed::grammar(['delivery.confirm' => ':actor confirmed :object']);
+    Story::for('delivery')->verb('confirm')->headline(':actor confirmed :object');
     Storyfeed::anonymous()->action('confirm', $this->delivery)->publish();
 
     $html = Blade::render('@foreach ($page as $item){{ $item->headline() }}@endforeach', ['page' => Storyfeed::feed()->get()]);

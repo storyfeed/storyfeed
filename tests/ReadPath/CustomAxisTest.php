@@ -1,7 +1,9 @@
 <?php
 
+use Storyfeed\Facades\Story;
 use Storyfeed\Facades\Storyfeed;
 use Storyfeed\Grouping\Axis;
+use Storyfeed\Grouping\Group;
 use Storyfeed\Models\Grouping;
 use Workbench\App\Models\Customer;
 use Workbench\App\Models\Delivery;
@@ -26,7 +28,7 @@ it('drives a custom axis through the whole pipeline from one registration', func
         Axis::make('repeat')->key('aa:aid:v:oa:ta:tid:d')->fallback(),
     ]);
 
-    Storyfeed::aggregateGrammar(['scene.comment' => ':actors commented in :context']);
+    Story::verb('comment')->grouped(Group::on('scene')->headline(':actors commented in :context'));
 
     $project = Customer::create(['name' => 'Brand Refresh']);
 

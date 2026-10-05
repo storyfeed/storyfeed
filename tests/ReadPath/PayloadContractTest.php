@@ -75,7 +75,7 @@ it('emits the frozen group-node shape', function () {
     ]);
 });
 
-it('emits a byte-identical payload whether authored as a Story or a registry entry', function () {
+it('emits a byte-identical payload whether authored by a message class or a fluent declaration', function () {
     // THE test that makes the Story layer safe. Stories compile down into the
     // registries, so the payload must not be able to tell which authoring
     // surface was used. If this holds, authoring-layer R&D can continue
@@ -95,17 +95,16 @@ it('emits a byte-identical payload whether authored as a Story or a registry ent
     $user = User::create(['name' => 'Sally', 'email' => 'sally@example.com']);
     $customer = Customer::create(['name' => 'Acme Co.']);
 
-    // Authored the old way.
-    Storyfeed::grammar(['delivery.confirm' => ':actor confirmed :object for :target'])
-        ->icons(['delivery.confirm' => 'bi-truck'])
-        ->verbs(['confirm' => 'Update']);
+    // Authored with modern fluent declarations.
+    Story::for('delivery')->verb('confirm')->headline(':actor confirmed :object for :target')->icon('bi-truck');
+    Storyfeed::verbs(['confirm' => 'Update']);
 
     Storyfeed::activity('confirm', Delivery::create(['tracking_number' => 'TN-1']))
         ->actor($user)->for($customer)->publish();
 
-    $viaRegistry = $strip(Storyfeed::feed()->get()->toArray());
+    $viaFluent = $strip(Storyfeed::feed()->get()->toArray());
 
-    // Same activity, authored as a Story, on a fresh manager.
+    // Same activity, authored by a message class, on a fresh manager.
     Activity::query()->forceDelete();
     app()->forgetInstance(StoryfeedManager::class);
     Storyfeed::clearResolvedInstances();
@@ -118,12 +117,12 @@ it('emits a byte-identical payload whether authored as a Story or a registry ent
 
     // Object labels differ (different tracking numbers), so compare everything
     // the authoring layer could possibly have moved.
-    expect($viaStory['payload_version'])->toBe($viaRegistry['payload_version'])
-        ->and(array_keys($viaStory['items'][0]))->toBe(array_keys($viaRegistry['items'][0]))
-        ->and($viaStory['items'][0]['headline_template'])->toBe($viaRegistry['items'][0]['headline_template'])
-        ->and($viaStory['items'][0]['glyph'])->toBe($viaRegistry['items'][0]['glyph'])
-        ->and($viaStory['items'][0]['glyph_intent'])->toBe($viaRegistry['items'][0]['glyph_intent'])
-        ->and($viaStory['items'][0]['verb'])->toBe($viaRegistry['items'][0]['verb'])
-        ->and($viaStory['items'][0]['actor'])->toBe($viaRegistry['items'][0]['actor'])
-        ->and($viaStory['items'][0]['target'])->toBe($viaRegistry['items'][0]['target']);
+    expect($viaStory['payload_version'])->toBe($viaFluent['payload_version'])
+        ->and(array_keys($viaStory['items'][0]))->toBe(array_keys($viaFluent['items'][0]))
+        ->and($viaStory['items'][0]['headline_template'])->toBe($viaFluent['items'][0]['headline_template'])
+        ->and($viaStory['items'][0]['glyph'])->toBe($viaFluent['items'][0]['glyph'])
+        ->and($viaStory['items'][0]['glyph_intent'])->toBe($viaFluent['items'][0]['glyph_intent'])
+        ->and($viaStory['items'][0]['verb'])->toBe($viaFluent['items'][0]['verb'])
+        ->and($viaStory['items'][0]['actor'])->toBe($viaFluent['items'][0]['actor'])
+        ->and($viaStory['items'][0]['target'])->toBe($viaFluent['items'][0]['target']);
 });

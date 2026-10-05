@@ -5,7 +5,6 @@ use Storyfeed\Facades\Storyfeed;
 use Storyfeed\Grouping\Axis;
 use Storyfeed\Grouping\Group;
 use Storyfeed\Stories\Verb;
-use Storyfeed\StoryfeedManager;
 use Workbench\App\Enums\ActivityVerb;
 use Workbench\App\Models\Customer;
 use Workbench\App\Models\Delivery;
@@ -15,13 +14,13 @@ use Workbench\App\Stories\DeliveryWasConfirmed;
 
 /*
  * The load-bearing test of the whole layer: a Story and the equivalent
- * hand-written provider block must compile to IDENTICAL registries. If that
+ * independent registry contract must contain IDENTICAL entries. If that
  * holds, the payload contract is immune to authoring-layer churn — which is
  * the architectural promise that made it safe to keep iterating on this after
  * the contract froze.
  */
 
-it('compiles to exactly what the hand-written registries would hold', function () {
+it('compiles to the expected independent registry contract', function () {
     Story::verb(ActivityVerb::Confirm, DeliveryWasConfirmed::class);
 
     $fromStory = [
@@ -30,17 +29,11 @@ it('compiles to exactly what the hand-written registries would hold', function (
         'icons' => Storyfeed::registeredIcons(),
     ];
 
-    // A second manager, configured the old way.
-    app()->forgetInstance(StoryfeedManager::class);
-    Storyfeed::clearResolvedInstances();
-
-    Storyfeed::grammar(['delivery.confirm' => ':actor confirmed :object for :target'])
-        ->icons(['delivery.confirm' => 'bi-truck'])
-        ->aggregateGrammar(['repeat.delivery.confirm' => ':actor confirmed :count deliveries']);
-
-    expect(Storyfeed::registeredGrammar())->toBe($fromStory['grammar'])
-        ->and(Storyfeed::registeredAggregateGrammar())->toBe($fromStory['aggregateGrammar'])
-        ->and(Storyfeed::registeredIcons())->toBe($fromStory['icons']);
+    expect($fromStory)->toBe([
+        'grammar' => ['delivery.confirm' => ':actor confirmed :object for :target'],
+        'aggregateGrammar' => ['repeat.delivery.confirm' => ':actor confirmed :count deliveries'],
+        'icons' => ['delivery.confirm' => 'bi-truck'],
+    ]);
 });
 
 it('registers the verb even when the story declares no AS2 type', function () {

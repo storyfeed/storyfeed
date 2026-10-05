@@ -167,7 +167,7 @@ it('resolves headlines at read time, so grammar may be registered after the back
 
     expect(Storyfeed::feed()->log()->get()->items()[0]['headline_template'])->toBeNull();
 
-    Storyfeed::grammar(['customer.placed' => ':actor placed :object']);
+    Story::for('customer')->verb('placed')->headline(':actor placed :object');
 
     $item = Storyfeed::feed()->log()->get()->items()[0];
 

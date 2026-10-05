@@ -2,6 +2,7 @@
 
 use Storyfeed\ActivityStreams\ActivityType;
 use Storyfeed\ActivityStreams\ObjectType;
+use Storyfeed\Facades\Story;
 use Storyfeed\Facades\Storyfeed;
 use Storyfeed\Models\Activity;
 use Storyfeed\Models\Party;
@@ -11,11 +12,9 @@ use Workbench\App\Models\User;
 
 it('emits a spec-shaped Activity document', function () {
     Storyfeed::verbs(['confirm' => ActivityType::Update]);
-    Storyfeed::objectTypes([
-        'user' => ObjectType::Person,
-        'delivery' => ObjectType::Document,
-        'customer' => ObjectType::Organization,
-    ]);
+    Story::for('user')->fallback()->activityStreamsType(ObjectType::Person);
+    Story::for('delivery')->fallback()->activityStreamsType(ObjectType::Document);
+    Story::for('customer')->fallback()->activityStreamsType(ObjectType::Organization);
 
     $user = User::create(['name' => 'Sally Nguyen', 'email' => 'sally@example.com']);
     $customer = Customer::create(['name' => 'Acme Co.']);
@@ -101,7 +100,7 @@ it('serializes a party with its own per-row type, Application winning over the S
 });
 
 it('excludes presentation extras from the document', function () {
-    Storyfeed::grammar(['*.*' => ':actor did :object'])->icons(['*.*' => 'bi-truck']);
+    Story::fallback()->headline(':actor did :object')->icon('bi-truck');
 
     $activity = Storyfeed::activity('confirm', Delivery::create(['tracking_number' => 'TN-1']))->publish();
 

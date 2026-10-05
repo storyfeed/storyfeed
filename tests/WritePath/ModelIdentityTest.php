@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Relations\Relation;
 use Storyfeed\Body\Excerpt;
 use Storyfeed\Concerns\InteractsWithFeed;
 use Storyfeed\Contracts\Feedable;
+use Storyfeed\Facades\Story;
 use Storyfeed\Facades\Storyfeed;
 use Storyfeed\FeedContext;
 use Storyfeed\FeedEntity;
@@ -245,7 +246,7 @@ describe('the default label', function () {
     });
 
     it('uses the registered noun and the key', function () {
-        Storyfeed::nouns(['plate' => 'dish|dishes']);
+        Story::for('plate')->fallback()->noun('dish|dishes');
 
         expect((new Plate)->forceFill(['id' => 42])->toFeed()->label)->toBe('Dish #42');
     });

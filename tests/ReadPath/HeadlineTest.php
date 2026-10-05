@@ -104,7 +104,7 @@ it('reads a closure result without a role token as finished text', function () {
 });
 
 it('treats a closure in the array form the same way', function () {
-    Storyfeed::grammar(['delivery.confirm' => fn () => ':actor confirmed :object']);
+    Story::for('delivery')->verb('confirm')->headline(fn () => ':actor confirmed :object');
 
     expect(confirmNode()['headline_template'])->toBe(':actor confirmed :object');
 });
@@ -115,7 +115,7 @@ it('translates FeedHeadline::trans() in the reader\'s locale, not the boot local
 
     // Registered while the app is in its default locale, as boot is.
     Story::for(Delivery::class)->verb('confirm')->headline(FeedHeadline::trans('feed.confirmed'));
-    Storyfeed::grammar(['delivery.ship' => FeedHeadline::trans('feed.confirmed')]);
+    Story::for('delivery')->verb('ship')->headline(FeedHeadline::trans('feed.confirmed'));
 
     confirmNode();
 

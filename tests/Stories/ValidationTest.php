@@ -145,8 +145,10 @@ it('refuses two stories authoring the same key', function () {
         expect($e->getMessage())
             ->toContain('FirstStory')
             ->toContain('SecondStory')
-            // The arrays are last-writer-wins; naming it is the new guarantee.
-            ->toContain('last-writer-wins');
+            // Ordinary conflicts require one owner or an intentional explicit override.
+            ->toContain('Keep one owner for each authored field')
+            ->toContain('mark one declaration ->override()')
+            ->toContain('competing explicit owners must be consolidated into one override');
     }
 });
 

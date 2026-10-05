@@ -1,6 +1,8 @@
 <?php
 
+use Storyfeed\Facades\Story;
 use Storyfeed\Facades\Storyfeed;
+use Storyfeed\Grouping\Group;
 
 /**
  * Aggregate grammar gains a second dimension: `axis.objectType.verb`.
@@ -13,11 +15,9 @@ use Storyfeed\Facades\Storyfeed;
  * on one aggregate key.
  */
 it('prefers the object-typed aggregate key over the plain one', function () {
-    Storyfeed::aggregateGrammar([
-        'repeat.update' => ':actors changed :count things',
-        'repeat.clause_template.update' => ':actors reworded :count clauses in the library',
-        'repeat.clause_variant.update' => ':actors reworded :count wordings',
-    ]);
+    Story::verb('update')->grouped(Group::on('repeat')->headline(':actors changed :count things'));
+    Story::for('clause_template')->verb('update')->grouped(Group::on('repeat')->headline(':actors reworded :count clauses in the library'));
+    Story::for('clause_variant')->verb('update')->grouped(Group::on('repeat')->headline(':actors reworded :count wordings'));
 
     expect(Storyfeed::aggregateTemplate('repeat', 'update', 'clause_template'))
         ->toBe(':actors reworded :count clauses in the library')
@@ -26,7 +26,7 @@ it('prefers the object-typed aggregate key over the plain one', function () {
 });
 
 it('falls back to the plain key when no object-typed one is registered', function () {
-    Storyfeed::aggregateGrammar(['repeat.update' => ':actors changed :count things']);
+    Story::verb('update')->grouped(Group::on('repeat')->headline(':actors changed :count things'));
 
     expect(Storyfeed::aggregateTemplate('repeat', 'update', 'clause_template'))
         ->toBe(':actors changed :count things');
@@ -38,12 +38,10 @@ it('leaves every existing two-segment key meaning exactly what it meant', functi
      * an app that never writes a three-segment key must not be able to tell
      * this feature exists.
      */
-    Storyfeed::aggregateGrammar([
-        'repeat.update' => ':actors changed :count things',
-        'repeat.*' => ':actors did :count things',
-        '*.update' => ':actors updated :count things',
-        '*.*' => ':count activities',
-    ]);
+    Story::verb('update')->grouped(Group::on('repeat')->headline(':actors changed :count things'));
+    Story::fallback()->grouped(Group::on('repeat')->headline(':actors did :count things'));
+    Story::verb('update')->grouped(Group::on('*')->headline(':actors updated :count things'));
+    Story::fallback()->grouped(Group::on('*')->headline(':count activities'));
 
     expect(Storyfeed::aggregateTemplate('repeat', 'update'))->toBe(':actors changed :count things')
         ->and(Storyfeed::aggregateTemplate('repeat', 'retire'))->toBe(':actors did :count things')
@@ -52,10 +50,8 @@ it('leaves every existing two-segment key meaning exactly what it meant', functi
 });
 
 it('reports the qualified key to coverage, so the doctor sees what renders', function () {
-    Storyfeed::aggregateGrammar([
-        'repeat.update' => ':actors changed :count things',
-        'repeat.clause_template.update' => ':actors reworded :count clauses in the library',
-    ]);
+    Story::verb('update')->grouped(Group::on('repeat')->headline(':actors changed :count things'));
+    Story::for('clause_template')->verb('update')->grouped(Group::on('repeat')->headline(':actors reworded :count clauses in the library'));
 
     expect(Storyfeed::aggregateTemplateKey('repeat', 'update', 'clause_template'))
         ->toBe('repeat.clause_template.update')
@@ -71,7 +67,7 @@ it('does not report a qualified key as missing coverage', function () {
      * aggregate headline)` reported against a registered
      * `repeat.clause_template.add` that rendered correctly.
      */
-    Storyfeed::aggregateGrammar(['repeat.clause_template.add' => ':actors added :count clauses']);
+    Story::for('clause_template')->verb('add')->grouped(Group::on('repeat')->headline(':actors added :count clauses'));
 
     expect(Storyfeed::aggregateTemplateKey('repeat', 'add', 'clause_template'))
         ->toBe('repeat.clause_template.add')

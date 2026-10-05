@@ -9,7 +9,7 @@ use Throwable;
 /**
  * Thrown at compile time when a Story cannot produce valid registry entries.
  *
- * Every one of these replaces a SILENT failure the array registries allow: a
+ * These prevent silent authoring failures: a
  * null headline, a wildcard icon, a lie in an aggregate template, or a
  * last-writer-wins collision nobody noticed. The layer's whole claim is that
  * these become boot failures instead — so the messages have to name the fix,
@@ -61,8 +61,8 @@ class StoryMisconfigured extends LogicException
     {
         return new self(
             "[{$key}] is defined twice: {$first} and {$second}. "
-            .'The array registries are last-writer-wins, so this would silently pick one — declaring it an error is the main '
-            .'guarantee the Story layer adds. Keep one definition, or give them distinct (objectType, verb) pairs.'
+            .'Keep one owner for each authored field. For an intentional application replacement, mark one '
+            .'declaration ->override(); competing explicit owners must be consolidated into one override.'
         );
     }
 
@@ -109,8 +109,9 @@ class StoryMisconfigured extends LogicException
     public static function verbDefinedTwice(string $key, string $first, string $second): self
     {
         return new self(
-            "[{$key}] is defined twice: {$first} and {$second}. A verb a Story class defines is defined there whole, "
-            .'as a route bound to a controller is, so say everything about it in that one place.'
+            "[{$key}] is defined twice: {$first} and {$second}. The action binding already has an owner. "
+            .'Keep one action definition; use ->override() for an intentional presentation-only replacement, '
+            .'which retains the original action binding.'
         );
     }
 

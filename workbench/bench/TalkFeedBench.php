@@ -1,5 +1,7 @@
 <?php
 
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Artisan;
 /*
  * Does curation survive a talk-shaped feed? (W112)
  *
@@ -9,7 +11,7 @@
  * `->log()` and then in `->summary()`. Every shipped axis pins the publication
  * day, and `repeat` pins actor and target — so forty slide advances by one
  * speaker on one talk on one day may collapse into a single row, and the two
- * `replay.played` rows in the final minute (same verb, actor, target, day)
+ * `replay_played` rows in the final minute (same verb, actor, target, day)
  * may render as "played 2 replays". Nobody had put a dense same-actor feed in
  * front of the curator before this harness.
  *
@@ -30,10 +32,10 @@
  * STDERR so PHPUnit's output strictness leaves it alone.
  */
 
-use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
+use Storyfeed\Facades\Story;
 use Storyfeed\Facades\Storyfeed;
+use Storyfeed\Grouping\Group;
 use Storyfeed\Tests\TestCase;
 use Workbench\App\Models\Customer;
 use Workbench\App\Models\Delivery;
@@ -66,30 +68,25 @@ function talk_measure(Closure $work): array
 
 function talk_grammar(): void
 {
-    Storyfeed::grammar([
-        '*.talk.started' => ':actor started :target',
-        '*.talk.ended' => ':actor ended :target',
-        '*.slide.advanced' => ':actor moved to :result',
-        '*.audience.joined' => ':actor joined',
-        '*.audience.reacted' => ':actor reacted to :object',
-        '*.audience.found' => ':actor found :object on :target',
-        '*.device.lost' => ":actor's phone dropped",
-        '*.device.returned' => ":actor's phone came back",
-        '*.replay.played' => ':actor played back :object',
-    ]);
-
-    Storyfeed::aggregateGrammar([
-        'actors.audience.joined' => ':actors joined',
-        'actors.audience.reacted' => ':actors reacted to :objects',
-        'actors.audience.found' => ':actors found :object',
-        'actors.device.lost' => ":actors' phones dropped",
-        'actors.device.returned' => ":actors' phones came back",
-        'repeat.slide.advanced' => ':actor moved through :count slides',
-        'repeat.replay.played' => ':actor played :count replays',
-        'targets.audience.reacted' => ':actor reacted to :count slides',
-        'object.audience.reacted' => ':actor reacted to :object :count times',
-        'object.slide.advanced' => ':actor moved to :object :count times',
-    ]);
+    Story::verb('talk_started')->headline(':actor started :target');
+    Story::verb('talk_ended')->headline(':actor ended :target');
+    Story::verb('slide_advanced')->headline(':actor moved to :result');
+    Story::verb('audience_joined')->headline(':actor joined');
+    Story::verb('audience_reacted')->headline(':actor reacted to :object');
+    Story::verb('audience_found')->headline(':actor found :object on :target');
+    Story::verb('device_lost')->headline(":actor's phone dropped");
+    Story::verb('device_returned')->headline(":actor's phone came back");
+    Story::verb('replay_played')->headline(':actor played back :object');
+    Story::verb('audience_joined')->grouped(Group::on('actors')->headline(':actors joined'));
+    Story::verb('audience_reacted')->grouped(Group::on('actors')->headline(':actors reacted to :objects'));
+    Story::verb('audience_found')->grouped(Group::on('actors')->headline(':actors found :objects'));
+    Story::verb('device_lost')->grouped(Group::on('actors')->headline(":actors' phones dropped"));
+    Story::verb('device_returned')->grouped(Group::on('actors')->headline(":actors' phones came back"));
+    Story::verb('slide_advanced')->grouped(Group::on('repeat')->headline(':actor moved through :count slides'));
+    Story::verb('replay_played')->grouped(Group::on('repeat')->headline(':actor played :count replays'));
+    Story::verb('audience_reacted')->grouped(Group::on('targets')->headline(':actor reacted to :count slides'));
+    Story::verb('audience_reacted')->grouped(Group::on('object')->headline(':actor reacted to :object :count times'));
+    Story::verb('slide_advanced')->grouped(Group::on('object')->headline(':actor moved to :object :count times'));
 }
 
 /**
@@ -118,72 +115,72 @@ function talk_seed(): array
         return Storyfeed::activity($verb)->actor($actor)->publishedAt($at);
     };
 
-    // talk.started — speaker, target talk, context talk.
-    $publish('talk.started', $speaker, $start)->target($talk)->context($talk)->publish();
+    // talk_started — speaker, target talk, context talk.
+    $publish('talk_started', $speaker, $start)->target($talk)->context($talk)->publish();
 
-    // slide.advanced ×40 — one actor, one target, ~a minute apart; origin the
+    // slide_advanced ×40 — one actor, one target, ~a minute apart; origin the
     // slide left, result the slide arrived at (§4: no object).
     $advancedAt = [];
     foreach (range(1, 40) as $i) {
         $at = $start->copy()->addSeconds((int) round($i * 57.5));
         $advancedAt[$i] = $at;
-        $publish('slide.advanced', $speaker, $at)
+        $publish('slide_advanced', $speaker, $at)
             ->target($talk)->context($talk)
             ->origin($slides[$i - 1])->result($slides[$i])
             ->publish();
     }
 
-    // audience.joined ×60 — clustered in the first five minutes.
+    // audience_joined ×60 — clustered in the first five minutes.
     foreach ($attendees as $n => $attendee) {
         $at = $start->copy()->addSeconds(5 + (int) (($n / 60) ** 2 * 295));
-        $publish('audience.joined', $attendee, $at)->target($talk)->context($talk)->publish();
+        $publish('audience_joined', $attendee, $at)->target($talk)->context($talk)->publish();
     }
 
-    // audience.reacted ×200 — spread across slides; object = the slide showing.
+    // audience_reacted ×200 — spread across slides; object = the slide showing.
     mt_srand(112);
     foreach (range(1, 200) as $r) {
         $slide = mt_rand(1, 40);
         $at = $advancedAt[$slide]->copy()->addSeconds(mt_rand(3, 50));
-        $publish('audience.reacted', $attendees[mt_rand(0, 59)], $at)
+        $publish('audience_reacted', $attendees[mt_rand(0, 59)], $at)
             ->object($slides[$slide])->target($talk)->context($talk)
             ->data(['reaction' => ['following', 'good', 'lost', 'ask'][mt_rand(0, 3)]])
             ->publish();
     }
 
-    // audience.found ×15 — egg on a slide, target the slide, context the talk.
+    // audience_found ×15 — egg on a slide, target the slide, context the talk.
     // Three eggs on three slides; the cat on slide 9 is found by two people
     // (below min_actors: 3), the others by more.
     $finds = [[9, 0, 2], [17, 1, 5], [31, 2, 8]];
     foreach ($finds as [$slide, $egg, $finders]) {
         foreach (range(1, $finders) as $f) {
             $at = $advancedAt[$slide]->copy()->addSeconds(5 + $f * 4);
-            $publish('audience.found', $attendees[($slide * 7 + $f) % 60], $at)
+            $publish('audience_found', $attendees[($slide * 7 + $f) % 60], $at)
                 ->object($eggs[$egg])->target($slides[$slide])->context($talk)
                 ->publish();
         }
     }
 
-    // device.lost / device.returned ×12 interleaved — six phones, each drops
+    // device_lost / device_returned ×12 interleaved — six phones, each drops
     // once and comes back a couple of minutes later; origin the slide showing.
     foreach (range(1, 6) as $d) {
         $slide = $d * 6;
         $who = $attendees[$d * 9];
-        $publish('device.lost', $who, $advancedAt[$slide]->copy()->addSeconds(20))
+        $publish('device_lost', $who, $advancedAt[$slide]->copy()->addSeconds(20))
             ->target($talk)->context($talk)->origin($slides[$slide])->publish();
-        $publish('device.returned', $who, $advancedAt[$slide + 2]->copy()->addSeconds(10))
+        $publish('device_returned', $who, $advancedAt[$slide + 2]->copy()->addSeconds(10))
             ->target($talk)->context($talk)->origin($slides[$slide + 2])->publish();
     }
 
-    // The finale: two replay.played in the last 60 seconds. Same verb, same
+    // The finale: two replay_played in the last 60 seconds. Same verb, same
     // actor, same target, seconds apart. First Waterloo's record, then this
     // talk's own.
-    $publish('replay.played', $speaker, $end->copy()->subSeconds(50))
+    $publish('replay_played', $speaker, $end->copy()->subSeconds(50))
         ->object($waterloo)->target($talk)->context($talk)->publish();
-    $publish('replay.played', $speaker, $end->copy()->subSeconds(8))
+    $publish('replay_played', $speaker, $end->copy()->subSeconds(8))
         ->object($talk)->target($talk)->context($talk)->publish();
 
-    // talk.ended.
-    $publish('talk.ended', $speaker, $end)->target($talk)->context($talk)->publish();
+    // talk_ended.
+    $publish('talk_ended', $speaker, $end)->target($talk)->context($talk)->publish();
 
     return compact('talk', 'waterloo', 'speaker', 'start', 'end', 'count');
 }
@@ -335,13 +332,13 @@ it('measures the talk-shaped feed under the shipped curation policy', function (
     $finalMinute = array_values(array_filter($summary, fn ($i) => $i['published_at'] >= $fixture['end']->copy()->subSeconds(60)->toISOString()));
 
     fwrite(STDERR, "\n== the five questions ==\n");
-    fwrite(STDERR, '  1. slide.advanced ×40  log: '.talk_describe(talk_rows_for($log, 'slide.advanced'))."\n");
-    fwrite(STDERR, '                         summary: '.talk_describe(talk_rows_for($summary, 'slide.advanced'))."\n");
-    fwrite(STDERR, '  2. audience.joined ×60 log: '.talk_describe(talk_rows_for($log, 'audience.joined'))."\n");
-    fwrite(STDERR, '                         summary: '.talk_describe(talk_rows_for($summary, 'audience.joined'))."\n");
-    fwrite(STDERR, '  3. replay.played ×2    log: '.talk_describe(talk_rows_for($log, 'replay.played'))."\n");
-    fwrite(STDERR, '                         live: '.talk_describe(talk_rows_for($reads['live']['items'], 'replay.played'))."\n");
-    fwrite(STDERR, '                         summary: '.talk_describe(talk_rows_for($summary, 'replay.played'))."\n");
+    fwrite(STDERR, '  1. slide_advanced ×40  log: '.talk_describe(talk_rows_for($log, 'slide_advanced'))."\n");
+    fwrite(STDERR, '                         summary: '.talk_describe(talk_rows_for($summary, 'slide_advanced'))."\n");
+    fwrite(STDERR, '  2. audience_joined ×60 log: '.talk_describe(talk_rows_for($log, 'audience_joined'))."\n");
+    fwrite(STDERR, '                         summary: '.talk_describe(talk_rows_for($summary, 'audience_joined'))."\n");
+    fwrite(STDERR, '  3. replay_played ×2    log: '.talk_describe(talk_rows_for($log, 'replay_played'))."\n");
+    fwrite(STDERR, '                         live: '.talk_describe(talk_rows_for($reads['live']['items'], 'replay_played'))."\n");
+    fwrite(STDERR, '                         summary: '.talk_describe(talk_rows_for($summary, 'replay_played'))."\n");
     talk_print('final 60 seconds, ->summary()', $finalMinute);
 
     expect($n)->toBe(1 + 40 + 60 + 200 + 15 + 12 + 2 + 1)

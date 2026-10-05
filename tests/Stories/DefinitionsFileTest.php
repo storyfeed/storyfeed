@@ -150,16 +150,16 @@ it('knows a class bound in the file, and its verb, once cached', function () {
 it('refuses to cache a file that calls a hand-written registry', function () {
     $path = writeDefinitions(<<<'PHP'
         Story::verb('ship')->headline(':actor shipped :object');
-        Storyfeed::icons(['*.ship' => 'truck']);
+        Storyfeed::axes([\Storyfeed\Grouping\Axis::make('scene')->key('v:aa!:aid!:d')]);
         PHP);
 
     bootWithDefinitions($this, $path);
 
     // It works uncached; it would silently stop working cached.
-    expect(Storyfeed::icon(null, 'ship'))->toBe('truck');
+    expect(Storyfeed::axis('scene'))->not->toBeNull();
 
     $this->artisan('storyfeed:cache')
-        ->expectsOutputToContain('Storyfeed::icons()')
+        ->expectsOutputToContain('Storyfeed::axes()')
         ->assertFailed();
 
     expect(app(StoryManifest::class)->exists())->toBeFalse();

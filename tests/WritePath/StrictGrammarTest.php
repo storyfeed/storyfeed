@@ -30,8 +30,8 @@ it('throws when publishing an activity nobody authored a headline for', function
         expect($e->getMessage())
             ->toContain('delivery.confirm')
             ->toContain('blank line')
-            // Names the fix, both ways.
-            ->toContain("Storyfeed::grammar(['delivery.confirm'")
+            // Names the modern declaration.
+            ->toContain("Story::for('delivery')->verb('confirm')->headline(")
             ->toContain('Story')
             // And refuses to suggest the catch-all that would silence
             // every future gap.
@@ -51,7 +51,7 @@ it('is satisfied by a Story', function () {
 });
 
 it('is satisfied by a partial wildcard', function () {
-    Storyfeed::grammar(['*.confirm' => ':actor confirmed something']);
+    Story::verb('confirm')->headline(':actor confirmed something');
 
     expect(
         Storyfeed::activity('confirm', Delivery::create(['tracking_number' => 'TN-1']))->publish()->exists
@@ -61,7 +61,7 @@ it('is satisfied by a partial wildcard', function () {
 it('does not gate on the icon', function () {
     // A missing icon degrades to a wildcard, which is cosmetic. A missing
     // headline is a blank line. Only the second is worth stopping a publish.
-    Storyfeed::grammar(['delivery.confirm' => ':actor confirmed :object']);
+    Story::for('delivery')->verb('confirm')->headline(':actor confirmed :object');
 
     expect(
         Storyfeed::activity('confirm', Delivery::create(['tracking_number' => 'TN-1']))->publish()->exists

@@ -28,7 +28,7 @@ use Storyfeed\Support\SurfaceScanner;
  * THE DEFINITIONS FILE GETS `route:cache` SEMANTICS. Once cached,
  * `routes/feed.php` isn't loaded at boot: the manifest holds what it compiled
  * to, closure headlines included (serialised as closure routes are). So the
- * file may hold definitions only; a `Storyfeed::grammar()` call in it would
+ * file may hold definitions only; a `Storyfeed::axes()` call in it would
  * stop running, and this command refuses rather than drop it. Definitions in
  * a service provider still run every boot; only their output is cached.
  *

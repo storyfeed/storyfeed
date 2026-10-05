@@ -2,8 +2,10 @@
 
 use Illuminate\Support\Carbon;
 use Storyfeed\Diagnostics\Checks\AggregateTokens;
+use Storyfeed\Facades\Story;
 use Storyfeed\Facades\Storyfeed;
 use Storyfeed\Grouping\Axis;
+use Storyfeed\Grouping\Group;
 use Storyfeed\Models\Activity;
 use Storyfeed\Payload\GroupSlice;
 use Storyfeed\Payload\NodePresenter;
@@ -52,7 +54,12 @@ it('derives new role pins required fields and doctor findings from the recipe', 
     expect($axis->hashFor($activity))->toBeNull();
 
     Storyfeed::axes([$axis]);
-    Storyfeed::aggregateGrammar(['promoted.confirm' => ':'.$role, 'repeat.confirm' => ':'.$role]);
+    Story::verb('confirm')->grouped(Group::on('promoted')->headline(':'.$role));
+    // Deliberately malformed historical cache: modern authoring rejects this unpinned role.
+    $compiled = Storyfeed::compiledStories();
+    $compiled['aggregateGrammar']['repeat.confirm'] = ':'.$role;
+    Storyfeed::useCompiledStories($compiled);
+    Storyfeed::compileStories();
     $findings = collect((new AggregateTokens)->run(app(StoryfeedManager::class)));
     expect($findings->filter(fn ($f) => $f->code === 'tokens.unpinned')->map(fn ($f) => $f->subject['key'])->values()->all())
         ->toBe(['repeat.confirm']);
@@ -60,7 +67,7 @@ it('derives new role pins required fields and doctor findings from the recipe', 
 
 it('exposes pinned group entities and refuses to attribute mixed provenance to one entity', function (string $role, string $type, string $id) {
     Storyfeed::axes([Axis::make('promoted')->key("{$type}:{$id}:d")]);
-    Storyfeed::aggregateGrammar(['promoted.confirm' => ':'.$role]);
+    Story::verb('confirm')->grouped(Group::on('promoted')->headline(':'.$role));
     $one = Storyfeed::activity('confirm')->{$role}('First')->publish();
     $two = Storyfeed::activity('confirm')->{$role}('First')->publish();
     $presenter = app(NodePresenter::class);
