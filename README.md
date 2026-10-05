@@ -1,3 +1,14 @@
+<a href="https://storyfeed.dev/">
+  <picture>
+    <source media="(prefers-reduced-motion: reduce) and (prefers-color-scheme: dark)" srcset="art/storyfeed-static-dark.png">
+    <source media="(prefers-reduced-motion: reduce)" srcset="art/storyfeed-static-light.png">
+    <source media="(prefers-color-scheme: dark)" srcset="art/storyfeed-animated-dark.gif">
+    <img src="art/storyfeed-animated-light.gif" width="800" height="214" alt="Storyfeed — Activity streams for Laravel. New activities advance through a three-card feed.">
+  </picture>
+</a>
+
+[Static banner](art/storyfeed-static-light.svg) · [Brand kit](https://github.com/storyfeed/docs/tree/main/brand/current)
+
 # Storyfeed — Activity Feeds for Laravel
 
 [![Latest Version on Packagist](https://img.shields.io/packagist/v/storyfeed/storyfeed.svg?style=flat-square)](https://packagist.org/packages/storyfeed/storyfeed)

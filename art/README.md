@@ -1,0 +1,7 @@
+# Storyfeed README artwork
+
+The banner uses the approved refreshing activity queue: nine compact motifs, 3-second holds and .75-second advances. GIFs are 1600×428 pixels displayed at 800×214, with stationary outlined Instrument Sans wordmark and strapline. PNG/SVG alternatives show the exact complete selected07 still; the README picture chooses a static PNG for reduced motion.
+
+Editable renderer, font/OFL, source hashes, capture script, manifests and the complete kit live in [storyfeed/docs brand/current](https://github.com/storyfeed/docs/tree/main/brand/current). No JavaScript runs inside the GitHub README. The GIF is a browser capture of the actual approved renderer, not an SVG claiming executable animation. GitHub Markdown API preserves the media source; hosted repository/Camo behaviour requires post-push verification.
+
+Concept by Tim Wood, permission to adapt reported by Jasper. Instrument Sans by Rodrigo Fuenzalida and Jordan Egstad, SIL OFL1.1; see OFL.txt. No broader artwork licence, endorsement or sponsor claim is asserted. This art folder remains excluded from package archives by the existing .gitattributes rule.
