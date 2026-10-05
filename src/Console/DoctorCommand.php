@@ -64,6 +64,12 @@ class DoctorCommand extends Command
     protected function renderText(Report $report): void
     {
         foreach ($report->all() as $finding) {
+            if ($finding->acknowledgment !== null) {
+                $this->line("Acknowledged [{$finding->severity->value}]: {$finding->message} Reason: {$finding->acknowledgment}");
+
+                continue;
+            }
+
             match ($finding->severity) {
                 Severity::Error => $this->error($finding->message),
                 Severity::Warning => $this->warn($finding->message),
@@ -71,8 +77,14 @@ class DoctorCommand extends Command
             };
         }
 
+        $acknowledged = $report->acknowledged()->count();
+
+        if ($acknowledged > 0) {
+            $this->line("{$acknowledged} acknowledged finding(s).");
+        }
+
         if ($report->isHealthy()) {
-            $this->info('Storyfeed looks healthy.');
+            $this->info($acknowledged > 0 ? 'No unacknowledged problems.' : 'Storyfeed looks healthy.');
 
             return;
         }
