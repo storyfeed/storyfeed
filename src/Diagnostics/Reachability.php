@@ -21,8 +21,8 @@ use Throwable;
  *
  *   log      shouldGroup() is false — logPage() renders no group node at all,
  *            so no axis is readable.
- *   live     winner rows on ANY bucket, plus the repeat fallback — every
- *            registered axis is readable.
+ *   live     with curation on, winner rows on ANY bucket plus the repeat
+ *            fallback; with curation off, only repeat, ignoring old stamps.
  *   summary  the period's partition bucket only (`summary.day` and the
  *            rest) — no curated axis is readable, and the digest's phrases
  *            are keyed `summary.{verb}`.
@@ -104,7 +104,7 @@ final class Reachability
         return match ($mode) {
             'log' => [],
             'summary' => ['summary'],
-            default => null,
+            default => config('storyfeed.grouping.curate', true) ? null : ['repeat'],
         };
     }
 
