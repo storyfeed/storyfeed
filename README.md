@@ -2,7 +2,7 @@
   <picture>
     <source media="(prefers-reduced-motion: reduce)" srcset="art/storyfeed-static-light.png">
     <source media="(prefers-color-scheme: dark)" srcset="art/storyfeed-animated-dark.gif">
-    <img src="art/storyfeed-animated-light.gif" width="800" height="214" alt="Storyfeed — Activity streams for Laravel. New activities advance through a three-card feed.">
+    <img src="art/storyfeed-animated-light.gif" width="800" height="214" alt="Storyfeed. New activities advance through a three-card feed.">
   </picture>
 </a>
 
