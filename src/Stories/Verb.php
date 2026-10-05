@@ -56,6 +56,9 @@ final class Verb
     /** What `keepForever()` compiles to. */
     public const FOREVER = 'forever';
 
+    /** Explicitly replace only the fields this declaration supplies. */
+    protected bool $override = false;
+
     /** @var array<int, Group> */
     protected array $groups = [];
 
@@ -427,6 +430,24 @@ final class Verb
         $groups = $spec['groups'] ?? [];
 
         return $definition->groups(...$groups);
+    }
+
+    /**
+     * Explicitly override only supplied fields of the same compiled keys.
+     * Unsaid package fields and action bindings remain in effect. Provider
+     * registration order does not decide which declaration wins.
+     */
+    public function override(): self
+    {
+        $this->override = true;
+
+        return $this;
+    }
+
+    /** Whether this declaration explicitly overrides package defaults. */
+    public function isOverride(): bool
+    {
+        return $this->override;
     }
 
     /**

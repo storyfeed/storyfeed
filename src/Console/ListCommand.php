@@ -69,7 +69,7 @@ class ListCommand extends Command
         $middleware = $this->output->isVerbose();
 
         $this->table(
-            ['Type', 'Verb', 'Name', 'Action', 'Headline', 'Anonymous headline', 'Icon', 'Intent', 'Groups', 'Period', 'Keep latest', 'Source', ...($middleware ? ['Middleware', 'Where'] : [])],
+            ['Type', 'Verb', 'Name', 'Action', 'Headline', 'Anonymous headline', 'Icon', 'Intent', 'Groups', 'Period', 'Keep latest', 'Override', 'Source', ...($middleware ? ['Middleware', 'Where'] : [])],
             array_map(fn (array $row) => [
                 $row['type'],
                 $row['verb'],
@@ -86,6 +86,7 @@ class ListCommand extends Command
                 )),
                 $row['period'] ?? '',
                 $row['keep_latest'] ?? '',
+                $row['override'] ? 'yes' : '',
                 $row['source'],
                 ...($middleware ? [implode("\n", $row['middleware']), implode("\n", $row['where'])] : []),
             ], $rows),
@@ -97,7 +98,7 @@ class ListCommand extends Command
     }
 
     /**
-     * @return list<array{type: string, verb: string, name: string|null, action: string|null, headline: string|null, anonymous_headline: string|null, icon: string|null, intent: string|null, groups: array<string, string|null>, keep_latest: string|null, period: string|null, source: string, middleware: list<string>, where: list<string>}>
+     * @return list<array{type: string, verb: string, name: string|null, action: string|null, headline: string|null, anonymous_headline: string|null, icon: string|null, intent: string|null, groups: array<string, string|null>, keep_latest: string|null, period: string|null, source: string, override: bool, middleware: list<string>, where: list<string>}>
      */
     protected function rows(StoryfeedManager $storyfeed): array
     {
@@ -118,7 +119,7 @@ class ListCommand extends Command
     }
 
     /**
-     * @return array{type: string, verb: string, name: string|null, action: string|null, headline: string|null, anonymous_headline: string|null, icon: string|null, intent: string|null, groups: array<string, string|null>, keep_latest: string|null, period: string|null, source: string, middleware: list<string>, where: list<string>}
+     * @return array{type: string, verb: string, name: string|null, action: string|null, headline: string|null, anonymous_headline: string|null, icon: string|null, intent: string|null, groups: array<string, string|null>, keep_latest: string|null, period: string|null, source: string, override: bool, middleware: list<string>, where: list<string>}
      */
     protected function row(Verb $definition, string $type, StoryfeedManager $storyfeed): array
     {
@@ -142,6 +143,7 @@ class ListCommand extends Command
             'period' => $this->period($definition, $type, $storyfeed),
             'keep_latest' => $this->keepLatest($definition),
             'source' => $definition->source,
+            'override' => $definition->isOverride(),
             'middleware' => $this->middleware($definition, $type, $storyfeed),
             'where' => $this->wheres($definition, $type, $storyfeed),
         ];
@@ -240,8 +242,8 @@ class ListCommand extends Command
     }
 
     /**
-     * @param  list<array{type: string, verb: string, name: string|null, action: string|null, headline: string|null, anonymous_headline: string|null, icon: string|null, intent: string|null, groups: array<string, string|null>, keep_latest: string|null, period: string|null, source: string, middleware: list<string>, where: list<string>}>  $rows
-     * @return list<array{type: string, verb: string, name: string|null, action: string|null, headline: string|null, anonymous_headline: string|null, icon: string|null, intent: string|null, groups: array<string, string|null>, keep_latest: string|null, period: string|null, source: string, middleware: list<string>, where: list<string>}>
+     * @param  list<array{type: string, verb: string, name: string|null, action: string|null, headline: string|null, anonymous_headline: string|null, icon: string|null, intent: string|null, groups: array<string, string|null>, keep_latest: string|null, period: string|null, source: string, override: bool, middleware: list<string>, where: list<string>}>  $rows
+     * @return list<array{type: string, verb: string, name: string|null, action: string|null, headline: string|null, anonymous_headline: string|null, icon: string|null, intent: string|null, groups: array<string, string|null>, keep_latest: string|null, period: string|null, source: string, override: bool, middleware: list<string>, where: list<string>}>
      */
     protected function filter(array $rows): array
     {
