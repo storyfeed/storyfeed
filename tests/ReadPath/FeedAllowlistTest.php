@@ -96,6 +96,23 @@ it('refuses an empty allowlist rather than rendering an empty feed', function ()
     $this->project->storyfeed()->only([]);
 })->throws(InvalidArgumentException::class, 'was given an empty list of verbs');
 
+it('keeps special characters literal in wildcard allowlists and denylists', function (string $prefix, string $other) {
+    foreach ([$prefix.'match', $other.'match'] as $verb) {
+        Storyfeed::activity()->actor($this->ines)->verb($verb, $this->project)->publish();
+    }
+
+    expect(verbsOf($this->project->storyfeed()->only($prefix.'*')->log()->get()->items()))
+        ->toBe([$prefix.'match'])
+        ->and(verbsOf($this->project->storyfeed()->except($prefix.'*')->log()->get()->items()))
+        ->toBe([$other.'match']);
+})->with([
+    'percent' => ['a%b', 'axb'],
+    'underscore' => ['a_b', 'axb'],
+    'escape character' => ['a!b', 'ab'],
+    'backslash' => ['a\\b', 'ab'],
+    'combined escapes' => ['a!%_\\b', 'a!xyb'],
+]);
+
 it('narrows on repeat calls instead of widening', function () {
     foreach (['order_placed', 'order_paid'] as $verb) {
         Storyfeed::activity()->actor($this->ines)->verb($verb, $this->project)->publish();

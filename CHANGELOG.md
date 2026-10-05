@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Fixed wildcard verb allowlists and denylists on MySQL by using a portable LIKE escape character.
+
 ### Added
 
 - Fluent `Group::headline()` accepts a closure receiving the `GroupSlice`,

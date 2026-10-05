@@ -201,22 +201,23 @@ final class VerbFilter
      * would be inert there and `a%b_*` would match `axb_leak` — a wildcard
      * silently WIDENING an allowlist, which is the one direction a safety
      * filter must never fail in. Declaring it is standard SQL and portable
-     * across the drivers this package supports.
+     * across the drivers this package supports. Using `!` avoids MySQL's
+     * backslash escaping inside SQL string literals.
      */
     protected function likeExpression(string $column): string
     {
-        return "{$column} like ? escape '\\'";
+        return "{$column} like ? escape '!'";
     }
 
     /**
      * `update*` becomes `update%`. The prefix is escaped so a verb vocabulary
-     * containing `%`, `_` or a backslash — all legal, since verbs are free-form
+     * containing `!`, `%` or `_` — all legal, since verbs are free-form
      * strings — cannot turn into an accidental wildcard that widens the
-     * allowlist.
+     * allowlist. Backslashes remain literal because `!` is the escape character.
      */
     protected function like(string $pattern): string
     {
-        return str_replace(['\\', '%', '_'], ['\\\\', '\%', '\_'], substr($pattern, 0, -1)).'%';
+        return str_replace(['!', '%', '_'], ['!!', '!%', '!_'], substr($pattern, 0, -1)).'%';
     }
 
     /** One verb, however it was written, as the string storage uses. */
