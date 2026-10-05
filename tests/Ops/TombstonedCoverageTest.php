@@ -31,6 +31,29 @@ function declareConfirm(): void
     Story::for(Delivery::class)->verb('confirm')->headline(':actor confirmed :object')->icon('check');
 }
 
+it('counts a Feedable whose only activity is tombstoned as wired under its former alias', function () {
+    config()->set('storyfeed.discovery.paths', [__DIR__.'/../../workbench/app', __DIR__.'/../Fixtures/Models']);
+    $dish = Dish::create(['name' => 'Carrot Soup']);
+    Storyfeed::activity()->actor($this->ines)->verb('cook', $dish)->publish();
+
+    $dish->delete();
+
+    expect(Activity::sole()->object_type)->toBe(FeedTombstone::MORPH_ALIAS);
+
+    $report = Storyfeed::doctor(['surface']);
+    $unwired = $report->withCode('surface.unwired');
+
+    expect($report->has('surface.unassessable'))->toBeFalse()
+        ->and($unwired->pluck('subject.model')->all())->not->toContain(Dish::class)
+        ->and($unwired)->not->toBeEmpty();
+
+    foreach ($unwired as $finding) {
+        expect($finding->subject['recorded'])->toContain('dish', 'user')
+            ->not->toContain(FeedTombstone::MORPH_ALIAS)
+            ->and($finding->message)->not->toContain(FeedTombstone::MORPH_ALIAS);
+    }
+});
+
 it('renders a tombstoned row with its former type\'s headline', function () {
     declareConfirm();
     Storyfeed::activity()->actor($this->ines)->verb('confirm', $this->delivery)->publish();

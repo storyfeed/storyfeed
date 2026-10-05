@@ -11,6 +11,7 @@
 ### Changed
 
 - FeedPage presents each node once, reusing its items across array access and repeated reads.
+- Doctor counts tombstoned objects under their former morph alias when assessing unwired feed surface.
 - Verbs may no longer contain a dot. Story declarations, vocabulary registries
   (including enums), and inline publishing throw `DottedVerb`. Other free-form
   strings, including `updateStatus`, remain valid. Dotted story names still work.

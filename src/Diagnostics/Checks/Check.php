@@ -92,6 +92,8 @@ abstract class Check implements DiagnosticCheck
      * as the object. Checking `object_type` alone would report every one of
      * them as unwired, which is the noise that gets a report ignored, and it
      * is a nastier mistake than missing a real gap.
+     * Tombstoned objects count under their former type; the other roles keep
+     * their stored aliases because only the object role is tombstoned.
      *
      * @param  value-of<ActivityRoles::STORED>|null  $role
      * @return list<string>
@@ -101,9 +103,12 @@ abstract class Check implements DiagnosticCheck
         $aliases = [];
 
         foreach ($role === null ? ActivityRoles::STORED : [$role] as $each) {
+            $query = $this->activities()->distinct()->toBase();
+            $type = $each === 'object' ? $this->objectTypeOf($query) : $query->getGrammar()->wrap("{$each}_type");
+
             $aliases = [
                 ...$aliases,
-                ...$this->activities()->distinct()->toBase()->pluck("{$each}_type")->filter()->all(),
+                ...$query->selectRaw("{$type} as recorded_type")->pluck('recorded_type')->filter()->all(),
             ];
         }
 
