@@ -6,8 +6,6 @@
   </picture>
 </a>
 
-[Static banner](art/storyfeed-static-light.svg) · [Brand kit](https://github.com/storyfeed/docs/tree/main/brand/current)
-
 # Storyfeed — Activity Feeds for Laravel
 
 [![Latest Version on Packagist](https://img.shields.io/packagist/v/storyfeed/storyfeed.svg?style=flat-square)](https://packagist.org/packages/storyfeed/storyfeed)
