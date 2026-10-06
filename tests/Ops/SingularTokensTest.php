@@ -3,6 +3,7 @@
 use Storyfeed\Diagnostics\Severity;
 use Storyfeed\Facades\Story;
 use Storyfeed\Facades\Storyfeed;
+use Storyfeed\Models\Activity;
 use Workbench\App\Models\Customer;
 use Workbench\App\Models\Delivery;
 use Workbench\App\Models\User;
@@ -138,4 +139,83 @@ it('is registered, so --only=roles is a real name', function () {
     expect(Storyfeed::doctor(['roles'])->all())->toBeEmpty()
         ->and(collect(Storyfeed::doctor(['roles'])->all())->pluck('code'))
         ->not->toContain('doctor.unknown_check');
+});
+
+it('checks actorless tokens independently of the ordinary template for the same key', function () {
+    Story::for('delivery')->verb('clause_restored')
+        ->headline(':actor restored :object :target')
+        ->anonymousHeadline(':object was restored on :target');
+
+    restoreOne(anActor(), Customer::create(['name' => 'Concur']));
+    restoreOne();
+
+    $findings = Storyfeed::doctor(['roles'])->withCode('roles.never_carried');
+
+    expect($findings)->toHaveCount(1)
+        ->and($findings->first()->severity)->toBe(Severity::Error)
+        ->and($findings->first()->subject['key'])->toBe('delivery.clause_restored')
+        ->and($findings->first()->subject['role'])->toBe('target')
+        ->and($findings->first()->subject['activities'])->toBe(1)
+        ->and($findings->first()->message)->toContain('Actorless headline');
+});
+
+it('does not judge an ordinary template by rows rendered with actorless grammar', function () {
+    Story::for('delivery')->verb('clause_restored')
+        ->headline(':actor restored :object :target')
+        ->anonymousHeadline(':object was restored');
+
+    restoreOne();
+
+    expect(Storyfeed::doctor(['roles'])->all())->toBeEmpty();
+});
+
+it('judges actorless wildcard templates by all anonymous pairs they render', function () {
+    Story::fallback()->anonymousHeadline(':object was changed on :target');
+    restoreOne();
+    Storyfeed::activity()->verb('assign', Delivery::create(['tracking_number' => 'TN-W']))
+        ->to(Customer::create(['name' => 'Concur']))->publish();
+
+    expect(Storyfeed::doctor(['roles'])->has('roles.never_carried'))->toBeFalse();
+
+    Story::fallback()->override()->anonymousHeadline(':object was changed in :context');
+    $findings = Storyfeed::doctor(['roles'])->withCode('roles.never_carried');
+
+    expect($findings)->toHaveCount(1)
+        ->and($findings->first()->subject['key'])->toBe('*.*')
+        ->and($findings->first()->subject['activities'])->toBe(2);
+});
+
+it('does not inspect actorless closures or fall through to ordinary tokens', function () {
+    Story::for('delivery')->verb('clause_restored')
+        ->headline(':actor restored :object :target')
+        ->anonymousHeadline(fn () => 'Restored');
+
+    restoreOne();
+
+    expect(Storyfeed::doctor(['roles'])->all())->toBeEmpty();
+});
+
+it('keeps partial actor identities on the ordinary template', function () {
+    Story::for('delivery')->verb('clause_restored')
+        ->headline(':object was restored on :target')
+        ->anonymousHeadline(':object was restored');
+
+    restoreOne();
+    Activity::query()->update(['actor_type' => 'user']);
+
+    $findings = Storyfeed::doctor(['roles'])->withCode('roles.never_carried');
+
+    expect($findings)->toHaveCount(1)
+        ->and($findings->first()->message)->toStartWith('Headline');
+});
+
+it('counts ordinary fallback rows once per pair when actorless grammar is absent', function () {
+    Story::for('delivery')->verb('clause_restored')->headline(':object was restored on :target');
+    restoreOne(anActor());
+    restoreOne();
+
+    $finding = Storyfeed::doctor(['roles'])->withCode('roles.never_carried')->first();
+
+    expect($finding->subject['activities'])->toBe(2)
+        ->and($finding->subject['pairs'])->toBe('delivery.clause_restored');
 });

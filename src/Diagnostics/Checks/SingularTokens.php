@@ -67,29 +67,41 @@ class SingularTokens extends Check
             return;
         }
 
-        /** @var array<string, array{template: string, pairs: list<string>, total: int, roles: array<string, int>}> $keys */
+        /** @var array<string, array{key: string, actorless: bool, template: string, pairs: list<string>, total: int, roles: array<string, int>}> $keys */
         $keys = [];
 
         foreach ($this->carriage() as $row) {
-            $template = $storyfeed->template($row->type, $row->verb);
+            // Match NodePresenter: only fully null actors use actorless grammar,
+            // and an absent actorless entry falls back to the ordinary headline.
+            $actorlessTemplate = (int) $row->anonymous === 1
+                ? $storyfeed->actorlessTemplate($row->type, $row->verb)
+                : null;
+            $actorless = $actorlessTemplate !== null;
+            $template = $actorlessTemplate ?? $storyfeed->template($row->type, $row->verb);
 
             // Closures pre-render; there are no tokens to inspect.
             if (! is_string($template)) {
                 continue;
             }
 
-            $key = $storyfeed->templateKey($row->type, $row->verb) ?? ($row->type ?? '*').'.'.$row->verb;
+            $key = ($actorless
+                ? $storyfeed->actorlessTemplateKey($row->type, $row->verb)
+                : $storyfeed->templateKey($row->type, $row->verb)) ?? ($row->type ?? '*').'.'.$row->verb;
 
-            $keys[$key] ??= ['template' => $template, 'pairs' => [], 'total' => 0, 'roles' => []];
-            $keys[$key]['pairs'][] = ($row->type ?? '(no object)').'.'.$row->verb;
-            $keys[$key]['total'] += (int) $row->total;
+            // Identical keys in the two registries still name different templates.
+            $bucket = ($actorless ? 'actorless:' : 'ordinary:').$key;
+
+            $keys[$bucket] ??= ['key' => $key, 'actorless' => $actorless, 'template' => $template, 'pairs' => [], 'total' => 0, 'roles' => []];
+            $keys[$bucket]['pairs'][] = ($row->type ?? '(no object)').'.'.$row->verb;
+            $keys[$bucket]['total'] += (int) $row->total;
 
             foreach (ActivityRoles::PAYLOAD as $role) {
-                $keys[$key]['roles'][$role] = ($keys[$key]['roles'][$role] ?? 0) + (int) $row->{$role};
+                $keys[$bucket]['roles'][$role] = ($keys[$bucket]['roles'][$role] ?? 0) + (int) $row->{$role};
             }
         }
 
-        foreach ($keys as $key => $entry) {
+        foreach ($keys as $entry) {
+            $entry['pairs'] = array_values(array_unique($entry['pairs']));
             preg_match_all('/:[a-z]+/', $entry['template'], $matches);
             $named = array_unique($matches[0]);
 
@@ -98,15 +110,16 @@ class SingularTokens extends Check
                     continue;
                 }
 
-                yield $this->finding($key, $role, $entry);
+                yield $this->finding($entry['key'], $role, $entry);
             }
         }
     }
 
     /**
      * Recorded (object_type, verb) pairs with a per-role count of the
-     * activities that actually carry each role. One grouped query; count(col)
-     * counts non-nulls on every driver we support.
+     * activities that actually carry each role, partitioned by fully null
+     * actors so each registry sees only the rows it renders. One grouped query;
+     * count(col) counts non-nulls on every driver we support.
      *
      * @return iterable<int, \stdClass>
      */
@@ -121,17 +134,18 @@ class SingularTokens extends Check
         // renders with.
         $query = $this->activities();
         $objectType = $this->objectTypeOf($query);
+        $anonymous = 'case when actor_type is null and actor_id is null then 1 else 0 end';
 
         // toBase(): these rows are aggregate tuples, not Activity models.
         return $query
             ->toBase()
-            ->selectRaw(implode(', ', ["{$objectType} as type", 'verb', 'count(*) as total', ...$counts]))
-            ->groupByRaw("{$objectType}, verb")
+            ->selectRaw(implode(', ', ["{$objectType} as type", 'verb', "{$anonymous} as anonymous", 'count(*) as total', ...$counts]))
+            ->groupByRaw("{$objectType}, verb, {$anonymous}")
             ->get();
     }
 
     /**
-     * @param  array{template: string, pairs: list<string>, total: int, roles: array<string, int>}  $entry
+     * @param  array{key: string, actorless: bool, template: string, pairs: list<string>, total: int, roles: array<string, int>}  $entry
      */
     protected function finding(string $key, string $role, array $entry): Finding
     {
@@ -142,6 +156,8 @@ class SingularTokens extends Check
             'activities' => $entry['total'],
             'pairs' => implode(' ', $entry['pairs']),
         ];
+
+        $headline = $entry['actorless'] ? 'Actorless headline' : 'Headline';
 
         $where = 'Recorded: '.$this->pairList($entry['pairs']).'.';
 
@@ -160,7 +176,7 @@ class SingularTokens extends Check
         // dashboard for weeks while a warning floor nobody gated on said so.
         return Finding::error(
             'roles.never_carried',
-            "Headline `{$key}` names `:{$role}`, but none of the {$entry['total']} activities it renders carry a "
+            "{$headline} `{$key}` names `:{$role}`, but none of the {$entry['total']} activities it renders carry a "
             ."{$role} — every one of those headlines renders the absent placeholder as content, and a reader "
             ."cannot tell \"the {$role} is unknown\" from \"this sentence should never have named one\". Drop the "
             ."clause, or start recording the {$role}. {$where}",
