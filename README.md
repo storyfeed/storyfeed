@@ -3,7 +3,7 @@
   <picture>
     <source media="(prefers-reduced-motion: reduce)" srcset="https://raw.githubusercontent.com/storyfeed/storyfeed/fbba01bed14a405ac83526f3ec8ef5db93c2b774/art/storyfeed-static-light.png">
     <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/storyfeed/storyfeed/fbba01bed14a405ac83526f3ec8ef5db93c2b774/art/storyfeed-animated-dark.gif">
-    <img src="https://raw.githubusercontent.com/storyfeed/storyfeed/fbba01bed14a405ac83526f3ec8ef5db93c2b774/art/storyfeed-animated-light.gif" width="800" height="214" alt="Storyfeed. New activities advance through a three-card feed.">
+    <img src="https://raw.githubusercontent.com/storyfeed/storyfeed/fbba01bed14a405ac83526f3ec8ef5db93c2b774/art/storyfeed-animated-light.gif" width="800" alt="Storyfeed. New activities advance through a three-card feed.">
   </picture>
 </a>
 </p>
