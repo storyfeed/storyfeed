@@ -3,6 +3,7 @@
 use Storyfeed\Actions\CurateCluster;
 use Storyfeed\Facades\Story;
 use Storyfeed\Facades\Storyfeed;
+use Storyfeed\Grouping\Axis;
 use Storyfeed\Grouping\Group;
 use Storyfeed\Models\Activity;
 use Storyfeed\Models\Grouping;
@@ -78,6 +79,68 @@ it('keeps one actor repeating on the repeat axis, not targets', function () {
     expect($items)->toHaveCount(1)
         ->and($items[0]['axis'])->toBe('repeat')
         ->and($items[0]['count'])->toBe(3);
+});
+
+it('leaves activities solo when no aggregate is eligible and the fallback declines them', function () {
+    Storyfeed::axes([
+        Axis::make('repeat')
+            ->key(fn (Activity $activity) => $activity->verb === 'upload' ? null : $activity->verb)
+            ->fallback(),
+    ]);
+
+    $project = Customer::create(['name' => 'Concur']);
+    uploadsTo($project, 'Sally', files: 2);
+
+    $candidates = fn () => Grouping::query()->whereIn('bucket', ['actors', 'targets', 'object']);
+    $rows = $candidates()->orderBy('id')->get(['activity_id', 'bucket', 'hash', 'winner'])->toArray();
+
+    expect($rows)->not->toBeEmpty()
+        ->and(Grouping::query()->where('bucket', 'repeat')->exists())->toBeFalse()
+        ->and(Grouping::query()->where('winner', false)->count())->toBe(count($rows));
+
+    $items = Storyfeed::feed()->live()->get()->items();
+
+    expect($items)->toHaveCount(2)
+        ->and(collect($items)->pluck('kind')->unique()->all())->toBe(['activity'])
+        ->and(collect($items)->pluck('id')->sort()->values()->all())
+        ->toBe(Activity::query()->orderBy('uid')->pluck('uid')->all());
+
+    // Summary now builds a per-person digest rather than reading winners.
+    // Its honest summary row is not the old, ineligible actors group.
+    $summary = Storyfeed::feed()->summary()->get()->items();
+
+    expect($summary)->toHaveCount(1)
+        ->and($summary[0]['axis'])->toBe('summary')
+        ->and($summary[0]['count'])->toBe(2);
+
+    // Ineligible clusters are skipped by resettle(): each invocation settles
+    // only its own activity, and its already-false stamps need no writes.
+    $changes = [];
+    $curate = new CurateCluster(function (bool $changed) use (&$changes): void {
+        $changes[] = $changed;
+    });
+
+    foreach (Activity::query()->get() as $activity) {
+        $curate($activity);
+        $curate($activity);
+    }
+
+    expect($changes)->toBe([false, false, false, false])
+        ->and($candidates()->orderBy('id')->get(['activity_id', 'bucket', 'hash', 'winner'])->toArray())->toBe($rows);
+
+    // All-false is still eligible for promotion when distinct actors arrive.
+    foreach (['Bob', 'Ann'] as $name) {
+        uploadsTo($project, $name);
+    }
+
+    $items = Storyfeed::feed()->live()->get()->items();
+
+    expect(Grouping::query()->where('bucket', 'actors')->where('winner', true)->count())->toBe(4)
+        ->and($items)->toHaveCount(1)
+        ->and($items[0]['kind'])->toBe('group')
+        ->and($items[0]['axis'])->toBe('actors')
+        ->and($items[0]['count'])->toBe(4)
+        ->and($items[0]['distinct']['actors'])->toBe(3);
 });
 
 it('collapses on the targets axis across distinct targets', function () {

@@ -204,7 +204,7 @@ class CurateCluster
     /**
      * @param  array<string, string>  $hashes  bucket => hash
      */
-    protected function decide(array $hashes): string
+    protected function decide(array $hashes): ?string
     {
         // Registration order IS priority (docs/grouping.md).
         foreach ($this->manager()->aggregateAxes() as $axis) {
@@ -217,7 +217,7 @@ class CurateCluster
 
         return $fallback !== null && isset($hashes[$fallback])
             ? $fallback
-            : (string) array_key_first($hashes);
+            : null;
     }
 
     /**
