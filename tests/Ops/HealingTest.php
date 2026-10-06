@@ -188,6 +188,11 @@ it('never treats a missing activity as an instruction, even when explicitly name
 });
 
 it('requests a row lock before evaluating policy inside the write transaction', function () {
+    // This spy installs SQLiteGrammar; its SQL is only valid on SQLite.
+    if (DB::connection()->getDriverName() !== 'sqlite') {
+        $this->markTestSkipped('SQLite query-grammar spy.');
+    }
+
     $activity = healingStory();
     $connection = DB::connection();
     $original = $connection->getQueryGrammar();
