@@ -37,6 +37,17 @@ jobs:
           extensions: dom, curl, libxml, mbstring, zip, pcntl, pdo, sqlite, pdo_sqlite, bcmath, soap, intl, gd, exif, iconv, imagick, fileinfo, sqlsrv, pdo_sqlsrv
           coverage: none
 
+      # The probe found ubuntu-24.04 does not provide odbcinst.
+      - name: Install Microsoft ODBC driver
+        shell: bash
+        run: |
+          . /etc/os-release
+          curl -fsSL "https://packages.microsoft.com/config/ubuntu/$VERSION_ID/packages-microsoft-prod.deb" -o packages-microsoft-prod.deb
+          sudo dpkg -i packages-microsoft-prod.deb
+          rm packages-microsoft-prod.deb
+          sudo apt-get update
+          sudo ACCEPT_EULA=Y apt-get install -y msodbcsql18 unixodbc-dev odbcinst
+
       - name: Verify SQL Server drivers
         run: |
           odbcinst -q -d
