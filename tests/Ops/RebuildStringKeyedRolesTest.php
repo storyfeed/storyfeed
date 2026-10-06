@@ -30,7 +30,7 @@ it('hands a string role id to the resolver unchanged, not cast to its key type',
     DB::table('feed_activities')->insert([
         'uid' => (string) Str::ulid(),
         'verb' => 'note',
-        'actor_type' => 'user',
+        'actor_type' => 'courier',
         'actor_id' => $ulid,
         'published_at' => now(),
         'created_at' => now(),
