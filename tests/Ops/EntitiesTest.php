@@ -38,7 +38,7 @@ class PlainCustomer extends Model
 function insertRow(string $role, ?string $type, int|string|null $id, string $publishedAt = '2024-03-01 09:00:00'): int
 {
     return (int) DB::table('feed_activities')->insertGetId([
-        'uid' => (string) Str::uuid(),
+        'uid' => (string) Str::ulid(),
         'verb' => 'doctrine_refreshed',
         "{$role}_type" => $type,
         "{$role}_id" => $id,
