@@ -3,7 +3,9 @@
 namespace Storyfeed\Tests;
 
 use Illuminate\Database\Eloquent\Relations\Relation;
+use Illuminate\Support\Facades\ParallelTesting;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Testing\Concerns\TestDatabases;
 use Orchestra\Testbench\TestCase as Orchestra;
 use Storyfeed\StoryfeedServiceProvider;
 use Storyfeed\Tests\Fixtures\Models\Dish;
@@ -15,6 +17,11 @@ use Workbench\App\Models\User;
 
 class TestCase extends Orchestra
 {
+    use TestDatabases;
+
+    /** @var array<string, true> */
+    protected static array $provisionedWorkerDatabases = [];
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -122,6 +129,19 @@ class TestCase extends Orchestra
 
     protected function defineDatabaseMigrations(): void
     {
+        // Testbench invokes these stubs directly instead of RefreshDatabase,
+        // so Laravel's automatic worker-database callback does not apply.
+        // Reuse its provision/switch helpers before any schema is recreated.
+        if (ParallelTesting::token() !== false && Schema::getConnection()->getDriverName() !== 'sqlite') {
+            $rootDatabase = Schema::getConnection()->getDatabaseName();
+            $database = $this->testDatabase($rootDatabase);
+            if (! isset(self::$provisionedWorkerDatabases[$database])) {
+                $this->ensureTestDatabaseExists($rootDatabase);
+                self::$provisionedWorkerDatabases[$database] = true;
+            }
+            $this->switchToDatabase($database);
+        }
+
         // Published migrations are timestamped in order; the stubs are not,
         // so create_* stubs must run before any alter-style stub.
         // A real engine keeps its tables between tests; SQLite's :memory: does not.
