@@ -127,7 +127,7 @@ it('leaves a permanent tombstone for a model without soft deletes', function () 
     expect($tombstone->restorable)->toBeFalse()
         ->and($tombstone->approximate)->toBeFalse()
         ->and($tombstone->model_type)->toBe('dish')
-        ->and($tombstone->model_id)->toBe((string) $dish->id)
+        ->and($tombstone->model_id)->toBe($dish->id)
         ->and($activity->fresh()->object_id)->toBe($tombstone->id);
 });
 
@@ -191,16 +191,6 @@ it('tombstones rows after a bulk delete with Storyfeed::tombstone()', function (
         ->and($tombstones[0]->restorable)->toBeTrue()
         ->and($tombstones[0]->deleted_at?->toDateTimeString())->toBe(Delivery::withTrashed()->find($this->delivery->id)->deleted_at->toDateTimeString())
         ->and(FeedTombstone::for('dish', $dish->id)->restorable)->toBeFalse();
-});
-
-it('tombstones a non-model Feedable by its alias', function () {
-    Storyfeed::tombstone('remote.invoice', 'INV-7');
-
-    $tombstone = FeedTombstone::sole();
-
-    expect($tombstone->model_type)->toBe('remote.invoice')
-        ->and($tombstone->model_id)->toBe('INV-7')
-        ->and($tombstone->restorable)->toBeFalse();
 });
 
 it('lets the trickle find a bulk delete, and a bulk restore', function () {

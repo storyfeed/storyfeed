@@ -13,7 +13,7 @@ return new class extends Migration
             $table->id();
             // The deleted model's morph alias and key, in the app's storage mode.
             $table->string('model_type');
-            MorphKeyType::id($table, 'model_id', legacyString: true);
+            MorphKeyType::id($table, 'model_id');
             // False once the model is gone for good (a hard delete): nothing
             // will ever repoint its activities back.
             $table->boolean('restorable')->default(false);

@@ -382,7 +382,7 @@ describe('what else a prune takes', function () {
 
         $survivor = FeedTombstone::query()->sole();
 
-        expect($survivor->model_id)->toBe((string) $kept->id)
+        expect($survivor->model_id)->toBe($kept->id)
             ->and(Snapshot::query()->where('model_type', FeedTombstone::MORPH_ALIAS)->pluck('model_id')->all())->toBe([$survivor->id]);
     })->after(fn () => Delivery::$tombstone = null);
 

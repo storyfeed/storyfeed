@@ -42,11 +42,11 @@ class MorphKeyType
         $table->index([$name.'_type', $name.'_id']);
     }
 
-    public static function id(Blueprint $table, string $name, bool $legacyString = false): ColumnDefinition
+    public static function id(Blueprint $table, string $name): ColumnDefinition
     {
         return self::mode() === 'string'
             ? $table->string($name, 36)
-            : ($legacyString ? $table->string($name) : $table->unsignedBigInteger($name));
+            : $table->unsignedBigInteger($name);
     }
 
     /**

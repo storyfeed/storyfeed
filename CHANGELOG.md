@@ -38,7 +38,9 @@ for the new model-key storage. `storyfeed.morph_key_type` accepts null (follow
 Laravel), 'int', or 'string'. Laravel UUID/ULID morph defaults select varchar(36)
 for all app-model references, accommodating the package's numeric parties and
 tombstones too. Mixed-key apps using Laravel's int default must choose 'string'
-before migrating. Int mode preserves the previous column definitions and SQL.
+before migrating. Int mode keeps existing bigint columns and queries unchanged,
+and changes participant entity_id, batch-lock actor_id and tombstone model_id
+to bigint.
 Existing databases need an explicit migration of their app-model id columns;
 changing config or re-publishing stubs alone does not alter existing columns.
 Doctor's `morph_keys` check reports string-keyed models against numeric columns.

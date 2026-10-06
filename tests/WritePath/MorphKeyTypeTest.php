@@ -7,6 +7,7 @@ use Illuminate\Database\Schema\Builder;
 use Illuminate\Database\SQLiteConnection;
 use Illuminate\Database\SqlServerConnection;
 use Illuminate\Support\Facades\Schema;
+use Storyfeed\Support\ActivityRoles;
 use Storyfeed\Support\MorphKeyType;
 
 it('stores every app model reference as a string wide enough for UUIDs', function () {
@@ -63,13 +64,11 @@ it('keeps numeric morph schema SQL identical to Laravel', function (string $driv
         $table->create();
         $table->nullableNumericMorphs('actor');
         $table->unsignedBigInteger('model_id');
-        $table->string('entity_id');
     });
     $current = new Blueprint($connection, 'probe', function (Blueprint $table) {
         $table->create();
         MorphKeyType::nullableMorphs($table, 'actor');
         MorphKeyType::id($table, 'model_id');
-        MorphKeyType::id($table, 'entity_id', legacyString: true);
     });
     expect($current->toSql())->toBe($legacy->toSql());
 })->with(['sqlite', 'mysql', 'pgsql', 'sqlsrv']);
@@ -95,3 +94,17 @@ it('casts only package keys in string mode across query grammars', function (str
     $type = $driver === 'mysql' ? 'char(36)' : 'varchar(36)';
     expect($string)->toBe(str_replace($grammar->wrap('t.id').' =', 'cast('.$grammar->wrap('t.id')." as {$type}) =", $legacy));
 })->with(['sqlite', 'mysql', 'pgsql', 'sqlsrv']);
+
+it('migrates every app reference as an integer in the default int mode', function () {
+    $columns = [
+        'feed_activities' => array_map(fn ($role) => $role.'_id', ActivityRoles::STORED),
+        'feed_batches' => ['actor_id'], 'feed_snapshots' => ['model_id'],
+        'feed_participants' => ['entity_id'], 'feed_batch_locks' => ['actor_id'],
+        'feed_tombstones' => ['model_id'],
+    ];
+    foreach ($columns as $table => $names) {
+        foreach ($names as $column) {
+            expect(Schema::getColumnType($table, $column))->toContain('int');
+        }
+    }
+});

@@ -17,7 +17,7 @@ return new class extends Migration
             // no object of their own and members are separate rows.
             $table->string('role', 20);
             $table->string('entity_type');
-            MorphKeyType::id($table, 'entity_id', legacyString: true);
+            MorphKeyType::id($table, 'entity_id');
             // Denormalized so `involving()` orders and pages from this index
             // alone, without reaching into the activities table to sort — so
             // it carries the activity's precision, or the copy would order

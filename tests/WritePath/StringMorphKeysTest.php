@@ -73,3 +73,13 @@ class UuidKeyProbe extends Model
 
     protected $guarded = [];
 }
+
+it('tombstones a non-model Feedable by its alias', function () {
+    Storyfeed::tombstone('remote.invoice', 'INV-7');
+
+    $tombstone = FeedTombstone::sole();
+
+    expect($tombstone->model_type)->toBe('remote.invoice')
+        ->and($tombstone->model_id)->toBe('INV-7')
+        ->and($tombstone->restorable)->toBeFalse();
+});
