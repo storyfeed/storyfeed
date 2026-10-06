@@ -73,8 +73,6 @@ work leads to is a demonstration of a working package, not a launch event, so
   (classic repeat grouping), and `->summary()` multi-axis grouping as the
   **default** — and the curation policy is free to keep evolving after 1.0
   because it was never part of the contract.
-- Full-history scale — feeds that stay fast at millions of activities without
-  pruning (time-partitioned storage, warm/cold tiering behind the opaque cursor).
 - Story auto-discovery.
 - **Feed components for `storyfeed/ui`** — the free, MIT detail vocabulary is
   available on Packagist now. Vue/Inertia and plain Blade components are planned
@@ -91,17 +89,17 @@ work leads to is a demonstration of a working package, not a launch event, so
 
 ## Sponsor-funded
 
-Some work is worth doing but waits for a sponsor who needs it, because it
-adds a long-term support promise or sits outside the core use case.
+These items wait for funding. Each one adds a long-term support promise or
+needs research beyond the current plan. Everything else on this roadmap is
+built regardless.
 
-- **SQL Server.** Storyfeed is tested on SQLite, MySQL 8.0+, MariaDB and
-  PostgreSQL on every commit. SQL Server is close (a test run passes all
-  but a handful of cases), but adding an engine to the supported list is
-  a promise to keep it working.
-- **Livewire and React components for `storyfeed/ui`.** Vue/Inertia and
-  Blade come first.
+| Item | Why it waits for funding |
+|---|---|
+| **SQL Server** | Storyfeed is tested on SQLite, MySQL 8.0+, MariaDB and PostgreSQL on every commit. A test run on SQL Server passes all but a handful of cases, but adding an engine to the supported list is a promise to keep it working. |
+| **Livewire and React components** for `storyfeed/ui` | Vue/Inertia and Blade components come first. Each further framework is another set of components to maintain. |
+| **Billions of activities** | Feeds that stay fast at billions of activities without pruning. This needs research into partitioned and tiered storage behind the same cursor, so the payload does not change. Performance at normal scale is part of the plan and is not waiting on funding. |
 
-To sponsor one of these, see [GitHub Sponsors](https://github.com/sponsors/storyfeed).
+[Sponsor Storyfeed on GitHub](https://github.com/sponsors/storyfeed)
 
 ## Design principles
 
