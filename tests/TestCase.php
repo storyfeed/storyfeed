@@ -89,17 +89,18 @@ class TestCase extends Orchestra
             config()->set('database.connections.testing', [
                 'driver' => $driver,
                 'host' => env('STORYFEED_TEST_HOST', '127.0.0.1'),
-                'port' => env('STORYFEED_TEST_PORT', $driver === 'pgsql' ? 5432 : 3306),
+                'port' => env('STORYFEED_TEST_PORT', match ($driver) { 'pgsql' => 5432, 'sqlsrv' => 1433, default => 3306 }),
                 'database' => env('STORYFEED_TEST_DATABASE', 'storyfeed_test'),
-                'username' => env('STORYFEED_TEST_USERNAME', $driver === 'pgsql' ? 'postgres' : 'root'),
+                'username' => env('STORYFEED_TEST_USERNAME', match ($driver) { 'pgsql' => 'postgres', 'sqlsrv' => 'sa', default => 'root' }),
                 'password' => env('STORYFEED_TEST_PASSWORD', ''),
-                'charset' => $driver === 'pgsql' ? 'utf8' : 'utf8mb4',
-                'collation' => $driver === 'pgsql' ? null : 'utf8mb4_unicode_ci',
+                'charset' => in_array($driver, ['pgsql', 'sqlsrv'], true) ? 'utf8' : 'utf8mb4',
+                'collation' => in_array($driver, ['pgsql', 'sqlsrv'], true) ? null : 'utf8mb4_unicode_ci',
                 'prefix' => '',
                 'prefix_indexes' => true,
                 'strict' => true,
                 'search_path' => 'public',
                 'sslmode' => 'prefer',
+                'trust_server_certificate' => $driver === 'sqlsrv',
             ]);
         }
 

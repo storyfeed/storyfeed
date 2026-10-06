@@ -20,72 +20,12 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# CI-only experiment on probe/sqlsrv; never merge this workflow into main.
 jobs:
   test:
-    runs-on: ${{ matrix.os }}
-    # A job that exceeds this reports as `cancelled`, NOT `failure` — so a
-    # timeout looks exactly like "something keeps cancelling my runs" and sends
-    # you hunting for a canceller that does not exist. When a run reports
-    # cancelled, compare its DURATION to this cap before looking anywhere else.
-    # Slowest cell observed is ~2.1 min (Windows), so there is real headroom;
-    # the number is fine, the misreading is what costs an hour.
-    # Real-engine cells recreate the schema per test: MySQL measured 15m15s
-    # locally with four isolated workers. SQLite retains its five-minute cap.
-    timeout-minutes: ${{ matrix.database != 'sqlite' && 40 || 5 }}
-    strategy:
-      fail-fast: true
-      matrix:
-        os: [ubuntu-latest, windows-latest]
-        php: [8.5, 8.4]
-        laravel: [13.*, 12.*]
-        stability: [prefer-lowest, prefer-stable]
-        runner: [serial]
-        database: [sqlite]
-        include:
-          - laravel: 13.*
-            testbench: 11.*
-          - laravel: 12.*
-            testbench: 10.*
-          # One extra cell runs the suite under --parallel, so a test that
-          # shares a file across workers (the testbench skeleton is shared)
-          # goes red here instead of only on a laptop. Newest stack on the
-          # fastest runner: the bug class is shared files, not OS or version.
-          # It sets `runner`, an original key, so it is a 17th job rather
-          # than being merged into its serial twin.
-          - os: ubuntu-latest
-            php: 8.5
-            laravel: 13.*
-            testbench: 11.*
-            stability: prefer-stable
-            runner: parallel
-            database: sqlite
-          # `database` is an original key, so this is an extra job instead
-          # of being merged into the matching SQLite cell. Each engine is
-          # included only after its full local suite has passed.
-          - os: ubuntu-latest
-            php: 8.5
-            laravel: 13.*
-            testbench: 11.*
-            stability: prefer-stable
-            runner: parallel
-            database: mysql
-          - os: ubuntu-latest
-            php: 8.5
-            laravel: 13.*
-            testbench: 11.*
-            stability: prefer-stable
-            runner: parallel
-            database: postgres
-          - os: ubuntu-latest
-            php: 8.5
-            laravel: 13.*
-            testbench: 11.*
-            stability: prefer-stable
-            runner: parallel
-            database: mariadb
-
-    name: P${{ matrix.php }} - L${{ matrix.laravel }} - ${{ matrix.stability }} - ${{ matrix.os }}${{ matrix.runner == 'parallel' && ' - parallel' || '' }} - ${{ matrix.database }}
-
+    name: SQL Server probe - PHP 8.5 - Laravel 13 - parallel 4
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
@@ -93,67 +33,48 @@ jobs:
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
-          php-version: ${{ matrix.php }}
-          extensions: dom, curl, libxml, mbstring, zip, pcntl, pdo, sqlite, pdo_sqlite, bcmath, soap, intl, gd, exif, iconv, imagick, fileinfo${{ matrix.database == 'postgres' && ', pdo_pgsql' || matrix.database != 'sqlite' && ', pdo_mysql' || '' }}
+          php-version: '8.5'
+          extensions: dom, curl, libxml, mbstring, zip, pcntl, pdo, sqlite, pdo_sqlite, bcmath, soap, intl, gd, exif, iconv, imagick, fileinfo, sqlsrv, pdo_sqlsrv
           coverage: none
 
-      - name: Setup problem matchers
+      - name: Verify SQL Server drivers
         run: |
-          echo "::add-matcher::${{ runner.tool_cache }}/php.json"
-          echo "::add-matcher::${{ runner.tool_cache }}/phpunit.json"
+          odbcinst -q -d
+          php --ri sqlsrv
+          php --ri pdo_sqlsrv
 
       - name: Install dependencies
         run: |
-          composer require "laravel/framework:${{ matrix.laravel }}" "orchestra/testbench:${{ matrix.testbench }}" --no-interaction --no-update
-          composer update --${{ matrix.stability }} --prefer-dist --no-interaction
+          composer require "laravel/framework:13.*" "orchestra/testbench:11.*" --no-interaction --no-update
+          composer update --prefer-stable --prefer-dist --no-interaction
+          composer show -D
 
-      - name: List Installed Dependencies
-        run: composer show -D
-
-      - name: Start MySQL
-        if: matrix.database == 'mysql'
+      - name: Start SQL Server over TCP and create test database
         shell: bash
+        env:
+          MSSQL_SA_PASSWORD: 'StoryfeedProbe_2026!Only'
         run: |
-          docker run -d --name storyfeed-db -e MYSQL_ALLOW_EMPTY_PASSWORD=1 -e MYSQL_DATABASE=storyfeed_test -p 33306:3306 mysql:8
-          # Init uses a temporary socket-only server; wait for the final TCP server.
-          for attempt in {1..60}; do
-            if docker exec storyfeed-db mysql --protocol=TCP -h 127.0.0.1 -uroot -e 'SELECT 1' >/dev/null 2>&1; then
+          docker run -d --name storyfeed-db -e ACCEPT_EULA=Y -e MSSQL_SA_PASSWORD -p 1433:1433 mcr.microsoft.com/mssql/server:2022-latest
+          for attempt in {1..90}; do
+            if docker exec -e SQLCMDPASSWORD="$MSSQL_SA_PASSWORD" storyfeed-db /opt/mssql-tools18/bin/sqlcmd -S tcp:127.0.0.1,1433 -U sa -C -b -Q 'SELECT 1' >/dev/null 2>&1; then
               break
             fi
             sleep 2
           done
-          docker exec storyfeed-db mysql --protocol=TCP -h 127.0.0.1 -uroot -e 'SELECT VERSION()'
-          printf '%s\n' 'STORYFEED_TEST_DB=mysql' 'STORYFEED_TEST_PORT=33306' 'STORYFEED_TEST_DATABASE=storyfeed_test' 'STORYFEED_TEST_USERNAME=root' 'STORYFEED_TEST_PASSWORD=' >> "$GITHUB_ENV"
-
-      - name: Start PostgreSQL
-        if: matrix.database == 'postgres'
-        shell: bash
-        run: |
-          docker run -d --name storyfeed-db -e POSTGRES_HOST_AUTH_METHOD=trust -e POSTGRES_DB=storyfeed_test -p 35432:5432 postgres:18
-          # Init uses a temporary socket-only server; wait for the final TCP server.
-          for attempt in {1..60}; do
-            if docker exec storyfeed-db psql -h 127.0.0.1 -U postgres -d storyfeed_test -c 'SELECT 1' >/dev/null 2>&1; then
-              break
-            fi
-            sleep 2
-          done
-          docker exec storyfeed-db psql -h 127.0.0.1 -U postgres -d storyfeed_test -c 'SELECT version()'
-          printf '%s\n' 'STORYFEED_TEST_DB=pgsql' 'STORYFEED_TEST_PORT=35432' 'STORYFEED_TEST_DATABASE=storyfeed_test' 'STORYFEED_TEST_USERNAME=postgres' 'STORYFEED_TEST_PASSWORD=' >> "$GITHUB_ENV"
-
-      - name: Start MariaDB
-        if: matrix.database == 'mariadb'
-        shell: bash
-        run: |
-          docker run -d --name storyfeed-db -e MARIADB_ALLOW_EMPTY_ROOT_PASSWORD=1 -e MARIADB_DATABASE=storyfeed_test -p 33306:3306 mariadb:12.3
-          # Init uses a temporary socket-only server; wait for the final TCP server.
-          for attempt in {1..60}; do
-            if docker exec storyfeed-db mariadb --protocol=TCP -h 127.0.0.1 -uroot -e 'SELECT 1' >/dev/null 2>&1; then
-              break
-            fi
-            sleep 2
-          done
-          docker exec storyfeed-db mariadb --protocol=TCP -h 127.0.0.1 -uroot -e 'SELECT VERSION()'
-          printf '%s\n' 'STORYFEED_TEST_DB=mariadb' 'STORYFEED_TEST_PORT=33306' 'STORYFEED_TEST_DATABASE=storyfeed_test' 'STORYFEED_TEST_USERNAME=root' 'STORYFEED_TEST_PASSWORD=' >> "$GITHUB_ENV"
+          docker exec -e SQLCMDPASSWORD="$MSSQL_SA_PASSWORD" storyfeed-db /opt/mssql-tools18/bin/sqlcmd -S tcp:127.0.0.1,1433 -U sa -C -b -Q 'SELECT @@VERSION; CREATE DATABASE storyfeed_test'
+          printf '%s\n' 'STORYFEED_TEST_DB=sqlsrv' 'STORYFEED_TEST_PORT=1433' 'STORYFEED_TEST_DATABASE=storyfeed_test' 'STORYFEED_TEST_USERNAME=sa' "STORYFEED_TEST_PASSWORD=$MSSQL_SA_PASSWORD" >> "$GITHUB_ENV"
 
       - name: Execute tests
-        run: vendor/bin/pest --ci ${{ matrix.runner == 'parallel' && '--parallel' || '' }} ${{ matrix.database != 'sqlite' && '--processes=4' || '' }}
+        run: vendor/bin/pest --ci --parallel --processes=4 --log-junit=sqlsrv-junit.xml
+
+      - name: Upload probe results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sqlsrv-probe-results
+          path: sqlsrv-junit.xml
+          if-no-files-found: warn
+
+      - name: SQL Server logs on failure
+        if: failure()
+        run: docker logs storyfeed-db
