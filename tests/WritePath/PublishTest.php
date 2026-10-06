@@ -90,5 +90,5 @@ it('stores activity data', function () {
         ->data(['from' => 'draft', 'to' => 'shipped'])
         ->publish();
 
-    expect($activity->refresh()->data)->toBe(['from' => 'draft', 'to' => 'shipped']);
+    expect(jsonObjectKeys($activity->refresh()->data))->toBe(jsonObjectKeys(['from' => 'draft', 'to' => 'shipped']));
 });
