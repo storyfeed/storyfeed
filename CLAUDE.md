@@ -68,10 +68,10 @@ Write it while it's fresh; never reconstruct after the fact. See
   `vendor/bin/pint`.
 - CI matrix: PHP 8.4/8.5 × Laravel 12/13 × prefer-lowest/stable × **ubuntu and
   windows**, plus one ubuntu/8.5/L13/prefer-stable cell that runs `--parallel`,
-  and one ubuntu/8.5/L13/prefer-stable MySQL 8 cell with four workers
-  — **eighteen test jobs, eight of them Windows.** Windows is supported
+  and ubuntu/8.5/L13/prefer-stable MySQL 8 and PostgreSQL 18 cells with four workers
+  — **nineteen test jobs, eight of them Windows.** Windows is supported
   and the cells are real: they were red for days on a CRLF-only defect nobody
-  saw, because local checks are one cell of eighteen. The parallel cell exists
+  saw, because local checks are one cell of nineteen. The parallel cell exists
   because tests sharing a file across workers passed serially for weeks.
   Jasper ruled that every supported database engine belongs in the matrix;
   the MySQL LIKE escape defect (1052) passed SQLite-only CI and shows why.

@@ -69,6 +69,13 @@ jobs:
             stability: prefer-stable
             runner: parallel
             database: mysql
+          - os: ubuntu-latest
+            php: 8.5
+            laravel: 13.*
+            testbench: 11.*
+            stability: prefer-stable
+            runner: parallel
+            database: postgres
 
     name: P${{ matrix.php }} - L${{ matrix.laravel }} - ${{ matrix.stability }} - ${{ matrix.os }}${{ matrix.runner == 'parallel' && ' - parallel' || '' }} - ${{ matrix.database }}
 
@@ -80,7 +87,7 @@ jobs:
         uses: shivammathur/setup-php@v2
         with:
           php-version: ${{ matrix.php }}
-          extensions: dom, curl, libxml, mbstring, zip, pcntl, pdo, sqlite, pdo_sqlite, bcmath, soap, intl, gd, exif, iconv, imagick, fileinfo${{ matrix.database != 'sqlite' && ', pdo_mysql' || '' }}
+          extensions: dom, curl, libxml, mbstring, zip, pcntl, pdo, sqlite, pdo_sqlite, bcmath, soap, intl, gd, exif, iconv, imagick, fileinfo${{ matrix.database == 'postgres' && ', pdo_pgsql' || matrix.database != 'sqlite' && ', pdo_mysql' || '' }}
           coverage: none
 
       - name: Setup problem matchers
@@ -109,6 +116,20 @@ jobs:
           done
           docker exec storyfeed-db mysql -uroot -e 'SELECT VERSION()'
           printf '%s\n' 'STORYFEED_TEST_DB=mysql' 'STORYFEED_TEST_PORT=33306' 'STORYFEED_TEST_DATABASE=storyfeed_test' 'STORYFEED_TEST_USERNAME=root' 'STORYFEED_TEST_PASSWORD=' >> "$GITHUB_ENV"
+
+      - name: Start PostgreSQL
+        if: matrix.database == 'postgres'
+        shell: bash
+        run: |
+          docker run -d --name storyfeed-db -e POSTGRES_HOST_AUTH_METHOD=trust -e POSTGRES_DB=storyfeed_test -p 35432:5432 postgres:18
+          for attempt in {1..60}; do
+            if docker exec storyfeed-db psql -U postgres -d storyfeed_test -c 'SELECT 1' >/dev/null 2>&1; then
+              break
+            fi
+            sleep 2
+          done
+          docker exec storyfeed-db psql -U postgres -d storyfeed_test -c 'SELECT version()'
+          printf '%s\n' 'STORYFEED_TEST_DB=pgsql' 'STORYFEED_TEST_PORT=35432' 'STORYFEED_TEST_DATABASE=storyfeed_test' 'STORYFEED_TEST_USERNAME=postgres' 'STORYFEED_TEST_PASSWORD=' >> "$GITHUB_ENV"
 
       - name: Execute tests
         run: vendor/bin/pest --ci ${{ matrix.runner == 'parallel' && '--parallel' || '' }} ${{ matrix.database != 'sqlite' && '--processes=4' || '' }}
