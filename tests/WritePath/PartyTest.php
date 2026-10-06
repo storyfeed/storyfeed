@@ -1,5 +1,6 @@
 <?php
 
+use Illuminate\Support\Facades\DB;
 use Storyfeed\ActivityStreams\ObjectType;
 use Storyfeed\Facades\Storyfeed;
 use Storyfeed\Models\Activity;
@@ -140,4 +141,60 @@ it('collapses a shared target party on the actors axis', function () {
     $hashes = Grouping::query()->where('bucket', 'actors')->pluck('hash')->unique();
 
     expect($hashes)->toHaveCount(1);
+});
+
+it('links a string party using the declared external home from the docs example', function () {
+    $party = Party::make('TalkingFeed', url: 'https://talkingfeed.app');
+    Storyfeed::activity('launch')->object('TalkingFeed')->publish();
+
+    expect($party->fresh()->data['$url'])->toBe('https://talkingfeed.app')
+        ->and(Storyfeed::feed()->get()->toArray()['items'][0]['object']['url'])->toBe('https://talkingfeed.app');
+});
+
+it('preserves the external home through renames and replacement app data', function () {
+    $party = Party::make('System', data: ['version' => 1], url: 'https://example.com');
+    Storyfeed::activity('ping')->actor($party)->publish();
+
+    $renamed = Party::make('Platform', key: 'system', data: ['version' => 2]);
+    $actor = Storyfeed::feed()->get()->toArray()['items'][0]['actor'];
+
+    expect($renamed->id)->toBe($party->id)
+        ->and($renamed->fresh()->data)->toMatchArray(['version' => 2, '$url' => 'https://example.com'])
+        ->and($actor['label'])->toBe('Platform')
+        ->and($actor['url'])->toBe('https://example.com');
+});
+
+it('updates and explicitly removes an external home on existing activities', function () {
+    $party = Party::make('Studio', url: 'https://example.com/old');
+    Storyfeed::activity('ping')->actor($party)->publish();
+
+    Party::make('Studio', url: 'https://example.com/new');
+    expect(Storyfeed::feed()->get()->toArray()['items'][0]['actor']['url'])->toBe('https://example.com/new');
+
+    Party::make('Studio', url: null);
+    expect(Storyfeed::feed()->get()->toArray()['items'][0]['actor']['url'])->toBeNull();
+});
+
+it('reads external homes in every role from retired party snapshots without party queries or writes', function () {
+    $party = Party::make('Studio', url: 'https://example.com/studio');
+    $activity = Storyfeed::activity('ping')->actor($party)->object($party)->to($party)->context($party)->publish();
+    $party->delete();
+
+    $queries = [];
+    DB::listen(function ($query) use (&$queries) {
+        $queries[] = strtolower($query->sql);
+    });
+    $item = Storyfeed::feed()->get()->toArray()['items'][0];
+    $document = serialize_one($activity);
+
+    foreach (['actor', 'object', 'target', 'context'] as $role) {
+        expect($item[$role]['url'])->toBe('https://example.com/studio');
+    }
+    expect($document['actor']['url'])->toBe('https://example.com/studio')
+        ->and($document['object']['url'])->toBe('https://example.com/studio');
+
+    foreach ($queries as $sql) {
+        expect($sql)->not->toContain('feed_parties')
+            ->and($sql)->not->toMatch('/^\s*(insert|update|delete|replace)\b/');
+    }
 });

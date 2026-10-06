@@ -144,3 +144,26 @@ it('emits only terms defined in the AS2 vocabulary or the sf: context', function
 
     $assertTerms($document);
 });
+
+it('serializes party external homes as AS2 url in every role', function () {
+    $party = Party::make('Studio', type: ObjectType::Organization, url: 'https://example.com/studio');
+    $activity = Storyfeed::activity('ping')->actor($party)->object($party)->to($party)->context($party)->publish();
+
+    Party::make('New Studio', key: 'studio');
+    $document = serialize_one($activity);
+
+    foreach (['actor', 'object', 'target', 'context'] as $role) {
+        expect($document[$role]['url'])->toBe('https://example.com/studio')
+            ->and($document[$role]['name'])->toBe('New Studio');
+    }
+});
+
+it('omits AS2 links for a party without an external home', function () {
+    $party = Party::make('Studio');
+    $activity = Storyfeed::activity('ping')->actor($party)->object($party)->publish();
+    $document = serialize_one($activity);
+
+    expect($document['actor'])->not->toHaveKey('url')
+        ->and($document['actor'])->not->toHaveKey('id')
+        ->and($document['object'])->not->toHaveKey('url');
+});

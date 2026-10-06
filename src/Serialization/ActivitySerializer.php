@@ -354,8 +354,9 @@ class ActivitySerializer
             // A url the resolver typed as an image becomes a Link object so
             // its mediaType and dimensions travel; a plain href stays the
             // bare string it always was. Both are legal values for as:url.
+            // A party actor also carries its external home as url.
             Property::Url->value => match (true) {
-                $actor => null,
+                $actor && $alias !== config('storyfeed.morph_alias', 'storyfeed.party') => null,
                 $media?->url instanceof FeedImage => $this->link($media->url),
                 default => $absolute,
             },
