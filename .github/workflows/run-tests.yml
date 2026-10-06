@@ -76,6 +76,13 @@ jobs:
             stability: prefer-stable
             runner: parallel
             database: postgres
+          - os: ubuntu-latest
+            php: 8.5
+            laravel: 13.*
+            testbench: 11.*
+            stability: prefer-stable
+            runner: parallel
+            database: mariadb
 
     name: P${{ matrix.php }} - L${{ matrix.laravel }} - ${{ matrix.stability }} - ${{ matrix.os }}${{ matrix.runner == 'parallel' && ' - parallel' || '' }} - ${{ matrix.database }}
 
@@ -130,6 +137,20 @@ jobs:
           done
           docker exec storyfeed-db psql -U postgres -d storyfeed_test -c 'SELECT version()'
           printf '%s\n' 'STORYFEED_TEST_DB=pgsql' 'STORYFEED_TEST_PORT=35432' 'STORYFEED_TEST_DATABASE=storyfeed_test' 'STORYFEED_TEST_USERNAME=postgres' 'STORYFEED_TEST_PASSWORD=' >> "$GITHUB_ENV"
+
+      - name: Start MariaDB
+        if: matrix.database == 'mariadb'
+        shell: bash
+        run: |
+          docker run -d --name storyfeed-db -e MARIADB_ALLOW_EMPTY_ROOT_PASSWORD=1 -e MARIADB_DATABASE=storyfeed_test -p 33306:3306 mariadb:12.3
+          for attempt in {1..60}; do
+            if docker exec storyfeed-db mariadb -uroot -e 'SELECT 1' >/dev/null 2>&1; then
+              break
+            fi
+            sleep 2
+          done
+          docker exec storyfeed-db mariadb -uroot -e 'SELECT VERSION()'
+          printf '%s\n' 'STORYFEED_TEST_DB=mariadb' 'STORYFEED_TEST_PORT=33306' 'STORYFEED_TEST_DATABASE=storyfeed_test' 'STORYFEED_TEST_USERNAME=root' 'STORYFEED_TEST_PASSWORD=' >> "$GITHUB_ENV"
 
       - name: Execute tests
         run: vendor/bin/pest --ci ${{ matrix.runner == 'parallel' && '--parallel' || '' }} ${{ matrix.database != 'sqlite' && '--processes=4' || '' }}
