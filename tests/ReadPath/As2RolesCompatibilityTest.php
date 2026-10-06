@@ -29,7 +29,16 @@ it('adds only nullable role keys to baseline payload and event bytes without cha
         }
         $observed[$kind] = json_encode($payload, JSON_THROW_ON_ERROR);
     }
-    expect($observed)->toBe(require __DIR__.'/../Fixtures/As2RolesBaseline.php');
+    $baseline = require __DIR__.'/../Fixtures/As2RolesBaseline.php';
+    if ($activity->getConnection()->getDriverName() === 'mysql') {
+        // The frozen bytes were captured on SQLite. MySQL's native JSON
+        // columns reorder object keys; retain strict content and hash checks.
+        foreach (['node', 'event'] as $kind) {
+            $observed[$kind] = json_encode(jsonObjectKeys(json_decode($observed[$kind], true, flags: JSON_THROW_ON_ERROR)), JSON_THROW_ON_ERROR);
+            $baseline[$kind] = json_encode(jsonObjectKeys(json_decode($baseline[$kind], true, flags: JSON_THROW_ON_ERROR)), JSON_THROW_ON_ERROR);
+        }
+    }
+    expect($observed)->toBe($baseline);
 });
 
 it('exposes filled roles without changing existing grouping hashes', function () {

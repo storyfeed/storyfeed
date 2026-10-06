@@ -37,13 +37,13 @@ it('records a payload-only detail author and preserves renderer metadata', funct
         ->publish();
 
     $stored = $activity->fresh()->data;
-    expect($stored['shipment'])->toBe($body->toPayload());
+    expect(jsonObjectKeys($stored['shipment']))->toBe(jsonObjectKeys($body->toPayload()));
 
     $node = Storyfeed::feed()->get()->toArray()['items'][0];
-    expect($node['data'])->toBe([
+    expect(jsonObjectKeys($node['data']))->toBe(jsonObjectKeys([
         'shipment' => ['$body' => 'acme/shipment', '$v' => 2, 'status' => 'shipped'],
         '$acme' => ['keep' => true],
-    ]);
+    ]));
 });
 
 it('allows a storage override without leaking its extras into the authored payload', function () {

@@ -78,7 +78,7 @@ it('keeps all() and the typed helpers on the recorded values', function () {
         'order' => OrderSummary::class,
     ]);
 
-    expect($activity->all())->toBe(['status' => 'confirm', 'order' => ['number' => 'A-1', 'total' => 1]])
+    expect(jsonObjectKeys($activity->all()))->toBe(jsonObjectKeys(['status' => 'confirm', 'order' => ['number' => 'A-1', 'total' => 1]]))
         ->and($activity->enum('status', ActivityVerb::class))->toBe(ActivityVerb::Confirm)
         ->and($activity->string('order.number')->value())->toBe('A-1')
         ->and($activity->get('absent', 'fallback'))->toBe('fallback');
@@ -87,8 +87,8 @@ it('keeps all() and the typed helpers on the recorded values', function () {
 it('stores and serves exactly what data() recorded, casts or not', function () {
     castContext(['order' => new OrderSummary('A-1', 1)], ['order' => OrderSummary::class]);
 
-    expect(Activity::sole()->data)->toBe(['order' => ['number' => 'A-1', 'total' => 1]])
-        ->and(Storyfeed::feed()->get()->toArray()['items'][0]['data'])->toBe(['order' => ['number' => 'A-1', 'total' => 1]]);
+    expect(jsonObjectKeys(Activity::sole()->data))->toBe(jsonObjectKeys(['order' => ['number' => 'A-1', 'total' => 1]]))
+        ->and(jsonObjectKeys(Storyfeed::feed()->get()->toArray()['items'][0]['data']))->toBe(jsonObjectKeys(['order' => ['number' => 'A-1', 'total' => 1]]));
 });
 
 it('reports a cast that cannot read an old row and answers the recorded value', function () {
@@ -121,7 +121,7 @@ it('carries a DTO through the queue as the array it recorded', function () {
     $job->handle();
     Storyfeed::feed()->get()->toArray();
 
-    expect(Activity::sole()->data)->toBe(['order' => ['number' => 'A-7', 'total' => 700]])
+    expect(jsonObjectKeys(Activity::sole()->data))->toBe(jsonObjectKeys(['order' => ['number' => 'A-7', 'total' => 700]]))
         ->and($seen)->toEqual(new OrderSummary('A-7', 700));
 });
 

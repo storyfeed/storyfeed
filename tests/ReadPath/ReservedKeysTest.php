@@ -23,11 +23,11 @@ it('passes an unknown $-prefixed key through to node.data untouched', function (
 
     $node = Storyfeed::feed()->get()->toArray()['items'][0];
 
-    // Same keys, same order, same values: the app's map, exactly as recorded.
-    expect($node['data'])->toBe([
+    // Same keys and strict values; native JSON storage may reorder object keys.
+    expect(jsonObjectKeys($node['data']))->toBe(jsonObjectKeys([
         'ip' => '1.2.3.4',
         '$acme' => ['tenant' => 42, 'tags' => ['a', 'b']],
-    ]);
+    ]));
 });
 
 it('carries a detail — $body and $v inside the app\'s own key — to the renderer intact', function () {
@@ -40,7 +40,7 @@ it('carries a detail — $body and $v inside the app\'s own key — to the rende
 
     $node = Storyfeed::feed()->get()->toArray()['items'][0];
 
-    expect($node['data'])->toBe(['change' => $body])
+    expect(jsonObjectKeys($node['data']))->toBe(jsonObjectKeys(['change' => $body]))
         ->and($node['data']['change']['$v'])->toBe(2);
 });
 
@@ -73,7 +73,7 @@ it('passes a stored $change through to node.data as written', function () {
 
     $node = Storyfeed::feed()->get()->toArray()['items'][0];
 
-    expect($node['data'])->toBe(['$change' => $change, 'ip' => '1.2.3.4'])
+    expect(jsonObjectKeys($node['data']))->toBe(jsonObjectKeys(['$change' => $change, 'ip' => '1.2.3.4']))
         ->and($node)->not->toHaveKey('change');
 });
 
@@ -85,10 +85,10 @@ it('preserves historical thread data without upgrading or emitting replies', fun
     $node = Storyfeed::feed()->get()->toArray()['items'][0];
     $document = app(ActivitySerializer::class)->activity($activity->fresh());
 
-    expect($node['data'])->toBe($data)
+    expect(jsonObjectKeys($node['data']))->toBe(jsonObjectKeys($data))
         ->and($node)->not->toHaveKey('thread')
         ->and($document)->not->toHaveKey('replies')
-        ->and($activity->fresh()->data)->toBe($data);
+        ->and(jsonObjectKeys($activity->fresh()->data))->toBe(jsonObjectKeys($data));
 })->with([
     'unversioned' => [['text' => 'Original', 'replies' => 3]],
     'versioned' => [['$v' => 1, 'text' => 'Original', 'replies' => 3]],

@@ -36,3 +36,23 @@ function defineStories(Verb ...$definitions): void
         app(StoryfeedManager::class)->addStory($definition);
     }
 }
+
+/**
+ * JSON objects have no key order; MySQL normalizes it in native JSON columns.
+ * Sort only object keys so toBe() still checks scalar types and list order.
+ */
+function jsonObjectKeys(array $value): array
+{
+    foreach ($value as &$item) {
+        if (is_array($item)) {
+            $item = jsonObjectKeys($item);
+        }
+    }
+    unset($item);
+
+    if (! array_is_list($value)) {
+        ksort($value);
+    }
+
+    return $value;
+}
