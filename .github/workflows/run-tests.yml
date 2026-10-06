@@ -29,7 +29,9 @@ jobs:
     # cancelled, compare its DURATION to this cap before looking anywhere else.
     # Slowest cell observed is ~2.1 min (Windows), so there is real headroom;
     # the number is fine, the misreading is what costs an hour.
-    timeout-minutes: 5
+    # Real-engine cells recreate the schema per test: MySQL measured 15m15s
+    # locally with four isolated workers. SQLite retains its five-minute cap.
+    timeout-minutes: ${{ matrix.database != 'sqlite' && 40 || 5 }}
     strategy:
       fail-fast: true
       matrix:
@@ -38,6 +40,7 @@ jobs:
         laravel: [13.*, 12.*]
         stability: [prefer-lowest, prefer-stable]
         runner: [serial]
+        database: [sqlite]
         include:
           - laravel: 13.*
             testbench: 11.*
@@ -55,8 +58,19 @@ jobs:
             testbench: 11.*
             stability: prefer-stable
             runner: parallel
+            database: sqlite
+          # `database` is an original key, so this is an extra job instead
+          # of being merged into the matching SQLite cell. Each engine is
+          # included only after its full local suite has passed.
+          - os: ubuntu-latest
+            php: 8.5
+            laravel: 13.*
+            testbench: 11.*
+            stability: prefer-stable
+            runner: parallel
+            database: mysql
 
-    name: P${{ matrix.php }} - L${{ matrix.laravel }} - ${{ matrix.stability }} - ${{ matrix.os }}${{ matrix.runner == 'parallel' && ' - parallel' || '' }}
+    name: P${{ matrix.php }} - L${{ matrix.laravel }} - ${{ matrix.stability }} - ${{ matrix.os }}${{ matrix.runner == 'parallel' && ' - parallel' || '' }} - ${{ matrix.database }}
 
     steps:
       - name: Checkout code
@@ -66,7 +80,7 @@ jobs:
         uses: shivammathur/setup-php@v2
         with:
           php-version: ${{ matrix.php }}
-          extensions: dom, curl, libxml, mbstring, zip, pcntl, pdo, sqlite, pdo_sqlite, bcmath, soap, intl, gd, exif, iconv, imagick, fileinfo
+          extensions: dom, curl, libxml, mbstring, zip, pcntl, pdo, sqlite, pdo_sqlite, bcmath, soap, intl, gd, exif, iconv, imagick, fileinfo${{ matrix.database != 'sqlite' && ', pdo_mysql' || '' }}
           coverage: none
 
       - name: Setup problem matchers
@@ -82,5 +96,19 @@ jobs:
       - name: List Installed Dependencies
         run: composer show -D
 
+      - name: Start MySQL
+        if: matrix.database == 'mysql'
+        shell: bash
+        run: |
+          docker run -d --name storyfeed-db -e MYSQL_ALLOW_EMPTY_PASSWORD=1 -e MYSQL_DATABASE=storyfeed_test -p 33306:3306 mysql:8
+          for attempt in {1..60}; do
+            if docker exec storyfeed-db mysql -uroot -e 'SELECT 1' >/dev/null 2>&1; then
+              break
+            fi
+            sleep 2
+          done
+          docker exec storyfeed-db mysql -uroot -e 'SELECT VERSION()'
+          printf '%s\n' 'STORYFEED_TEST_DB=mysql' 'STORYFEED_TEST_PORT=33306' 'STORYFEED_TEST_DATABASE=storyfeed_test' 'STORYFEED_TEST_USERNAME=root' 'STORYFEED_TEST_PASSWORD=' >> "$GITHUB_ENV"
+
       - name: Execute tests
-        run: vendor/bin/pest --ci ${{ matrix.runner == 'parallel' && '--parallel' || '' }}
+        run: vendor/bin/pest --ci ${{ matrix.runner == 'parallel' && '--parallel' || '' }} ${{ matrix.database != 'sqlite' && '--processes=4' || '' }}
