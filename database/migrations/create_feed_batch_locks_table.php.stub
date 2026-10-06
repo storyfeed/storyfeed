@@ -4,6 +4,7 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Storyfeed\Support\MorphKeyType;
 
 return new class extends Migration
 {
@@ -17,8 +18,8 @@ return new class extends Migration
         // holds nothing the feed reads.
         Schema::create($locks, function (Blueprint $table) {
             $table->string('actor_type');
-            // A string, like a tombstone's key, so UUID and ULID actors lock too.
-            $table->string('actor_id');
+            // Preserve the legacy type in int mode; string mode holds mixed keys.
+            MorphKeyType::id($table, 'actor_id', legacyString: true);
             // The actor's open batch ids, so publish can lock them by key
             // instead of searching feed_batches. May still name a batch the
             // sweeper has since closed; publish drops it on the next write.

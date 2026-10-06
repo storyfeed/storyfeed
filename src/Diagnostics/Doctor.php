@@ -25,6 +25,7 @@ class Doctor
     public const DEFAULT_CHECKS = [
         Checks\Tables::class,
         Checks\Columns::class,
+        Checks\MorphKeys::class,
         Checks\Recording::class,
         Checks\Maintenance::class,
         Checks\Coverage::class,

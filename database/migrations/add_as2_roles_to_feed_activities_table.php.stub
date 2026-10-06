@@ -3,6 +3,7 @@
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
+use Storyfeed\Support\MorphKeyType;
 
 return new class extends Migration
 {
@@ -18,7 +19,7 @@ return new class extends Migration
                     // The morph index serves rebuild's distinct identities and
                     // identity-filtered updates. No paging or cached-id index:
                     // involving() uses participants; snapshot loads use their PK.
-                    $blueprint->nullableMorphs($role);
+                    MorphKeyType::nullableMorphs($blueprint, $role);
                 });
             }
 

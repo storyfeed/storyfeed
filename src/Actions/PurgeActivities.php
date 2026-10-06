@@ -3,6 +3,7 @@
 namespace Storyfeed\Actions;
 
 use Closure;
+use Illuminate\Contracts\Database\Query\Expression;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Query\Builder as QueryBuilder;
 use Storyfeed\Models\Activity;
@@ -12,6 +13,7 @@ use Storyfeed\Models\Grouping;
 use Storyfeed\Models\Snapshot;
 use Storyfeed\StoryfeedManager;
 use Storyfeed\Support\ActivityRoles;
+use Storyfeed\Support\MorphKeyType;
 use Storyfeed\Support\SyncToken;
 
 /**
@@ -288,7 +290,7 @@ class PurgeActivities
         return $this->unreferenced(
             $model::query()->toBase()->whereIn($tombstone->getQualifiedKeyName(), $ids),
             $tombstone->getMorphClass(),
-            $tombstone->getQualifiedKeyName(),
+            MorphKeyType::packageKey($tombstone->getConnection()->getQueryGrammar(), $tombstone->getQualifiedKeyName()),
             $excluding,
         );
     }
@@ -298,7 +300,7 @@ class PurgeActivities
      * any role, trashed activities included. `$excluding` (a query of activity
      * ids) is left out of the count: what `pretend()` treats as already gone.
      */
-    protected function unreferenced(QueryBuilder $query, string $type, string $idColumn, ?QueryBuilder $excluding): QueryBuilder
+    protected function unreferenced(QueryBuilder $query, string $type, Expression|string $idColumn, ?QueryBuilder $excluding): QueryBuilder
     {
         $activities = $this->activities()->getModel()->getTable();
 

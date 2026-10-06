@@ -33,6 +33,17 @@
 
 ### Upgrade
 
+Before v1, re-publish the migration stubs and re-run them on a fresh database
+for the new model-key storage. `storyfeed.morph_key_type` accepts null (follow
+Laravel), 'int', or 'string'. Laravel UUID/ULID morph defaults select varchar(36)
+for all app-model references, accommodating the package's numeric parties and
+tombstones too. Mixed-key apps using Laravel's int default must choose 'string'
+before migrating. Int mode preserves the previous column definitions and SQL.
+Existing databases need an explicit migration of their app-model id columns;
+changing config or re-publishing stubs alone does not alter existing columns.
+Doctor's `morph_keys` check reports string-keyed models against numeric columns.
+
+
 Use the action alone in base form (`email`, not `document.emailed`); the object
 already stores its type. Migrate each old verb explicitly, using your configured
 activities table, for example:

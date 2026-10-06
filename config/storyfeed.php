@@ -32,6 +32,24 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Morph Key Type
+    |--------------------------------------------------------------------------
+    |
+    | null follows Laravel's defaultMorphKeyType: int stays int; uuid and
+    | ulid use strings so package-owned numeric parties and tombstones fit
+    | too. Set 'string' for mixed-key apps, or 'int' for numeric app keys.
+    | String mode uses varchar(36). Int mode preserves the original schema,
+    | including its participant, lock and tombstone varchar(255) columns.
+    |
+    | Read when migrating. Changing this on an existing install requires a
+    | migration of its app-model id columns; config cannot alter stored types.
+    |
+    */
+
+    'morph_key_type' => null,
+
+    /*
+    |--------------------------------------------------------------------------
     | Tables
     |--------------------------------------------------------------------------
     |

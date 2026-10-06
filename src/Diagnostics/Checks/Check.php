@@ -15,6 +15,7 @@ use Storyfeed\Models\Builders\ActivityBuilder;
 use Storyfeed\Models\FeedTombstone;
 use Storyfeed\Models\Grouping;
 use Storyfeed\Support\ActivityRoles;
+use Storyfeed\Support\MorphKeyType;
 
 /**
  * Shared plumbing for the checks — the configured-model queries and the
@@ -75,8 +76,8 @@ abstract class Check implements DiagnosticCheck
 
         $tombstone = new (config('storyfeed.models.tombstone', FeedTombstone::class));
 
-        $query->leftJoin("{$tombstone->getTable()} as former_objects", function (JoinClause $join) use ($activities, $tombstone) {
-            $join->on('former_objects.'.$tombstone->getKeyName(), '=', "{$activities}.object_id")
+        $query->leftJoin("{$tombstone->getTable()} as former_objects", function (JoinClause $join) use ($activities, $tombstone, $grammar) {
+            $join->on(MorphKeyType::packageKey($grammar, 'former_objects.'.$tombstone->getKeyName()), '=', "{$activities}.object_id")
                 ->where("{$activities}.object_type", '=', $tombstone->getMorphClass());
         });
 
