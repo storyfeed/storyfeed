@@ -95,9 +95,9 @@ built regardless.
 
 | Item | Why it waits for funding |
 |---|---|
-| **SQL Server** | Storyfeed is tested on SQLite, MySQL 8.0+, MariaDB and PostgreSQL on every commit. A test run on SQL Server passes all but a handful of cases, but adding an engine to the supported list is a promise to keep it working. |
-| **Livewire and React components** for `storyfeed/ui` | Vue/Inertia and Blade components come first. Each further framework is another set of components to maintain. |
 | **Exceptional scale** | Feeds that stay fast at billions of activities without pruning. This needs research into partitioned and tiered storage behind the same cursor, so the payload does not change. Performance at normal scale is part of the plan and is not waiting on funding. |
+| **Livewire and React components** for `storyfeed/ui` | Vue/Inertia and Blade components come first. Each further framework is another set of components to maintain. |
+| **Support for additional drivers such as SQL Server** | Storyfeed is tested on SQLite, MySQL 8.0+, MariaDB and PostgreSQL on every commit. A test run on SQL Server passes all but a handful of cases, but adding an engine to the supported list is a promise to keep it working. |
 
 [Sponsor Storyfeed on GitHub](https://github.com/sponsors/storyfeed)
 
