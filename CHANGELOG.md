@@ -4,6 +4,7 @@
 
 - Batch-lock migration backfills skip typed actors with null ids instead of creating empty-id lock rows.
 - Curation keeps activities solo when no aggregate axis is eligible and the fallback axis does not apply.
+- Entity HTML renders tombstones as escaped text even when their payload retains a URL.
 
 - Fixed wildcard verb allowlists and denylists on MySQL by using a portable LIKE escape character.
 

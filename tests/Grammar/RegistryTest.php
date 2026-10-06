@@ -24,6 +24,18 @@ it('returns null for unregistered grammar instead of guessing', function () {
     expect(Storyfeed::template('delivery', 'confirm'))->toBeNull();
 });
 
+it('registers a bare verb globally and prefers a type-qualified headline', function () {
+    Story::verb('confirm')->headline('Global confirmation');
+    Story::for('delivery')->verb('confirm')->headline('Delivery confirmation');
+
+    expect(Storyfeed::templateKey('invoice', 'confirm'))->toBe('*.confirm')
+        ->and(Storyfeed::template('invoice', 'confirm'))->toBe('Global confirmation')
+        ->and(Storyfeed::templateKey(null, 'confirm'))->toBe('*.confirm')
+        ->and(Storyfeed::template(null, 'confirm'))->toBe('Global confirmation')
+        ->and(Storyfeed::templateKey('delivery', 'confirm'))->toBe('delivery.confirm')
+        ->and(Storyfeed::template('delivery', 'confirm'))->toBe('Delivery confirmation');
+});
+
 it('resolves icons with the same wildcard order', function () {
     Story::for('delivery')->verb('confirm')->icon('bi-truck');
     Story::fallback()->icon('bi-lightning');

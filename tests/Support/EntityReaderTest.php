@@ -91,6 +91,20 @@ it('reads a tombstone', function () {
         ->and(Entity::of([...$tombstone, 'label' => 'Order #7'])->toString())->toBe('Order #7');
 });
 
+it('renders tombstones as escaped text even when they retain a url', function () {
+    $payload = entityPayload([
+        'type' => 'storyfeed.tombstone',
+        'label' => 'Order <7> & friends',
+        'tombstone' => ['formerType' => 'order'],
+    ]);
+
+    $entity = Entity::of($payload, 'object');
+
+    expect($entity->toHtml())->toBe('Order &lt;7&gt; &amp; friends')
+        ->and(Entity::of([...$payload, 'label' => null], 'object')->toHtml())->toBe('a removed order')
+        ->and($entity->toArray())->toBe($payload);
+});
+
 it('hands the payload back unchanged', function () {
     $entity = Entity::of(entityPayload(), 'object');
 

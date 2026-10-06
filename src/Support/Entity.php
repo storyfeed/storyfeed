@@ -214,13 +214,13 @@ final class Entity implements Arrayable, ArrayAccess, Htmlable, JsonSerializable
 
     /**
      * The entity as HTML: a link when it has a `url`, carrying its link
-     * attributes, and the escaped label otherwise.
+     * attributes, and the escaped label otherwise. Tombstones never link.
      */
     public function toHtml(): string
     {
         $label = e($this->toString());
 
-        if (($url = $this->url()) === null) {
+        if ($this->isTombstone() || ($url = $this->url()) === null) {
             return $label;
         }
 
