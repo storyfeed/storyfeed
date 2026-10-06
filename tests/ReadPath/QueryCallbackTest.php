@@ -257,5 +257,6 @@ it('nests callbacks even with no verb allowlist in play', function () {
         ->log()
         ->get();
 
-    expect($sql)->toContain('(not "verb" = ?)');
+    $verb = DB::connection()->getQueryGrammar()->wrap('verb');
+    expect($sql)->toContain("(not {$verb} = ?)");
 });

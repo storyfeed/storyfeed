@@ -46,6 +46,15 @@ beforeEach(function () {
     QueuedActivityListener::$seen = [];
 });
 
+/** Queue acknowledgement is SQL-dialect-specific; domain queries remain forbidden. */
+function queueAcknowledgementSql(): array
+{
+    $select = DB::table('jobs')->where('id', 1)->limit(1)->lockForUpdate();
+    $delete = DB::table('jobs')->where('id', 1);
+
+    return [$select->toSql(), $delete->getGrammar()->compileDelete($delete)];
+}
+
 function publishConfirmation(): array
 {
     $user = User::create(['name' => 'Sally', 'email' => 'sally@example.com', 'remember_token' => 'rt-secret-token']);
@@ -81,10 +90,7 @@ it('delivers the published facts after the activity and entities change or disap
     $job->fire();
     // Database queue acknowledgement reads/deletes its own job; no domain query is allowed.
     $queries = array_values(array_filter(DB::getQueryLog(),
-        fn ($query) => ! in_array($query['query'], [
-            'select * from "jobs" where "id" = ? limit 1',
-            'delete from "jobs" where "id" = ?',
-        ], true)));
+        fn ($query) => ! in_array($query['query'], queueAcknowledgementSql(), true)));
     DB::disableQueryLog();
     expect(QueuedActivityListener::$seen[0]['object']['label'])->toBe('Delivery #TN-1')
         ->and(QueuedActivityListener::$seen[0]['uid'])->toBe($activity->uid)
@@ -118,10 +124,7 @@ it('queues deletion facts even after a force delete removes the row', function (
     $job->fire();
     // Database queue acknowledgement reads/deletes its own job; no domain query is allowed.
     $queries = array_values(array_filter(DB::getQueryLog(),
-        fn ($query) => ! in_array($query['query'], [
-            'select * from "jobs" where "id" = ? limit 1',
-            'delete from "jobs" where "id" = ?',
-        ], true)));
+        fn ($query) => ! in_array($query['query'], queueAcknowledgementSql(), true)));
     DB::disableQueryLog();
     expect(QueuedActivityListener::$seen[0]['uid'])->toBe($activity->uid)
         ->and(QueuedActivityListener::$seen[0]['forceDeleted'])->toBe($force)
@@ -142,10 +145,7 @@ it('queues batch members before bundling and retains them after deletion', funct
     $job->fire();
     // Database queue acknowledgement reads/deletes its own job; no domain query is allowed.
     $queries = array_values(array_filter(DB::getQueryLog(),
-        fn ($query) => ! in_array($query['query'], [
-            'select * from "jobs" where "id" = ? limit 1',
-            'delete from "jobs" where "id" = ?',
-        ], true)));
+        fn ($query) => ! in_array($query['query'], queueAcknowledgementSql(), true)));
     DB::disableQueryLog();
     expect(QueuedActivityListener::$seen[0]['activities'][0]['uid'])->toBe($activity->uid)
         ->and(QueuedActivityListener::$seen[0]['activities'][0]['object']['label'])->toBe('Delivery #TN-1')

@@ -180,8 +180,9 @@ it('counts only its own closes when another sweeper closes the selected rows', f
     Storyfeed::activity()->actor('Importer')->verb('sync')->publish();
     $this->travel(11)->minutes();
     $interleaved = false;
-    DB::connection()->beforeExecuting(function ($query) use (&$interleaved) {
-        if ($interleaved || ! str_starts_with($query, 'update "feed_batches"')) {
+    $update = 'update '.DB::connection()->getQueryGrammar()->wrapTable('feed_batches');
+    DB::connection()->beforeExecuting(function ($query) use (&$interleaved, $update) {
+        if ($interleaved || ! str_starts_with($query, $update)) {
             return;
         }
         $interleaved = true;
