@@ -115,13 +115,14 @@ jobs:
         shell: bash
         run: |
           docker run -d --name storyfeed-db -e MYSQL_ALLOW_EMPTY_PASSWORD=1 -e MYSQL_DATABASE=storyfeed_test -p 33306:3306 mysql:8
+          # Init uses a temporary socket-only server; wait for the final TCP server.
           for attempt in {1..60}; do
-            if docker exec storyfeed-db mysql -uroot -e 'SELECT 1' >/dev/null 2>&1; then
+            if docker exec storyfeed-db mysql --protocol=TCP -h 127.0.0.1 -uroot -e 'SELECT 1' >/dev/null 2>&1; then
               break
             fi
             sleep 2
           done
-          docker exec storyfeed-db mysql -uroot -e 'SELECT VERSION()'
+          docker exec storyfeed-db mysql --protocol=TCP -h 127.0.0.1 -uroot -e 'SELECT VERSION()'
           printf '%s\n' 'STORYFEED_TEST_DB=mysql' 'STORYFEED_TEST_PORT=33306' 'STORYFEED_TEST_DATABASE=storyfeed_test' 'STORYFEED_TEST_USERNAME=root' 'STORYFEED_TEST_PASSWORD=' >> "$GITHUB_ENV"
 
       - name: Start PostgreSQL
@@ -129,13 +130,14 @@ jobs:
         shell: bash
         run: |
           docker run -d --name storyfeed-db -e POSTGRES_HOST_AUTH_METHOD=trust -e POSTGRES_DB=storyfeed_test -p 35432:5432 postgres:18
+          # Init uses a temporary socket-only server; wait for the final TCP server.
           for attempt in {1..60}; do
-            if docker exec storyfeed-db psql -U postgres -d storyfeed_test -c 'SELECT 1' >/dev/null 2>&1; then
+            if docker exec storyfeed-db psql -h 127.0.0.1 -U postgres -d storyfeed_test -c 'SELECT 1' >/dev/null 2>&1; then
               break
             fi
             sleep 2
           done
-          docker exec storyfeed-db psql -U postgres -d storyfeed_test -c 'SELECT version()'
+          docker exec storyfeed-db psql -h 127.0.0.1 -U postgres -d storyfeed_test -c 'SELECT version()'
           printf '%s\n' 'STORYFEED_TEST_DB=pgsql' 'STORYFEED_TEST_PORT=35432' 'STORYFEED_TEST_DATABASE=storyfeed_test' 'STORYFEED_TEST_USERNAME=postgres' 'STORYFEED_TEST_PASSWORD=' >> "$GITHUB_ENV"
 
       - name: Start MariaDB
@@ -143,13 +145,14 @@ jobs:
         shell: bash
         run: |
           docker run -d --name storyfeed-db -e MARIADB_ALLOW_EMPTY_ROOT_PASSWORD=1 -e MARIADB_DATABASE=storyfeed_test -p 33306:3306 mariadb:12.3
+          # Init uses a temporary socket-only server; wait for the final TCP server.
           for attempt in {1..60}; do
-            if docker exec storyfeed-db mariadb -uroot -e 'SELECT 1' >/dev/null 2>&1; then
+            if docker exec storyfeed-db mariadb --protocol=TCP -h 127.0.0.1 -uroot -e 'SELECT 1' >/dev/null 2>&1; then
               break
             fi
             sleep 2
           done
-          docker exec storyfeed-db mariadb -uroot -e 'SELECT VERSION()'
+          docker exec storyfeed-db mariadb --protocol=TCP -h 127.0.0.1 -uroot -e 'SELECT VERSION()'
           printf '%s\n' 'STORYFEED_TEST_DB=mariadb' 'STORYFEED_TEST_PORT=33306' 'STORYFEED_TEST_DATABASE=storyfeed_test' 'STORYFEED_TEST_USERNAME=root' 'STORYFEED_TEST_PASSWORD=' >> "$GITHUB_ENV"
 
       - name: Execute tests
