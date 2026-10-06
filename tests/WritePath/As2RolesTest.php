@@ -161,3 +161,31 @@ it('eager loads cached entities for every stored role through the public helper'
         DB::flushQueryLog();
     }
 });
+
+it('freezes every role id as a string before and after reloading', function () {
+    $activity = Storyfeed::activity('confirm')->actor('Operator')->object('Object')
+        ->target('Target')->context('Context')->origin('Source')->using('Tool')->resulting('Output')->publish();
+    $fresh = ActivitySnapshot::fromModel($activity);
+    $reloaded = ActivitySnapshot::fromModel($activity->fresh());
+    foreach (ActivityRoles::STORED as $role) {
+        expect($fresh->{$role}['id'])->toBe((string) $activity->{$role.'_id'})
+            ->and($reloaded->{$role}['id'])->toBe($fresh->{$role}['id']);
+    }
+    expect($reloaded->toPayload())->toBe($fresh->toPayload())
+        ->and(unserialize(serialize($fresh))->toPayload())->toBe($fresh->toPayload());
+
+    $batch = Batch::firstOrFail();
+    $batch->actor_id = (int) $batch->actor_id;
+    $snapshot = BatchSnapshot::fromModel($batch);
+    expect($snapshot->actor_id)->toBe((string) $batch->actor_id)
+        ->and(BatchSnapshot::fromModel($batch->fresh())->toPayload())->toBe($snapshot->toPayload());
+});
+
+it('keeps absent and typed null role ids null in event payloads', function () {
+    $activity = Storyfeed::activity('note')->publish();
+    $activity->origin_type = 'user';
+    $activity->origin_id = null;
+    $snapshot = ActivitySnapshot::fromModel($activity);
+    expect($snapshot->actor)->toBeNull()
+        ->and($snapshot->origin['id'])->toBeNull();
+});

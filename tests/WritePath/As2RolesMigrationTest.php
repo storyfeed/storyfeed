@@ -4,10 +4,9 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
-it('adds nullable AS2 role triples on upgrade with only identity indexes and no backfill', function (string $keyType) {
+it('adds nullable AS2 role triples on upgrade with only identity indexes and no backfill', function (string $identity) {
     $table = 'legacy_as2_activities';
     config(['storyfeed.tables.activities' => $table]);
-    Schema::defaultMorphKeyType($keyType);
 
     try {
         Schema::create($table, function (Blueprint $blueprint) {
@@ -27,11 +26,6 @@ it('adds nullable AS2 role triples on upgrade with only identity indexes and no 
         }
 
         $expected = $before;
-        $identity = match ($keyType) {
-            'uuid' => '018f3010-791c-7e90-9800-c90214d7b444',
-            'ulid' => '01J00000000000000000000000',
-            default => 42,
-        };
         foreach (['origin', 'result', 'instrument'] as $role) {
             $expected[$role.'_type'] = null;
             $expected[$role.'_id'] = null;
@@ -51,6 +45,5 @@ it('adds nullable AS2 role triples on upgrade with only identity indexes and no 
         expect((array) DB::table($table)->first())->toBe($before);
     } finally {
         DB::disableQueryLog();
-        Schema::defaultMorphKeyType('int');
     }
-})->with(['int', 'uuid', 'ulid']);
+})->with(['42', '018f3010-791c-7e90-9800-c90214d7b444', '01J00000000000000000000000']);

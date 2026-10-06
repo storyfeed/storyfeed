@@ -345,7 +345,7 @@ describe('what else a prune takes', function () {
             ->assertSuccessful();
 
         expect(Snapshot::query()->where('model_type', 'delivery')->orderBy('model_id')->pluck('model_id')->all())
-            ->toBe([$kept->id, $untouched->id])
+            ->toBe([(string) $kept->id, (string) $untouched->id])
             // The actor is still named by the comment.
             ->and(Snapshot::query()->where('model_type', $this->sally->getMorphClass())->count())->toBe(1);
     });
@@ -382,8 +382,8 @@ describe('what else a prune takes', function () {
 
         $survivor = FeedTombstone::query()->sole();
 
-        expect($survivor->model_id)->toBe($kept->id)
-            ->and(Snapshot::query()->where('model_type', FeedTombstone::MORPH_ALIAS)->pluck('model_id')->all())->toBe([$survivor->id]);
+        expect($survivor->model_id)->toBe((string) $kept->id)
+            ->and(Snapshot::query()->where('model_type', FeedTombstone::MORPH_ALIAS)->pluck('model_id')->all())->toBe([(string) $survivor->id]);
     })->after(fn () => Delivery::$tombstone = null);
 
     it('leaves the same state behind when forgetWhenMissing() takes the last row', function () {

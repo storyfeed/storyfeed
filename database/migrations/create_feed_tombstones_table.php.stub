@@ -11,7 +11,7 @@ return new class extends Migration
     {
         Schema::create(config('storyfeed.tables.tombstones', 'feed_tombstones'), function (Blueprint $table) {
             $table->id();
-            // The deleted model's morph alias and key, in the app's storage mode.
+            // The deleted model's morph alias and key, as a case-sensitive string.
             $table->string('model_type');
             MorphKeyType::id($table, 'model_id');
             // False once the model is gone for good (a hard delete): nothing

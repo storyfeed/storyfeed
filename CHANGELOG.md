@@ -20,6 +20,13 @@
 
 ### Changed
 
+- Breaking: event snapshots now expose every non-null role id as a string,
+  including batch actor ids, consistently before and after reload. Event
+  listeners comparing ids with `===` against integers must compare decimal
+  strings instead. Null role ids remain null; package event ids and cached
+  model data retain their types. The frozen AS2 baseline was deliberately
+  regenerated with only event role ids changing from JSON numbers to strings.
+
 - FeedPage presents each node once, reusing its items across array access and repeated reads.
 - Doctor counts tombstoned objects under their former morph alias when assessing unwired feed surface.
 - Verbs may no longer contain a dot. Story declarations, vocabulary registries
@@ -36,16 +43,18 @@
 ### Upgrade
 
 Before v1, re-publish the migration stubs and re-run them on a fresh database
-for the new model-key storage. `storyfeed.morph_key_type` accepts null (follow
-Laravel), 'int', or 'string'. Laravel UUID/ULID morph defaults select varchar(36)
-for all app-model references, accommodating the package's numeric parties and
-tombstones too. Mixed-key apps using Laravel's int default must choose 'string'
-before migrating. Int mode keeps existing bigint columns and queries unchanged,
-and changes participant entity_id, batch-lock actor_id and tombstone model_id
-to bigint.
-Existing databases need an explicit migration of their app-model id columns;
-changing config or re-publishing stubs alone does not alter existing columns.
-Doctor's `morph_keys` check reports string-keyed models against numeric columns.
+for the new model-key storage. Every app-model reference is now varchar(36),
+including participants, snapshots, batch locks and tombstones, independently
+of Laravel's morph-key default. UUIDs, ULIDs and decimal bigint keys share this
+schema; custom keys longer than 36 characters are outside the supported contract.
+MySQL/MariaDB use ASCII with ascii_bin collation; SQL Server uses
+Latin1_General_100_BIN2; PostgreSQL and SQLite retain case-sensitive defaults.
+Package-owned primary keys and cached snapshot pointers remain bigint; party
+and tombstone references store those keys as decimal strings.
+`storyfeed.morph_key_type` and Doctor's `morph_keys` check have been removed.
+A stale key in an app's published config is harmless and ignored.
+Existing databases need an explicit migration of their app-model id columns
+and collations; changing config or re-publishing stubs alone does not alter them.
 
 
 Use the action alone in base form (`email`, not `document.emailed`); the object

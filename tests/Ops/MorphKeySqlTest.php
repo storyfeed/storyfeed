@@ -1,17 +1,18 @@
 <?php
 
 use Illuminate\Database\Query\Builder;
+use Illuminate\Database\Query\Expression;
 use Illuminate\Database\Query\Grammars;
 use Illuminate\Database\Query\JoinClause;
 use Illuminate\Support\Facades\DB;
+use Storyfeed\Actions\PruneActivities;
 use Storyfeed\Actions\PurgeActivities;
 use Storyfeed\Diagnostics\Checks\RemovalVerbs;
 use Storyfeed\Models\Activity;
 use Storyfeed\Models\FeedTombstone;
 use Storyfeed\Support\ActivityRoles;
 
-it('preserves the two legacy int mode queries byte for byte', function (string $driver) {
-    config()->set('storyfeed.morph_key_type', 'int');
+it('casts package tombstone keys without casting indexed role columns', function (string $driver) {
     $connection = DB::connection();
     $previous = $connection->getQueryGrammar();
     $grammar = match ($driver) {
@@ -31,9 +32,10 @@ it('preserves the two legacy int mode queries byte for byte', function (string $
                 return $query->selectRaw($this->objectTypeOf($query).' as object_type');
             }
         };
+        $cast = fn (string $column) => new Expression('cast('.$grammar->wrap($column).' as '.($driver === 'mysql' ? 'char(36) character set ascii' : 'varchar(36)').')'.($driver === 'mysql' ? ' collate ascii_bin' : ''));
         $legacy = Activity::query()->toBase();
-        $legacy->leftJoin('feed_tombstones as former_objects', function (JoinClause $join) {
-            $join->on('former_objects.id', '=', 'feed_activities.object_id')
+        $legacy->leftJoin('feed_tombstones as former_objects', function (JoinClause $join) use ($cast) {
+            $join->on($cast('former_objects.id'), '=', 'feed_activities.object_id')
                 ->where('feed_activities.object_type', '=', FeedTombstone::MORPH_ALIAS);
         })->selectRaw('coalesce('.$grammar->wrap('former_objects.model_type').', '.$grammar->wrap('feed_activities.object_type').') as object_type');
         expect($check->query()->toSql())->toBe($legacy->toSql())
@@ -51,10 +53,34 @@ it('preserves the two legacy int mode queries byte for byte', function (string $
             $legacy->whereNotExists(fn (Builder $sub) => $sub->selectRaw('1')
                 ->from('feed_activities', 'referencing')
                 ->where("referencing.{$role}_type", FeedTombstone::MORPH_ALIAS)
-                ->whereColumn("referencing.{$role}_id", 'feed_tombstones.id'));
+                ->whereColumn("referencing.{$role}_id", $cast('feed_tombstones.id')));
         }
         expect($purge->query()->toSql())->toBe($legacy->toSql())
             ->and($purge->query()->getBindings())->toBe($legacy->getBindings());
+    } finally {
+        $connection->setQueryGrammar($previous);
+    }
+})->with(['sqlite', 'mysql', 'pgsql', 'sqlsrv']);
+
+it('casts selected tombstone keys in retention inclusion and exclusion subqueries', function (string $driver) {
+    $connection = DB::connection();
+    $previous = $connection->getQueryGrammar();
+    $grammar = match ($driver) {
+        'mysql' => new Grammars\MySqlGrammar($connection),
+        'pgsql' => new Grammars\PostgresGrammar($connection),
+        'sqlsrv' => new Grammars\SqlServerGrammar($connection),
+        default => new Grammars\SQLiteGrammar($connection),
+    };
+    $connection->setQueryGrammar($grammar);
+    try {
+        $query = (new PruneActivities)->expired([
+            ['verb' => 'open', 'window' => 'P30D', 'types' => ['delivery'], 'except' => []],
+            ['verb' => 'open', 'window' => 'P60D', 'types' => null, 'except' => ['delivery']],
+        ]);
+        $cast = 'cast('.$grammar->wrap('feed_tombstones.id').' as '.($driver === 'mysql' ? 'char(36) character set ascii' : 'varchar(36)').')'.($driver === 'mysql' ? ' collate ascii_bin' : '');
+        expect(substr_count($query->toSql(), 'select '.$cast))->toBe(2)
+            ->and($query->toSql())->toContain($grammar->wrap('object_id').' in (select '.$cast)
+            ->toContain($grammar->wrap('object_id').' not in (select '.$cast);
     } finally {
         $connection->setQueryGrammar($previous);
     }

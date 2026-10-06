@@ -127,8 +127,8 @@ it('leaves a permanent tombstone for a model without soft deletes', function () 
     expect($tombstone->restorable)->toBeFalse()
         ->and($tombstone->approximate)->toBeFalse()
         ->and($tombstone->model_type)->toBe('dish')
-        ->and($tombstone->model_id)->toBe($dish->id)
-        ->and($activity->fresh()->object_id)->toBe($tombstone->id);
+        ->and($tombstone->model_id)->toBe((string) $dish->id)
+        ->and($activity->fresh()->object_id)->toBe((string) $tombstone->id);
 });
 
 it('stops finding a deleted model\'s history with involving(), and finds it again after a restore', function () {

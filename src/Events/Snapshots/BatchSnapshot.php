@@ -34,7 +34,7 @@ final readonly class BatchSnapshot
             ->orderBy('published_at')->orderBy('id')->get();
 
         return new self(
-            $batch->id, $batch->uid, $batch->actor_type, $batch->actor_id,
+            $batch->id, $batch->uid, $batch->actor_type, $batch->actor_id === null ? null : (string) $batch->actor_id,
             $batch->opened_at->toIso8601String(), $batch->closed_at?->toIso8601String(),
             $batch->last_activity_at?->toIso8601String(), $batch->activities_count,
             PlainData::freeze($batch->meta ?? []),
@@ -46,6 +46,7 @@ final readonly class BatchSnapshot
     public function toPayload(): array
     {
         return array_replace(get_object_vars($this), [
+            'actor_id' => $this->actor_id === null ? null : (string) $this->actor_id,
             'activities' => array_map(fn (ActivitySnapshot $activity) => $activity->toPayload(), $this->activities),
         ]);
     }

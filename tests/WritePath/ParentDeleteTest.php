@@ -167,7 +167,7 @@ it('costs one query per row on a many-row purge, and only named rows do more', f
     Photo::query()->get()->each->delete();
 
     expect($probes)->toBe(50)
-        ->and(FeedTombstone::query()->pluck('model_id')->all())->toBe([$named->id]);
+        ->and(FeedTombstone::query()->pluck('model_id')->all())->toBe([(string) $named->id]);
 });
 
 it('listens to nothing when no Feedable subclass needs it', function () {

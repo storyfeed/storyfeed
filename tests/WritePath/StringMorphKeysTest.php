@@ -11,10 +11,7 @@ use Storyfeed\Models\Activity;
 use Storyfeed\Models\FeedTombstone;
 use Storyfeed\Models\Party;
 use Storyfeed\Support\ActivityRoles;
-use Storyfeed\Tests\Fixtures\StringKeyMigrations;
 use Workbench\App\Models\Courier;
-
-uses(StringKeyMigrations::class);
 
 it('migrates every app model id column as text while retaining package numeric keys', function () {
     $columns = [
@@ -29,8 +26,7 @@ it('migrates every app model id column as text while retaining package numeric k
         }
     }
     expect(Schema::getColumnType('feed_tombstones', 'id'))->toContain('int')
-        ->and(Schema::getColumnType('feed_parties', 'id'))->toContain('int')
-        ->and(Storyfeed::doctor(['morph_keys'])->findings)->toBeEmpty();
+        ->and(Schema::getColumnType('feed_parties', 'id'))->toContain('int');
 });
 
 it('snapshots numeric parties and preserves referenced tombstones while purging string roles', function () {
@@ -61,8 +57,7 @@ it('stores UUID app keys alongside package numeric parties', function () {
     $party = Party::make('System');
     $activity = Storyfeed::activity('note', $model)->by($party)->publish();
     expect($activity->fresh()->object_id)->toBe($model->id)
-        ->and($activity->fresh()->actor_id)->toBe((string) $party->id)
-        ->and(Storyfeed::doctor(['morph_keys'])->findings)->toBeEmpty();
+        ->and($activity->fresh()->actor_id)->toBe((string) $party->id);
 });
 
 class UuidKeyProbe extends Model

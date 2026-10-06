@@ -117,7 +117,7 @@ it('attributes a model deleted since dispatch', function () {
 
     carriedRun();
 
-    expect(Activity::sole()->actor_type)->toBe('user')->and(Activity::sole()->actor_id)->toBe($sam->id);
+    expect(Activity::sole()->actor_type)->toBe('user')->and(Activity::sole()->actor_id)->toBe((string) $sam->id);
 });
 
 it('lets an explicit actor in the job win', function (string $connection) {
@@ -153,7 +153,7 @@ it('carries no opinion as nothing, so the worker falls through as the request wo
 
     carriedRun();
 
-    expect(Activity::sole()->actor_id)->toBe($ines->id);
+    expect(Activity::sole()->actor_id)->toBe((string) $ines->id);
 });
 
 it('ignores an undeclared name on the worker, as it would in the request', function () {

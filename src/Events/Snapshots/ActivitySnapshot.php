@@ -49,7 +49,7 @@ final readonly class ActivitySnapshot
             $cached = $activity->getRelation('cached'.ucfirst($role));
             $roles[$role] = $type === null ? null : [
                 'type' => $type,
-                'id' => $id,
+                'id' => $id === null ? null : (string) $id,
                 'label' => $cached?->label,
                 'data' => PlainData::freeze($cached->data ?? []),
                 'content' => $cached?->content,
@@ -76,6 +76,15 @@ final readonly class ActivitySnapshot
     {
         // All seven roles are now public payload facts, including explicit nulls.
         // Promoted constructor defaults do not initialize properties on unserialize.
-        return get_object_vars($this) + array_fill_keys(ActivityRoles::PAYLOAD, null);
+        $payload = get_object_vars($this) + array_fill_keys(ActivityRoles::PAYLOAD, null);
+
+        // Older queued snapshots may still contain numeric role ids.
+        foreach (ActivityRoles::STORED as $role) {
+            if (isset($payload[$role]['id'])) {
+                $payload[$role]['id'] = (string) $payload[$role]['id'];
+            }
+        }
+
+        return $payload;
     }
 }

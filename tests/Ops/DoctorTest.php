@@ -6,13 +6,11 @@ use Storyfeed\Facades\Storyfeed;
 use Storyfeed\Grouping\Group;
 use Storyfeed\Models\Activity;
 use Storyfeed\Models\Grouping;
-use Storyfeed\Tests\Fixtures\StringKeyMigrations;
 use Workbench\App\Models\Customer;
 use Workbench\App\Models\Delivery;
 use Workbench\App\Models\User;
 
 // The discovered workbench includes a ULID Courier alongside numeric models.
-uses(StringKeyMigrations::class);
 
 it('reports missing grammar and icons for emitted verbs', function () {
     Storyfeed::activity('confirm', Delivery::create(['tracking_number' => 'TN-1']))->publish();

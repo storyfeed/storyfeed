@@ -6,15 +6,12 @@ use Illuminate\Support\Str;
 use Storyfeed\Actions\RebuildSnapshots;
 use Storyfeed\Facades\Storyfeed;
 use Storyfeed\Models\Snapshot;
-use Storyfeed\Tests\Fixtures\StringKeyMigrations;
 use Workbench\App\Models\Courier;
 use Workbench\App\Models\User;
 
-uses(StringKeyMigrations::class);
-
 /**
  * A role id is a morph id, and a morph id is not always an integer. Consumers
- * who select storyfeed.morph_key_type = 'string' before migrating
+ * with string model keys
  * store string role ids, and `storyfeed:rebuild` has to read them back as the
  * strings they are.
  *

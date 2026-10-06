@@ -21,7 +21,7 @@ it('keeps the activities of a deleted model, pointed at its tombstone', function
 
     expect(Activity::query()->count())->toBe(2)
         ->and($activity->fresh()->object_type)->toBe('storyfeed.tombstone')
-        ->and($activity->fresh()->object_id)->toBe($tombstone->id)
+        ->and($activity->fresh()->object_id)->toBe((string) $tombstone->id)
         ->and($tombstone->restorable)->toBeTrue();
 });
 

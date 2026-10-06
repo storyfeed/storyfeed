@@ -122,7 +122,7 @@ it('attributes a model deleted since dispatch', function () {
 
     scopedActorRun();
 
-    expect(Activity::sole()->actor_type)->toBe('user')->and(Activity::sole()->actor_id)->toBe($id);
+    expect(Activity::sole()->actor_type)->toBe('user')->and(Activity::sole()->actor_id)->toBe((string) $id);
 });
 
 it('leaves the auth-only path unchanged outside any scope', function () {
@@ -138,7 +138,7 @@ it('leaves the auth-only path unchanged outside any scope', function () {
     Auth::forgetGuards();
     scopedActorRun();
 
-    expect(Activity::sole()->actor_id)->toBe($user->id);
+    expect(Activity::sole()->actor_id)->toBe((string) $user->id);
 });
 
 it('prefers the scoped actor to the logged-in user', function () {

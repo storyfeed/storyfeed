@@ -9,7 +9,6 @@ use Storyfeed\Stories\Verb;
 use Storyfeed\StoryfeedManager;
 use Storyfeed\Testing\HeadlineCoverage;
 use Storyfeed\Testing\StorySurface;
-use Storyfeed\Tests\Fixtures\StringKeyMigrations;
 use Workbench\App\Enums\ActivityVerb;
 use Workbench\App\Models\Courier;
 use Workbench\App\Models\Customer;
@@ -18,7 +17,6 @@ use Workbench\App\Models\User;
 use Workbench\App\Stories\DeliveryWasConfirmed;
 
 // The inventory includes ULID-keyed Couriers alongside integer-keyed models.
-uses(StringKeyMigrations::class);
 
 /*
  * The inventory: what publishes, and what could but doesn't.

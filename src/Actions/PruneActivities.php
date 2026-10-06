@@ -12,6 +12,7 @@ use Storyfeed\Models\FeedTombstone;
 use Storyfeed\Stories\Verb;
 use Storyfeed\StoryfeedManager;
 use Storyfeed\Support\Chronology;
+use Storyfeed\Support\MorphKeyType;
 
 /**
  * Retire activities older than their verb's retention window. Strictly
@@ -168,7 +169,7 @@ class PruneActivities
         $tombstone = $this->tombstoneAlias();
         $tombstones = $this->tombstones();
         $formerly = fn (array $types) => $tombstones->newQuery()->toBase()
-            ->select($tombstones->getModel()->getQualifiedKeyName())
+            ->select(MorphKeyType::packageKey($tombstones->getQuery()->getGrammar(), $tombstones->getModel()->getQualifiedKeyName()))
             ->whereIn('model_type', $types);
 
         return $this->activities()->withTrashed()->where(function ($query) use ($slices, $tombstone, $formerly, $asOf) {

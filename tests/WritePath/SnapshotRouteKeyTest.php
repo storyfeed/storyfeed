@@ -44,7 +44,7 @@ it('records a route key that is not the primary key and hands it to the resolver
     $context = Customer::$lastContext;
 
     expect($snapshot->meta)->toBe(['route_key' => 'acme-bistro'])
-        ->and($context->key())->toBe($customer->id)
+        ->and($context->key())->toBe((string) $customer->id)
         ->and($context->routeKey())->toBe('acme-bistro')
         ->and($context->data())->not->toHaveKey('route_key');
 });
@@ -58,7 +58,7 @@ it('stores nothing extra when the route key is the primary key, and routeKey() i
     $snapshot = Snapshot::query()->where('model_type', 'customer')->sole();
 
     expect($snapshot->meta)->toBe([])
-        ->and(Customer::$lastContext->routeKey())->toBe($customer->id);
+        ->and(Customer::$lastContext->routeKey())->toBe((string) $customer->id);
 });
 
 it('falls back to key() for a snapshot written before the route key was recorded', function () {
@@ -68,7 +68,7 @@ it('falls back to key() for a snapshot written before the route key was recorded
     Snapshot::query()->where('model_type', 'slugged')->update(['meta' => null]);
     Storyfeed::feed()->get()->toArray();
 
-    expect(Customer::$lastContext->routeKey())->toBe($customer->id)
+    expect(Customer::$lastContext->routeKey())->toBe((string) $customer->id)
         ->and((new FeedContext(type: 'slugged', key: 7))->routeKey())->toBe(7);
 });
 

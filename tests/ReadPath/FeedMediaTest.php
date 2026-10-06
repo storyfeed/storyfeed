@@ -85,7 +85,7 @@ it('hands feedMedia() the snapshot as a context, not a bare array', function () 
 
     expect($context)->toBeInstanceOf(FeedContext::class)
         ->and($context->type())->toBe('customer')
-        ->and($context->key())->toBe($customer->id)
+        ->and($context->key())->toBe((string) $customer->id)
         ->and($context->label())->toBe('Acme')
         ->and($context->data())->toBe(['id' => $customer->id, 'name' => 'Acme'])
         ->and($context->data('name'))->toBe('Acme');
@@ -262,7 +262,7 @@ it('hands the same entity id to the resolver from both surfaces', function () {
     serialize_one($activity);
     $serialized = Customer::$lastContext;
 
-    expect($presented?->key())->toBe($customer->id)
+    expect($presented?->key())->toBe((string) $customer->id)
         ->and($serialized?->key())->toBe($presented?->key())
         ->and($serialized?->type())->toBe($presented?->type())
         ->and($activity->fresh()->cachedObject?->model_id)->toBe($presented?->key());

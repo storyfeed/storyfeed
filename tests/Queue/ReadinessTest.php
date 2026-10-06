@@ -65,7 +65,7 @@ it('preserves the request actor after authentication is gone', function () {
     queueReadinessRun();
     $activity = Activity::sole();
     expect(PublishListener::$seen)->toBe([['auth' => null, 'id' => $activity->id]])
-        ->and($activity->actor_type)->toBe($user->getMorphClass())->and($activity->actor_id)->toBe($user->id)
+        ->and($activity->actor_type)->toBe($user->getMorphClass())->and($activity->actor_id)->toBe((string) $user->id)
         ->and(Batch::count())->toBe(1)->and(DB::table('jobs')->count())->toBe(0);
 });
 
@@ -199,7 +199,7 @@ it('does not leak the first job actor into a second job in the same worker', fun
     queueReadinessPublish(['delivery' => $delivery->id]);
     $worker = app('queue.worker');
     queueReadinessRun();
-    expect(Activity::sole()->actor_id)->toBe($user->id);
+    expect(Activity::sole()->actor_id)->toBe((string) $user->id);
     queueReadinessRun();
     expect(app('queue.worker'))->toBe($worker)
         ->and(Activity::orderBy('id')->get()->last()->actor_id)->toBeNull()
@@ -216,7 +216,7 @@ it('preserves a deleted actor identity without serializing a model', function ()
     Auth::forgetGuards();
     $user->delete();
     queueReadinessRun();
-    expect(Activity::sole()->actor_type)->toBe('user')->and(Activity::sole()->actor_id)->toBe($id);
+    expect(Activity::sole()->actor_type)->toBe('user')->and(Activity::sole()->actor_id)->toBe((string) $id);
 });
 
 it('allows an app to suppress automatic transport with hidden null', function () {
@@ -245,7 +245,7 @@ it('uses transported identity before a worker fallback', function () {
     Auth::forgetGuards();
     config()->set('storyfeed.parties.fallback', 'Fallback');
     queueReadinessRun();
-    expect(Activity::sole()->actor_type)->toBe('user')->and(Activity::sole()->actor_id)->toBe($user->id);
+    expect(Activity::sole()->actor_type)->toBe('user')->and(Activity::sole()->actor_id)->toBe((string) $user->id);
 });
 
 it('retains application resolver authority on the worker', function () {
