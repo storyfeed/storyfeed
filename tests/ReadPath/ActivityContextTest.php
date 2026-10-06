@@ -150,7 +150,7 @@ it('preserves recorded identity when a role snapshot is absent', function () {
     app(NodePresenter::class)->activityNode($activity);
     expect($seen)->toBeInstanceOf(ActivityContext::class)
         ->and($seen->object()->type())->toBe('unknown')
-        ->and($seen->object()->key())->toBe(42)
+        ->and($seen->object()->key())->toBe('42')
         ->and($seen->object()->label())->toBeNull()
         ->and($seen->object()->data())->toBe([])
         ->and($seen->publishedAt())->toBeNull()

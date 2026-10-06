@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Storyfeed\Models\Activity;
 use Storyfeed\Models\Builders\ActivityBuilder;
 use Storyfeed\Support\ActivityRoles;
+use Storyfeed\Support\MorphKeyType;
 use Storyfeed\Support\MorphResolver;
 
 /**
@@ -84,7 +85,7 @@ class RebuildSnapshots
 
                 $this->activityQuery()
                     ->where("{$role}_type", $pair->type)
-                    ->where("{$role}_id", $pair->id)
+                    ->where("{$role}_id", MorphKeyType::value($pair->id))
                     ->update(["cached_{$role}_id" => $snapshot->getKey()]);
 
                 $snapshotted++;
@@ -193,7 +194,7 @@ class RebuildSnapshots
             // inside the window: the snapshot they point at has just moved.
             $this->activityQuery()
                 ->where("{$pair['role']}_type", $pair['type'])
-                ->where("{$pair['role']}_id", $pair['id'])
+                ->where("{$pair['role']}_id", MorphKeyType::value($pair['id']))
                 ->update(["cached_{$pair['role']}_id" => $snapshot->getKey()]);
         }
 

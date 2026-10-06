@@ -5,6 +5,7 @@ namespace Storyfeed\Actions;
 use Illuminate\Database\Eloquent\Model;
 use Storyfeed\Models\FeedTombstone;
 use Storyfeed\Models\Snapshot;
+use Storyfeed\Support\MorphKeyType;
 use Storyfeed\Support\SyncToken;
 
 /**
@@ -55,7 +56,7 @@ class RestoreToFeed
         );
 
         $snapshots = config('storyfeed.models.snapshot', Snapshot::class);
-        $snapshots::query()->where('model_type', $tombstone->getMorphClass())->where('model_id', $tombstone->getKey())->delete();
+        $snapshots::query()->where('model_type', $tombstone->getMorphClass())->where('model_id', MorphKeyType::value($tombstone->getKey()))->delete();
 
         $tombstone->delete();
 

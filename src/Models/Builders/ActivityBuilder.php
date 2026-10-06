@@ -9,6 +9,7 @@ use Illuminate\Database\Query\Builder as QueryBuilder;
 use Storyfeed\Actions\SyncParticipants;
 use Storyfeed\Support\ActivityRoles;
 use Storyfeed\Support\Chronology;
+use Storyfeed\Support\MorphKeyType;
 
 /**
  * @template TModel of \Storyfeed\Models\Activity
@@ -168,7 +169,7 @@ class ActivityBuilder extends Builder
     protected function whereMorphRole(string $role, Model $model): static
     {
         $this->where("{$role}_type", $model->getMorphClass())
-            ->where("{$role}_id", $model->getKey());
+            ->where("{$role}_id", MorphKeyType::value($model->getKey()));
 
         return $this;
     }

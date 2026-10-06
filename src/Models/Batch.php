@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Support\Carbon;
+use Storyfeed\Support\MorphKeyType;
 
 /**
  * An inferred burst of activity by one actor — an earlier implementation's
@@ -44,6 +45,7 @@ class Batch extends Model
     protected function casts(): array
     {
         return [
+            'actor_id' => MorphKeyType::class,
             'opened_at' => 'datetime',
             'closed_at' => 'datetime',
             'last_activity_at' => 'datetime',
@@ -113,7 +115,7 @@ class Batch extends Model
     public function scopeForActor(Builder $query, Model $actor): void
     {
         $query->where('actor_type', $actor->getMorphClass())
-            ->where('actor_id', $actor->getKey());
+            ->where('actor_id', MorphKeyType::value($actor->getKey()));
     }
 
     public function isOpen(): bool

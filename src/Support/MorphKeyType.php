@@ -2,7 +2,9 @@
 
 namespace Storyfeed\Support;
 
+use Illuminate\Contracts\Database\Eloquent\CastsInboundAttributes;
 use Illuminate\Contracts\Database\Query\Expression;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Query\Expression as QueryExpression;
 use Illuminate\Database\Query\Grammars\Grammar;
 use Illuminate\Database\Query\Grammars\MySqlGrammar;
@@ -11,8 +13,33 @@ use Illuminate\Database\Schema\ColumnDefinition;
 use Illuminate\Support\Facades\Schema;
 
 /** App references share storage with the package's numeric party/tombstone keys. */
-class MorphKeyType
+class MorphKeyType implements CastsInboundAttributes
 {
+    /** Keep null references null; MySQL must receive varchar bindings, never integers. */
+    public static function value(mixed $id): ?string
+    {
+        return $id === null ? null : (string) $id;
+    }
+
+    /**
+     * @param  list<int|string>  $ids
+     * @return list<string>
+     */
+    public static function values(array $ids): array
+    {
+        return array_map(fn ($id) => (string) $id, $ids);
+    }
+
+    /**
+     * Normalize model writes too, including morph association and direct create/update.
+     *
+     * @param  array<string, mixed>  $attributes
+     */
+    public function set(Model $model, string $key, mixed $value, array $attributes): ?string
+    {
+        return self::value($value);
+    }
+
     public static function nullableMorphs(Blueprint $table, string $name, ?string $driver = null): void
     {
         $table->string($name.'_type')->nullable();

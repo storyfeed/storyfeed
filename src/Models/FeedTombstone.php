@@ -11,6 +11,7 @@ use Storyfeed\Contracts\HasActivityStreamsType;
 use Storyfeed\FeedContext;
 use Storyfeed\FeedEntity;
 use Storyfeed\FeedMedia;
+use Storyfeed\Support\MorphKeyType;
 
 /**
  * What a deleted entity leaves behind in the feed: one row per deleted model,
@@ -48,6 +49,7 @@ class FeedTombstone extends Model implements Feedable, HasActivityStreamsType
     protected function casts(): array
     {
         return [
+            'model_id' => MorphKeyType::class,
             'restorable' => 'boolean',
             'approximate' => 'boolean',
             'deleted_at' => 'datetime',

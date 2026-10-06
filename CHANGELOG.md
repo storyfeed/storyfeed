@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- App-reference reads and writes bind ids as strings, including numeric model keys and numeric array-key lists, so MySQL can use the varchar identity indexes. New Activity, Batch, Snapshot and FeedTombstone attributes normalize non-null reference ids to strings on assignment.
+
 - Doctor role diagnostics work under MariaDB's strict SQL grouping while keeping anonymous and ordinary headline counts separate.
 
 - Doctor checks actorless headline tokens against the roles their anonymous activities carry.

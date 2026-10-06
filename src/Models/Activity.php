@@ -15,6 +15,7 @@ use Storyfeed\Events\Snapshots\ActivitySnapshot;
 use Storyfeed\Models\Builders\ActivityBuilder;
 use Storyfeed\StoryfeedManager;
 use Storyfeed\Support\Chronology;
+use Storyfeed\Support\MorphKeyType;
 
 /**
  * A recorded activity: actor + verb + object, optionally aimed at a target
@@ -84,6 +85,13 @@ class Activity extends Model
     protected function casts(): array
     {
         return [
+            'actor_id' => MorphKeyType::class,
+            'object_id' => MorphKeyType::class,
+            'target_id' => MorphKeyType::class,
+            'context_id' => MorphKeyType::class,
+            'origin_id' => MorphKeyType::class,
+            'result_id' => MorphKeyType::class,
+            'instrument_id' => MorphKeyType::class,
             'data' => 'array',
             'published_at' => 'datetime',
         ];

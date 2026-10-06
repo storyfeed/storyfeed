@@ -234,7 +234,7 @@ it('leaves nothing behind in the request after a sync job, including when it thr
     ScopedPublishJob::dispatch(['verb' => 'later']);
     scopedActorRun();
 
-    expect($after->actor_id)->toBe($user->id)
+    expect($after->actor_id)->toBe((string) $user->id)
         ->and(app(Repository::class)->hasHidden(QueuedActor::KEY))->toBeFalse()
         ->and(Activity::where('verb', 'later')->sole()->actor_id)->toBeNull();
 })->with(['completes' => false, 'throws' => true]);

@@ -12,6 +12,7 @@ use Storyfeed\Models\Snapshot;
 use Storyfeed\PendingTombstone;
 use Storyfeed\Support\ActivityRoles;
 use Storyfeed\Support\Feedables;
+use Storyfeed\Support\MorphKeyType;
 use Storyfeed\Support\MorphResolver;
 use Storyfeed\Support\SyncToken;
 use Storyfeed\Support\TombstoneRules;
@@ -131,7 +132,7 @@ class TombstoneEntity
     {
         $model = config('storyfeed.models.activity', Activity::class);
         $alias = $tombstone->getMorphClass();
-        $id = $tombstone->getKey();
+        $id = MorphKeyType::value($tombstone->getKey());
 
         return $model::query()->withoutGlobalScopes()->where(function ($query) use ($alias, $id) {
             foreach (ActivityRoles::STORED as $role) {
@@ -245,7 +246,7 @@ class TombstoneEntity
         // Privacy: the model's real label must not outlive the model, unless
         // the model asked for it to (keepLabel(), now on the tombstone).
         $snapshots = config('storyfeed.models.snapshot', Snapshot::class);
-        $snapshots::query()->where('model_type', $alias)->where('model_id', $id)->delete();
+        $snapshots::query()->where('model_type', $alias)->where('model_id', MorphKeyType::value($id))->delete();
 
         // Only a permanent tombstone forgets: a soft delete must stay
         // undoable by a restore.
@@ -305,7 +306,7 @@ class TombstoneEntity
     protected function forgetRedundant(FeedTombstone $tombstone): int
     {
         $alias = $tombstone->getMorphClass();
-        $id = $tombstone->getKey();
+        $id = MorphKeyType::value($tombstone->getKey());
         $rules = app(TombstoneRules::class);
 
         $involving = fn () => DeleteFromFeed::query()->withTrashed()->where(function ($query) use ($alias, $id) {

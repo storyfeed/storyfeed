@@ -272,7 +272,7 @@ class PurgeActivities
         $table = (new $model)->getTable();
 
         return $this->unreferenced(
-            $model::query()->toBase()->where("{$table}.model_type", $type)->whereIn("{$table}.model_id", $ids),
+            $model::query()->toBase()->where("{$table}.model_type", $type)->whereIn("{$table}.model_id", MorphKeyType::values($ids)),
             $type,
             "{$table}.model_id",
             $excluding,

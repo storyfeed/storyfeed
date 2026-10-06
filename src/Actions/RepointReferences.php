@@ -8,6 +8,7 @@ use Storyfeed\Models\Builders\ActivityBuilder;
 use Storyfeed\Models\Grouping;
 use Storyfeed\StoryfeedManager;
 use Storyfeed\Support\ActivityRoles;
+use Storyfeed\Support\MorphKeyType;
 
 /**
  * Move every reference to one entity onto another: the role columns of all
@@ -42,6 +43,8 @@ class RepointReferences
      */
     public function __invoke(string $fromType, int|string $fromId, string $toType, int|string $toId, ?int $toSnapshotId): int
     {
+        $fromId = MorphKeyType::value($fromId);
+        $toId = MorphKeyType::value($toId);
         $moved = [];
         /** @var array<string, array{string, string}> $clusters */
         $clusters = [];

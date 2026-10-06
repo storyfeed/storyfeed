@@ -4,6 +4,7 @@ namespace Storyfeed\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
+use Storyfeed\Support\MorphKeyType;
 
 /**
  * The denormalized read-model snapshot of a Feedable entity: its label,
@@ -37,6 +38,7 @@ class Snapshot extends Model
     protected function casts(): array
     {
         return [
+            'model_id' => MorphKeyType::class,
             'data' => 'array',
             'body' => 'array',
             'meta' => 'array',

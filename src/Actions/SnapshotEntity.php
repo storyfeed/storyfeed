@@ -9,6 +9,7 @@ use InvalidArgumentException;
 use Storyfeed\Contracts\Feedable;
 use Storyfeed\Models\Snapshot;
 use Storyfeed\Support\Feedables;
+use Storyfeed\Support\MorphKeyType;
 use Storyfeed\Support\ShapeSignature;
 
 /**
@@ -28,7 +29,7 @@ class SnapshotEntity
         $sourceUpdatedAt = $this->sourceUpdatedAt($model);
         $identity = [
             'model_type' => $model->getMorphClass(),
-            'model_id' => $model->getKey(),
+            'model_id' => MorphKeyType::value($model->getKey()),
         ];
         $routeKey = $model->getRouteKey();
         $values = [

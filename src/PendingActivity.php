@@ -38,6 +38,7 @@ use Storyfeed\Support\ActivityRoles;
 use Storyfeed\Support\BodySlot;
 use Storyfeed\Support\Chronology;
 use Storyfeed\Support\Feedables;
+use Storyfeed\Support\MorphKeyType;
 use Storyfeed\Testing\StoryfeedFake;
 use UnexpectedValueException;
 
@@ -735,7 +736,7 @@ class PendingActivity
             }
 
             $key["{$role}_type"] = $morph;
-            $key["{$role}_id"] = $id;
+            $key["{$role}_id"] = MorphKeyType::value($id);
         }
 
         return ['key' => $key, 'within' => $declared['within'], 'delete' => $mode];

@@ -8,6 +8,7 @@ use Storyfeed\Models\Party;
 use Storyfeed\StoryfeedManager;
 use Storyfeed\Support\ActivityRoles;
 use Storyfeed\Support\IgnoredParties;
+use Storyfeed\Support\MorphKeyType;
 
 /**
  * Parties are created implicitly from strings, so a typo silently mints a new
@@ -67,7 +68,7 @@ class Parties extends Check
                 ->where(function ($query) use ($alias, $row) {
                     foreach (ActivityRoles::STORED as $role) {
                         $query->orWhere(function ($q) use ($role, $alias, $row) {
-                            $q->where("{$role}_type", $alias)->where("{$role}_id", $row->getKey());
+                            $q->where("{$role}_type", $alias)->where("{$role}_id", MorphKeyType::value($row->getKey()));
                         });
                     }
                 })

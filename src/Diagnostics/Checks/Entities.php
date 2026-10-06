@@ -8,6 +8,7 @@ use Storyfeed\Contracts\Feedable;
 use Storyfeed\Diagnostics\Finding;
 use Storyfeed\StoryfeedManager;
 use Storyfeed\Support\Feedables;
+use Storyfeed\Support\MorphKeyType;
 use Storyfeed\Support\MorphResolver;
 use Throwable;
 
@@ -258,7 +259,7 @@ class Entities extends Check
     {
         $activities = $this->activities()
             ->where("{$role}_type", $alias)
-            ->when($ids !== [], fn ($query) => $query->whereIn("{$role}_id", $ids))
+            ->when($ids !== [], fn ($query) => $query->whereIn("{$role}_id", MorphKeyType::values($ids)))
             ->orderByDesc('published_at')
             ->limit(self::EXAMPLES)
             ->toBase()
