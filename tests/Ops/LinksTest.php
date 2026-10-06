@@ -245,7 +245,7 @@ it('skips tombstones and nonfeedable types', function () {
     Storyfeed::activity('confirm', $delivery)->publish();
     $delivery->delete();
     Relation::morphMap(['plain' => Activity::class]);
-    Activity::query()->create(['verb' => 'onboard', 'object_type' => 'plain', 'object_id' => 'missing', 'published_at' => now()]);
+    Activity::query()->create(['verb' => 'onboard', 'object_type' => 'plain', 'object_id' => 999999, 'published_at' => now()]);
 
     expect(Storyfeed::doctor(['links'])->all())->toBeEmpty();
 });
