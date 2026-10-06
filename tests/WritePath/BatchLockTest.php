@@ -112,8 +112,9 @@ it('skips typed actors with null ids when backfilling batch locks', function () 
 
     $validId = DB::table('feed_batches')->where('uid', 'valid-actor')->value('id');
 
-    expect(DB::table('feed_batch_locks')->where('actor_id', '')->exists())->toBeFalse()
-        ->and(DB::table('feed_batch_locks')->count())->toBe(1)
+    // An empty string is not a valid comparison for integer keys on PostgreSQL.
+    // Exactly one lock, belonging to the valid actor, also rules out an extra row.
+    expect(DB::table('feed_batch_locks')->count())->toBe(1)
         ->and(listedBatches('user', 1))->toBe([(int) $validId]);
 });
 
