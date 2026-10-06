@@ -39,6 +39,7 @@ return new class extends Migration
         DB::table($batches)
             ->whereNull('closed_at')
             ->whereNotNull('actor_type')
+            ->whereNotNull('actor_id')
             ->orderBy('id')
             ->get(['id', 'actor_type', 'actor_id'])
             ->groupBy(fn ($batch) => $batch->actor_type."\0".$batch->actor_id)

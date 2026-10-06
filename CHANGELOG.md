@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Batch-lock migration backfills skip typed actors with null ids instead of creating empty-id lock rows.
 - Fixed wildcard verb allowlists and denylists on MySQL by using a portable LIKE escape character.
 
 ### Added

@@ -100,6 +100,23 @@ it('lists the open batches an existing install already has when the migration ru
         ->and(Batch::query()->where('uid', 'A')->value('activities_count'))->toBe(2);
 });
 
+it('skips typed actors with null ids when backfilling batch locks', function () {
+    DB::table('feed_batches')->insert([
+        ['uid' => 'missing-id', 'actor_type' => 'user', 'actor_id' => null, 'opened_at' => now()],
+        ['uid' => 'valid-actor', 'actor_type' => 'user', 'actor_id' => 1, 'opened_at' => now()],
+    ]);
+
+    $migration = include __DIR__.'/../../database/migrations/create_feed_batch_locks_table.php.stub';
+    $migration->down();
+    $migration->up();
+
+    $validId = DB::table('feed_batches')->where('uid', 'valid-actor')->value('id');
+
+    expect(DB::table('feed_batch_locks')->where('actor_id', '')->exists())->toBeFalse()
+        ->and(DB::table('feed_batch_locks')->count())->toBe(1)
+        ->and(listedBatches('user', 1))->toBe([(int) $validId]);
+});
+
 it('still rewrites groupings and participants when an activity is re-synced', function () {
     $sally = User::create(['name' => 'Sally', 'email' => 'sally@example.com']);
     $delivery = Delivery::create(['tracking_number' => 'TN-1']);
