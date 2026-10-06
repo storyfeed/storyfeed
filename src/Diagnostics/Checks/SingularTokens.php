@@ -119,28 +119,39 @@ class SingularTokens extends Check
      * Recorded (object_type, verb) pairs with a per-role count of the
      * activities that actually carry each role, partitioned by fully null
      * actors so each registry sees only the rows it renders. One grouped query;
-     * count(col) counts non-nulls on every driver we support.
+     * Per-row carried flags count non-nulls on every driver we support.
      *
      * @return iterable<int, \stdClass>
      */
     protected function carriage(): iterable
     {
-        $counts = array_map(
-            fn (string $role) => "count({$role}_type) as {$role}",
-            ActivityRoles::PAYLOAD,
-        );
-
         // A tombstoned row counts under its former type, whose template it
         // renders with.
         $query = $this->activities();
         $objectType = $this->objectTypeOf($query);
         $anonymous = 'case when actor_type is null and actor_id is null then 1 else 0 end';
+        $grammar = $query->getQuery()->getGrammar();
+        $carried = array_map(
+            fn (string $role) => 'case when '.$grammar->wrap($role.'_type').' is null then 0 else 1 end as '.$grammar->wrap($role),
+            ActivityRoles::PAYLOAD,
+        );
+        $counts = array_map(
+            fn (string $role) => 'sum('.$grammar->wrap($role).') as '.$grammar->wrap($role),
+            ActivityRoles::PAYLOAD,
+        );
 
-        // toBase(): these rows are aggregate tuples, not Activity models.
-        return $query
+        // Project expressions before grouping: MariaDB's ONLY_FULL_GROUP_BY
+        // rejects the actor columns inside a grouped CASE expression. The
+        // outer query groups plain columns on every driver instead.
+        $rows = $query
             ->toBase()
-            ->selectRaw(implode(', ', ["{$objectType} as type", 'verb', "{$anonymous} as anonymous", 'count(*) as total', ...$counts]))
-            ->groupByRaw("{$objectType}, verb, {$anonymous}")
+            ->selectRaw(implode(', ', ["{$objectType} as type", 'verb', "{$anonymous} as anonymous", ...$carried]));
+
+        return $rows->newQuery()
+            ->fromSub($rows, 'carriage')
+            ->select(['type', 'verb', 'anonymous'])
+            ->selectRaw(implode(', ', ['count(*) as total', ...$counts]))
+            ->groupBy('type', 'verb', 'anonymous')
             ->get();
     }
 

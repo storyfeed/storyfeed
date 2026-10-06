@@ -219,3 +219,21 @@ it('counts ordinary fallback rows once per pair when actorless grammar is absent
     expect($finding->subject['activities'])->toBe(2)
         ->and($finding->subject['pairs'])->toBe('delivery.clause_restored');
 });
+
+it('counts anonymous and ordinary role carriage independently under strict SQL grouping', function () {
+    Story::for('delivery')->verb('clause_restored')
+        ->headline(':object was restored on :target')
+        ->anonymousHeadline(':object was restored in :context');
+
+    restoreOne(anActor());
+    restoreOne();
+    restoreOne();
+
+    $report = Storyfeed::doctor(['roles']);
+    $findings = $report->withCode('roles.never_carried')->keyBy(fn ($finding) => $finding->subject['role']);
+
+    expect($report->has('doctor.check_failed'))->toBeFalse()
+        ->and($findings)->toHaveCount(2)
+        ->and($findings['target']->subject['activities'])->toBe(1)
+        ->and($findings['context']->subject['activities'])->toBe(2);
+});

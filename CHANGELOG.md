@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Doctor role diagnostics work under MariaDB's strict SQL grouping while keeping anonymous and ordinary headline counts separate.
+
 - Doctor checks actorless headline tokens against the roles their anonymous activities carry.
 
 - Batch-lock migration backfills skip typed actors with null ids instead of creating empty-id lock rows.
