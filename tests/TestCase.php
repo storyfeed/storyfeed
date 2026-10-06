@@ -40,6 +40,22 @@ class TestCase extends Orchestra
         ]);
     }
 
+    protected function tearDown(): void
+    {
+        // Testbench destroys the app but retained test callbacks can keep its
+        // PDO handles alive until garbage collection. Close them after all
+        // teardown callbacks have run, so parallel workers do not exhaust the
+        // real engine's connection limit.
+        $connections = $this->app?->make('db')->getConnections() ?? [];
+        try {
+            parent::tearDown();
+        } finally {
+            foreach ($connections as $connection) {
+                $connection->disconnect();
+            }
+        }
+    }
+
     protected function getPackageProviders($app)
     {
         return [
