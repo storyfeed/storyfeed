@@ -16,6 +16,8 @@
 
 ### Added
 
+- `Party::make()` accepts an optional external `url`. Party links follow snapshot updates and appear in entity payloads and Activity Streams `url`; renaming a party preserves its link.
+
 - Fluent `Group::headline()` accepts a closure receiving the `GroupSlice`,
   with its true count and sampled members, and returning finished headline text.
   Group closures support `storyfeed:cache` like single-activity headline closures.

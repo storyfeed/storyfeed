@@ -51,3 +51,31 @@ it('updates pictures for existing activities when the party snapshot changes', f
     Party::make('Studio', data: ['$media' => ['preview' => '/new.svg']]);
     expect(Storyfeed::feed()->get()->toArray()['items'][0]['object']['media']['preview']['src'])->toBe('/new.svg');
 });
+
+it('keeps a party external home alongside pictures', function () {
+    $party = Party::make('Studio', data: ['$media' => ['icon' => '/avatar.svg']], url: 'https://example.com');
+    Storyfeed::activity('ping')->actor($party)->publish();
+
+    $actor = Storyfeed::feed()->get()->toArray()['items'][0]['actor'];
+    expect($actor['url'])->toBe('https://example.com')
+        ->and($actor['media']['icon']['src'])->toBe('/avatar.svg')
+        ->and($actor['media']['url'])->toBeNull();
+});
+
+it('keeps a valid external home when pictures are malformed', function () {
+    $media = Party::feedMedia(new FeedContext('storyfeed.party', data: [
+        '$url' => 'https://example.com',
+        '$media' => ['icon' => '/valid.svg', 'preview' => false],
+    ]));
+
+    expect($media?->href())->toBe('https://example.com')
+        ->and($media?->media())->toBeNull();
+});
+
+it('does not link malformed external homes', function ($url) {
+    expect(Party::feedMedia(new FeedContext('storyfeed.party', data: ['$url' => $url])))->toBeNull();
+})->with([[null], [''], ['   '], [42], [false], [['href' => 'https://example.com']]]);
+
+it('does not interpret application data url as an external home', function () {
+    expect(Party::feedMedia(new FeedContext('storyfeed.party', data: ['url' => 'https://example.com'])))->toBeNull();
+});

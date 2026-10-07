@@ -70,6 +70,10 @@ class Party extends Model implements Feedable, HasActivityStreamsType
     /**
      * Resolve or create a party by key (slugged from the name by default).
      *
+     * The external home is stored in the reserved `$url` data slot and
+     * follows snapshot updates. Omitting url preserves it, even when data
+     * is replaced; passing url: null explicitly removes it.
+     *
      * @param  array<string, mixed>  $data
      */
     public static function make(
@@ -77,6 +81,7 @@ class Party extends Model implements Feedable, HasActivityStreamsType
         ?string $key = null,
         ObjectType|string $type = ObjectType::Service,
         array $data = [],
+        ?string $url = null,
     ): static {
         $key ??= Str::slug($name);
 
@@ -85,8 +90,19 @@ class Party extends Model implements Feedable, HasActivityStreamsType
         $party->name = $name;
         $party->type = $type instanceof ObjectType ? $type->value : $type;
 
+        $stored = $party->data ?? [];
+
         if ($data !== []) {
-            $party->data = $data;
+            // Replacing app data must not silently remove the external home.
+            $party->data = array_key_exists('$url', $stored)
+                ? array_replace(['$url' => $stored['$url']], $data)
+                : $data;
+        }
+
+        // PHP counts explicitly supplied named arguments too. Distinguish
+        // url: null (remove) from an omitted url (keep on rename/string use).
+        if (func_num_args() >= 5) {
+            $party->data = array_replace($party->data ?? [], ['$url' => $url]);
         }
 
         if ($party->isDirty() || ! $party->exists) {
@@ -118,8 +134,9 @@ class Party extends Model implements Feedable, HasActivityStreamsType
     }
 
     /**
-     * Parties have no canonical URL in the host application. A picture can
-     * represent a named participant without claiming a host record exists.
+     * Parties have no host record, but may have an external home in `$url`.
+     * Both links and pictures resolve from snapshots without a Party query.
+     * A picture represents a participant without claiming a host record exists.
      * `$media` accepts icon, preview and image slots: non-empty source strings
      * or FeedImage-shaped arrays. Absent or malformed media degrades to null.
      * Written out rather than taken from InteractsWithFeed because Party does not use
@@ -128,13 +145,15 @@ class Party extends Model implements Feedable, HasActivityStreamsType
      */
     public static function feedMedia(FeedContext $context): ?FeedMedia
     {
+        $url = $context->data('$url');
+        $link = is_string($url) && trim($url) !== '' ? FeedMedia::make(url: $url) : null;
         $data = $context->data('$media');
 
         if (! is_array($data) || $data === [] || array_diff(array_keys($data), ['icon', 'preview', 'image']) !== []) {
-            return null;
+            return $link;
         }
 
-        $media = FeedMedia::make();
+        $media = FeedMedia::make(url: $link?->href());
 
         foreach (['icon', 'preview', 'image'] as $slot) {
             $value = $data[$slot] ?? null;
@@ -147,22 +166,22 @@ class Party extends Model implements Feedable, HasActivityStreamsType
             }
 
             if (! is_array($value) || ! is_string($value['src'] ?? null) || trim($value['src']) === '') {
-                return null;
+                return $link;
             }
 
             if (array_diff(array_keys($value), ['src', 'mediaType', 'width', 'height', 'alt']) !== []) {
-                return null;
+                return $link;
             }
 
             foreach (['mediaType', 'alt'] as $field) {
                 if (isset($value[$field]) && ! is_string($value[$field])) {
-                    return null;
+                    return $link;
                 }
             }
 
             foreach (['width', 'height'] as $field) {
                 if (isset($value[$field]) && ! is_int($value[$field])) {
-                    return null;
+                    return $link;
                 }
             }
 
@@ -181,7 +200,7 @@ class Party extends Model implements Feedable, HasActivityStreamsType
             };
         }
 
-        return $media->media() === null ? null : $media;
+        return $media->href() === null && $media->media() === null ? null : $media;
     }
 
     /**
