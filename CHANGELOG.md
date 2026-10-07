@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Live and Summary page selection bounds the combined group-and-solo stream, with indexed winner probes and page-local membership reads. Summary computes phrase and row totals in one aggregate on MySQL/PostgreSQL and two on SQLite. Payloads, ordering and cursors are unchanged. Publish and run the new `add_read_path_indexes_to_feed_groupings_table` migration for the covering winner and group-member indexes.
+
+- Opt-in read benchmarks cover 100K activities on every push and 3M activities in a separate manual/nightly workflow, including complete payload construction.
+
 - Live feeds keep authored and auto-bundled composites visible when curation is disabled, while ignoring stale inferred winners and preserving solo activities without repeat rows.
 
 - App-reference reads and writes bind ids as strings, including numeric model keys and numeric array-key lists, so MySQL can use the varchar identity indexes. New Activity, Batch, Snapshot and FeedTombstone attributes normalize non-null reference ids to strings on assignment.

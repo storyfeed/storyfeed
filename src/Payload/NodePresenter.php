@@ -3,6 +3,8 @@
 namespace Storyfeed\Payload;
 
 use Closure;
+use Illuminate\Contracts\Database\Eloquent\CastsInboundAttributes;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
 use Storyfeed\FeedContext;
 use Storyfeed\FeedHeadline;
@@ -13,10 +15,12 @@ use Storyfeed\Models\Snapshot;
 use Storyfeed\StoryfeedManager;
 use Storyfeed\Support\ActivityContextFactory;
 use Storyfeed\Support\ActivityRoles;
+use Storyfeed\Support\Chronology;
 use Storyfeed\Support\LinkResolver;
 use Storyfeed\Support\ModelHydrator;
 use Storyfeed\Support\TombstoneRules;
 use Throwable;
+use WeakMap;
 
 /**
  * Builds Payload v1 nodes (docs/payload.md) from hydrated activities.
@@ -37,6 +41,18 @@ class NodePresenter
      * @var array<string, FeedTombstone|null>|null
      */
     protected ?array $tombstones = null;
+
+    /** @var WeakMap<Snapshot, array<string, mixed>>|null */
+    protected ?WeakMap $snapshotFields = null;
+
+    /** @var array<class-string<Activity>, list<string>> */
+    protected array $roleGetters = [];
+
+    /** @var array<string, true> */
+    protected array $roleColumns = [];
+
+    /** @var array<string, bool> */
+    protected array $outboundRoleCasts = [];
 
     /**
      * @param  string|null  $feed  the registered name of the feed this page was
@@ -96,11 +112,14 @@ class NodePresenter
 
         foreach ($slices as $slice) {
             foreach ($slice->members as $activity) {
+                $roles = $this->roleFields($activity);
                 foreach (ActivityRoles::PAYLOAD as $role) {
-                    $hydrator->seed($activity->{"{$role}_type"}, $activity->{"{$role}_id"});
+                    $type = $roles["{$role}_type"] ?? null;
+                    $id = $roles["{$role}_id"] ?? null;
+                    $hydrator->seed($type, $id);
 
-                    if ($activity->{"{$role}_type"} === FeedTombstone::MORPH_ALIAS && $activity->{"{$role}_id"} !== null) {
-                        $tombstoneIds[(string) $activity->{"{$role}_id"}] = true;
+                    if ($type === FeedTombstone::MORPH_ALIAS && $id !== null) {
+                        $tombstoneIds[(string) $id] = true;
                     }
                 }
             }
@@ -110,6 +129,7 @@ class NodePresenter
         $presenter->hydrator = $hydrator;
         $presenter->links = new LinkResolver;
         $presenter->tombstones = self::loadTombstones(array_keys($tombstoneIds));
+        $presenter->snapshotFields = new WeakMap;
 
         return $presenter;
     }
@@ -136,7 +156,7 @@ class NodePresenter
             'kind' => 'activity',
             'id' => $activity->uid,
             'verb' => $activity->verb,
-            'published_at' => $activity->published_at?->toISOString(),
+            'published_at' => Chronology::iso($activity->published_at),
             'headline_template' => $template,
             'headline' => $headline,
             // Renamed from `icon` (2026-09-07, pre-freeze): a verb-resolved GLYPH
@@ -154,13 +174,7 @@ class NodePresenter
             // no term for it and never carries it. See docs/payload.md,
             // `glyph_intent`.
             'glyph_intent' => $this->storyfeed->glyphIntent($type, $activity->verb),
-            'actor' => $this->entity($activity->actor_type, $activity->actor_id, $activity->cachedActor),
-            'object' => $this->entity($activity->object_type, $activity->object_id, $activity->cachedObject),
-            'target' => $this->entity($activity->target_type, $activity->target_id, $activity->cachedTarget),
-            'context' => $this->entity($activity->context_type, $activity->context_id, $activity->cachedContext),
-            'origin' => $this->entity($activity->origin_type, $activity->origin_id, $activity->cachedOrigin),
-            'result' => $this->entity($activity->result_type, $activity->result_id, $activity->cachedResult),
-            'instrument' => $this->entity($activity->instrument_type, $activity->instrument_id, $activity->cachedInstrument),
+            ...$this->activityEntities($activity),
             'data' => $activity->data,
             // Additive (2026-09-23): the roles whose entity was deleted, and
             // whether one of them is constitutive for this verb, so the
@@ -538,7 +552,7 @@ class NodePresenter
             'axis' => $slice->period === null ? $slice->axis : 'summary',
             'count' => $slice->count,
             'verb' => $verb,
-            'published_at' => $first->published_at?->toISOString(),
+            'published_at' => Chronology::iso($first->published_at),
             'headline_template' => $template,
             'headline' => $headline,
             'glyph' => $verb === null ? null : $this->storyfeed->icon($this->objectType($first), $verb),
@@ -597,30 +611,44 @@ class NodePresenter
         $counts = [];
         $distinctTombstoned = [];
 
-        foreach (self::GROUP_ROLES as $role => [$key, $relation]) {
-            $unique = $members
-                ->filter(fn (Activity $a) => $a->{"{$role}_type"} !== null)
-                ->unique(fn (Activity $a) => $a->{"{$role}_type"}.':'.$a->{"{$role}_id"})
-                ->values();
+        $identities = [];
+        foreach ($members as $member) {
+            $roles = $this->roleFields($member);
+            foreach (self::GROUP_ROLES as $role => [$key, $relation]) {
+                $type = $roles["{$role}_type"] ?? null;
+                if ($type === null) {
+                    continue;
+                }
+                $id = $roles["{$role}_id"] ?? null;
+                $identity = $type.':'.$id;
+                if (isset($identities[$role]['seen'][$identity])) {
+                    continue;
+                }
+                $identities[$role]['seen'][$identity] = true;
+                $identities[$role][$type === FeedTombstone::MORPH_ALIAS ? 'removed' : 'live'][] = [$member, $type, $id];
+            }
+        }
 
+        foreach (self::GROUP_ROLES as $role => [$key, $relation]) {
+            $seen = $identities[$role]['seen'] ?? [];
+            $live = $identities[$role]['live'] ?? [];
+            $removed = $identities[$role]['removed'] ?? [];
             $limit = config("storyfeed.grouping.sample_limits.{$role}", 3);
 
             // Live entities first, tombstones after, each in member order:
             // "Dana, Sam and a former customer" over "a former customer, a
             // former customer and Dana". Curation, not contract.
-            $sample[$key] = $unique
-                ->sortBy(fn (Activity $a) => $a->{"{$role}_type"} === FeedTombstone::MORPH_ALIAS ? 1 : 0)
-                ->take(is_int($limit) && $limit > 0 ? $limit : 3)
-                ->map(fn (Activity $a) => $this->entity($a->{"{$role}_type"}, $a->{"{$role}_id"}, $a->{$relation}))
-                ->values()
-                ->all();
+            $sample[$key] = array_map(
+                fn (array $entry) => $this->entity($entry[1], $entry[2], $entry[0]->{$relation}),
+                array_slice([...$live, ...$removed], 0, is_int($limit) && $limit > 0 ? $limit : 3),
+            );
 
             // True totals from the aggregate query; the in-page unique count
             // is the floor when a caller built the slice without them.
-            $counts[$key] = max($distinct[$role] ?? 0, $unique->count());
+            $counts[$key] = max($distinct[$role] ?? 0, count($seen));
             $distinctTombstoned[$key] = max(
                 $tombstoned[$role] ?? 0,
-                $unique->filter(fn (Activity $a) => $a->{"{$role}_type"} === FeedTombstone::MORPH_ALIAS)->count(),
+                count($removed),
             );
         }
 
@@ -707,7 +735,7 @@ class NodePresenter
             return null;
         }
 
-        $data = $snapshot->data ?? [];
+        $data = $this->snapshotJson($snapshot, 'data') ?? [];
 
         // No snapshot ⇒ no link regeneration: the contract promises degraded
         // entities arrive with url: null, and calling the app's resolver
@@ -716,17 +744,17 @@ class NodePresenter
         $link = $snapshot === null ? null : $links->resolve(new FeedContext(
             type: $type,
             key: $id,
-            label: $snapshot->label,
+            label: $this->snapshotPlain($snapshot, 'label'),
             data: $data,
             feed: $this->feed,
             hydrator: $this->hydrator ?? new ModelHydrator,
-            routeKey: $snapshot->meta['route_key'] ?? null,
+            routeKey: $this->snapshotJson($snapshot, 'meta')['route_key'] ?? null,
         ));
 
         return [
             'type' => $type,
             'id' => $id === null ? null : (string) $id,
-            'label' => $link->label ?? $snapshot?->label,
+            'label' => $link->label ?? $this->snapshotPlain($snapshot, 'label'),
             'url' => $link?->href(),
             'attributes' => $link->attributes ?? [],
             'modal' => $link->modal ?? false,
@@ -744,7 +772,7 @@ class NodePresenter
             // and a renderer that draws them another way is not wrong. A
             // resolved body that throws is reported and left out; the stored
             // body and the rest of the entity still arrive.
-            'body' => self::bodyOrNull([...($snapshot->body ?? []), ...$links->body($link, $type)]),
+            'body' => self::bodyOrNull([...($this->snapshotJson($snapshot, 'body') ?? []), ...$links->body($link, $type)]),
             // Additive (2026-09-23): what a deleted entity left behind, or
             // null. Distinct from DEGRADED (a live entity with no snapshot
             // yet: `label: null`, `tombstone: null`) and from ANONYMOUS (no
@@ -753,11 +781,116 @@ class NodePresenter
                 ? $this->tombstone($id)?->toPayload()
                 : null,
             ...array_filter([
-                'content' => $snapshot?->content,
-                'mediaType' => $snapshot?->media_type,
-                'attributedTo' => $snapshot?->attributed_to,
+                'content' => $this->snapshotPlain($snapshot, 'content'),
+                'mediaType' => $this->snapshotPlain($snapshot, 'media_type'),
+                'attributedTo' => $this->snapshotPlain($snapshot, 'attributed_to'),
             ], fn ($value) => $value !== null),
         ];
+    }
+
+    /** @return array<string, array<string, mixed>|null> */
+    protected function activityEntities(Activity $activity): array
+    {
+        $roles = $this->roleFields($activity);
+        $entities = [];
+        foreach (ActivityRoles::PAYLOAD as $role) {
+            $type = $roles["{$role}_type"] ?? null;
+            $entities[$role] = $type === null ? null : $this->entity(
+                $type, $roles["{$role}_id"] ?? null, $activity->{'cached'.ucfirst($role)},
+            );
+        }
+
+        return $entities;
+    }
+
+    /**
+     * Plain recorded role identities need no Eloquent cast dispatch. Read
+     * their current attributes together; custom accessors/casts still go
+     * through the model for every read. Only accessor metadata is remembered.
+     *
+     * @return array<string, mixed>
+     */
+    protected function roleFields(Activity $activity): array
+    {
+        $class = $activity::class;
+        if ($this->roleColumns === []) {
+            foreach (ActivityRoles::PAYLOAD as $role) {
+                $this->roleColumns["{$role}_type"] = true;
+                $this->roleColumns["{$role}_id"] = true;
+            }
+        }
+        $columns = $this->roleColumns;
+        if (! isset($this->roleGetters[$class])) {
+            $customRead = (new \ReflectionMethod($class, 'getAttribute'))->getDeclaringClass()->getName() !== Model::class
+                || (new \ReflectionMethod($class, 'getAttributeValue'))->getDeclaringClass()->getName() !== Model::class
+                || (new \ReflectionMethod($class, 'getAttributeFromArray'))->getDeclaringClass()->getName() !== Model::class;
+            $this->roleGetters[$class] = array_values(array_filter(array_keys($columns),
+                fn (string $column) => $customRead || $activity->hasAnyGetMutator($column)));
+        }
+        $attributes = $activity->getAttributes();
+        $getters = $this->roleGetters[$class];
+        foreach (array_intersect_key($activity->getCasts(), $columns) as $column => $cast) {
+            $outbound = $this->outboundRoleCasts[$cast] ??= ! is_subclass_of(
+                explode(':', $cast, 2)[0], CastsInboundAttributes::class,
+            );
+            if ($outbound) {
+                $getters[] = $column;
+            }
+        }
+        foreach (array_unique($getters) as $column) {
+            $attributes[$column] = $activity->{$column};
+        }
+
+        return $attributes;
+    }
+
+    /**
+     * Current plain snapshot values; custom models and casts keep their reader.
+     *
+     * @return string|null
+     */
+    protected function snapshotPlain(?Snapshot $snapshot, string $field): mixed
+    {
+        if ($snapshot === null) {
+            return null;
+        }
+        if ($snapshot::class === Snapshot::class && ! array_key_exists($field, $snapshot->getCasts())) {
+            $attributes = $snapshot->getAttributes();
+            if (array_key_exists($field, $attributes)) {
+                return $attributes[$field];
+            }
+        }
+
+        return $snapshot->{$field};
+    }
+
+    /**
+     * Decode only the JSON slot being read, at its original point in entity
+     * construction. Resolver calls stay fresh and may change a later slot.
+     * Raw values invalidate the memo; custom snapshot models retain getters.
+     * Object identity preserves separate hydration versions of the same id.
+     *
+     * @return array<array-key, mixed>|null
+     */
+    protected function snapshotJson(?Snapshot $snapshot, string $field): ?array
+    {
+        if ($snapshot === null) {
+            return null;
+        }
+        if ($this->snapshotFields === null || $snapshot::class !== Snapshot::class
+            || ($snapshot->getCasts()[$field] ?? null) !== 'array') {
+            return $snapshot->{$field};
+        }
+        $raw = $snapshot->getAttributes()[$field] ?? null;
+        $fields = $this->snapshotFields[$snapshot] ?? [];
+        if (isset($fields[$field]) && $fields[$field]['raw'] === $raw) {
+            return $fields[$field]['value'];
+        }
+        $value = $snapshot->{$field};
+        $fields[$field] = ['raw' => $raw, 'value' => $value];
+        $this->snapshotFields[$snapshot] = $fields;
+
+        return $value;
     }
 
     /**
@@ -781,9 +914,10 @@ class NodePresenter
      */
     protected function tombstoneFact(Activity $activity): array
     {
+        $roles = $this->roleFields($activity);
         $tombstoned = array_values(array_filter(
             ActivityRoles::PAYLOAD,
-            fn (string $role): bool => $activity->{"{$role}_type"} === FeedTombstone::MORPH_ALIAS,
+            fn (string $role): bool => ($roles["{$role}_type"] ?? null) === FeedTombstone::MORPH_ALIAS,
         ));
 
         if ($tombstoned === []) {

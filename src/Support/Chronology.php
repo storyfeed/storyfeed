@@ -35,6 +35,20 @@ final class Chronology
 {
     public const FORMAT = 'Y-m-d H:i:s.u';
 
+    /** Carbon's UTC ISO shape without running its localized token formatter. */
+    public static function iso(?CarbonInterface $value): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+        // Preserve Carbon's invalid-date and signed, six-digit year behavior.
+        if (! $value->isValid() || $value->year < 0 || $value->year > 9999) {
+            return $value->toISOString();
+        }
+
+        return $value->avoidMutation()->utc()->format('Y-m-d\TH:i:s.u\Z');
+    }
+
     /** Format a date the way the column stores it, so a bind compares like for like. */
     public static function stamp(DateTimeInterface|string $value): string
     {

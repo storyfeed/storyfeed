@@ -1,0 +1,40 @@
+name: read-performance-3m
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '23 4 * * *'
+
+concurrency:
+  group: read-performance-3m
+  cancel-in-progress: false
+
+jobs:
+  read-performance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v7
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.5'
+          extensions: pdo, sqlite, pdo_sqlite
+          coverage: none
+      - run: composer install --prefer-dist --no-interaction
+      - name: Guard read performance at 3M activities
+        env:
+          STORYFEED_READ_BENCH: '1'
+          STORYFEED_READ_SIZE: '3000000'
+          STORYFEED_READ_REPORT: build/read-path-3m.json
+          STORYFEED_TEST_DB: sqlite
+          STORYFEED_TEST_DATABASE: build/read-path-3m.sqlite
+        run: |
+          mkdir -p build
+          touch build/read-path-3m.sqlite
+          vendor/bin/pest tests/Performance/ReadPathPerformanceTest.php --ci
+      - name: Upload read performance report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: read-path-3m
+          path: build/read-path-3m.json

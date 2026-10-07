@@ -157,3 +157,19 @@ jobs:
 
       - name: Execute tests
         run: vendor/bin/pest --ci ${{ matrix.runner == 'parallel' && '--parallel' || '' }} ${{ matrix.database != 'sqlite' && '--processes=4' || '' }}
+
+      - name: Guard read performance at 100K activities
+        if: matrix.os == 'ubuntu-latest' && matrix.php == '8.5' && matrix.laravel == '13.*' && matrix.stability == 'prefer-stable' && matrix.runner == 'serial' && matrix.database == 'sqlite'
+        env:
+          STORYFEED_READ_BENCH: '1'
+          STORYFEED_READ_REPORT: build/read-path-100k.json
+        run: |
+          mkdir -p build
+          vendor/bin/pest tests/Performance/ReadPathPerformanceTest.php --ci
+
+      - name: Upload read performance report
+        if: always() && matrix.os == 'ubuntu-latest' && matrix.php == '8.5' && matrix.laravel == '13.*' && matrix.stability == 'prefer-stable' && matrix.runner == 'serial' && matrix.database == 'sqlite'
+        uses: actions/upload-artifact@v7
+        with:
+          name: read-path-100k
+          path: build/read-path-100k.json

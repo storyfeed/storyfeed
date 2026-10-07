@@ -151,6 +151,12 @@ class FeedBuilder
      */
     protected const MAX_EMPTY_HOPS = 5;
 
+    /** @var array<string, array{present: bool, nullable: bool, tombstones: bool}>|null */
+    protected ?array $summaryFacts = null;
+
+    /** @var array<string, int> */
+    protected array $summaryCounts = [];
+
     public function actor(Model|string $model): static
     {
         $this->assertUnlocked('actor');
@@ -492,11 +498,12 @@ class FeedBuilder
      * a callback `$this`, and this hands over a different, inner builder.
      *
      * Runs once per BRANCH of the read, not once per page: measured at once for
-     * a log page, and eleven times for a live page carrying one group — the
-     * group stream and its window probe, the solo stream, the member fetch, and
-     * one distinct count per role; a page that fits in a history window also
+     * a log page, and twelve times for a live page carrying one group — the
+     * group stream and its window probe, the solo stream, member ranking and
+     * hydration, and one distinct count per role; a page that fits in a history window also
      * recounts its groups once. A summary page carrying one row runs it
-     * nineteen times (fifteen counts in place of seven), plus once more when
+     * seven times on SQLite/MySQL/PostgreSQL (phrase and row branches
+     * in place of seven role branches), plus once more when
      * the page has rows that might share a crowd. Keep it free of side effects.
      *
      * Constraints reach the whole read, including group children and the
@@ -833,17 +840,27 @@ class FeedBuilder
      */
     protected function summarySlices(Carbon $now, Collection $candidates, Collection $groups): Collection
     {
+        $this->summaryFacts = null;
+        $this->summaryCounts = [];
         $units = $this->crowds($now, $groups);
         $members = $this->fetchMembers($now, $groups, byVerb: true);
         $aggregates = $this->summaryAggregates($now, $groups, $units);
+        $timestamps = [];
+        foreach ($members as $groupMembers) {
+            foreach ($groupMembers as $member) {
+                $timestamps[$member->getKey()] = $this->normalizeTimestamp($member->published_at);
+            }
+        }
 
+        /** @var array<string, int> $countsFromShapes */
+        $countsFromShapes = $this->summaryCounts;
         $counts = [];
         $keys = [];
 
         foreach ($groups as $group) {
             $key = $this->groupKey($group);
             $unit = $units[$key];
-            $counts[$unit] = ($counts[$unit] ?? 0) + $group->count;
+            $counts[$unit] = ($counts[$unit] ?? 0) + ($countsFromShapes[$key] ?? $group->count);
             $keys[$unit][] = $key;
         }
 
@@ -870,7 +887,7 @@ class FeedBuilder
             $all = $this->activityModel()->newCollection(
                 Collection::make($keys[$unit])
                     ->flatMap(fn (string $key) => $members->get($key)?->all() ?? [])
-                    ->sort(fn (Activity $a, Activity $b): int => $this->normalizeTimestamp($b->published_at) <=> $this->normalizeTimestamp($a->published_at)
+                    ->sort(fn (Activity $a, Activity $b): int => $timestamps[$b->getKey()] <=> $timestamps[$a->getKey()]
                         ?: $b->getKey() <=> $a->getKey())
                     ->values()
                     ->all(),
@@ -946,22 +963,36 @@ class FeedBuilder
         $activities = $this->activityModel()->getTable();
         $groupings = $this->groupingModel()->getTable();
 
-        $shapes = $this->activityModel()->getConnection()->query()
-            ->fromSub($this->selectedGroupMembers($now, $groups)->toBase()->select([
-                "{$groupings}.bucket as group_bucket",
-                "{$groupings}.hash as group_hash",
-                "{$activities}.verb",
-                "{$activities}.target_type",
-                "{$activities}.target_id",
-            ]), 'm')
+        $columns = ["{$groupings}.bucket as group_bucket", "{$groupings}.hash as group_hash", "{$activities}.verb"];
+        foreach (ActivityRoles::GROUPABLE as $role) {
+            array_push($columns, "{$activities}.{$role}_type", "{$activities}.{$role}_id");
+        }
+        $query = $this->activityModel()->getConnection()->query()
+            ->fromSub($this->selectedGroupMembers($now, $groups)->toBase()->select($columns), 'm')
             ->groupBy('group_bucket', 'group_hash')
             ->select(['group_bucket', 'group_hash'])
             ->selectRaw('count(*) as members')
             ->selectRaw('min(verb) as verb')
             ->selectRaw('count(target_type) as targeted')
             ->selectRaw('min(target_type) as min_type, max(target_type) as max_type')
-            ->selectRaw('min(target_id) as min_id, max(target_id) as max_id')
-            ->get();
+            ->selectRaw('min(target_id) as min_id, max(target_id) as max_id');
+        foreach (ActivityRoles::GROUPABLE as $role) {
+            $query->selectRaw("count({$role}_type) as {$role}_present")
+                ->selectRaw("sum(case when {$role}_type is not null and {$role}_id is null then 1 else 0 end) as {$role}_nullable")
+                ->selectRaw("sum(case when {$role}_type = ? then 1 else 0 end) as {$role}_tombstones", [FeedTombstone::MORPH_ALIAS]);
+        }
+        $shapes = $query->get();
+        $this->summaryCounts = $shapes->mapWithKeys(fn (object $shape) => [
+            $shape->group_bucket."\x1f".$shape->group_hash => (int) $shape->members,
+        ])->all();
+        $this->summaryFacts = [];
+        foreach (ActivityRoles::GROUPABLE as $role) {
+            $this->summaryFacts[$role] = [
+                'present' => $shapes->sum("{$role}_present") > 0,
+                'nullable' => $shapes->sum("{$role}_nullable") > 0,
+                'tombstones' => $shapes->sum("{$role}_tombstones") > 0,
+            ];
+        }
 
         $crowds = [];
 
@@ -1013,10 +1044,11 @@ class FeedBuilder
      * than the capped children. A crowd's rows count together, so two
      * people who checked in at one fair are one target, not two.
      *
-     * Fifteen queries a page: one for the phrase counts, and two per role,
-     * because a role's distinct count per row cannot be summed from its
-     * counts per phrase (one target, three verbs). The Step 3 read model
-     * absorbs them someday; settled periods never change.
+     * SQLite uses two queries, per phrase and per row: a role's row count
+     * cannot be summed from its phrases (one target, three verbs).
+     * MySQL/PostgreSQL ROLLUP computes both levels in one member scan.
+     * Other drivers retain the portable
+     * distinct-subquery implementation below.
      *
      * @param  Collection<int, FeedCandidate>  $groups
      * @param  array<string, string>  $units  group key => unit
@@ -1030,15 +1062,117 @@ class FeedBuilder
             return $result;
         }
 
+        $roleNames = array_values(array_filter(ActivityRoles::GROUPABLE,
+            fn (string $role) => $this->summaryFacts === null || $this->summaryFacts[$role]['present']));
         $activities = $this->activityModel()->getTable();
         $groupings = $this->groupingModel()->getTable();
         $connection = $this->activityModel()->getConnection();
         [$unit, $bindings] = $this->unitColumn($groups, $units);
-
+        $unitKeys = array_values(array_unique($units));
+        $naturalUnits = in_array($connection->getDriverName(), ['sqlite', 'mysql', 'mariadb', 'pgsql'], true)
+            && $groups->pluck('axis')->unique()->count() === 1
+            && count(array_filter($units, fn (string $value, string $key) => $value !== $key, ARRAY_FILTER_USE_BOTH)) === 0;
+        $nativeHash = $connection->getQueryGrammar()->wrap("{$groupings}.hash");
+        // Group on the index's native hash/collation, but return the bound
+        // ordinal: different stored spellings can compare equal in SQL and
+        // must not become different PHP array keys (or lose a phrase).
+        $aggregateKey = $naturalUnits ? 'natural_unit' : 'unit_key';
         $members = fn (array $columns) => $this->selectedGroupMembers($now, $groups)
             ->toBase()
             ->selectRaw("{$unit} as unit_key", $bindings)
+            ->when($naturalUnits, fn ($query) => $query->selectRaw("{$nativeHash} as natural_unit"))
             ->addSelect($columns);
+
+        if (in_array($connection->getDriverName(), ['sqlite', 'mysql', 'mariadb', 'pgsql'], true)) {
+            $roles = [];
+            $grammar = $connection->getQueryGrammar();
+            foreach ($roleNames as $role) {
+                $type = $grammar->wrap("{$role}_type");
+                $id = $grammar->wrap("{$role}_id");
+                // Length-prefix both tuple components, including a separate
+                // null-id marker. Concatenating with only a separator can
+                // collide for custom aliases/keys; null and empty differ too.
+                $identity = "length({$type}) || ':' || {$type} || case when {$id} is null then '-1:' else length({$id}) || ':' || {$id} end";
+                $roles[$role] = [$type, $id, $identity];
+            }
+            $columns = ["{$activities}.verb", "{$activities}.published_at"];
+            foreach ($roleNames as $role) {
+                array_push($columns, "{$activities}.{$role}_type", "{$activities}.{$role}_id");
+            }
+            $phrases = $connection->query()->fromSub($members($columns), 'm')
+                ->groupBy($aggregateKey, 'verb')
+                ->select([$aggregateKey, 'verb'])
+                ->when($naturalUnits, fn ($query) => $query->selectRaw('min(unit_key) as unit_key'))
+                ->selectRaw('count(*) as total, min(published_at) as first_at');
+            $rows = $connection->query()->fromSub($members($columns), 'm')
+                ->groupBy($aggregateKey)->select($aggregateKey)
+                ->when($naturalUnits, fn ($query) => $query->selectRaw('min(unit_key) as unit_key'));
+            foreach ($roles as $role => [$type, $id, $identity]) {
+                $count = match ($connection->getDriverName()) {
+                    'pgsql' => "count(distinct ({$type}, {$id})) filter (where {$type} is not null)",
+                    'mysql', 'mariadb' => "count(distinct {$type}, {$id})".($this->summaryFacts === null || $this->summaryFacts[$role]['nullable']
+                        ? " + count(distinct case when {$id} is null then {$type} end)" : ''),
+                    default => "count(distinct case when {$type} is not null then {$identity} end)",
+                };
+                $phrases->selectRaw("{$count} as {$role}_total");
+                $rows->selectRaw("{$count} as {$role}_total");
+                if ($this->summaryFacts !== null && ! $this->summaryFacts[$role]['tombstones']) {
+                    $rows->selectRaw("0 as {$role}_tombstoned");
+                } elseif (in_array($connection->getDriverName(), ['mysql', 'mariadb'], true)) {
+                    // Native tuple DISTINCT preserves each column's collation.
+                    // Its null-id exclusion needs a separate disjoint count.
+                    $rows->selectRaw("count(distinct case when {$type} = ? then {$type} end, case when {$type} = ? then {$id} end) + count(distinct case when {$type} = ? and {$id} is null then {$type} end) as {$role}_tombstoned", array_fill(0, 3, FeedTombstone::MORPH_ALIAS));
+                } else {
+                    $tombstoned = $connection->getDriverName() === 'pgsql'
+                        ? "count(distinct ({$type}, {$id})) filter (where {$type} = ?)"
+                        : "count(distinct case when {$type} = ? then {$identity} end)";
+                    $rows->selectRaw("{$tombstoned} as {$role}_tombstoned", [FeedTombstone::MORPH_ALIAS]);
+                }
+            }
+            // ROLLUP reads the member stream once for both phrase and row
+            // DISTINCT sets. SQLite keeps its two-query portable path.
+            $rollup = in_array($connection->getDriverName(), ['mysql', 'mariadb', 'pgsql'], true);
+            if ($rollup) {
+                foreach ($roleNames as $role) {
+                    if ($this->summaryFacts !== null && ! $this->summaryFacts[$role]['tombstones']) {
+                        $phrases->selectRaw("0 as {$role}_tombstoned");
+                    } elseif (in_array($connection->getDriverName(), ['mysql', 'mariadb'], true)) {
+                        [$type, $id] = $roles[$role];
+                        $phrases->selectRaw("count(distinct case when {$type} = ? then {$type} end, case when {$type} = ? then {$id} end) + count(distinct case when {$type} = ? and {$id} is null then {$type} end) as {$role}_tombstoned", array_fill(0, 3, FeedTombstone::MORPH_ALIAS));
+                    } else {
+                        [$type, $id] = $roles[$role];
+                        $phrases->selectRaw("count(distinct ({$type}, {$id})) filter (where {$type} = ?) as {$role}_tombstoned", [FeedTombstone::MORPH_ALIAS]);
+                    }
+                }
+                $phrases->groups = [];
+                $phrases->groupByRaw($connection->getDriverName() === 'pgsql'
+                    ? "grouping sets (({$aggregateKey}, verb), ({$aggregateKey}))"
+                    : "{$aggregateKey}, verb with rollup");
+            }
+            $phraseRows = $phrases->get();
+            foreach ($phraseRows as $row) {
+                if ($row->verb === null) {
+                    continue;
+                }
+                $distinct = [];
+                foreach ($roleNames as $role) {
+                    if ((int) $row->{"{$role}_total"} > 0) {
+                        $distinct[$role] = (int) $row->{"{$role}_total"};
+                    }
+                }
+                $result['phrases'][$unitKeys[$row->unit_key]][$row->verb] = ['count' => (int) $row->total, 'first' => $this->normalizeTimestamp($row->first_at), 'distinct' => $distinct];
+            }
+            foreach ($rollup ? $phraseRows->filter(fn (object $row) => $row->verb === null && $row->{$aggregateKey} !== null) : $rows->get() as $row) {
+                foreach ($roleNames as $role) {
+                    if ((int) $row->{"{$role}_total"} > 0) {
+                        $result['distinct'][$unitKeys[$row->unit_key]][$role] = (int) $row->{"{$role}_total"};
+                        $result['tombstoned'][$unitKeys[$row->unit_key]][$role] = (int) $row->{"{$role}_tombstoned"};
+                    }
+                }
+            }
+
+            return $result;
+        }
 
         $counts = $connection->query()
             ->fromSub($members(["{$activities}.verb", "{$activities}.published_at"]), 'm')
@@ -1049,14 +1183,14 @@ class FeedBuilder
             ->get();
 
         foreach ($counts as $row) {
-            $result['phrases'][$row->unit_key][$row->verb] = [
+            $result['phrases'][$unitKeys[$row->unit_key]][$row->verb] = [
                 'count' => (int) $row->total,
                 'first' => $this->normalizeTimestamp($row->first_at),
                 'distinct' => [],
             ];
         }
 
-        foreach (ActivityRoles::GROUPABLE as $role) {
+        foreach ($roleNames as $role) {
             $identity = ["{$activities}.{$role}_type", "{$activities}.{$role}_id"];
 
             $perPhrase = $connection->query()
@@ -1067,8 +1201,8 @@ class FeedBuilder
                 ->get();
 
             foreach ($perPhrase as $row) {
-                if (isset($result['phrases'][$row->unit_key][$row->verb])) {
-                    $result['phrases'][$row->unit_key][$row->verb]['distinct'][$role] = (int) $row->total;
+                if (isset($result['phrases'][$unitKeys[$row->unit_key]][$row->verb])) {
+                    $result['phrases'][$unitKeys[$row->unit_key]][$row->verb]['distinct'][$role] = (int) $row->total;
                 }
             }
 
@@ -1081,8 +1215,8 @@ class FeedBuilder
                 ->get();
 
             foreach ($perRow as $row) {
-                $result['distinct'][$row->unit_key][$role] = (int) $row->total;
-                $result['tombstoned'][$row->unit_key][$role] = (int) $row->tombstoned;
+                $result['distinct'][$unitKeys[$row->unit_key]][$role] = (int) $row->total;
+                $result['tombstoned'][$unitKeys[$row->unit_key]][$role] = (int) $row->tombstoned;
             }
         }
 
@@ -1090,9 +1224,8 @@ class FeedBuilder
     }
 
     /**
-     * The row each member counts in, as SQL: its group's own key, or its
-     * crowd's. A CASE over the page's groups, so a crowd aggregates in the
-     * same query as everything else on the page.
+     * A compact internal ordinal for each group or crowd. It is translated
+     * back to the existing group key after SQL; returned IDs never change.
      *
      * @param  Collection<int, FeedCandidate>  $groups
      * @param  array<string, string>  $units
@@ -1104,13 +1237,16 @@ class FeedBuilder
         $grammar = $this->groupingModel()->getConnection()->getQueryGrammar();
         $bucket = $grammar->wrapTable($groupings).'.'.$grammar->wrap('bucket');
         $hash = $grammar->wrapTable($groupings).'.'.$grammar->wrap('hash');
-
-        $sql = 'case';
+        $ordinals = array_flip(array_values(array_unique($units)));
+        $oneBucket = $groups->pluck('axis')->unique()->count() === 1;
+        $sql = $oneBucket ? "case {$hash}" : 'case';
         $bindings = [];
-
         foreach ($groups as $group) {
-            $sql .= " when {$bucket} = ? and {$hash} = ? then ?";
-            array_push($bindings, (string) $group->axis, (string) $group->hash, $units[$this->groupKey($group)]);
+            $sql .= ($oneBucket ? ' when ? then ' : " when {$bucket} = ? and {$hash} = ? then ").$ordinals[$units[$this->groupKey($group)]];
+            if (! $oneBucket) {
+                $bindings[] = (string) $group->axis;
+            }
+            $bindings[] = (string) $group->hash;
         }
 
         return [$sql.' end', $bindings];
@@ -1241,13 +1377,44 @@ class FeedBuilder
     protected function selectItems(Carbon $now): Collection
     {
         $cursor = $this->cursorState();
+        $ceiling = $cursor['latest'] ?? null;
+        foreach ($this->windowDepths() as $depth) {
+            $floor = $depth === null ? null : $this->windowFloor($now, $ceiling, $depth);
+            $groups = $this->groupAggregate($now, $cursor, $floor, $floor === null ? null : $ceiling)
+                ->map(fn (object $row) => FeedCandidate::group(
+                    $this->normalizeTimestamp($row->latest), (string) $row->bucket,
+                    (string) $row->hash, (int) $row->members,
+                ));
+            $solos = $this->soloStream($now, $cursor, $floor);
 
-        return $this->groupStream($now, $cursor)
-            ->concat($this->soloStream($now, $cursor))
+            // The PAGE is the merged stream. In a busy Summary day there
+            // may be only 24 person groups, but those plus solos already
+            // fill 30 items. Requiring 31 groups alone widens needlessly.
+            // A full merged window has exact latests and includes every
+            // tie at its floor; anything older ranks below its lookahead.
+            if ($floor === null || $groups->count() + $solos->count() > $this->limit) {
+                break;
+            }
+        }
+
+        $candidates = $groups
+            ->concat($solos)
             ->sort(fn (FeedCandidate $a, FeedCandidate $b): int => strcmp($b->latest, $a->latest)
                 ?: ($this->rank($a) <=> $this->rank($b))
                 ?: $this->compareTiebreak($a, $b))
             ->values();
+
+        if ($floor !== null) {
+            $pageGroups = $candidates->take($this->limit)->filter(fn (FeedCandidate $item) => $item->isGroup())->values();
+            // Summary's crowd-shape scan already counts every member of
+            // multi-group pages. Reuse those counts in summarySlices(). A
+            // single-group page has no shape scan and still needs recounting.
+            $counts = ($this->mode() === 'summary' && $pageGroups->count() >= 2
+                ? $pageGroups : $this->recountMembers($now, $pageGroups))->keyBy(fn (FeedCandidate $group) => $this->groupKey($group));
+            $candidates = $candidates->map(fn (FeedCandidate $item) => $item->isGroup() ? ($counts->get($this->groupKey($item)) ?? $item) : $item);
+        }
+
+        return $candidates;
     }
 
     protected function rank(FeedCandidate $candidate): int
@@ -1351,15 +1518,16 @@ class FeedBuilder
      * How many eligible activities, newest first, each windowed attempt of
      * the group aggregate covers; null is the unbounded aggregate and must
      * come last. Geometric so the retries together cost little more than the
-     * read that finally succeeds, and so a feed that is all solos (no group
-     * can ever fill a page) falls through to the unbounded read in two
-     * cheap attempts rather than many.
+     * read that finally succeeds. selectItems() accepts a full merged page,
+     * so an all-solo feed can finish in the first window too.
      *
      * @return non-empty-list<int|null>
      */
     protected function windowDepths(): array
     {
-        return [$this->limit * 16, $this->limit * 256, null];
+        return $this->mode() === 'summary'
+            ? [$this->limit * 128, $this->limit * 512, $this->limit * 2048, null]
+            : [$this->limit * 16, $this->limit * 64, $this->limit * 256, $this->limit * 1024, null];
     }
 
     /**
@@ -1409,9 +1577,43 @@ class FeedBuilder
             ->when($ceiling !== null, fn (ActivityBuilder $q) => $q->where("{$activities}.published_at", '<=', $ceiling))
             ->select(["{$activities}.id as fa_id", "{$activities}.published_at as fa_published"]);
 
-        $query = $this->groupingModel()->newQuery()
+        $query = $this->groupingModel()->newQuery();
+        if ($floor !== null && $this->groupingModel()->getConnection()->getDriverName() === 'sqlite') {
+            // SQLite preserves CROSS JOIN order. Start with recent activities,
+            // even when its generic range estimate prefers an entire bucket.
+            $query->fromSub($filtered, 'fa')->crossJoin($groupings)
+                ->whereColumn("{$groupings}.activity_id", 'fa.fa_id');
+        } else {
+            $query->joinSub($filtered, 'fa', fn (JoinClause $join) => $join->on('fa.fa_id', '=', "{$groupings}.activity_id"));
+        }
+
+        if ($floor !== null) {
+            // Discard irrelevant axes before materialization. This matters on
+            // MySQL/MariaDB: wide bucket/hash columns across eight axes can
+            // exceed the memory temporary-table budget even for a small window.
+            if ($this->mode() === 'summary') {
+                $query->where("{$groupings}.bucket", $this->summaryBucket());
+            } elseif (! config('storyfeed.grouping.curate', true)) {
+                $query->whereIn("{$groupings}.bucket", ['repeat', 'composite']);
+            } else {
+                $query->where(fn ($q) => $q->where("{$groupings}.winner", true)->orWhere("{$groupings}.bucket", 'repeat'));
+            }
+            if ($this->mode() !== 'summary') {
+                // Materialize membership BEFORE the winner OR. Merely keeping
+                // the activity window as a derived table still lets a planner
+                // start with every winner/repeat in history and join the window
+                // afterwards. This relation contains only recent memberships.
+                $recent = (clone $query)->select([
+                    "{$groupings}.activity_id", "{$groupings}.bucket",
+                    "{$groupings}.hash", "{$groupings}.winner", 'fa.fa_published',
+                ])->distinct();
+                $query = $this->groupingModel()->newQuery()->fromSub($recent, $groupings);
+                $latest = 'max('.$grammar->wrapTable($groupings).'.'.$grammar->wrap('fa_published').')';
+            }
+        }
+
+        $query = $query
             ->where($this->winning())
-            ->joinSub($filtered, 'fa', fn (JoinClause $join) => $join->on('fa.fa_id', '=', "{$groupings}.activity_id"))
             ->groupBy("{$groupings}.bucket", "{$groupings}.hash")
             ->select(["{$groupings}.bucket", "{$groupings}.hash"])
             ->selectRaw("{$latest} as latest")
@@ -1508,7 +1710,7 @@ class FeedBuilder
      * with an actor has exactly one such row, and nothing is ever stamped
      * on it, so curation and its races never reach the digest.
      */
-    protected function winning(): Closure
+    protected function winning(?string $bucket = null): Closure
     {
         $groupings = $this->groupingModel()->getTable();
 
@@ -1520,18 +1722,39 @@ class FeedBuilder
 
         $curate = config('storyfeed.grouping.curate', true);
 
-        return function ($query) use ($groupings, $curate) {
+        $probe = $this->groupingModel()->getConnection()->query()
+            ->selectRaw('1')->from("{$groupings} as w")
+            ->whereColumn('w.activity_id', "{$groupings}.activity_id")
+            ->where('w.winner', true)
+            ->when(! $curate, fn (QueryBuilder $claim) => $claim->where('w.bucket', 'composite'))
+            ->limit(1);
+
+        // A selected bucket is already known. Factor the general OR into
+        // that bucket's predicate so a (bucket, hash) lookup stays selective.
+        if ($bucket === 'repeat') {
+            if (! $curate) {
+                return fn ($query) => $query->whereRaw('('.$probe->toSql().') is null', $probe->getBindings());
+            }
+
+            return fn ($query) => $query->where(fn ($winner) => $winner
+                ->where("{$groupings}.winner", true)
+                ->orWhereRaw('('.$probe->toSql().') is null', $probe->getBindings()));
+        }
+        if ($bucket !== null) {
+            return fn ($query) => $query->where("{$groupings}.winner", true)
+                ->when(! $curate, fn ($claim) => $claim->where("{$groupings}.bucket", 'composite'));
+        }
+
+        return function ($query) use ($groupings, $curate, $probe) {
             $query->where(fn ($winner) => $winner
                 ->where("{$groupings}.winner", true)
                 ->when(! $curate, fn ($claim) => $claim->where("{$groupings}.bucket", 'composite')))
                 ->orWhere(fn ($fallback) => $fallback
                     ->where("{$groupings}.bucket", 'repeat')
-                    ->whereNotExists(fn (QueryBuilder $sub) => $sub
-                        ->selectRaw('1')
-                        ->from("{$groupings} as w")
-                        ->whereColumn('w.activity_id', "{$groupings}.activity_id")
-                        ->where('w.winner', true)
-                        ->when(! $curate, fn (QueryBuilder $claim) => $claim->where('w.bucket', 'composite'))));
+                    // A scalar 1-or-null probe has the same truth table as
+                    // NOT EXISTS. It also keeps MariaDB from materializing
+                    // every historical winner for this bounded page.
+                    ->whereRaw('('.$probe->toSql().') is null', $probe->getBindings()));
         };
     }
 
@@ -1612,12 +1835,13 @@ class FeedBuilder
      * @param  array{latest: string, rank: int, axis: string|null, hash: string|null, id: int|string|null}|null  $cursor
      * @return Collection<int, FeedCandidate>
      */
-    protected function soloStream(Carbon $now, ?array $cursor): Collection
+    protected function soloStream(Carbon $now, ?array $cursor, ?string $floor = null): Collection
     {
         $activities = $this->activityModel()->getTable();
         $groupings = $this->groupingModel()->getTable();
 
-        $query = $this->filteredActivities($now);
+        $query = $this->filteredActivities($now)
+            ->when($floor !== null, fn (ActivityBuilder $q) => $q->where("{$activities}.published_at", '>=', $floor));
 
         // "Has no winning grouping row", SPLIT INTO ONE ANTIJOIN PER DISJUNCT
         // rather than one antijoin over `winning()`. See notSolo() for why the
@@ -1635,11 +1859,18 @@ class FeedBuilder
         // covering index lookup on an existing index, and the first one that
         // matches short-circuits the rest.
         foreach ($this->notSolo() as $constraint) {
-            $query->whereNotExists(fn (QueryBuilder $sub) => $constraint($sub
-                ->selectRaw('1')
-                ->from($groupings)
-                ->whereColumn("{$groupings}.activity_id", "{$activities}.id")));
+            $probe = $constraint($this->groupingModel()->getConnection()->query()
+                ->selectRaw('1')->from($groupings)
+                ->whereColumn("{$groupings}.activity_id", "{$activities}.id"))->limit(1);
+            $query->whereRaw('('.$probe->toSql().') is null', $probe->getBindings());
         }
+
+        $composites = $this->groupingModel()->getConnection()->query()
+            ->selectRaw('1')->from("{$groupings} as composite_rows")
+            ->whereColumn('composite_rows.activity_id', "{$activities}.id")
+            ->where('composite_rows.bucket', 'composite')
+            ->when($this->mode() === 'summary', fn (QueryBuilder $members) => $members->where('composite_rows.winner', true))
+            ->limit(1);
 
         $query
             // Composite parents and members are never solo: the parent is
@@ -1647,12 +1878,7 @@ class FeedBuilder
             // the digest the parent IS the telling and takes its person's
             // row; one written before partition rows existed has none, and
             // reads solo here until the trickle or `--rehash` writes it.
-            ->whereNotExists(fn (QueryBuilder $sub) => $sub
-                ->selectRaw('1')
-                ->from("{$groupings} as composite_rows")
-                ->whereColumn('composite_rows.activity_id', "{$activities}.id")
-                ->where('composite_rows.bucket', 'composite')
-                ->when($this->mode() === 'summary', fn (QueryBuilder $members) => $members->where('composite_rows.winner', true)))
+            ->whereRaw('('.$composites->toSql().') is null', $composites->getBindings())
             ->with(ActivityRoles::cachedRelations())
             ->orderBy("{$activities}.published_at", 'desc')
             ->orderBy("{$activities}.id", 'desc')
@@ -1695,10 +1921,11 @@ class FeedBuilder
         // A digest row caps per VERB, so a busy day's first 25 children
         // cannot all be one verb and leave the other phrases no sample.
         $grammar = $this->activityModel()->getConnection()->getQueryGrammar();
+        $groupKeys = $groups->mapWithKeys(fn (FeedCandidate $group) => [$this->groupKey($group) => $this->groupKey($group)])->all();
+        [$groupOrdinal, $groupBindings] = $this->unitColumn($groups, $groupKeys);
         $partition = sprintf(
-            'row_number() over (partition by %s, %s%s order by %s desc, %s desc) as member_rank',
-            $grammar->wrapTable($groupings).'.'.$grammar->wrap('bucket'),
-            $grammar->wrapTable($groupings).'.'.$grammar->wrap('hash'),
+            'row_number() over (partition by %s%s order by %s desc, %s desc) as member_rank',
+            $groupOrdinal,
             $byVerb ? ', '.$grammar->wrapTable($activities).'.'.$grammar->wrap('verb') : '',
             $grammar->wrapTable($activities).'.'.$grammar->wrap('published_at'),
             $grammar->wrapTable($activities).'.'.$grammar->wrap('id'),
@@ -1706,22 +1933,39 @@ class FeedBuilder
 
         $ranked = $this->selectedGroupMembers($now, $groups)
             ->select([
-                "{$activities}.*",
-                "{$groupings}.bucket as group_bucket",
-                "{$groupings}.hash as group_hash",
+                "{$activities}.id as member_id",
+                "{$activities}.published_at",
+                "{$groupings}.".$this->groupingModel()->getKeyName().' as grouping_id',
             ])
-            ->selectRaw($partition);
+            ->selectRaw($partition, $groupBindings);
 
         $rows = $this->activityModel()->getConnection()->query()
             ->fromSub($ranked, 'ranked')
+            ->join("{$groupings} as selected_members", 'selected_members.'.$this->groupingModel()->getKeyName(), '=', 'ranked.grouping_id')
+            ->select(['ranked.*', 'selected_members.bucket as group_bucket', 'selected_members.hash as group_hash'])
             ->where('member_rank', '<=', $this->childrenLimit())
             ->orderBy('published_at', 'desc')
-            ->orderBy('id', 'desc')
+            ->orderBy('member_id', 'desc')
             ->get();
 
-        $members = $this->activityModel()->newQuery()->hydrate($rows->all());
-
-        $members->load(ActivityRoles::cachedRelations());
+        // Rank narrow identities, not wide activity/JSON rows. In MariaDB
+        // the latter forces disk temporary tables for a dense Summary day.
+        // Hydrate only capped members afterwards, retaining the ranked order.
+        $activitiesById = $this->filteredActivities($now)->whereKey($rows->pluck('member_id')->all())
+            ->select("{$activities}.*")
+            ->with(ActivityRoles::cachedRelations())->get()->keyBy(fn (Activity $activity) => (string) $activity->getKey());
+        $members = $this->activityModel()->newCollection();
+        foreach ($rows as $row) {
+            if ($activity = $activitiesById->get($row->member_id)) {
+                // The same activity can appear in more than one winning
+                // membership. Keep each row's aliases and model instance.
+                $activity = clone $activity;
+                $activity->setAttribute('group_bucket', $row->group_bucket);
+                $activity->setAttribute('group_hash', $row->group_hash);
+                $activity->setAttribute('member_rank', $row->member_rank);
+                $members->push($activity);
+            }
+        }
 
         return $members->groupBy(fn (Activity $activity) => $activity->group_bucket."\x1f".$activity->group_hash);
     }
@@ -1793,14 +2037,23 @@ class FeedBuilder
      */
     protected function selectedGroupMembers(Carbon $now, Collection $groups): ActivityBuilder
     {
+        $activities = $this->activityModel()->getTable();
         $groupings = $this->groupingModel()->getTable();
 
-        return $this->winningMembers($now)
-            ->where(function ($query) use ($groupings, $groups) {
-                foreach ($groups as $group) {
+        // Factor winners into each selected bucket. A flat winner OR beside
+        // the page's pair OR can choose every historical winner/bucket on
+        // SQLite. Materializing wide grouping rows fixes that but spills
+        // MariaDB's temporary tables at dense-day scale. These disjoint,
+        // bucket-specific predicates can use the full hash indexes directly.
+        return $this->filteredActivities($now)
+            ->join($groupings, fn (JoinClause $join) => $join
+                ->on("{$groupings}.activity_id", '=', "{$activities}.id"))
+            ->where(function ($query) use ($groups, $groupings) {
+                foreach ($groups->groupBy('axis') as $bucket => $members) {
                     $query->orWhere(fn ($pair) => $pair
-                        ->where("{$groupings}.bucket", $group->axis)
-                        ->where("{$groupings}.hash", $group->hash));
+                        ->where("{$groupings}.bucket", $bucket)
+                        ->whereIn("{$groupings}.hash", $members->pluck('hash')->all())
+                        ->where($this->winning((string) $bucket)));
                 }
             });
     }
