@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Live feeds keep authored and auto-bundled composites visible when curation is disabled, while ignoring stale inferred winners and preserving solo activities without repeat rows.
+
 - App-reference reads and writes bind ids as strings, including numeric model keys and numeric array-key lists, so MySQL can use the varchar identity indexes. New Activity, Batch, Snapshot and FeedTombstone attributes normalize non-null reference ids to strings on assignment.
 
 - Doctor role diagnostics work under MariaDB's strict SQL grouping while keeping anonymous and ordinary headline counts separate.

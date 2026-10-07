@@ -1499,8 +1499,10 @@ class FeedBuilder
      * stamped anywhere for its activity falls back to `repeat` — so adopters
      * upgrade into the winner column with no backfill cliff
      * (`storyfeed:curate` settles history incrementally). An app with
-     * `grouping.curate => false` reads repeats only, ignoring any winner
-     * an earlier curation run stamped.
+     * `grouping.curate => false` keeps explicit composite claims and reads
+     * repeats for everything else, ignoring inferred winners an earlier
+     * curation run stamped. Composite parent self-rows have no winner and
+     * never count as members.
      *
      * summary: the period's partition bucket, one equality. Every activity
      * with an actor has exactly one such row, and nothing is ever stamped
@@ -1516,21 +1518,20 @@ class FeedBuilder
             return fn ($query) => $query->where("{$groupings}.bucket", $bucket);
         }
 
-        // With curation off, live is repeats only, whatever an earlier
-        // curation run left stamped.
-        if (! config('storyfeed.grouping.curate', true)) {
-            return fn ($query) => $query->where("{$groupings}.bucket", 'repeat');
-        }
+        $curate = config('storyfeed.grouping.curate', true);
 
-        return function ($query) use ($groupings) {
-            $query->where("{$groupings}.winner", true)
+        return function ($query) use ($groupings, $curate) {
+            $query->where(fn ($winner) => $winner
+                ->where("{$groupings}.winner", true)
+                ->when(! $curate, fn ($claim) => $claim->where("{$groupings}.bucket", 'composite')))
                 ->orWhere(fn ($fallback) => $fallback
                     ->where("{$groupings}.bucket", 'repeat')
                     ->whereNotExists(fn (QueryBuilder $sub) => $sub
                         ->selectRaw('1')
                         ->from("{$groupings} as w")
                         ->whereColumn('w.activity_id', "{$groupings}.activity_id")
-                        ->where('w.winner', true)));
+                        ->where('w.winner', true)
+                        ->when(! $curate, fn (QueryBuilder $claim) => $claim->where('w.bucket', 'composite'))));
         };
     }
 
@@ -1565,11 +1566,12 @@ class FeedBuilder
      *    Universally true, and what splits either mode's predicate in two.
      *
      * 2. In the live branch the second disjunct is
-     *    `bucket = 'repeat' AND NOT EXISTS(w: winner = true)` — but it is
-     *    only ever evaluated alongside the first, `NOT EXISTS(winner = true)`,
-     *    which already guarantees this activity has no winner stamped
-     *    anywhere. So the nested subquery is TRUE by construction here and
-     *    drops out, leaving a bare `bucket = 'repeat'`. The nested lookup is
+     *    `bucket = 'repeat' AND NOT EXISTS(w: eligible winner)` — but it is
+     *    only ever evaluated alongside the first, `NOT EXISTS(eligible winner)`,
+     *    which already guarantees this activity has no eligible winner
+     *    (only composite claims when curation is off). So the nested
+     *    subquery is TRUE by construction here and drops out, leaving a
+     *    bare `bucket = 'repeat'`. The nested lookup is
      *    load-bearing inside `winning()`, where a row is judged on its own;
      *    it is redundant only under the negation, which is why this lives
      *    apart from `winning()` rather than replacing it.
@@ -1593,8 +1595,11 @@ class FeedBuilder
             ];
         }
 
+        $curate = config('storyfeed.grouping.curate', true);
+
         return [
-            fn (QueryBuilder $sub) => $sub->where("{$groupings}.winner", true),
+            fn (QueryBuilder $sub) => $sub->where("{$groupings}.winner", true)
+                ->when(! $curate, fn (QueryBuilder $claim) => $claim->where("{$groupings}.bucket", 'composite')),
             fn (QueryBuilder $sub) => $sub->where("{$groupings}.bucket", 'repeat'),
         ];
     }

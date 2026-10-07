@@ -61,14 +61,54 @@ it('shows the atomic timeline in flat mode — members yes, story no', function 
         ->and(collect($items)->pluck('object.label')->filter())->toHaveCount(6);
 });
 
-it('shows composites in grouped mode — authored stories are not inference', function () {
+it('shows composites in grouped mode — authored stories are not inference', function (bool $curate) {
+    config()->set('storyfeed.grouping.curate', $curate);
+
     Storyfeed::activity('upload')->actor(tomas())->objects(sixFiles())->publish();
 
     $items = Storyfeed::feed()->live()->get()->toArray()['items'];
 
     expect($items)->toHaveCount(1)
         ->and($items[0]['axis'])->toBe('composite')
-        ->and($items[0]['count'])->toBe(6);
+        ->and($items[0]['count'])->toBe(6)
+        ->and($items[0]['children'])->toHaveCount(6)
+        ->and(collect($items[0]['children'])->pluck('id')->sort()->values()->all())->toBe(
+            Activity::query()->whereNotNull('object_id')->orderBy('id')->pluck('uid')->sort()->values()->all(),
+        );
+})->with(['curation on' => true, 'curation off' => false]);
+
+it('pages composites, repeats and solos exactly once with curation off', function () {
+    Storyfeed::activity('upload')->actor(tomas())->objects(sixFiles())->publish();
+
+    $document = Delivery::create(['tracking_number' => 'Revised.pdf']);
+    Storyfeed::activity('revise', $document)->actor(tomas())->publish();
+    Storyfeed::activity('revise', $document)->actor(tomas())->publish();
+    Storyfeed::activity('upload', Delivery::create(['tracking_number' => 'Solo.pdf']))->actor(tomas())->publish();
+
+    expect(Grouping::query()->where('bucket', 'object')->where('winner', true)->exists())->toBeTrue();
+    config()->set('storyfeed.grouping.curate', false);
+
+    $items = collect();
+    $cursor = null;
+    foreach (range(1, 3) as $page) {
+        $payload = Storyfeed::feed()->live()->limit(1)->cursor($cursor)->get()->toArray();
+        $items = $items->concat($payload['items']);
+        $cursor = $payload['next_cursor'];
+        expect($cursor === null)->toBe($page === 3);
+    }
+
+    expect($items)->toHaveCount(3)
+        ->and($items->firstWhere('axis', 'composite')['count'])->toBe(6)
+        ->and($items->firstWhere('axis', 'repeat')['count'])->toBe(2)
+        ->and($items->where('kind', 'activity'))->toHaveCount(1);
+
+    $seen = $items->flatMap(fn (array $item) => $item['kind'] === 'group'
+        ? collect($item['children'])->pluck('id')->all()
+        : [$item['id']]);
+
+    expect($seen->sort()->values()->all())->toBe(
+        Activity::query()->whereNotNull('object_id')->pluck('uid')->sort()->values()->all(),
+    );
 });
 
 it('rejects mixing object() and objects()', function () {
@@ -77,7 +117,8 @@ it('rejects mixing object() and objects()', function () {
         ->toThrow(InvalidArgumentException::class);
 });
 
-it('auto-bundles a bundleable run when the batch closes', function () {
+it('auto-bundles a bundleable run when the batch closes', function (bool $curate) {
+    config()->set('storyfeed.grouping.curate', $curate);
     Storyfeed::bundleables(['delivery']);
 
     $campaign = Customer::create(['name' => 'Spring Campaign']);
@@ -102,6 +143,7 @@ it('auto-bundles a bundleable run when the batch closes', function () {
     expect($items)->toHaveCount(1)
         ->and($items[0]['axis'])->toBe('composite')
         ->and($items[0]['count'])->toBe(6)
+        ->and($items[0]['children'])->toHaveCount(6)
         ->and(Grouping::query()->where('bucket', 'repeat')->whereIn(
             'activity_id',
             Activity::query()->whereNotNull('object_id')->pluck('id'),
@@ -111,7 +153,7 @@ it('auto-bundles a bundleable run when the batch closes', function () {
     (new CloseBatches)();
 
     expect(Activity::query()->count())->toBe(7);
-});
+})->with(['curation on' => true, 'curation off' => false]);
 
 it('never auto-bundles undesignated types, same-object runs, or singles', function () {
     $campaign = Customer::create(['name' => 'Spring Campaign']);

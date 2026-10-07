@@ -458,6 +458,28 @@ it('degrades to classic repeat-only grouping app-wide when curation is disabled'
         ->and(collect($items)->firstWhere('kind', 'group')['count'])->toBe(4);
 });
 
+it('keeps an activity solo with curation off when only a stale inferred winner remains', function () {
+    $project = Customer::create(['name' => 'Concur']);
+
+    foreach (['Bob', 'Sally', 'Ann'] as $name) {
+        uploadsTo($project, $name);
+    }
+
+    $activity = Activity::query()->firstOrFail();
+    Grouping::query()->where('activity_id', $activity->id)->where('bucket', 'repeat')->delete();
+
+    expect(Grouping::query()->where('activity_id', $activity->id)->where('winner', true)->exists())->toBeTrue();
+
+    config()->set('storyfeed.grouping.curate', false);
+
+    $items = Storyfeed::feed()->live()->get()->toArray()['items'];
+
+    expect($items)->toHaveCount(3)
+        ->and(collect($items)->pluck('id')->sort()->values()->all())->toBe(
+            Activity::query()->pluck('uid')->sort()->values()->all(),
+        );
+});
+
 it('collapses repeated acts on one object onto the object axis', function () {
     Story::verb('revise')->grouped(Group::on('object')->headline(':actor made :count revisions to :object'));
 
