@@ -96,6 +96,7 @@ built regardless.
 | Item | Why it waits for funding |
 |---|---|
 | **Exceptional scale** | Feeds that stay fast at billions of activities without pruning. This needs research into partitioned and tiered storage behind the same cursor, so the payload does not change. Performance at normal scale is part of the plan and is not waiting on funding. |
+| **Agent reliability** | A modelling guide comes first, as part of the plan. Proving that coding agents set up and record a feed correctly without a person correcting them needs continued research: testing agents against real apps, finding where they go wrong, and building the docs and tools that close each gap. |
 | **Official UI adapters for frontend frameworks** | Livewire and React, for example. The Vue/Inertia and Blade components in `storyfeed/ui` come first. Each further framework is another set of components to maintain. |
 | **Support for additional drivers such as SQL Server** | Storyfeed is tested on SQLite, MySQL 8.0+, MariaDB and PostgreSQL on every commit. A test run on SQL Server passes all but a handful of cases, but adding an engine to the supported list is a promise to keep it working. |
 
