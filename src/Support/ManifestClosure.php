@@ -100,7 +100,21 @@ final class ManifestClosure
     public static function fingerprint(Closure $closure): string
     {
         try {
-            return 'closure:'.(new ReflectionClosure(self::resolve($closure)))->getCode();
+            $closure = self::resolve($closure);
+            $code = (new ReflectionClosure($closure))->getCode();
+
+            try {
+                // Reflect both sides after the same cache round-trip. Laravel
+                // qualifies global helpers differently in a namespaced source
+                // file and its deserialised closure (filled vs \filled).
+                $cached = self::unserialize(serialize(SerializableClosure::unsigned($closure)));
+                $code = (new ReflectionClosure($cached))->getCode();
+            } catch (Throwable) {
+                // Fingerprints also serve uncached declarations. Keep their
+                // source comparable even when captured state cannot be cached.
+            }
+
+            return 'closure:'.$code;
         } catch (Throwable) {
             return 'closure';
         }

@@ -9,6 +9,8 @@ use Storyfeed\Grouping\Group;
 use Storyfeed\Stories\StoryManifest;
 use Storyfeed\Stories\Verb;
 use Storyfeed\StoryfeedManager;
+use Storyfeed\Support\ManifestClosure;
+use Storyfeed\Tests\Fixtures\Stories\HelperHeadlines;
 use Workbench\App\Enums\ActivityVerb;
 use Workbench\App\Stories\DeliveryWasConfirmed;
 
@@ -157,6 +159,47 @@ it('reports nothing when no manifest is cached', function () {
     // nothing stale to fight.
     expect(app(StoryManifest::class)->exists())->toBeFalse()
         ->and(Storyfeed::doctor(['manifest'])->all())->toBeEmpty();
+});
+
+it('compares helper headlines in their cached form without hiding changed closure bodies', function (bool $block) {
+    $headline = $block ? HelperHeadlines::block() : HelperHeadlines::arrow();
+
+    Story::for('delivery')->verb('confirm')->headline($headline);
+    $this->artisan('storyfeed:cache')->assertSuccessful();
+
+    $cached = app(StoryManifest::class)->read()['grammar']['delivery.confirm'];
+    foreach ([null, '', 'Premium'] as $tier) {
+        expect($cached(['tier' => $tier]))->toBe($headline(['tier' => $tier]));
+    }
+    expect(Storyfeed::doctor(['manifest'])->all())->toBeEmpty();
+    $this->artisan('storyfeed:doctor --only=manifest --fail-on=error')->assertSuccessful();
+
+    app()->forgetInstance(StoryfeedManager::class);
+    Storyfeed::clearResolvedInstances();
+    Story::for('delivery')->verb('confirm')->headline(
+        static fn (array $activity): string => filled($activity['tier']) ? ':actor CHANGED :object at a tier' : ':actor confirmed :object'
+    );
+
+    expect(Storyfeed::doctor(['manifest'])->withCode('manifest.stale')->sole()->message)
+        ->toContain('grammar[delivery.confirm]');
+    $this->artisan('storyfeed:doctor --only=manifest --fail-on=error')->assertFailed();
+})->with(['arrow' => false, 'block' => true]);
+
+it('normalizes helper qualification without erasing different helpers, literals or uncacheable bodies', function () {
+    expect(ManifestClosure::fingerprint(HelperHeadlines::arrow()))
+        ->toBe(ManifestClosure::fingerprint(HelperHeadlines::qualified()))
+        ->not->toBe(ManifestClosure::fingerprint(
+            static fn (array $activity): string => blank($activity['tier']) ? ':actor confirmed :object at a tier' : ':actor confirmed :object'
+        ));
+
+    expect(ManifestClosure::fingerprint(static fn (): string => 'filled()'))
+        ->not->toBe(ManifestClosure::fingerprint(static fn (): string => '\\filled()'));
+
+    $connection = new PDO('sqlite::memory:');
+    $first = static fn (): string => $connection->getAttribute(PDO::ATTR_DRIVER_NAME).' first';
+    $second = static fn (): string => $connection->getAttribute(PDO::ATTR_DRIVER_NAME).' second';
+    expect(ManifestClosure::fingerprint($first))->toStartWith('closure:')
+        ->not->toBe(ManifestClosure::fingerprint($second));
 });
 
 it('flags a cached manifest whose source no longer compiles', function () {

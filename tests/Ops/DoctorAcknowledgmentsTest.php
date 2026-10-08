@@ -7,6 +7,7 @@ use Storyfeed\Diagnostics\Fix;
 use Storyfeed\Diagnostics\Severity;
 use Storyfeed\Facades\Story;
 use Storyfeed\Facades\Storyfeed;
+use Storyfeed\FeedBuilder;
 use Storyfeed\Grouping\Axis;
 use Storyfeed\Grouping\Group;
 use Storyfeed\StoryfeedManager;
@@ -196,4 +197,48 @@ it('acknowledges a real verbless axis and warns when registry authoring settles 
     expect(Storyfeed::doctor(['axes'])->has('doctor.acknowledgment_stale'))->toBeTrue();
     $this->artisan('storyfeed:doctor --only=axes --fail-on=warning')->assertFailed();
     $this->artisan('storyfeed:doctor --only=axes --fail-on=error')->assertSuccessful();
+});
+
+it('guides exact acknowledgment of a custom-query exclusion without excusing other gaps or readers', function () {
+    config(['storyfeed.grouping.curate' => false]);
+    $queries = 0;
+    Storyfeed::feeds(['portal' => fn (FeedBuilder $feed) => $feed->live()->query(function ($query) use (&$queries) {
+        $queries++;
+        $query->where('verb', '!=', 'archive');
+    })]);
+    $actor = User::create(['name' => 'Portal', 'email' => 'portal@example.com']);
+    foreach (range(1, 2) as $index) {
+        Storyfeed::activity('archive', Delivery::create(['tracking_number' => "QUERY-{$index}"]))->actor($actor)->publish();
+    }
+
+    $report = Storyfeed::doctor(['aggregates']);
+    $finding = $report->withCode('aggregates.missing')->sole();
+    $subject = ['axis' => 'repeat', 'verb' => 'archive', 'key' => 'repeat.delivery.archive', 'read_by' => 'portal'];
+    expect($queries)->toBe(0)
+        ->and($finding->subject)->toBe($subject)
+        ->and($finding->message)->toContain('custom query', 'storyfeed.doctor.acknowledgments', '--only=aggregates --json');
+    $this->artisan('storyfeed:doctor --only=aggregates --fail-on=error')->assertFailed();
+    expect(Storyfeed::feed('portal')->get()->toArray()['items'])->toBeEmpty();
+
+    config(['storyfeed.doctor.acknowledgments' => [acknowledgeGap('aggregates.missing', $subject)]]);
+    $accepted = Storyfeed::doctor(['aggregates']);
+    expect($accepted->acknowledged())->toHaveCount(1)
+        ->and($accepted->withCode('aggregates.missing')->sole()->severity)->toBe(Severity::Error)
+        ->and($accepted->fixes())->toBeEmpty();
+    $this->artisan('storyfeed:doctor --only=aggregates --fail-on=error')
+        ->expectsOutputToContain('Acknowledged [error]')->assertSuccessful();
+
+    foreach (range(1, 2) as $index) {
+        Storyfeed::activity('confirm', Delivery::create(['tracking_number' => "QUERY-OTHER-{$index}"]))->actor($actor)->publish();
+    }
+    expect(Storyfeed::doctor(['aggregates'])->problems()->sole()->subject['verb'])->toBe('confirm');
+    $this->artisan('storyfeed:doctor --only=aggregates --fail-on=error')->assertFailed();
+
+    Storyfeed::feeds(['dashboard' => fn (FeedBuilder $feed) => $feed->live()]);
+    $changedReaders = Storyfeed::doctor(['aggregates']);
+    expect($changedReaders->acknowledged())->toBeEmpty()
+        ->and($changedReaders->has('doctor.acknowledgment_unobserved'))->toBeTrue()
+        ->and($changedReaders->withCode('aggregates.missing')->firstWhere('subject.verb', 'archive')->subject['read_by'])
+        ->toBe('portal, dashboard');
+    $this->artisan('storyfeed:doctor --only=aggregates --fail-on=error')->assertFailed();
 });

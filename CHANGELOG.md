@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### Fixed
+
+- Doctor compares closure headlines in their serialized form, avoiding false
+  `manifest.stale` errors for global helpers after `storyfeed:cache` or optimize.
+- Doctor explains how to acknowledge an exact `aggregates.missing` finding
+  when custom queries deliberately exclude the group, without hiding other gaps.
+
 ## v0.13.0 - 2026-10-08
 
 Breaking changes: replace `->summary()` with `->live()`. Summary calls now throw

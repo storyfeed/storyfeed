@@ -155,7 +155,11 @@ class AggregateCoverage extends Check
                 'aggregates.missing',
                 "No group headline resolves for `{$key}` — those group nodes fall back "
                 .'to the singular headline only when its tokens are safe for the axis, and otherwise render '
-                .'with NO headline at all. Register one with Story::verb()->grouped().',
+                .'with NO headline at all. Register one with Story::verb()->grouped(). '
+                .'Reachability uses declared modes and verb filters; custom query exclusions are not inspected. '
+                .'If every surface deliberately excludes this group, copy its complete subject from '
+                .'`php artisan storyfeed:doctor --only=aggregates --json` into '
+                .'`storyfeed.doctor.acknowledgments` with code `aggregates.missing` and a reason.',
                 [
                     'axis' => $axis,
                     'verb' => $verb,
