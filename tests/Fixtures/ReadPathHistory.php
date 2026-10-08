@@ -16,6 +16,10 @@ final class ReadPathHistory
 {
     public static function seed(int $size = 100_000, int $days = 120): void
     {
+        if (DB::transactionLevel() !== 0) {
+            throw new \LogicException('The read-path seed must own its batch transactions.');
+        }
+
         $actors = collect(range(1, 24))->map(fn ($i) => User::create(['name' => "Person {$i}", 'email' => "person{$i}@example.com"]));
         $targets = collect(range(1, 9))->map(fn ($i) => Customer::create(['name' => "Project {$i}"]));
         $objects = collect(range(1, 120))->map(fn ($i) => Delivery::create(['tracking_number' => "Document {$i}"]));
@@ -37,7 +41,6 @@ final class ReadPathHistory
         $cacheSize = $sqlite ? (int) DB::selectOne('pragma cache_size')->cache_size : null;
         if ($sqlite) {
             DB::statement('pragma cache_size = -65536');
-            DB::beginTransaction();
         }
         try {
             for ($offset = 1; $offset <= $size; $offset += $chunkSize) {
@@ -104,6 +107,10 @@ final class ReadPathHistory
                         $groupings[] = ['activity_id' => $id, 'bucket' => $bucket, 'hash' => $hash, 'winner' => str_starts_with($bucket, 'summary.') ? null : $winner];
                     }
                 }
+                // Commit each bounded batch. An outer SQLite transaction keeps
+                // every nested savepoint alive for the entire multi-million-row
+                // seed, and an automatic rollback then masks the original error
+                // with "no such savepoint" while unwinding those savepoints.
                 DB::transaction(function () use ($activities, $groupings, $sqlite) {
                     DB::table('feed_activities')->insert($activities);
                     foreach (array_chunk($groupings, $sqlite ? 4000 : 250) as $rows) {
@@ -114,15 +121,6 @@ final class ReadPathHistory
                     fprintf(STDERR, "Seeded %d activities in %.1fs\n", end($chunk), (hrtime(true) - $started) / 1e9);
                 }
             }
-
-            if ($sqlite) {
-                DB::commit();
-            }
-        } catch (\Throwable $error) {
-            if ($sqlite) {
-                DB::rollBack();
-            }
-            throw $error;
         } finally {
             if ($sqlite) {
                 DB::statement('pragma cache_size = '.$cacheSize);

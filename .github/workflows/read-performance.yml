@@ -15,26 +15,51 @@ jobs:
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v7
+      - name: Initialize failure report
+        run: |
+          mkdir -p build
+          printf '%s\n' '{"status":"setup","requested_activities":3000000,"reads":[]}' > build/read-path-3m.json
+          df -h > build/read-path-3m-disk.txt
       - uses: shivammathur/setup-php@v2
         with:
           php-version: '8.5'
           extensions: pdo, sqlite, pdo_sqlite
           coverage: none
       - run: composer install --prefer-dist --no-interaction
+      - name: Check seed rollback handling
+        run: vendor/bin/pest tests/ReadPath/ReadPathHarnessTest.php --ci
+      - name: Preflight the file-backed benchmark at 2K activities
+        env:
+          STORYFEED_READ_BENCH: '1'
+          STORYFEED_READ_SIZE: '2000'
+          STORYFEED_READ_REPORT: build/read-path-3m-preflight.json
+          STORYFEED_TEST_DB: sqlite
+          STORYFEED_TEST_DATABASE: build/read-path-3m-preflight.sqlite
+        run: |
+          touch build/read-path-3m-preflight.sqlite
+          vendor/bin/pest tests/Performance/ReadPathPerformanceTest.php --ci
       - name: Guard read performance at 3M activities
         env:
           STORYFEED_READ_BENCH: '1'
           STORYFEED_READ_SIZE: '3000000'
           STORYFEED_READ_REPORT: build/read-path-3m.json
+          STORYFEED_READ_SEED_PROGRESS: '1'
           STORYFEED_TEST_DB: sqlite
           STORYFEED_TEST_DATABASE: build/read-path-3m.sqlite
+        shell: bash
         run: |
-          mkdir -p build
           touch build/read-path-3m.sqlite
-          vendor/bin/pest tests/Performance/ReadPathPerformanceTest.php --ci
+          vendor/bin/pest tests/Performance/ReadPathPerformanceTest.php --ci 2>&1 | tee build/read-path-3m.log
+      - name: Record remaining disk space
+        if: always()
+        run: df -h >> build/read-path-3m-disk.txt
       - name: Upload read performance report
         if: always()
         uses: actions/upload-artifact@v7
         with:
           name: read-path-3m
-          path: build/read-path-3m.json
+          path: |
+            build/read-path-3m*.json
+            build/read-path-3m.log
+            build/read-path-3m-disk.txt
+          if-no-files-found: error
