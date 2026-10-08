@@ -3,6 +3,7 @@
 namespace Storyfeed\Console;
 
 use Illuminate\Console\Command;
+use RuntimeException;
 use Storyfeed\Actions\CurateCluster;
 use Storyfeed\Actions\RebuildGroupingBursts;
 use Storyfeed\Actions\ReleaseComposite;
@@ -40,6 +41,9 @@ class CurateCommand extends Command
         {--window= : Only activities published within this many days (a verb grouped per week or month: its whole period)}
         {--rehash : Re-run the grouping strategy first, so rows adopt newly added axes}
         {--rebuild-bursts : Replace calendar groups with deterministic chronological bursts (pause publishers first)}
+        {--writers-paused : Confirm ALL publishers, workers and schedulers are paused for the full rebuild}
+        {--resume : Continue an interrupted --rebuild-bursts from its committed cursor}
+        {--restart : Discard interrupted --rebuild-bursts progress and replay all history}
         {--release : First release composite members whose parent no longer exists (one-off repair)}';
 
     protected $description = 'Select the winning grouping axis for activities (backfill/repair)';
@@ -49,13 +53,52 @@ class CurateCommand extends Command
         $window = $this->option('window');
         $rehash = (bool) $this->option('rehash');
 
+        if (! $this->option('rebuild-bursts') && ($this->option('resume') || $this->option('restart') || $this->option('writers-paused'))) {
+            $this->error('--resume, --restart and --writers-paused require --rebuild-bursts.');
+
+            return self::FAILURE;
+        }
         if ($this->option('rebuild-bursts')) {
             if ($window !== null || $this->option('release')) {
                 $this->error('--rebuild-bursts requires all history; run without --window or --release.');
 
                 return self::FAILURE;
             }
-            $stats = (new RebuildGroupingBursts)();
+            if (! $this->option('writers-paused')) {
+                $this->error('Pause ALL publishers, queue workers and schedulers, keep the site in maintenance, then pass --writers-paused.');
+
+                return self::FAILURE;
+            }
+            $this->warn('Keep readers and ALL writers paused until completion, including after interruption. Maintenance mode alone does not stop queue workers.');
+            $bar = $this->output->createProgressBar();
+            $phase = null;
+            try {
+                $stats = (new RebuildGroupingBursts)(
+                    resume: (bool) $this->option('resume'),
+                    restart: (bool) $this->option('restart'),
+                    progress: function (int $done, int $total, string $current) use ($bar, &$phase): void {
+                        if ($current !== $phase) {
+                            if ($phase !== null) {
+                                $bar->finish();
+                                $this->newLine();
+                            }
+                            $phase = $current;
+                            $this->line($current === 'replay' ? 'Replaying burst memberships:' : 'Stamping winners:');
+                            $bar->start($total);
+                        }
+                        $bar->setProgress($done);
+                    },
+                );
+            } catch (RuntimeException $error) {
+                $this->newLine();
+                $this->error($error->getMessage());
+
+                return self::FAILURE;
+            }
+            if ($phase !== null) {
+                $bar->finish();
+                $this->newLine();
+            }
             MaintenanceHistory::record('curate', $stats);
             $count = $stats['processed'];
             $this->info("Rebuilt bursts and curated {$count} activities.");

@@ -162,6 +162,22 @@ jobs:
       - name: Execute tests
         run: vendor/bin/pest --ci ${{ matrix.runner == 'parallel' && '--parallel' || '' }} ${{ matrix.database != 'sqlite' && '--processes=4' || '' }}
 
+      - name: Guard burst rebuild at 100K activities on MariaDB
+        if: matrix.database == 'mariadb'
+        env:
+          STORYFEED_REBUILD_BENCH: '1'
+          STORYFEED_REBUILD_REPORT: build/burst-rebuild-100k.json
+        run: |
+          mkdir -p build
+          php -d memory_limit=512M vendor/bin/pest tests/Performance/BurstRebuildPerformanceTest.php --ci
+
+      - name: Upload burst rebuild performance report
+        if: always() && matrix.database == 'mariadb'
+        uses: actions/upload-artifact@v7
+        with:
+          name: burst-rebuild-100k-mariadb
+          path: build/burst-rebuild-100k.json
+
       - name: Guard read performance at 100K activities
         if: matrix.os == 'ubuntu-latest' && matrix.php == '8.5' && matrix.laravel == '13.*' && matrix.stability == 'prefer-stable' && matrix.runner == 'serial' && matrix.database == 'sqlite'
         env:

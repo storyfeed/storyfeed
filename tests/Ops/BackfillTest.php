@@ -136,7 +136,7 @@ it('leaves raw-inserted rows ungrouped forever if storyfeed:rebuild runs before 
     expect(Storyfeed::doctor(['backlog'])->all())->toBeEmpty();
 
     // The way out, and the way not to get in.
-    $this->artisan('storyfeed:curate --rebuild-bursts')->assertSuccessful();
+    $this->artisan('storyfeed:curate --rebuild-bursts --writers-paused')->assertSuccessful();
 
     expect(DB::table('feed_groupings')->where('winner', true)->count())->toBe(4)
         ->and(Storyfeed::feed()->get()->items())->toHaveCount(1)

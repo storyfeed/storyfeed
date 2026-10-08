@@ -134,13 +134,13 @@ it('rebuilds historical calendar rows chronologically and idempotently, preservi
     $composites = Grouping::query()->where('bucket', 'composite')->orderBy('id')->get(['activity_id', 'hash', 'winner'])->toArray();
     Grouping::query()->whereIn('bucket', ['actors', 'targets', 'object', 'repeat'])->update(['hash' => 'legacy:2026-10-07']);
     Grouping::query()->create(['activity_id' => Activity::query()->first()->id, 'bucket' => 'summary.day', 'hash' => 'legacy']);
-    $this->artisan('storyfeed:curate --rebuild-bursts')->assertSuccessful();
+    $this->artisan('storyfeed:curate --rebuild-bursts --writers-paused')->assertSuccessful();
     $snapshot = fn () => Grouping::query()->orderBy('activity_id')->orderBy('bucket')->get(['activity_id', 'bucket', 'hash', 'winner'])->toArray();
     $before = $snapshot();
     expect(Grouping::query()->where('bucket', 'like', 'summary.%')->count())->toBe(0)
         ->and(Grouping::query()->where('bucket', 'repeat')->distinct()->count('hash'))->toBe(2);
-    $this->artisan('storyfeed:curate --rebuild-bursts')->assertSuccessful();
+    $this->artisan('storyfeed:curate --rebuild-bursts --writers-paused')->assertSuccessful();
     expect($snapshot())->toBe($before)
         ->and(Grouping::query()->where('bucket', 'composite')->orderBy('id')->get(['activity_id', 'hash', 'winner'])->toArray())->toBe($composites);
-    $this->artisan('storyfeed:curate --rebuild-bursts --window=2')->assertFailed();
+    $this->artisan('storyfeed:curate --rebuild-bursts --writers-paused --window=2')->assertFailed();
 });

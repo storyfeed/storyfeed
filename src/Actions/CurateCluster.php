@@ -337,6 +337,51 @@ class CurateCluster
         }
     }
 
+    /**
+     * Offline winner stamping for a bounded batch after chronological replay.
+     * Eligibility ignores winner stamps, so all decisions share one bulk read.
+     * Call only for visible activities; tombstones retain their prefix decision.
+     *
+     * @param  list<int|string>  $activityIds
+     */
+    public function settleMany(array $activityIds): int
+    {
+        $rows = $this->groupings()->whereIn('activity_id', $activityIds)
+            ->whereNotIn('bucket', $this->manager()->uncuratedBuckets())
+            ->orderBy('bucket')->toBase()
+            ->get([$this->groupingKey(), 'activity_id', 'bucket', 'hash', 'winner']);
+        $this->eligibility = [];
+        $changed = 0;
+        $updates = [0 => [], 1 => []];
+        try {
+            foreach ($rows->groupBy('bucket') as $axis => $members) {
+                $this->rememberEligibility($axis, $members->pluck('hash')->unique()->values()->all());
+            }
+            foreach ($rows->groupBy('activity_id') as $own) {
+                $winner = $this->decide($own->pluck('hash', 'bucket')->all());
+                $dirty = false;
+                foreach ($own as $row) {
+                    $after = $row->bucket === $winner;
+                    if ($row->winner === null || (bool) $row->winner !== $after) {
+                        $updates[(int) $after][] = $row->{$this->groupingKey()};
+                        $dirty = true;
+                    }
+                }
+                $changed += (int) $dirty;
+            }
+            // Clear losers first, just as settle() does.
+            foreach ($updates as $winner => $ids) {
+                foreach (array_chunk($ids, 500) as $chunk) {
+                    $this->groupings()->whereKey($chunk)->update(['winner' => (bool) $winner]);
+                }
+            }
+        } finally {
+            $this->eligibility = null;
+        }
+
+        return $changed;
+    }
+
     /** @param list<string> $hashes */
     protected function rememberEligibility(string $axis, array $hashes): void
     {

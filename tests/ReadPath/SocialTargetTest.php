@@ -50,11 +50,11 @@ it('renders Newsroom comments with the document as the pinned target and comment
     // Simulate L2 history: it had no target-social memberships. Replay adds
     // them and leaves both memberships and winner stamps stable on a rerun.
     Grouping::query()->where('bucket', 'actors_target')->delete();
-    $this->artisan('storyfeed:curate --rebuild-bursts')->assertSuccessful();
+    $this->artisan('storyfeed:curate --rebuild-bursts --writers-paused')->assertSuccessful();
     $snapshot = fn () => Grouping::query()->orderBy('activity_id')->orderBy('bucket')->get(['activity_id', 'bucket', 'hash', 'winner'])->toArray();
     $before = $snapshot();
     expect(Storyfeed::feed()->live()->get()->items()[0]['axis'])->toBe('actors_target');
-    $this->artisan('storyfeed:curate --rebuild-bursts')->assertSuccessful();
+    $this->artisan('storyfeed:curate --rebuild-bursts --writers-paused')->assertSuccessful();
     expect($snapshot())->toBe($before);
 })->with([false, true]);
 
