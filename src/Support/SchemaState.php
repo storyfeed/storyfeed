@@ -31,6 +31,7 @@ class SchemaState
     public const array EXPECTED = [
         'snapshots' => ['shape', 'body', 'meta'],
         'groupings' => ['winner'],
+        'participants' => ['depth'],
     ];
 
     public static function table(string $key): string

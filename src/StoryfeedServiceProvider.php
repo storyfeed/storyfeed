@@ -43,6 +43,7 @@ class StoryfeedServiceProvider extends PackageServiceProvider
                 'create_feed_snapshots_table',
                 'create_feed_groupings_table',
                 'create_feed_participants_table',
+                'add_ancestors_to_feed_participants_table',
                 'create_feed_parties_table',
                 'create_feed_batches_table',
                 'create_feed_meta_table',

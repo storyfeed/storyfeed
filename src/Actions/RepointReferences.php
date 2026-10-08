@@ -2,7 +2,6 @@
 
 namespace Storyfeed\Actions;
 
-use Illuminate\Support\Facades\DB;
 use Storyfeed\Models\Activity;
 use Storyfeed\Models\Builders\ActivityBuilder;
 use Storyfeed\Models\Grouping;
@@ -75,12 +74,10 @@ class RepointReferences
                             "cached_{$role}_id" => $toSnapshotId,
                         ]);
 
-                    DB::table(SyncParticipants::table())
-                        ->whereIn('activity_id', $ids)
-                        ->where('role', $role)
-                        ->where('entity_type', $fromType)
-                        ->where('entity_id', (string) $fromId)
-                        ->update(['entity_type' => $toType, 'entity_id' => (string) $toId]);
+                    // Keep the recorded path through tombstone/heal operations.
+                    // Direct identities can split or merge when several roles
+                    // name one entity; rederive them from the activity columns.
+                    SyncParticipants::directMany($ids);
 
                     (new WriteGroupings)->many($this->activities()->withTrashed()->whereKey($ids)->get());
 

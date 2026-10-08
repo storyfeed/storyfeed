@@ -51,6 +51,7 @@ class Doctor
         Checks\Body::class,
         Checks\Parties::class,
         Checks\Participants::class,
+        Checks\Ancestors::class,
         Checks\Dangling::class,
         Checks\DanglingClaims::class,
         Checks\InheritedDeletes::class,

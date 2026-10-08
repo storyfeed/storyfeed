@@ -1,5 +1,6 @@
 <?php
 
+use Storyfeed\Tests\Fixtures\NestedReadPathMeasurement;
 use Storyfeed\Tests\Fixtures\ReadPathHistory;
 use Storyfeed\Tests\Fixtures\ReadPathMeasurement;
 
@@ -20,4 +21,11 @@ it('reads Live within a 300ms p50 budget at the requested scale', function () {
         }
     }
     fwrite(STDERR, "\n");
+    if ($size === 100_000) {
+        $nested = NestedReadPathMeasurement::run();
+        fwrite(STDERR, json_encode($nested, JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR)."\n");
+        expect($nested['after']['live_p50_ms'])->toBeLessThan(300)
+            ->and($nested['after']['involving_p50_ms'])->toBeLessThan(300)
+            ->and($nested['writes']['nested']['rows_per_activity'])->toBe(7);
+    }
 })->group('read-performance')->skip(fn () => ! env('STORYFEED_READ_BENCH'), 'Opt in with STORYFEED_READ_BENCH=1; the CI performance cell runs this.');

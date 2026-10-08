@@ -11,6 +11,9 @@ use Storyfeed\Models\Snapshot;
 
 return [
 
+    // Maximum parent links captured per object, target or context. Actors never walk.
+    'ancestors' => ['max_depth' => 10],
+
     /*
     |--------------------------------------------------------------------------
     | Definitions File

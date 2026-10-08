@@ -3,6 +3,8 @@
 namespace Storyfeed\Console;
 
 use Illuminate\Console\Command;
+use RuntimeException;
+use Storyfeed\Actions\RebuildAncestors;
 use Storyfeed\Actions\SyncParticipants;
 use Storyfeed\Models\Activity;
 
@@ -22,12 +24,50 @@ class ParticipantsCommand extends Command
 {
     protected $signature = 'storyfeed:participants
         {--chunk=500 : Activities to process per batch}
-        {--missing : Only activities that have no participant rows yet}';
+        {--missing : Only activities that have no participant rows yet}
+        {--ancestors : Rebuild all recorded paths from current parents}
+        {--writers-paused : Confirm all publishers, workers and schedulers are paused}
+        {--resume : Continue an interrupted ancestor rebuild}
+        {--restart : Discard ancestor rebuild progress and replay all history}';
 
     protected $description = 'Rebuild the participants index used by involving() (backfill)';
 
     public function handle(): int
     {
+        if (! $this->option('ancestors') && ($this->option('resume') || $this->option('restart') || $this->option('writers-paused'))) {
+            $this->error('--resume, --restart and --writers-paused require --ancestors.');
+
+            return self::FAILURE;
+        }
+        if ($this->option('ancestors')) {
+            if ($this->option('missing') || ! $this->option('writers-paused')) {
+                $this->error('Pause ALL publishers, workers, schedulers and readers, then pass --ancestors --writers-paused without --missing.');
+
+                return self::FAILURE;
+            }
+            $this->warn('Keep all readers and writers paused until completion, including after interruption.');
+            $bar = $this->output->createProgressBar();
+            try {
+                $stats = (new RebuildAncestors)(
+                    resume: (bool) $this->option('resume'), restart: (bool) $this->option('restart'),
+                    batchSize: (int) $this->option('chunk'),
+                    progress: function (int $done, int $total) use ($bar): void {
+                        $bar->setMaxSteps($total);
+                        $bar->setProgress($done);
+                    },
+                );
+            } catch (RuntimeException $error) {
+                $this->newLine();
+                $this->error($error->getMessage());
+
+                return self::FAILURE;
+            }
+            $bar->finish();
+            $this->newLine();
+            $this->info("Rebuilt ancestors for {$stats['processed']} activities.");
+
+            return self::SUCCESS;
+        }
         $model = config('storyfeed.models.activity', Activity::class);
         $chunk = max(1, (int) $this->option('chunk'));
         $sync = new SyncParticipants;

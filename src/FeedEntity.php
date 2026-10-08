@@ -4,6 +4,7 @@ namespace Storyfeed;
 
 use Closure;
 use Illuminate\Contracts\Support\Arrayable;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Traits\Conditionable;
 use Storyfeed\Contracts\FeedBody;
 use Storyfeed\Support\BodySlot;
@@ -56,6 +57,9 @@ use Storyfeed\Support\BodySlot;
 final class FeedEntity
 {
     use Conditionable;
+
+    /** The closest container; snapshotted as an identity, never a model graph. */
+    public private(set) ?Model $parent = null;
 
     /** The entity's name as a feed shows it. */
     public private(set) ?string $label = null;
@@ -118,13 +122,15 @@ final class FeedEntity
         ?string $mediaType = null,
         ?string $attributedTo = null,
         string|FeedBody|iterable|null $body = null,
+        ?Model $parent = null,
     ) {
         $this->label($label)
             ->data($data)
             ->content($content)
             ->mediaType($mediaType)
             ->attributedTo($attributedTo)
-            ->body($body);
+            ->body($body)
+            ->parent($parent);
     }
 
     /**
@@ -141,8 +147,16 @@ final class FeedEntity
         ?string $mediaType = null,
         ?string $attributedTo = null,
         string|FeedBody|iterable|null $body = null,
+        ?Model $parent = null,
     ): self {
-        return new self($label, $data, $content, $mediaType, $attributedTo, $body);
+        return new self($label, $data, $content, $mediaType, $attributedTo, $body, $parent);
+    }
+
+    public function parent(?Model $parent): self
+    {
+        $this->parent = $parent;
+
+        return $this;
     }
 
     /**

@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+### Added
+
+- `FeedEntity::parent()` captures nested containers from object, target and
+  context so `involving($ancestor)` finds activity beneath them. Actors never
+  contribute ancestors. Publish and run the registered participants upgrade
+  migration; `storyfeed:participants --ancestors --writers-paused` rebuilds
+  history from current parents with `--resume` and `--restart`. Doctor reports
+  broken parent chains and self-acting containers missing an object.
+
 ### Fixed
 
 - Doctor normalizes closure headline fingerprints, avoiding false

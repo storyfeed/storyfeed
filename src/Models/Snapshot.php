@@ -29,7 +29,7 @@ use Storyfeed\Support\MorphKeyType;
  * @property list<array<string, mixed>>|null $body
  * @property string|null $source_updated_at UTC source time with microseconds; distinct from snapshot write time
  * @property string|null $shape shape fingerprint at write time (see ShapeSignature)
- * @property array{route_key?: string|null}|null $meta the package's extras, never queried or indexed; null on rows written before it existed
+ * @property array{route_key?: string|null, parent?: array{type: string|null, id: int|string|null}}|null $meta the package's extras, never queried or indexed; null on rows written before it existed
  */
 class Snapshot extends Model
 {

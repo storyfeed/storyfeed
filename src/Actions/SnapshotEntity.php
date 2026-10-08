@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 use InvalidArgumentException;
 use Storyfeed\Contracts\Feedable;
 use Storyfeed\Models\Snapshot;
+use Storyfeed\Support\Ancestors;
 use Storyfeed\Support\Feedables;
 use Storyfeed\Support\MorphKeyType;
 use Storyfeed\Support\ShapeSignature;
@@ -44,9 +45,11 @@ class SnapshotEntity
             // The route key only when it is not the primary key, which the
             // snapshot already carries. Always an array, so a written row is
             // told apart from one that predates `meta`; the trickle refreshes those.
-            'meta' => $routeKey === null || (string) $routeKey === (string) $model->getKey()
-                ? []
-                : ['route_key' => (string) $routeKey],
+            'meta' => array_merge(
+                $routeKey === null || (string) $routeKey === (string) $model->getKey()
+                    ? [] : ['route_key' => (string) $routeKey],
+                $entity->parent === null ? [] : ['parent' => Ancestors::identity($entity->parent)],
+            ),
         ];
 
         // Compare and save under the same row lock. firstOrCreate also handles
