@@ -3,6 +3,9 @@ name: PHPStan
 on:
   push:
     paths:
+      - 'composer.json'
+      - 'README.md'
+      - 'CHANGELOG.md'
       - '**.php'
       - 'database/migrations/**.stub'
       - 'phpstan.neon.dist'

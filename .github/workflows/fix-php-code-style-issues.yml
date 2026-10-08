@@ -3,6 +3,9 @@ name: Fix PHP code style issues
 on:
   push:
     paths:
+      - 'composer.json'
+      - 'README.md'
+      - 'CHANGELOG.md'
       - '**.php'
 
 permissions:

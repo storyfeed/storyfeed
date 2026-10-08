@@ -3,6 +3,8 @@ name: run-tests
 on:
   push:
     paths:
+      - 'README.md'
+      - 'CHANGELOG.md'
       - '**.php'
       - '.github/workflows/run-tests.yml'
       - 'phpunit.xml.dist'
@@ -10,6 +12,8 @@ on:
       - 'composer.lock'
   pull_request:
     paths:
+      - 'README.md'
+      - 'CHANGELOG.md'
       - '**.php'
       - '.github/workflows/run-tests.yml'
       - 'phpunit.xml.dist'

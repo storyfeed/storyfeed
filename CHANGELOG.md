@@ -2,58 +2,128 @@
 
 ## Unreleased
 
-- Live and Summary page selection bounds the combined group-and-solo stream, with indexed winner probes and page-local membership reads. Summary computes phrase and row totals in one aggregate on MySQL/PostgreSQL and two on SQLite. Payloads, ordering and cursors are unchanged. Publish and run the new `add_read_path_indexes_to_feed_groupings_table` migration for the covering winner and group-member indexes.
+## v0.13.0 - 2026-10-08
 
-- Opt-in read benchmarks cover 100K activities on every push and 3M activities in a separate manual/nightly workflow, including complete payload construction.
-
-- Live feeds keep authored and auto-bundled composites visible when curation is disabled, while ignoring stale inferred winners and preserving solo activities without repeat rows.
-
-- App-reference reads and writes bind ids as strings, including numeric model keys and numeric array-key lists, so MySQL can use the varchar identity indexes. New Activity, Batch, Snapshot and FeedTombstone attributes normalize non-null reference ids to strings on assignment.
-
-- Doctor role diagnostics work under MariaDB's strict SQL grouping while keeping anonymous and ordinary headline counts separate.
-
-- Doctor checks actorless headline tokens against the roles their anonymous activities carry.
-
-- Batch-lock migration backfills skip typed actors with null ids instead of creating empty-id lock rows.
-- Curation keeps activities solo when no aggregate axis is eligible and the fallback axis does not apply.
-- Entity HTML renders tombstones as escaped text even when their payload retains a URL.
-
-- Fixed wildcard verb allowlists and denylists on MySQL by using a portable LIKE escape character.
+Breaking changes: replace `->summary()` with `->live()`. Summary calls now throw
+an exception naming Live. Live groups one action into bursts rather than
+calendar days. App-model reference ids are strings, and verbs cannot contain dots.
 
 ### Added
 
-- `Party::make()` accepts an optional external `url`. Party links follow snapshot updates and appear in entity payloads and Activity Streams `url`; renaming a party preserves its link.
-
-- Fluent `Group::headline()` accepts a closure receiving the `GroupSlice`,
-  with its true count and sampled members, and returning finished headline text.
-  Group closures support `storyfeed:cache` like single-activity headline closures.
+- Persisted Live bursts in `feed_grouping_bursts`. A row grows until a
+  15-minute quiet gap or a four-hour ceiling. Configure the defaults with
+  `storyfeed.grouping.bursts.within` and `ceiling`, or per type/verb with
+  `Story::for('comment')->verb('create')->bursts(within: '5 minutes', ceiling: '1 hour')`.
+- Read-path indexes for winner selection and group membership. Publish and run
+  `add_read_path_indexes_to_feed_groupings_table` to use them.
+- `Party::make()` accepts an optional external `url`. Links follow snapshot
+  updates and appear in entity payloads and Activity Streams `url`.
+- `Group::headline()` accepts a closure receiving a `GroupSlice`, including its
+  true count and sampled members. Closures support `storyfeed:cache`.
+- `Story::verb(...)->override()` explicitly replaces supplied story fields.
+- Doctor samples named feeds for missing entity links. Exact grammar findings
+  can be acknowledged in `storyfeed.doctor.acknowledgments` with a reason.
+- Read benchmarks include complete payload construction at 100K activities on
+  every push and at 3M in a manual/nightly workflow.
 
 ### Changed
 
-- Breaking: event snapshots now expose every non-null role id as a string,
-  including batch actor ids, consistently before and after reload. Event
-  listeners comparing ids with `===` against integers must compare decimal
-  strings instead. Null role ids remain null; package event ids and cached
-  model data retain their types. The frozen AS2 baseline was deliberately
-  regenerated with only event role ids changing from JSON numbers to strings.
-
-- FeedPage presents each node once, reusing its items across array access and repeated reads.
-- Doctor counts tombstoned objects under their former morph alias when assessing unwired feed surface.
-- Verbs may no longer contain a dot. Story declarations, vocabulary registries
-  (including enums), and inline publishing throw `DottedVerb`. Other free-form
-  strings, including `updateStatus`, remain valid. Dotted story names still work.
-- Doctor reports stored dotted verbs with counts and a migration hint; existing
-  rows remain readable.
+- Live groups many people doing one action to one thing before grouping one
+  person's action across things in a place. Social grouping tries the shared
+  object first, then the shared target, so comments on one document can share
+  a row even when each comment is a separate object. The group pins that target.
+- Live page selection bounds the combined group-and-solo stream, with indexed
+  winner probes and page-local membership reads. Ordering and cursors are unchanged.
+- Every app-model reference uses case-sensitive varchar(36) storage. Numeric
+  keys, UUIDs and ULIDs use the same schema, independently of Laravel's morph-key
+  default. Event snapshots expose every non-null role id, including batch actor
+  ids, as a string. Package-owned ids and cached model data retain their types.
+- App-reference reads and writes bind ids as strings so MySQL can use identity
+  indexes. New model attributes normalize non-null reference ids on assignment.
+- Dotted verbs throw `DottedVerb` when declared or published. Dotted story names
+  still work. Doctor reports stored dotted verbs; historical rows remain readable.
+- `FeedPage` presents each node once and reuses its items across repeated reads.
 
 ### Removed
 
-- `storyfeed:demo`, its demo kit, and the `demo.enabled` configuration key.
-  A feed is personal data from its first row; Storyfeed ships no redactor, so seed demo data rather than redact real data.
+- Summary read mode, its per-person calendar partitions, and phrase/period
+  presentation fields. The read modes are Log and Live.
+- Obsolete `Storyfeed::grammar()`, `actorlessGrammar()`, `aggregateGrammar()`,
+  `icons()`, `glyphIntents()`, `nouns()` and `objectTypes()` authoring setters.
+  Declare headlines, icons, nouns, groups and Activity Streams types with `Story`.
+- `storyfeed:demo`, its demo kit and `storyfeed.demo.enabled`. Seed application
+  demo data instead.
+- `storyfeed.morph_key_type` and Doctor's `morph_keys` check.
 
-### Upgrade
+### Fixed
 
-Before v1, re-publish the migration stubs and re-run them on a fresh database
-for the new model-key storage. Every app-model reference is now varchar(36),
+- Count-one headlines use singular grammar: "commented 1 time", "made 1 approval"
+  and "added 1 item".
+- Live keeps authored and auto-bundled composites visible when curation is off,
+  ignores stale inferred winners and preserves solo activities without repeat rows.
+- Curation leaves activities solo when no aggregate or fallback axis applies.
+- Doctor role diagnostics support MariaDB's strict SQL grouping and check
+  actorless headline tokens against the roles those activities carry.
+- Doctor counts tombstoned objects under their former morph alias. Entity HTML
+  renders tombstones as escaped text even when the payload retains a URL.
+- Batch-lock backfills skip typed actors with null ids.
+- Wildcard verb allowlists and denylists use a portable MySQL LIKE escape.
+
+### Upgrading from v0.12
+
+1. Back up the database and pause all activity writers, including queue workers
+   and scheduled publishers, before migrating and rebuilding history.
+2. Upgrade core to `^0.13` and `storyfeed/ui` to `^0.4` if installed. Update any
+   other renderers together with core. Replace Summary reads and tabs with Live:
+
+   ```php
+   $page = Storyfeed::feed()->live()->get();
+   ```
+
+   Set `storyfeed.grouping.default` to `live` (or `log`). Remove Summary period
+   arguments and application rendering that requires Summary phrases or periods.
+3. Apply the app-reference column and dotted-verb changes below where needed.
+   Publish the migrations and run the pending ones. Publishing stubs alone does
+   not change an existing table:
+
+   ```bash
+   php artisan vendor:publish --tag=storyfeed-migrations
+   php artisan migrate
+   ```
+
+   Confirm `add_read_path_indexes_to_feed_groupings_table` and
+   `create_feed_grouping_bursts_table` are present and run.
+4. With writers still paused, rebuild historical grouping:
+
+   ```bash
+   php artisan storyfeed:curate --rebuild-bursts
+   ```
+
+   **P3 RELEASE PLACEHOLDER — final rebuild flags, resume procedure and measured
+   timing are pending the rebuild-speed lane. This upgrade step must be finalized
+   before tagging.** The current rebuild requires all history; do not combine it
+   with `--window` or `--release`.
+5. Remove `storyfeed.grouping.summary`, `storyfeed.morph_key_type` and
+   `storyfeed.demo.enabled` from published config. Add these defaults (merge into
+   the existing `tables`, `grouping` and `doctor` arrays):
+
+   ```php
+   'tables' => ['grouping_bursts' => 'feed_grouping_bursts'],
+   'grouping' => ['bursts' => ['within' => '15 minutes', 'ceiling' => '4 hours']],
+   'doctor' => ['acknowledgments' => []],
+   ```
+
+   If a custom burst ceiling exceeds `storyfeed.curate.window`, raise that repair
+   window to cover it. Replace obsolete authoring setters with `Story`
+   declarations. Event listeners using strict integer role-id comparisons must
+   compare strings; null role ids remain null.
+6. Regenerate `storyfeed:cache`, check Log and Live, then resume writers after
+   the rebuild succeeds.
+
+#### App-model reference ids and dotted verbs
+
+For a fresh database, publish the current migration stubs before migrating.
+Every app-model reference is now varchar(36),
 including participants, snapshots, batch locks and tombstones, independently
 of Laravel's morph-key default. UUIDs, ULIDs and decimal bigint keys share this
 schema; custom keys longer than 36 characters are outside the supported contract.
@@ -65,7 +135,6 @@ and tombstone references store those keys as decimal strings.
 A stale key in an app's published config is harmless and ignored.
 Existing databases need an explicit migration of their app-model id columns
 and collations; changing config or re-publishing stubs alone does not alter them.
-
 
 Use the action alone in base form (`email`, not `document.emailed`); the object
 already stores its type. Migrate each old verb explicitly, using your configured
