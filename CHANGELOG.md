@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## v0.14.0 - 2026-10-08
+
 ### Added
 
 - `FeedEntity::parent()` captures nested containers from object, target and
@@ -10,6 +12,13 @@
   migration; `storyfeed:participants --ancestors --writers-paused` rebuilds
   history from current parents with `--resume` and `--restart`. Doctor reports
   broken parent chains and self-acting containers missing an object.
+
+### Changed
+
+- `feed_participants` gains an unsigned tinyint `distance` column (0 for an
+  activity's own roles, the number of steps for an ancestor), and its unique
+  key becomes `(activity_id, entity_type, entity_id)`. The upgrade migration
+  removes duplicate identities before replacing the key.
 
 ### Fixed
 
