@@ -20,7 +20,7 @@ final class Ancestors
     /**
      * Current mode is for an explicit history rebuild, not a normal publish.
      *
-     * @return array{rows: list<array{entity_type: string, entity_id: string, depth: int}>, unresolved: array<string, mixed>|null, has_parent: bool}
+     * @return array{rows: list<array{entity_type: string, entity_id: string, distance: int}>, unresolved: array<string, mixed>|null, has_parent: bool}
      */
     public function walk(string $type, int|string $id, ?int $snapshotId = null, bool $current = false): array
     {
@@ -28,11 +28,12 @@ final class Ancestors
         $seen = [$type."\0".$id => true];
         $unresolved = null;
         $hasParent = false;
-        $cap = max(0, (int) config('storyfeed.ancestors.max_depth', 10));
+        // Stored distances fit the unsigned tinyint even with a larger app cap.
+        $cap = max(0, min(255, (int) config('storyfeed.ancestors.max_depth', 10)));
         try {
             $parent = $this->parent($type, $id, $snapshotId, $current);
             $hasParent = $parent !== null;
-            for ($depth = 1; $parent !== null && $depth <= $cap; $depth++) {
+            for ($distance = 1; $parent !== null && $distance <= $cap; $distance++) {
                 $parentType = $parent['type'] ?? null;
                 $parentId = $parent['id'] ?? null;
                 if (! is_string($parentType) || (! is_int($parentId) && ! is_string($parentId))) {
@@ -51,7 +52,7 @@ final class Ancestors
                     $unresolved = $parent;
                     break;
                 }
-                $rows[] = ['entity_type' => $parentType, 'entity_id' => (string) $parentId, 'depth' => $depth];
+                $rows[] = ['entity_type' => $parentType, 'entity_id' => (string) $parentId, 'distance' => $distance];
                 $parent = $this->parent($parentType, $parentId, null, $current, $model);
             }
         } catch (Throwable) {

@@ -11,7 +11,7 @@ return new class extends Migration
     {
         $name = config('storyfeed.tables.participants', 'feed_participants');
         Schema::table($name, function (Blueprint $table) {
-            $table->unsignedSmallInteger('depth')->default(0);
+            $table->unsignedTinyInteger('distance')->default(0);
             $table->dropUnique(['activity_id', 'role']);
         });
         // A self-acting entity may fill several direct roles. Its roles stay
@@ -36,7 +36,7 @@ return new class extends Migration
         DB::table($name)->where('role', 'ancestor')->delete();
         Schema::table($name, function (Blueprint $table) {
             $table->dropUnique('feed_participants_activity_entity_unique');
-            $table->dropColumn('depth');
+            $table->dropColumn('distance');
             $table->unique(['activity_id', 'role']);
         });
     }

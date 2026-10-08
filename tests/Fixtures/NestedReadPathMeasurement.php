@@ -27,7 +27,7 @@ final class NestedReadPathMeasurement
         // The history fixture measures reads and bulk-inserts activities.
         // Populate the direct lookup exactly as publish does before the baseline.
         foreach (['actor', 'object', 'target'] as $role) {
-            DB::table($participants)->insertUsing(['activity_id', 'role', 'entity_type', 'entity_id', 'depth', 'published_at'],
+            DB::table($participants)->insertUsing(['activity_id', 'role', 'entity_type', 'entity_id', 'distance', 'published_at'],
                 DB::table('feed_activities')->whereNotNull("{$role}_id")
                     ->selectRaw("id, '{$role}', {$role}_type, {$role}_id, 0, published_at"));
         }
@@ -59,7 +59,7 @@ final class NestedReadPathMeasurement
             $snapshot->update(['meta' => [...($snapshot->meta ?? []), 'parent' => ['type' => 'container', 'id' => $root->id]]]);
         });
         foreach (array_reverse($chain) as $i => $parent) {
-            DB::table($participants)->insertUsing(['activity_id', 'role', 'entity_type', 'entity_id', 'depth', 'published_at'],
+            DB::table($participants)->insertUsing(['activity_id', 'role', 'entity_type', 'entity_id', 'distance', 'published_at'],
                 DB::table('feed_activities')->selectRaw("id, 'ancestor', 'container', ?, ?, published_at", [(string) $parent->id, $i + 1]));
         }
         $after = $read();

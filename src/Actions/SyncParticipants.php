@@ -55,7 +55,7 @@ class SyncParticipants
             $rows[$identity] = [
                 'activity_id' => $key,
                 'role' => $role,
-                'depth' => 0,
+                'distance' => 0,
                 // Already an alias on the column — never re-derive it from a
                 // class name, or an app that enforces a morph map stores one
                 // vocabulary and queries another.
@@ -81,7 +81,7 @@ class SyncParticipants
         }
         foreach ($ancestors as $ancestor) {
             $identity = $ancestor['entity_type']."\0".$ancestor['entity_id'];
-            if (isset($rows[$identity]) && $rows[$identity]['depth'] <= $ancestor['depth']) {
+            if (isset($rows[$identity]) && $rows[$identity]['distance'] <= $ancestor['distance']) {
                 continue;
             }
             $rows[$identity] = array_merge($ancestor, [
@@ -136,10 +136,10 @@ class SyncParticipants
         })->delete();
         foreach (self::ROLES as $role) {
             DB::table($participants)->insertOrIgnoreUsing(
-                ['activity_id', 'role', 'entity_type', 'entity_id', 'depth', 'published_at', 'created_at', 'updated_at'],
+                ['activity_id', 'role', 'entity_type', 'entity_id', 'distance', 'published_at', 'created_at', 'updated_at'],
                 DB::table($activities)->whereIn('id', $ids)->whereNotNull("{$role}_type")->whereNotNull("{$role}_id")
                     ->select(['id'])->selectRaw('? as role', [$role])->addSelect(["{$role}_type", "{$role}_id"])
-                    ->selectRaw('0 as depth')->addSelect(['published_at', 'created_at', 'updated_at']),
+                    ->selectRaw('0 as distance')->addSelect(['published_at', 'created_at', 'updated_at']),
             );
         }
     }

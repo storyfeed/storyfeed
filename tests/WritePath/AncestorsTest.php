@@ -3,6 +3,7 @@
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Storyfeed\Actions\RebuildAncestors;
 use Storyfeed\Actions\SyncParticipants;
 use Storyfeed\Facades\Storyfeed;
@@ -35,7 +36,7 @@ function nestedChain(int $links = 6): array
 function indexedAncestors($activity): array
 {
     return DB::table(SyncParticipants::table())->where('activity_id', $activity->getKey())->where('role', 'ancestor')
-        ->orderBy('depth')->pluck('depth', 'entity_id')->all();
+        ->orderBy('distance')->pluck('distance', 'entity_id')->all();
 }
 
 it('snapshots a declared parent and accepts both entity forms', function () {
@@ -58,11 +59,33 @@ it('walks six levels from the object with indexed involving and recorded depths'
     expect(indexedAncestors($activity))->toBe($expected);
 });
 
-it('merges chains from object target and context at the shortest depth', function () {
+it('merges chains from object target and context at the shortest distance', function () {
     [$tenant, $workspace, $project, $folder] = nestedChain(3);
     $activity = Storyfeed::activity()->anonymously()->action('revise', $folder)->to($workspace)->context($project)->publish();
     expect(indexedAncestors($activity))->toBe([$tenant->id => 1])
         ->and(DB::table(SyncParticipants::table())->where('activity_id', $activity->id)->count())->toBe(4);
+});
+
+it('keeps minimum recorded distances when separate object and target chains converge', function () {
+    $tenant = nestedContainer('Tenant');
+    $workspace = nestedContainer('Workspace', $tenant);
+    $project = nestedContainer('Project', $workspace);
+    $object = nestedContainer('Deep task', $project);
+    $target = nestedContainer('Shallow task', $workspace);
+    $activity = Storyfeed::activity()->anonymously()->action('move', $object)->to($target)->publish();
+    expect(indexedAncestors($activity))->toEqual([$project->id => 1, $workspace->id => 1, $tenant->id => 2])
+        ->and(DB::table(SyncParticipants::table())->where('activity_id', $activity->id)->where('role', '<>', 'ancestor')->pluck('distance')->all())->toBe([0, 0])
+        ->and(DB::table(SyncParticipants::table())->where('activity_id', $activity->id)->count())->toBe(5);
+});
+
+it('bounds an oversized configured cap to the stored distance range', function () {
+    $chain = nestedChain(256);
+    config()->set('storyfeed.ancestors.max_depth', 1000);
+    $activity = Storyfeed::activity()->anonymously()->action('create', end($chain))->publish();
+    expect(indexedAncestors($activity))->toHaveCount(255)
+        ->and(max(indexedAncestors($activity)))->toBe(255)
+        ->and(Storyfeed::feed()->involving($chain[0])->get()->items())->toBeEmpty()
+        ->and(Storyfeed::feed()->involving(end($chain))->get()->items())->toHaveCount(1);
 });
 
 it('never walks Sally home tenant or any other non-place role', function () {
@@ -219,7 +242,8 @@ it('upgrades duplicate direct identities and retains the covering lookup plan', 
     expect($before)->toContain('feed_participants_entity_published_index')
         ->and($after)->toContain('feed_participants_entity_published_index')
         ->and(DB::table(SyncParticipants::table())->where('activity_id', 1)->count())->toBe(1)
-        ->and(DB::table(SyncParticipants::table())->where('depth', 0)->count())->toBe(2000);
+        ->and(DB::table(SyncParticipants::table())->where('distance', 0)->count())->toBe(2000)
+        ->and(collect(Schema::getIndexes(SyncParticipants::table()))->pluck('columns')->flatten()->all())->not->toContain('distance');
     if ($path = env('STORYFEED_EXPLAIN_REPORT')) {
         file_put_contents($path, json_encode(['sql' => $lookup->toSql(), 'bindings' => $lookup->getBindings(), 'before' => json_decode($before), 'after' => json_decode($after)], JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR));
     }
