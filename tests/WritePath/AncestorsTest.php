@@ -246,3 +246,11 @@ it('restarts an interrupted rebuild and rejects changed history or policy on res
     expect(fn () => (new RebuildAncestors)(resume: true))->toThrow(RuntimeException::class, 'history changed');
     expect((new RebuildAncestors)(restart: true))->toBe(['processed' => 2]);
 });
+
+it('walks intermediate containers whose snapshots predate parent declarations', function () {
+    $chain = nestedChain();
+    Snapshot::where('model_type', 'container')->get()->each(fn ($snapshot) => $snapshot->update(['meta' => []]));
+    $activity = Storyfeed::activity()->anonymously()->action('complete', end($chain))->publish();
+    expect(indexedAncestors($activity))->toHaveCount(6)
+        ->and(Storyfeed::feed()->involving($chain[0])->get()->items())->toHaveCount(1);
+});

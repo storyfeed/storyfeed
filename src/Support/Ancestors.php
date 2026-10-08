@@ -70,7 +70,10 @@ final class Ancestors
             $snapshot = config('storyfeed.models.snapshot', Snapshot::class);
             $row = $snapshot::query()->where('model_type', $type)->where('model_id', MorphKeyType::value($id))
                 ->when($snapshotId !== null, fn ($query) => $query->whereKey($snapshotId))->first();
-            if ($row !== null) {
+            // The root was snapshotted by publish. Intermediate snapshots
+            // may predate parent() entirely: absence there is not evidence
+            // that today's model is a terminal container.
+            if ($row !== null && ($snapshotId !== null || array_key_exists('parent', $row->meta ?? []))) {
                 return $row->meta['parent'] ?? null;
             }
         }
