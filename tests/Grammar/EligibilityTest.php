@@ -23,6 +23,7 @@ use Workbench\App\Models\User;
 it('derives required roles from the recipe', function () {
     // actors pins one required object; the actor varies.
     expect(Storyfeed::axis('actors')->requiredRoles())->toBe(['object'])
+        ->and(Storyfeed::axis('actors_target')->requiredRoles())->toBe(['target'])
         // targets: 'aa!:aid:v:d' — actor required.
         ->and(Storyfeed::axis('targets')->requiredRoles())->toBe(['actor'])
         // object: 'aa:aid:v:oa!:oid!:d' — object required.
@@ -53,6 +54,7 @@ it('answers which axes apply to a set of filled roles', function () {
         ->toContain('targets')
         ->toContain('repeat')
         ->not->toContain('actors')
+        ->not->toContain('actors_target')
         ->not->toContain('object');
 });
 
@@ -63,6 +65,7 @@ it('derives the (axis, verb) matrix from observed role-fill', function () {
     ]);
 
     expect($pairs)->toContain(['actors', 'upload'])
+        ->toContain(['actors_target', 'upload'])
         ->toContain(['targets', 'upload'])
         ->toContain(['object', 'upload'])
         // A role-less verb reaches only the axis that requires nothing.
@@ -85,6 +88,7 @@ it('replaces a hand-partitioned matrix with one derived assertion', function () 
     // Authored for every axis the recipe says `upload` can reach — and
     // NOTHING was hand-listed to get here.
     Story::verb('upload')->grouped(Group::on('actors')->headline(':actors uploaded :count files to :target'));
+    Story::verb('upload')->grouped(Group::byActorsOnTarget()->headline(':actors uploaded :objects to :target'));
     Story::verb('upload')->grouped(Group::on('targets')->headline(':actor uploaded files to :targets'));
     Story::verb('upload')->grouped(Group::on('object')->headline(':actor uploaded :object :count times'));
     Story::verb('upload')->grouped(Group::on('repeat')->headline(':actor uploaded :count files'));

@@ -206,7 +206,7 @@ return [
         | publish transaction. The policy is distinct cardinality on the
         | dimension each axis collapses — never "largest cluster wins",
         | which is a coin flip between repeat and targets. Ties break by
-        | axis priority (actors > targets > repeat), then hash.
+        | axis priority (actors > actors_target > targets > object > repeat), then hash.
         |
         | Policy is not payload contract: change it freely (docs/payload.md).
         */

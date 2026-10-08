@@ -71,6 +71,8 @@ Story::for(Order::class)
 
 Related activities collapse into one row. Give each group axis its own headline with `grouped()`. `:count` is the number of activities in the group.
 
+Live prefers many actors on one object, then many actors on one target, before a person's rows across things. For comments whose object is the new comment and target is the document, use `actorsOnTarget()` (or `Group::byActorsOnTarget()`). It pins `:target`, while the objects stay in samples/children. Declare this headline on the verb: the target axis may mix object types.
+
 @verbatim
 <code-snippet name="Group headlines" lang="php">
 use App\Models\Order;
@@ -84,6 +86,10 @@ Story::for(Order::class)->verb('place')->grouped(
 // The targets axis may mix types and goes on the verb alone:
 Story::verb('place')->grouped(
     fn (GroupBuilder $group) => $group->targets(':actor ordered across :targets'),
+);
+
+Story::verb('comment')->grouped(
+    fn (GroupBuilder $group) => $group->actorsOnTarget(':actors commented on :target'),
 );
 </code-snippet>
 @endverbatim

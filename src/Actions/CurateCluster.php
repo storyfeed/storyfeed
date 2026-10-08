@@ -25,6 +25,7 @@ use Storyfeed\StoryfeedManager;
  * "Sally uploaded to 1 project".
  *
  *   actors  wins on distinct actors  >= min_actors  (default 3)
+ *   actors_target next, on distinct actors >= min_actors sharing a target
  *   targets wins on distinct targets >= min_targets (default 2), with
  *           at least min_target_members members
  *   object  wins on the same object acted on >= min_object_members times

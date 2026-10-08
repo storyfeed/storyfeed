@@ -18,6 +18,8 @@ use Storyfeed\StoryfeedManager;
  *             ("Sally uploaded 12 photos")
  *  - actors:  many actors, same verb + object + place
  *             ("Bob, Sally, and 3 others commented on tokens.pdf")
+ *  - actors_target: many actors, same verb + target + context
+ *             (different comment objects on the same document)
  *  - targets: same actor + verb across many targets
  *             ("Sally commented on 2 projects")
  *  - object:  the same actor acting on ONE object repeatedly

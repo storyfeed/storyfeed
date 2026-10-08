@@ -32,10 +32,11 @@ it('produces the frozen hashes for a fully-roled activity', function () {
 
     expect($hashes)->toBe([
         'actors' => 'revise:delivery:42:customer:9::',
+        // L3 adds a target social candidate; all existing hashes stay stable.
+        // No object identity/type: the shared thing is the target.
+        'actors_target' => 'revise:customer:9::',
         'object' => 'user:7:revise:delivery:42:customer:9::',
         'repeat' => 'user:7:revise:delivery:customer:9::',
-        // The digest's partition axes (v0.8): the actor and a FIXED period,
-        // whatever the verb declared.
         'targets' => 'user:7:revise::',
     ]);
 });

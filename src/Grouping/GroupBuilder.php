@@ -35,6 +35,12 @@ final class GroupBuilder
         return $this->add(Group::byActors(), $headline);
     }
 
+    /** Many actors creating different objects on one target. */
+    public function actorsOnTarget(string|Closure|FeedHeadline|null $headline = null): self
+    {
+        return $this->add(Group::byActorsOnTarget(), $headline);
+    }
+
     /** One actor, many targets — "Sally commented in 3 projects". */
     public function targets(string|Closure|FeedHeadline|null $headline = null): self
     {

@@ -1141,7 +1141,7 @@ class StoryfeedManager
      *       Axis::make('thread')->key('v:ca!:cid!:d')->eligibleWhenMembers(min: 3),
      *   ]);
      *
-     * The four built-ins (actors, targets, object, repeat-as-fallback) are
+     * The five built-ins (actors, actors_target, targets, object, repeat-as-fallback) are
      * seeded lazily; their thresholds read `grouping.policy` config.
      *
      * Registration order is priority; `before:` inserts new axes ahead of a
@@ -1878,6 +1878,9 @@ class StoryfeedManager
         $axes = [
             Axis::make('actors')
                 ->key('v:oa!:oid!:ta:tid:ca:cid')->bursts()
+                ->eligibleWhenDistinct('actor', min: (int) ($policy['min_actors'] ?? 3)),
+            Axis::make('actors_target')
+                ->key('v:ta!:tid!:ca:cid')->bursts()
                 ->eligibleWhenDistinct('actor', min: (int) ($policy['min_actors'] ?? 3)),
             Axis::make('targets')
                 ->key('aa!:aid:v:ca:cid')->bursts()

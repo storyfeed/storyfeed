@@ -33,7 +33,7 @@ beforeEach(function () {
         Axis::make('targets')->key('aa!:aid:v:d')->eligibleWhenDistinct('target', 2)->eligibleWhenMembers(3),
         Axis::make('object')->key('aa:aid:v:oa!:oid!:d')->eligibleWhenMembers(2),
         Axis::make('repeat')->key('aa:aid:v:oa:ta:tid:d')->fallback(),
-    ]);
+    ], merge: false); // This fixture tests only the explicitly declared calendar axes.
 });
 
 afterEach(function () {

@@ -105,6 +105,7 @@ it('asserts aggregate grammar for the axes curation actually selected', function
         ->toThrow(AssertionFailedError::class, 'actors.delivery.upload (no group headline)');
 
     Story::verb('upload')->grouped(Group::on('actors')->headline(':actors uploaded :count files to :target'));
+    Story::verb('upload')->grouped(Group::byActorsOnTarget()->headline(':actors uploaded :objects to :target'));
 
     HeadlineCoverage::assertCoversGroups();
 });
@@ -150,6 +151,7 @@ it('keeps GrammarCoverage and its aggregate method names as deprecated aliases',
         ->toThrow(AssertionFailedError::class, 'group headline coverage is incomplete');
 
     Story::verb('upload')->grouped(Group::on('actors')->headline(':actors uploaded :count files to :target'));
+    Story::verb('upload')->grouped(Group::byActorsOnTarget()->headline(':actors uploaded :objects to :target'));
     Story::verb('upload')->grouped(Group::on('targets')->headline(':actor uploaded files to :targets'));
     Story::verb('upload')->grouped(Group::on('object')->headline(':actor uploaded :object :count times'));
     Story::verb('upload')->grouped(Group::on('repeat')->headline(':actor uploaded :count files'));

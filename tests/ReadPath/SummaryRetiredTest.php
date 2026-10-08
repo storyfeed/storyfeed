@@ -20,7 +20,7 @@ it('rejects the retired read mode and names Live', function () {
 
 it('writes no Summary partition axes', function () {
     Storyfeed::activity()->actor('Integration')->verb('sync')->publish();
-    expect(array_keys(Storyfeed::registeredAxes()))->toBe(['actors', 'targets', 'object', 'repeat', 'composite', 'batch'])
+    expect(array_keys(Storyfeed::registeredAxes()))->toBe(['actors', 'actors_target', 'targets', 'object', 'repeat', 'composite', 'batch'])
         ->and(Grouping::query()->where('bucket', 'like', 'summary.%')->count())->toBe(0);
 });
 

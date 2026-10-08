@@ -122,11 +122,12 @@ it('names a declared model that never appears, once there is data to judge again
 
 it('reports every story as ok when there is nothing to flag', function () {
     // The workbench's routes/feed.php binds the fixture, which with it
-    // authors three of the four axes `confirm` can reach, so the fourth has to be filled in for a clean
+    // authors three of the five axes `confirm` can reach, so the other two must be filled in for a clean
     // run — which is itself the derivation working: nobody hand-listed which
     // axes apply.
     require __DIR__.'/../../workbench/routes/feed.php';
     Story::verb('confirm')->grouped(Group::on('object')->headline(':actor confirmed :object :count times'));
+    Story::verb('confirm')->grouped(Group::byActorsOnTarget()->headline(':actors confirmed :objects for :target'));
 
     $user = User::create(['name' => 'Sally', 'email' => 's@example.com']);
     $customer = Customer::create(['name' => 'Acme']);

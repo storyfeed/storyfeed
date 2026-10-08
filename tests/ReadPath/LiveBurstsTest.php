@@ -81,13 +81,14 @@ it('gives social rows on one object precedence and never mixes verbs or places',
     expect(Grouping::query()->where('winner', true)->count())->toBe(Activity::query()->count());
 });
 
-it('does not turn different objects acted on by different people into a social row', function () {
+it('groups different objects acted on by different people on their shared target', function () {
     $project = Customer::create(['name' => 'Spring Campaign']);
     foreach (range(1, 3) as $i) {
         $actor = User::create(['name' => "Person {$i}", 'email' => "person{$i}@example.com"]);
         Storyfeed::activity()->actor($actor)->verb('comment', Delivery::create(['tracking_number' => "doc{$i}"]))->target($project)->publish();
     }
-    expect(Storyfeed::feed()->live()->get()->items())->toHaveCount(3)
+    expect(Storyfeed::feed()->live()->get()->items())->toHaveCount(1)
+        ->and(Storyfeed::feed()->live()->get()->items()[0]['axis'])->toBe('actors_target')
         ->and(Grouping::query()->where('bucket', 'actors')->where('winner', true)->count())->toBe(0);
 });
 

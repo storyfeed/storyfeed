@@ -91,7 +91,7 @@ it('leaves activities solo when no aggregate is eligible and the fallback declin
     $project = Customer::create(['name' => 'Concur']);
     uploadsTo($project, 'Sally', files: 2);
 
-    $candidates = fn () => Grouping::query()->whereIn('bucket', ['actors', 'targets', 'object']);
+    $candidates = fn () => Grouping::query()->whereIn('bucket', ['actors', 'actors_target', 'targets', 'object']);
     $rows = $candidates()->orderBy('id')->get(['activity_id', 'bucket', 'hash', 'winner'])->toArray();
 
     expect($rows)->not->toBeEmpty()

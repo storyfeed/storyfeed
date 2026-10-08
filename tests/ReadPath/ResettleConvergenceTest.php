@@ -57,7 +57,7 @@ it('upgrades a member from a winning lower axis when a higher-priority cluster b
     resettleUpload($bob, $p2);
     resettleUpload($bob, $p3);
 
-    expect(resettleStamps($bobToP1))->toBe(['actors' => false, 'object' => false, 'repeat' => false, 'targets' => true]);
+    expect(resettleStamps($bobToP1))->toBe(['actors' => false, 'actors_target' => false, 'object' => false, 'repeat' => false, 'targets' => true]);
 
     // Two more actors upload to P1. P1's `actors` cluster now has three
     // distinct actors: eligible, and higher priority than `targets`. Bob's
@@ -66,7 +66,7 @@ it('upgrades a member from a winning lower axis when a higher-priority cluster b
     resettleUpload(resettleUser('Sally'), $p1);
     resettleUpload(resettleUser('Ann'), $p1);
 
-    expect(resettleStamps($bobToP1))->toBe(['actors' => true, 'object' => false, 'repeat' => false, 'targets' => false]);
+    expect(resettleStamps($bobToP1))->toBe(['actors' => true, 'actors_target' => false, 'object' => false, 'repeat' => false, 'targets' => false]);
 
     $items = collect(Storyfeed::feed()->get()->toArray()['items']);
 
@@ -92,7 +92,7 @@ it('upgrades every member of a repeat-stamped cluster when the actors threshold 
     resettleUpload(resettleUser('Sally'), $project);
     $tipping = resettleUpload(resettleUser('Ann'), $project);
 
-    expect(resettleStamps($first))->toBe(['actors' => true, 'object' => false, 'repeat' => false, 'targets' => false])
+    expect(resettleStamps($first))->toBe(['actors' => true, 'actors_target' => false, 'object' => false, 'repeat' => false, 'targets' => false])
         ->and(resettleStamps($tipping)['actors'])->toBeTrue()
         ->and(Grouping::query()->where('bucket', 'actors')->where('winner', true)->count())->toBe(4);
 });

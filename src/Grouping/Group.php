@@ -53,6 +53,12 @@ final class Group
         return new self('actors');
     }
 
+    /** Many actors, one target — "Priya, Bob and 3 others commented on tokens.pdf". */
+    public static function byActorsOnTarget(): self
+    {
+        return new self('actors_target');
+    }
+
     /** One actor, many targets — "Sally commented in 3 projects". */
     public static function byTargets(): self
     {
