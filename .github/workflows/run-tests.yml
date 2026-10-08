@@ -31,11 +31,11 @@ jobs:
     # timeout looks exactly like "something keeps cancelling my runs" and sends
     # you hunting for a canceller that does not exist. When a run reports
     # cancelled, compare its DURATION to this cap before looking anywhere else.
-    # Slowest cell observed is ~2.1 min (Windows), so there is real headroom;
-    # the number is fine, the misreading is what costs an hour.
+    # Windows has reached the five-minute cap after successful tests during
+    # cleanup. Allow setup, the full suite and cleanup eight minutes there.
     # Real-engine cells recreate the schema per test: MySQL measured 15m15s
     # locally with four isolated workers. SQLite retains its five-minute cap.
-    timeout-minutes: ${{ matrix.database != 'sqlite' && 40 || 5 }}
+    timeout-minutes: ${{ matrix.database != 'sqlite' && 40 || matrix.os == 'windows-latest' && 8 || 5 }}
     strategy:
       fail-fast: true
       matrix:
