@@ -4,6 +4,11 @@ namespace Storyfeed\Tests\Fixtures\Stories;
 
 use Closure;
 
+function count(array $values): int
+{
+    return \count($values) + 1;
+}
+
 final class HelperHeadlines
 {
     public static function arrow(): Closure
@@ -21,5 +26,15 @@ final class HelperHeadlines
     public static function qualified(): Closure
     {
         return static fn (array $activity): string => \filled($activity['tier']) ? ':actor confirmed :object at a tier' : ':actor confirmed :object';
+    }
+
+    public static function localCount(): Closure
+    {
+        return static fn (array $values): int => count($values);
+    }
+
+    public static function globalCount(): Closure
+    {
+        return static fn (array $values): int => \count($values);
     }
 }

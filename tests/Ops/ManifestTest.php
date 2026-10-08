@@ -195,6 +195,12 @@ it('normalizes helper qualification without erasing different helpers, literals 
     expect(ManifestClosure::fingerprint(static fn (): string => 'filled()'))
         ->not->toBe(ManifestClosure::fingerprint(static fn (): string => '\\filled()'));
 
+    expect(ManifestClosure::fingerprint(HelperHeadlines::localCount()))
+        ->not->toBe(ManifestClosure::fingerprint(HelperHeadlines::globalCount()));
+
+    expect(ManifestClosure::fingerprint(static fn (): string => 'text'))
+        ->toBe(ManifestClosure::fingerprint(static fn (): string => /* formatting only */ 'text'));
+
     $connection = new PDO('sqlite::memory:');
     $first = static fn (): string => $connection->getAttribute(PDO::ATTR_DRIVER_NAME).' first';
     $second = static fn (): string => $connection->getAttribute(PDO::ATTR_DRIVER_NAME).' second';

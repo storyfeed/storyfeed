@@ -94,27 +94,36 @@ final class ManifestClosure
     }
 
     /**
-     * The closure's source, for comparing a cached closure with a fresh one:
-     * a deserialised closure keeps its code, not its file.
+     * The closure's normalized tokens, for comparing cached and fresh source.
+     * ReflectionClosure resolves imported and namespaced symbols; global calls
+     * may still gain a leading slash after serialization, depending on version.
      */
     public static function fingerprint(Closure $closure): string
     {
         try {
-            $closure = self::resolve($closure);
-            $code = (new ReflectionClosure($closure))->getCode();
+            $code = (new ReflectionClosure(self::resolve($closure)))->getCode();
+            $tokens = array_values(array_filter(
+                \PhpToken::tokenize('<?php '.$code),
+                static fn (\PhpToken $token): bool => ! $token->is([T_OPEN_TAG, T_WHITESPACE, T_COMMENT, T_DOC_COMMENT]),
+            ));
+            $signature = [];
 
-            try {
-                // Reflect both sides after the same cache round-trip. Laravel
-                // qualifies global helpers differently in a namespaced source
-                // file and its deserialised closure (filled vs \filled).
-                $cached = self::unserialize(serialize(SerializableClosure::unsigned($closure)));
-                $code = (new ReflectionClosure($cached))->getCode();
-            } catch (Throwable) {
-                // Fingerprints also serve uncached declarations. Keep their
-                // source comparable even when captured state cannot be cached.
+            foreach ($tokens as $index => $token) {
+                $name = ltrim($token->text, '\\');
+
+                // Only existing global FUNCTION calls, never class names,
+                // methods, namespaced functions or text inside string tokens.
+                if ($token->id === T_NAME_FULLY_QUALIFIED
+                    && ! str_contains($name, '\\') && function_exists($name)
+                    && ($tokens[$index + 1] ?? null)?->text === '('
+                    && ! ($tokens[$index - 1] ?? null)?->is([T_NEW, T_DOUBLE_COLON, T_OBJECT_OPERATOR, T_NULLSAFE_OBJECT_OPERATOR])) {
+                    $signature[] = [T_STRING, $name];
+                } else {
+                    $signature[] = [$token->id, $token->text];
+                }
             }
 
-            return 'closure:'.$code;
+            return 'closure:'.serialize($signature);
         } catch (Throwable) {
             return 'closure';
         }

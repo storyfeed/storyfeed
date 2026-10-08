@@ -4,7 +4,7 @@
 
 ### Fixed
 
-- Doctor compares closure headlines in their serialized form, avoiding false
+- Doctor normalizes closure headline fingerprints, avoiding false
   `manifest.stale` errors for global helpers after `storyfeed:cache` or optimize.
 - Doctor explains how to acknowledge an exact `aggregates.missing` finding
   when custom queries deliberately exclude the group, without hiding other gaps.
