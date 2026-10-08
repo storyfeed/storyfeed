@@ -97,7 +97,7 @@ it('prints a one-type group headline on its type, and one across types on the ve
     // actors: several people, one target — a row that can hold any type.
     foreach (['A1', 'A2', 'A3'] as $name) {
         $user = User::create(['name' => $name, 'email' => "{$name}@example.com"]);
-        Storyfeed::activity()->actor($user)->verb('place', Delivery::create(['tracking_number' => "al-{$name}"]))->for($customer)->publish();
+        Storyfeed::activity()->actor($user)->verb('place', Delivery::firstOrCreate(['tracking_number' => 'al-shared']))->for($customer)->publish();
     }
 
     // repeat: one person, one type — the axis pins the object type.
@@ -108,7 +108,7 @@ it('prints a one-type group headline on its type, and one across types on the ve
 
     $this->artisan('storyfeed:doctor', ['--only' => ['aggregates'], '--stubs' => true])
         ->expectsOutputToContain("Story::for(Delivery::class)->verb('place')->grouped(fn (GroupBuilder \$group) => \$group->repeat(':actor placed :objects'));")
-        ->expectsOutputToContain("Story::verb('place')->grouped(fn (GroupBuilder \$group) => \$group->actors(':actors placed :objects'));")
+        ->expectsOutputToContain("Story::for(Delivery::class)->verb('place')->grouped(fn (GroupBuilder \$group) => \$group->actors(':actors placed :object'));")
         ->doesntExpectOutputToContain("Story::verb('place')->grouped(fn (GroupBuilder \$group) => \$group->repeat(")
         ->assertSuccessful();
 
@@ -117,7 +117,7 @@ it('prints a one-type group headline on its type, and one across types on the ve
         eval('use Storyfeed\Facades\Story; use Storyfeed\Grouping\GroupBuilder; use Workbench\App\Models\Delivery; '.$fix->definition()['code']);
     }
 
-    expect(Storyfeed::registeredAggregateGrammar())->toHaveKeys(['repeat.delivery.place', 'actors.place'])
+    expect(Storyfeed::registeredAggregateGrammar())->toHaveKeys(['repeat.delivery.place', 'actors.delivery.place'])
         ->and(Storyfeed::doctor(['aggregates'])->has('aggregates.missing'))->toBeFalse();
 });
 

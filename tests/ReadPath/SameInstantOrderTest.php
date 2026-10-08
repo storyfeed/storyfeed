@@ -63,7 +63,7 @@ it('puts the later row first in every read mode, when both share an instant', fu
 
     // The same pair, read three ways. Before the fix, log() said one thing and
     // the two grouped modes said the opposite.
-    foreach (['log', 'live', 'summary'] as $mode) {
+    foreach (['log', 'live'] as $mode) {
         $items = Storyfeed::feed()->{$mode}()->get()->toArray()['items'];
 
         expect($items)->toHaveCount(2, "mode: {$mode}")

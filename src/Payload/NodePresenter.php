@@ -251,7 +251,7 @@ class NodePresenter
         }
 
         return [
-            FeedHeadline::resolveSegments($entry, fn (string $role): bool => $activity->{"{$role}_type"} !== null),
+            FeedHeadline::resolveSegments(FeedHeadline::forCount($entry, 1), fn (string $role): bool => $activity->{"{$role}_type"} !== null),
             null,
         ];
     }
@@ -490,9 +490,8 @@ class NodePresenter
 
         [$sample, $distinct, $distinctTombstoned] = $this->samples($members, $slice->distinct, $slice->tombstoned);
 
-        [$template, $headline] = $slice->period === null
-            ? $this->aggregateHeadline($slice, $distinct)
-            : $this->summaryHeadline($slice, null, $slice->members);
+        [$template, $headline] = $this->aggregateHeadline($slice, $distinct);
+        $template = $template === null ? null : FeedHeadline::forCount($template, $slice->count);
 
         // Optional segments: a role no member holds is empty for the group.
         $template = $template === null ? null : FeedHeadline::resolveSegments(
@@ -539,24 +538,21 @@ class NodePresenter
 
         [$tombstoned, $redundant] = $this->groupTombstoneFact($slice, $children, $distinct, $distinctTombstoned);
 
-        // A digest row that spans verbs names none, and wears no glyph of
-        // its own: the rail shows the person, and each phrase its verb.
-        $verb = $slice->period !== null && count($slice->phrases) > 1 ? null : $first->verb;
+        // Every inferred Live row names one verb.
+        $verb = $first->verb;
 
         $node = [
             'kind' => 'group',
-            // Namespaced and versioned: the digest must not collide across
-            // axes once a group can win on more than `repeat`. A digest row
-            // hashes its bucket (`summary.week`), so periods never collide.
+            // Namespaced and versioned across axes and persisted burst hashes.
             'id' => 'grp_'.sha1("v1\x1f{$slice->axis}\x1f{$slice->hash}"),
-            'axis' => $slice->period === null ? $slice->axis : 'summary',
+            'axis' => $slice->axis,
             'count' => $slice->count,
             'verb' => $verb,
             'published_at' => Chronology::iso($first->published_at),
             'headline_template' => $template,
             'headline' => $headline,
-            'glyph' => $verb === null ? null : $this->storyfeed->icon($this->objectType($first), $verb),
-            'glyph_intent' => $verb === null ? null : $this->storyfeed->glyphIntent($this->objectType($first), $verb),
+            'glyph' => $this->storyfeed->icon($this->objectType($first), $verb),
+            'glyph_intent' => $this->storyfeed->glyphIntent($this->objectType($first), $verb),
             ...$singulars,
             'sample' => $sample,
             'distinct' => $distinct,
@@ -571,22 +567,7 @@ class NodePresenter
             'distinct_tombstoned' => $distinctTombstoned,
         ];
 
-        if ($slice->period === null) {
-            return $node;
-        }
-
-        // Additive (2026-09-25): the digest's keys, on summary rows only.
-        // `period` is the calendar cut the row covers; `phrases` its per-verb
-        // parts, capped, with `phrases_truncated` saying more exist — "and N
-        // more", where N is `count` less the phrases' counts.
-        $phrases = $this->phrases($slice);
-
-        return [
-            ...$node,
-            'period' => $slice->period->value,
-            'phrases' => $phrases,
-            'phrases_truncated' => count($slice->phrases) > count($phrases),
-        ];
+        return $node;
     }
 
     /**
@@ -653,79 +634,6 @@ class NodePresenter
         }
 
         return [$sample, $counts, $distinctTombstoned];
-    }
-
-    /**
-     * A digest row's own sentence (`summary.*`), or a phrase's
-     * (`summary.{verb}`) — exact keys only, see
-     * StoryfeedManager::summaryTemplate(). Unregistered is null: the
-     * renderer names the verb by its label, which cannot lie.
-     *
-     * @param  Collection<int, Activity>  $members
-     * @return array{0: string|null, 1: string|null}
-     */
-    protected function summaryHeadline(GroupSlice $slice, ?string $verb, Collection $members): array
-    {
-        $head = $members->first();
-
-        $entry = $this->storyfeed->summaryTemplate($verb, $verb !== null && $head !== null ? $this->objectType($head) : null);
-
-        if ($entry instanceof Closure) {
-            try {
-                return [null, (string) $entry($slice)];
-            } catch (Throwable $e) {
-                report($e);
-
-                return [null, null];
-            }
-        }
-
-        return [$entry, null];
-    }
-
-    /**
-     * A digest row's phrases: one per verb, in the order each verb first occurred, capped at
-     * `grouping.summary.phrases` (3). Each is a sub-aggregate with its own
-     * grammar and glyph, so "checked in at the Fun Fair, got a balloon and
-     * went on 3 rides" is three phrases joined by the renderer — core writes
-     * no "and".
-     *
-     * @return list<array<string, mixed>>
-     */
-    protected function phrases(GroupSlice $slice): array
-    {
-        $limit = config('storyfeed.grouping.summary.phrases', 3);
-        $limit = is_int($limit) && $limit > 0 ? $limit : 3;
-
-        $phrases = [];
-
-        foreach (array_slice($slice->phrases, 0, $limit) as $phrase) {
-            $members = $phrase['members'];
-            $head = $members->first();
-            $type = $head === null ? null : $this->objectType($head);
-
-            [$sample, $distinct] = $this->samples($members, $phrase['distinct'], []);
-
-            $part = GroupSlice::group((string) $slice->axis, (string) $slice->hash, $phrase['count'], $members, $phrase['distinct']);
-
-            [$template, $headline] = $this->summaryHeadline($part, $phrase['verb'], $members);
-
-            $phrases[] = [
-                'verb' => $phrase['verb'],
-                'count' => $phrase['count'],
-                'headline_template' => $template === null ? null : FeedHeadline::resolveSegments(
-                    $template,
-                    fn (string $role): bool => ($distinct[self::GROUP_ROLES[$role][0]] ?? 0) > 0,
-                ),
-                'headline' => $headline,
-                'glyph' => $this->storyfeed->icon($type, $phrase['verb']),
-                'glyph_intent' => $this->storyfeed->glyphIntent($type, $phrase['verb']),
-                'sample' => $sample,
-                'distinct' => $distinct,
-            ];
-        }
-
-        return $phrases;
     }
 
     /** @return array<string, mixed>|null */

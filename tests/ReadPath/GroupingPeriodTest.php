@@ -4,6 +4,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Artisan;
 use Storyfeed\Facades\Story;
 use Storyfeed\Facades\Storyfeed;
+use Storyfeed\Grouping\Axis;
 use Storyfeed\Grouping\Period;
 use Storyfeed\Models\Activity;
 use Storyfeed\Models\Grouping;
@@ -23,6 +24,17 @@ use Workbench\App\Models\User;
  * declares nothing hashes byte for byte as before, and a week starts on
  * Monday everywhere.
  */
+
+// Calendar recipes remain an explicit custom-axis capability. Built-in Live
+// axes use bursts (LiveBurstsTest), regardless of a calendar declaration.
+beforeEach(function () {
+    Storyfeed::axes([
+        Axis::make('actors')->key('v:ta!:tid:d')->eligibleWhenDistinct('actor', 3),
+        Axis::make('targets')->key('aa!:aid:v:d')->eligibleWhenDistinct('target', 2)->eligibleWhenMembers(3),
+        Axis::make('object')->key('aa:aid:v:oa!:oid!:d')->eligibleWhenMembers(2),
+        Axis::make('repeat')->key('aa:aid:v:oa:ta:tid:d')->fallback(),
+    ]);
+});
 
 afterEach(function () {
     Carbon::setTestNow();
@@ -62,10 +74,6 @@ describe('the value of the Day segment', function () {
             'actors' => 'revise:customer:9:2026-08-12',
             'object' => 'user:7:revise:delivery:42:2026-08-12',
             'repeat' => 'user:7:revise:delivery:customer:9:2026-08-12',
-            'summary.day' => 'user:7:2026-08-12',
-            'summary.hour' => 'user:7:2026-08-12T09',
-            'summary.month' => 'user:7:2026-08',
-            'summary.week' => 'user:7:2026-W33',
             'targets' => 'user:7:revise:2026-08-12',
         ];
 

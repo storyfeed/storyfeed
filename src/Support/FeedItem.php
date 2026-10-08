@@ -29,9 +29,6 @@ use Storyfeed\StoryfeedManager;
  * `toArray()` / JSON hand the same array back. Nothing here changes the
  * contract; a key the reader has no accessor for is still `get('key')`.
  *
- * A digest row's phrases are read with this class too: a phrase has a
- * verb, a count, a headline and samples, but no kind and no time.
- *
  * @implements ArrayAccess<string, mixed>
  * @implements Arrayable<string, mixed>
  */
@@ -54,7 +51,7 @@ final class FeedItem implements Arrayable, ArrayAccess, JsonSerializable
         return new self($item instanceof FeedItem ? $item->toArray() : $item);
     }
 
-    /** `activity` or `group`; null for a digest phrase. */
+    /** `activity` or `group`; null for malformed/incomplete input. */
     public function kind(): ?string
     {
         return $this->string('kind');
@@ -70,19 +67,13 @@ final class FeedItem implements Arrayable, ArrayAccess, JsonSerializable
         return $this->kind() === 'group';
     }
 
-    /** Whether this is a digest row: a group with `axis: "summary"`. */
-    public function isDigest(): bool
-    {
-        return $this->isGroup() && $this->axis() === 'summary';
-    }
-
     /** The item's public id. */
     public function id(): ?string
     {
         return $this->string('id');
     }
 
-    /** The verb, or null for a digest row that spans verbs. */
+    /** The verb, or null for incomplete input. */
     public function verb(): ?string
     {
         return $this->string('verb');
@@ -318,32 +309,10 @@ final class FeedItem implements Arrayable, ArrayAccess, JsonSerializable
         return ($this->payload['children_truncated'] ?? false) === true;
     }
 
-    /** A group's winning axis: `repeat`, `actors`, `targets`, `object`, `summary`, … */
+    /** A group's winning axis: `repeat`, `actors`, `targets`, `object`, `composite`, … */
     public function axis(): ?string
     {
         return $this->string('axis');
-    }
-
-    /** A digest row's calendar period: `hour`, `day`, `week` or `month`. */
-    public function period(): ?string
-    {
-        return $this->string('period');
-    }
-
-    /**
-     * A digest row's per-verb phrases, in the order each verb first occurred.
-     *
-     * @return Collection<int, FeedItem>
-     */
-    public function phrases(): Collection
-    {
-        return $this->items('phrases');
-    }
-
-    /** Whether the digest row has more phrases than `phrases()` holds. */
-    public function phrasesTruncated(): bool
-    {
-        return ($this->payload['phrases_truncated'] ?? false) === true;
     }
 
     /** @return Collection<int, FeedItem> */

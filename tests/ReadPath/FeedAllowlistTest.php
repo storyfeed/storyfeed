@@ -201,7 +201,7 @@ it('drops a group whose members are all excluded rather than emitting an empty n
 
     Storyfeed::activity()->actor($this->ines)->verb('order_placed', $this->project)->publish();
 
-    $page = $this->project->storyfeed()->only(['order_placed'])->summary()->get();
+    $page = $this->project->storyfeed()->only(['order_placed'])->live()->get();
 
     expect(verbsOf($page->items()))->toBe(['order_placed']);
 });

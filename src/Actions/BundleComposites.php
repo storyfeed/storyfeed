@@ -127,7 +127,7 @@ class BundleComposites
                 'winner' => null,
             ]);
 
-            // The parent's partition rows (WriteGroupings::admitted()).
+            // Remove inferred rows from the claimed composite parent.
             (new WriteGroupings)($parent, inserted: true);
 
             $rowBacked = app(StoryfeedManager::class)->rowBackedBuckets();

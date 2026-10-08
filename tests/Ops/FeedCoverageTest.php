@@ -314,7 +314,7 @@ it('reports a verb carried only by a declared-unrestricted feed as Info, not War
 
     Storyfeed::feeds([
         'customer' => fn (FeedBuilder $feed) => $feed->only(['confirm', 'upload']),
-        'portal' => fn (FeedBuilder $feed) => $feed->unrestricted()->summary(),
+        'portal' => fn (FeedBuilder $feed) => $feed->unrestricted()->live(),
     ]);
 
     $finding = feedFindings()->firstWhere('subject.verb', 'comment');

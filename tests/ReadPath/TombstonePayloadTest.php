@@ -5,6 +5,7 @@ use Storyfeed\Actions\SnapshotEntity;
 use Storyfeed\Actions\TrickleSnapshots;
 use Storyfeed\Facades\Story;
 use Storyfeed\Facades\Storyfeed;
+use Storyfeed\Grouping\Axis;
 use Storyfeed\Models\Activity;
 use Storyfeed\Models\FeedTombstone;
 use Storyfeed\Models\Snapshot;
@@ -181,6 +182,8 @@ it('keeps the deleted model\'s headline and glyph', function () {
 });
 
 it('counts a group\'s tombstoned entities beside distinct, and samples live ones first', function () {
+    // A custom cross-object axis exercises diverse entity tombstone sampling.
+    Storyfeed::axes([Axis::make('actors')->key('v:ta!:tid:ca:cid')->bursts()->eligibleWhenDistinct('actor', 3)]);
     config(['storyfeed.grouping.sample_limits.actor' => 2, 'storyfeed.grouping.sample_limits.object' => 2]);
 
     $users = collect(['Ada', 'Bo', 'Cy', 'Di'])->map(fn (string $name) => User::create(['name' => $name, 'email' => "{$name}@example.com"]));

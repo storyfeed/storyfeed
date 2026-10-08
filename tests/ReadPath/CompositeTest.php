@@ -209,7 +209,7 @@ it('re-decides abandoned clusters when a run is claimed', function () {
 
     foreach (['Bob', 'Ann'] as $name) {
         $u = User::create(['name' => $name, 'email' => strtolower($name).'@example.com']);
-        Storyfeed::activity()->actor($u)->verb('upload', Delivery::create(['tracking_number' => "O-{$name}"]))->for($campaign)->publish();
+        Storyfeed::activity()->actor($u)->verb('upload', Delivery::firstOrCreate(['tracking_number' => 'T-1']))->for($campaign)->publish();
     }
 
     expect(Storyfeed::feed()->get()->toArray()['items'][0]['axis'])->toBe('actors');

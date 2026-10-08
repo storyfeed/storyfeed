@@ -29,7 +29,7 @@ final class GroupBuilder
         return $this->add(Group::repeat(), $headline);
     }
 
-    /** Many actors, one target — "Bob, Sally and 3 others uploaded files to X". */
+    /** Many actors, one object and place — "Bob, Sally and 3 others commented on X". */
     public function actors(string|Closure|FeedHeadline|null $headline = null): self
     {
         return $this->add(Group::byActors(), $headline);
@@ -47,10 +47,9 @@ final class GroupBuilder
         return $this->add(Group::byObject(), $headline);
     }
 
-    /** The digest's phrase, starting at the verb — "completed :count tasks". */
-    public function summary(string|Closure|FeedHeadline|null $headline = null): self
+    public function summary(mixed ...$arguments): never
     {
-        return $this->add(Group::summary(), $headline);
+        Group::summary();
     }
 
     /**

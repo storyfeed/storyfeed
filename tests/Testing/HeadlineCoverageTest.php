@@ -96,13 +96,13 @@ it('asserts aggregate grammar for the axes curation actually selected', function
 
         Storyfeed::activity()
             ->actor($user)
-            ->verb('upload', Delivery::create(['tracking_number' => $name]))
+            ->verb('upload', Delivery::firstOrCreate(['tracking_number' => 'Shared']))
             ->for($project)
             ->publish();
     }
 
     expect(fn () => HeadlineCoverage::assertCoversGroups())
-        ->toThrow(AssertionFailedError::class, 'actors.upload (no group headline)');
+        ->toThrow(AssertionFailedError::class, 'actors.delivery.upload (no group headline)');
 
     Story::verb('upload')->grouped(Group::on('actors')->headline(':actors uploaded :count files to :target'));
 
@@ -139,7 +139,7 @@ it('keeps GrammarCoverage and its aggregate method names as deprecated aliases',
 
         Storyfeed::activity()
             ->actor($user)
-            ->verb('upload', Delivery::create(['tracking_number' => $name]))
+            ->verb('upload', Delivery::firstOrCreate(['tracking_number' => 'Shared']))
             ->for($project)
             ->publish();
     }

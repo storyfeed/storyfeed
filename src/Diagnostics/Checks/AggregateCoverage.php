@@ -18,8 +18,8 @@ use Storyfeed\StoryfeedManager;
  * render that axis. A consumer got eight warnings on a repeats-only
  * dashboard (the pre-0.8 `live`); five were `object.*` and one `targets.*`,
  * six templates that could not have fired, asked for by name. Today the
- * same holds for a `->summary()` dashboard, which reads only the digest's
- * partition rows. So the registry now answers the second
+ * same holds for a `->log()` dashboard, which reads individual activities.
+ * So the registry now answers the second
  * half: `Reachability` reads each REGISTERED feed's declared mode, and a pair
  * nothing can read is reported as LATENT rather than as a gap to go fix.
  *

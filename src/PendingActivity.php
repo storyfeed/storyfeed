@@ -902,8 +902,7 @@ class PendingActivity
                 'winner' => null,
             ]);
 
-            // The parent's partition rows, so the digest places it under its
-            // person's day; the claim keeps every other axis out.
+            // Composite parents never enter inferred Live grouping.
             (new WriteGroupings)($this->activity, $this->inserted);
 
             (new SyncParticipants)($this->activity, $this->inserted);

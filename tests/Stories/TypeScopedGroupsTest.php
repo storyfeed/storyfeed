@@ -46,7 +46,7 @@ it('keys one per type for a list of types', function () {
 
 it('refuses an axis that does not pin the object type, pointing at the verb', function () {
     Story::for(Delivery::class)->verb('ship')
-        ->grouped(Group::byActors()->headline(':actors shipped :count deliveries'));
+        ->grouped(Group::byTargets()->headline(':targets shipped :count deliveries'));
 
     Storyfeed::compiledStories();
 })->throws(StoryMisconfigured::class, "Story::verb('ship')->grouped(…)");
@@ -124,7 +124,7 @@ it('refuses a resource class headline on a grouping that can hold several types,
     {
         public function place(Verb $verb): Verb
         {
-            return $verb->grouped(Group::byActors()->headline(':actors placed :count deliveries'));
+            return $verb->grouped(Group::byTargets()->headline(':actors placed :count deliveries'));
         }
     };
 
@@ -132,11 +132,11 @@ it('refuses a resource class headline on a grouping that can hold several types,
 
     expect(fn () => Storyfeed::compiledStories())->toThrow(function (StoryMisconfigured $e) {
         expect($e->getMessage())
-            ->toContain('::place() gives its Group::byActors() grouping a headline')
+            ->toContain('::place() gives its Group::byTargets() grouping a headline')
             ->toContain('other kinds of thing in the same row')
             ->toContain('things that are not all [delivery]')
-            ->toContain("routes/feed.php instead, worded so it names no type: Story::verb('place')->grouped(Group::byActors()->headline('…'))")
-            ->not->toContain('actors.place');
+            ->toContain("routes/feed.php instead, worded so it names no type: Story::verb('place')->grouped(Group::byTargets()->headline('…'))")
+            ->not->toContain('targets.place');
     });
 });
 

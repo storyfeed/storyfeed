@@ -32,6 +32,4 @@ return [
     // activity has no object.
     'unnamed' => ':actor :verb[ :object]',
 
-    // A digest phrase with no headline.
-    'phrase' => ':verb (:count)',
 ];

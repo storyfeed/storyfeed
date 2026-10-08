@@ -47,7 +47,7 @@ final class Group
         return new self($axis);
     }
 
-    /** Many actors, one target — "Bob, Sally and 3 others uploaded files to X". */
+    /** Many actors, one object and place — "Bob, Sally and 3 others commented on X". */
     public static function byActors(): self
     {
         return new self('actors');
@@ -71,15 +71,9 @@ final class Group
         return new self('repeat');
     }
 
-    /**
-     * The digest's phrase for this verb — "confirmed :count bookings". A
-     * phrase starts at the verb: the row names the person once, and the
-     * renderer joins the phrases ("confirmed 11 bookings and cancelled 9").
-     * Keyed `summary.{verb}`; one phrase serves every period.
-     */
-    public static function summary(): self
+    public static function summary(): never
     {
-        return new self('summary');
+        throw new StoryMisconfigured('Group::summary() has been retired. Author Live group headlines with repeat(), byActors(), byTargets() or byObject().');
     }
 
     /** An authored collection story (see Contracts\Bundleable). */

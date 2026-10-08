@@ -1,6 +1,6 @@
 ---
 name: storyfeed-development
-description: Build activity feeds with Storyfeed (storyfeed/storyfeed). Use when making models Feedable, publishing activities with Storyfeed::activity() or Storyfeed::record(), writing headlines, icons or group headlines in routes/feed.php with Story::for()->verb(), reading feeds with Storyfeed::feed() (live, summary, log, involving, cursorPaginate), rendering with <x-storyfeed::feed> or FeedItem, attaching bodies, or debugging with storyfeed:doctor.
+description: Build activity feeds with Storyfeed (storyfeed/storyfeed). Use when making models Feedable, publishing activities with Storyfeed::activity() or Storyfeed::record(), writing headlines, icons or group headlines in routes/feed.php with Story::for()->verb(), reading feeds with Storyfeed::feed() (live, log, involving, cursorPaginate), rendering with <x-storyfeed::feed> or FeedItem, attaching bodies, or debugging with storyfeed:doctor.
 ---
 
 # Storyfeed Development
@@ -68,7 +68,7 @@ Story::verb('place')->grouped(
 
 ## Read modes and filters
 
-- `live()` (the default) returns grouped rows. `log()` returns one row per activity. `summary(Period::Day|Week|Month|Hour)` returns one row per actor per calendar period.
+- `live()` (the default) returns one-action burst rows. `log()` returns one row per activity. `summary()` is retired and throws naming Live. A burst closes after 15 quiet minutes or 4 hours; configure `grouping.bursts` or `Story::verb('upload')->bursts(within: '15 minutes', ceiling: '4 hours')`. Migrate existing history with `storyfeed:curate --rebuild-bursts` while publishers are paused.
 - Filters: `involving($model)` matches any role; `actor()`, `object()`, `target()` and `context()` each match one role. `$model->storyfeed()` is `involving($model)`.
 - `query(fn (ActivityBuilder $query) => ...)` adds custom constraints.
 

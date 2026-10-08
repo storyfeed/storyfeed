@@ -36,7 +36,7 @@ it('keeps complete payloads and cursors identical to the previous queries', func
         } while ($cursor !== null && $pages < 100);
         expect($cursor)->toBeNull();
     }
-})->with([false, true])->with(['live', 'summary']);
+})->with([false, true])->with(['live']);
 
 it('adds and removes the covering read indexes idempotently on configured tables', function () {
     $migration = include __DIR__.'/../../database/migrations/add_read_path_indexes_to_feed_groupings_table.php.stub';
@@ -55,26 +55,12 @@ it('adds and removes the covering read indexes idempotently on configured tables
         ->and(Schema::hasIndex('custom_groupings', 'feed_groupings_members_index'))->toBeTrue();
 });
 
-it('preserves tuple identity, null ids and database collations in Summary counts', function () {
-    ReadPathHistory::seed(400, days: 0);
-    $hash = Grouping::query()->where('bucket', 'summary.day')->value('hash');
-    $ids = Grouping::query()->where('bucket', 'summary.day')->where('hash', $hash)->pluck('activity_id');
-    $identities = [['file', null], ['file', ''], ['a:1', 'x'], ['a', '1:x'], ['café', '1'], ['cafe', '1'], ['Case', 'x'], ['case', 'x'], ['case', 'x ']];
-    expect($ids->count())->toBeGreaterThanOrEqual(count($identities));
-    foreach ($identities as $i => [$type, $id]) {
-        DB::table('feed_activities')->where('id', $ids[$i])->update(['origin_type' => $type, 'origin_id' => $id]);
-    }
-    $expected = (new ReadPathOracle)->summary()->limit(50)->get()->toArray();
-    $actual = (new FeedBuilder)->summary()->limit(50)->get()->toArray();
-    expect(jsonObjectKeys($actual))->toBe(jsonObjectKeys($expected));
-});
-
 it('keeps independent row aliases for duplicate memberships and joined scopes', function () {
     ReadPathHistory::seed(400);
     Grouping::query()->whereIn('activity_id', [397, 398, 399, 400])->whereIn('bucket', ['repeat', 'object'])->update(['winner' => true]);
     foreach ([false, true] as $curate) {
         config()->set('storyfeed.grouping.curate', $curate);
-        foreach (['live', 'summary'] as $mode) {
+        foreach (['live'] as $mode) {
             foreach ([false, true] as $joined) {
                 $configure = fn ($feed) => $joined
                     ? $feed->query(fn ($query) => $query->whereNotNull('object_type')->select('verb')->crossJoinSub(DB::query()->selectRaw('1 as id')->unionAll(DB::query()->selectRaw('2 as id')), 'copies'))
@@ -85,15 +71,4 @@ it('keeps independent row aliases for duplicate memberships and joined scopes', 
             }
         }
     }
-});
-
-it('keeps native grouping collations when a Summary hash has stored case variants', function () {
-    ReadPathHistory::seed(400, days: 0);
-    $hash = Grouping::query()->where('bucket', 'summary.day')->where('activity_id', 1)->value('hash');
-    $uploads = Activity::query()->where('verb', 'upload')->pluck('id');
-    Grouping::query()->where('bucket', 'summary.day')->where('hash', $hash)->whereIn('activity_id', $uploads)
-        ->update(['hash' => strtoupper(substr($hash, 0, 4)).substr($hash, 4)]);
-    $expected = (new ReadPathOracle)->summary()->limit(50)->get()->toArray();
-    $actual = (new FeedBuilder)->summary()->limit(50)->get()->toArray();
-    expect(jsonObjectKeys($actual))->toBe(jsonObjectKeys($expected));
 });

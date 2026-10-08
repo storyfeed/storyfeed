@@ -21,13 +21,13 @@ use Workbench\App\Models\User;
  * and is invisible.
  */
 
+beforeEach(fn () => config()->set('storyfeed.grouping.policy.min_object_members', 1000));
+
 function resettleUpload(User $user, Customer $project): Activity
 {
-    static $n = 0;
-
     return Storyfeed::activity('upload')
         ->actor($user)
-        ->object(Delivery::create(['tracking_number' => 'r-'.(++$n)]))
+        ->object(Delivery::firstOrCreate(['tracking_number' => 'r-'.$project->id]))
         ->target($project)
         ->publish();
 }

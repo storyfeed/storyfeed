@@ -70,17 +70,22 @@ function windowedFixture(int $seed, int $activities = 160): array
 
     $start = now()->subDays(10)->startOfDay();
 
+    $events = [];
     for ($i = 0; $i < $activities; $i++) {
-        // Minute-grained over ten days, so same-instant ties are common and
-        // day buckets hold several groups each.
-        $at = $start->copy()->addMinutes(mt_rand(0, 10 * 24 * 60));
-
-        Storyfeed::activity()
-            ->actor($users[mt_rand(0, 5)])
-            ->verb(mt_rand(0, 3) === 0 ? 'comment' : 'upload', Delivery::create(['tracking_number' => "d{$i}"]))
-            ->for($projects[mt_rand(0, 3)])
-            ->publishedAt($at)
-            ->publish();
+        // Repeated pairs are real short bursts, spread over ten days.
+        $pair = intdiv($i, 2);
+        $events[] = [
+            'i' => $i,
+            'at' => $start->copy()->addMinutes(intdiv($pair, 6) * 900 + ($pair % 6) * 2 + $i % 2),
+            'actor' => $users[$pair % 6],
+            'project' => $projects[$pair % 4],
+            'verb' => $pair % 4 === 0 ? 'comment' : 'upload',
+        ];
+    }
+    foreach (collect($events)->sortBy('at') as $event) {
+        Storyfeed::activity()->actor($event['actor'])
+            ->verb($event['verb'], Delivery::create(['tracking_number' => "d{$event['i']}"]))
+            ->for($event['project'])->publishedAt($event['at'])->publish();
     }
 
     $all = Activity::query()->orderBy('id')->get();
@@ -178,16 +183,16 @@ it('pages identically to the unbounded aggregate in every mode', function (strin
     expect($attempts->whereNotNull('floor')->count())->toBeGreaterThan(0)
         ->and($attempts->whereNotNull('floor')->whereNotNull('ceiling')->count())->toBeGreaterThan(0)
         ->and($attempts->count())->toBeGreaterThan(count($walks['windowed']));
-})->with(['summary', 'live'])->with([11, 23, 47]);
+})->with(['live'])->with([11, 23, 47]);
 
 it('pages identically under scope and verb filters', function () {
     ['user' => $user, 'project' => $project] = windowedFixture(31);
 
     foreach ([
-        'involving' => fn (FeedBuilder $feed) => $feed->summary()->involving($user),
-        'target' => fn (FeedBuilder $feed) => $feed->summary()->target($project),
-        'verb' => fn (FeedBuilder $feed) => $feed->summary()->only('upload'),
-        'callback' => fn (FeedBuilder $feed) => $feed->summary()->query(fn ($q) => $q->where('verb', '!=', 'comment')),
+        'involving' => fn (FeedBuilder $feed) => $feed->live()->involving($user),
+        'target' => fn (FeedBuilder $feed) => $feed->live()->target($project),
+        'verb' => fn (FeedBuilder $feed) => $feed->live()->only('upload'),
+        'callback' => fn (FeedBuilder $feed) => $feed->live()->query(fn ($q) => $q->where('verb', '!=', 'comment')),
     ] as $name => $configure) {
         $walks = compareWalks($configure, limit: 3, depths: [4, 10, null]);
 
@@ -201,7 +206,7 @@ it('pages identically when the window is deeper than history', function () {
 
     // Depth 1000 on 30 activities: the floor probe finds nothing, so every
     // page must take the unbounded read exactly once — no retries, no recount.
-    $walks = compareWalks(fn (FeedBuilder $feed) => $feed->summary(), limit: 4, depths: [1000, null]);
+    $walks = compareWalks(fn (FeedBuilder $feed) => $feed->live(), limit: 4, depths: [1000, null]);
 
     expect($walks['windowed'])->toBe($walks['oracle'])
         ->and(collect(WindowedFeedBuilder::$attempts)->whereNotNull('floor')->count())->toBe(0)

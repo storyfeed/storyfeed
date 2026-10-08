@@ -44,6 +44,7 @@ return [
         'activities' => 'feed_activities',
         'snapshots' => 'feed_snapshots',
         'groupings' => 'feed_groupings',
+        'grouping_bursts' => 'feed_grouping_bursts',
         'participants' => 'feed_participants',
         'parties' => 'feed_parties',
         'batches' => 'feed_batches',
@@ -210,20 +211,9 @@ return [
         | Policy is not payload contract: change it freely (docs/payload.md).
         */
         /*
-        | The app-wide default read mode: 'live' (today's feed, the typical
-        | home page: each activity under its winning axis), 'summary' (the
-        | digest: one row per person per day, across verbs), or 'log' (the
-        | atomic timeline). Per-view calls (->live() / ->summary() / ->log())
-        | always override.
-        |
-        | Re-cut in v0.8: 'live' reads what 'summary' used to. Repeats only,
-        | the old 'live', is `'curate' => false` below.
-        |
-        | Renamed in v0.7 from flat/grouped/curated — the old `curated` claimed
-        | editorial judgement over what is mechanical collapsing, and the name
-        | misled people into choosing it for the wrong reason. `curated` is
-        | reserved for a future relevance-RANKED view. The old values now throw
-        | with the new name rather than falling back to a default.
+        | The app-wide default read mode: 'live' (one-action bursts) or 'log'
+        | (the atomic timeline). Explicit ->live() / ->log() override it.
+        | Summary is retired; the old modes throw with the replacement name.
         */
         'default' => 'live',
 
@@ -235,13 +225,11 @@ return [
             'min_object_members' => 2,
         ],
 
-        /*
-        | The digest (->summary()): one row per person per period, across
-        | verbs. `phrases` caps the per-verb parts a row carries; the rest
-        | read "and N more". Policy, not contract.
-        */
-        'summary' => [
-            'phrases' => 3,
+        // A row absorbs the same action until the quiet gap or ceiling.
+        // Per verb: Story::verb('comment')->bursts(within: '5 minutes', ceiling: '1 hour').
+        'bursts' => [
+            'within' => '15 minutes',
+            'ceiling' => '4 hours',
         ],
 
         /*
@@ -411,16 +399,12 @@ return [
     | flag still means the whole table, because that is the explicit "do
     | everything" and an operator asking for it should get it.
     |
-    | WHY TWO DAYS. Every shipped axis key ends in `:d` — the day the activity
-    | was published, cut in `app.timezone` (see Grouping\Field). The day is part
-    | of the hash, so a cluster belongs to one day and only an activity
-    | published on that day can join it. A past day's cluster is closed: it
-    | cannot gain members, its eligibility cannot change, and re-deciding it
-    | reaches the same answer it reached yesterday. Two days covers today plus
-    | yesterday, for timezone slop and late arrivals.
+    | WHY TWO DAYS. Built-in Live bursts close within four hours by default.
+    | Two days covers those memberships and delayed repair. If a configured
+    | burst ceiling exceeds this horizon, raise the window to cover it.
     |
-    | A VERB GROUPED PER WEEK OR MONTH (`->groupedWeekly()`, `->groupedMonthly()`
-    | in routes/feed.php) puts its week or month in that segment instead, so its
+    | A CUSTOM CALENDAR AXIS with `:d` honors `->groupedWeekly()` or
+    | `->groupedMonthly()`, putting its week or month in that segment, so its
     | clusters stay open for the whole period. The scheduled run looks back over
     | that verb's period plus a day (8 days for a week, 32 for a month), for that
     | verb only. Nothing to set here: it follows the declarations.

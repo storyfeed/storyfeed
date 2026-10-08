@@ -3,6 +3,7 @@
 namespace Storyfeed;
 
 use Closure;
+use Illuminate\Support\Str;
 use Storyfeed\Support\ActivityRoles;
 
 /**
@@ -32,6 +33,16 @@ final class FeedHeadline
     public static function trans(string $key): self
     {
         return new self($key);
+    }
+
+    /** Count-one English templates use "1 time", "1 approval", "1 item". */
+    public static function forCount(string $template, int $count): string
+    {
+        if ($count !== 1) {
+            return $template;
+        }
+
+        return preg_replace_callback('/(:count\s+)([\p{L}-]+)/u', fn (array $match) => $match[1].Str::singular($match[2]), $template) ?? $template;
     }
 
     /**

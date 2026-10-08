@@ -35,7 +35,7 @@ it('fails when a verb the feed was meant to refuse would render', function () {
 });
 
 it('says WHY an unrestricted feed shows everything', function () {
-    Storyfeed::feeds(['admin' => fn (FeedBuilder $feed) => $feed->summary()]);
+    Storyfeed::feeds(['admin' => fn (FeedBuilder $feed) => $feed->live()]);
 
     expect(fn () => FeedAudience::assertRefuses('admin', 'order_margin_note'))
         ->toThrow(AssertionFailedError::class, 'declares no only()/except() at all');

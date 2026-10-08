@@ -93,7 +93,6 @@ use Storyfeed\Testing\StoryfeedFake;
  * @method static array<int, string> aggregateAxes()
  * @method static array<int, string> rowBackedBuckets()
  * @method static array<int, string> uncuratedBuckets()
- * @method static \Storyfeed\Grouping\Axis|null summaryAxis(\Storyfeed\Grouping\Period $period)
  * @method static \Storyfeed\Grouping\Axis|null fallbackAxis()
  * @method static array<int, string> axesApplicableTo(array<int, string> $filledRoles)
  * @method static array<int, array{0: string, 1: string}> possibleAggregatePairs(array<string, array<int, string>> $roleMap)

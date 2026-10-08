@@ -3,14 +3,8 @@
 use Illuminate\Support\Carbon;
 use Storyfeed\Models\Activity;
 
-/*
- * FROZEN HASH STRINGS — the gate for any grouping-strategy refactor.
- *
- * These literals are what the pre-Axis implementation produced. Deployed
- * feed_groupings rows contain exactly these strings; a refactor that
- * changes any byte silently orphans every existing cluster. If this test
- * fails: fix the recipe resolution — NEVER adjust the frozen strings.
- */
+/* Live's logical recipes changed by the 2026-10-07 ruling. Persisted burst
+ * identity and migration stability are covered separately in LiveBurstsTest. */
 
 function strategyHashes(array $attributes): array
 {
@@ -37,16 +31,12 @@ it('produces the frozen hashes for a fully-roled activity', function () {
     ]);
 
     expect($hashes)->toBe([
-        'actors' => 'revise:customer:9:2026-08-12',
-        'object' => 'user:7:revise:delivery:42:2026-08-12',
-        'repeat' => 'user:7:revise:delivery:customer:9:2026-08-12',
+        'actors' => 'revise:delivery:42:customer:9::',
+        'object' => 'user:7:revise:delivery:42:customer:9::',
+        'repeat' => 'user:7:revise:delivery:customer:9::',
         // The digest's partition axes (v0.8): the actor and a FIXED period,
         // whatever the verb declared.
-        'summary.day' => 'user:7:2026-08-12',
-        'summary.hour' => 'user:7:2026-08-12T09',
-        'summary.month' => 'user:7:2026-08',
-        'summary.week' => 'user:7:2026-W33',
-        'targets' => 'user:7:revise:2026-08-12',
+        'targets' => 'user:7:revise::',
     ]);
 });
 
@@ -56,11 +46,12 @@ it('produces the frozen hashes for an anonymous, untargeted activity', function 
         'object_type' => 'delivery', 'object_id' => 42,
     ]);
 
-    // No actor: targets and the digest's partitions absent. No target:
-    // actors absent. Nulls are ''.
+    // No actor means no targets candidate. The object still admits actors;
+    // missing optional target/context fields are empty strings.
     expect($hashes)->toBe([
-        'object' => '::revise:delivery:42:2026-08-12',
-        'repeat' => '::revise:delivery:::2026-08-12',
+        'actors' => 'revise:delivery:42::::',
+        'object' => '::revise:delivery:42::::',
+        'repeat' => '::revise:delivery::::',
     ]);
 });
 
@@ -71,11 +62,7 @@ it('produces the frozen hashes for an objectless activity', function () {
     ]);
 
     expect($hashes)->toBe([
-        'repeat' => 'user:7:ping::::2026-08-12',
-        'summary.day' => 'user:7:2026-08-12',
-        'summary.hour' => 'user:7:2026-08-12T09',
-        'summary.month' => 'user:7:2026-08',
-        'summary.week' => 'user:7:2026-W33',
-        'targets' => 'user:7:ping:2026-08-12',
+        'repeat' => 'user:7:ping:::::',
+        'targets' => 'user:7:ping::',
     ]); // ksorted
 });

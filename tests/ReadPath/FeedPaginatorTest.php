@@ -164,7 +164,7 @@ it('paginates each feed mode with the same items as get', function (string $mode
     $page = $builder->cursorPaginate(2);
     expect($page->toArray()['items'])->toBe($plain->items())
         ->and($page->nextCursor()?->encode())->toBe($plain->nextCursor());
-})->with(['log', 'live', 'summary']);
+})->with(['log', 'live']);
 
 it('supports a feed resolver without changing Eloquent cursor resolution', function () {
     $first = Storyfeed::feed()->log()->limit(1)->get();

@@ -4,6 +4,7 @@ namespace Storyfeed\Tests\Fixtures;
 
 use Illuminate\Support\Facades\DB;
 use Storyfeed\Actions\SnapshotEntity;
+use Storyfeed\Facades\Storyfeed;
 use Storyfeed\Grouping\MultiAxisStrategy;
 use Storyfeed\Models\Activity;
 use Workbench\App\Models\Customer;
@@ -23,6 +24,7 @@ final class ReadPathHistory
         $targetSnapshots = $targets->map(fn ($model) => $snapshot($model)->getKey());
         $objectSnapshots = $objects->map(fn ($model) => $snapshot($model)->getKey());
         $strategy = new MultiAxisStrategy;
+        $burstState = [];
         $start = now()->subDays($days);
         $started = hrtime(true);
         $progress = (bool) env('STORYFEED_READ_SEED_PROGRESS');
@@ -78,6 +80,21 @@ final class ReadPathHistory
                     }
                     $hashKey = implode('|', [$row['verb'], $row['actor_id'], $row['object_id'], $row['target_id'], substr($at, 0, 10)]);
                     $hashes = $hashCache[$hashKey] ??= $strategy->hashes(new Activity($row));
+                    foreach ($hashes as $axis => &$logical) {
+                        if (! Storyfeed::axis($axis)?->usesBursts()) {
+                            continue;
+                        }
+                        $key = hash('sha256', $axis."\x1f".$logical);
+                        $atSeconds = strtotime($at);
+                        $state = $burstState[$key] ?? null;
+                        if ($state === null || $atSeconds - $state['last'] >= 900 || $atSeconds - $state['first'] >= 14400) {
+                            $state = ['first' => $atSeconds, 'hash' => 'b1:'.$key.':'.$uid];
+                        }
+                        $state['last'] = $atSeconds;
+                        $burstState[$key] = $state;
+                        $logical = $state['hash'];
+                    }
+                    unset($logical);
                     foreach ($hashes as $bucket => $hash) {
                         if ($parent && ! str_starts_with($bucket, 'summary.')) {
                             continue;

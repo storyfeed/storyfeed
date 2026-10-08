@@ -3,7 +3,7 @@
 use Storyfeed\Tests\Fixtures\ReadPathHistory;
 use Storyfeed\Tests\Fixtures\ReadPathMeasurement;
 
-it('reads Live and Summary within a 300ms p50 budget at the requested scale', function () {
+it('reads Live within a 300ms p50 budget at the requested scale', function () {
     $size = (int) env('STORYFEED_READ_SIZE', 100_000);
     $seedStart = hrtime(true);
     ReadPathHistory::seed($size);

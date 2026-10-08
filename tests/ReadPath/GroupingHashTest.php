@@ -22,11 +22,11 @@ it('writes candidate hashes for every applicable axis at publish', function () {
     expect($buckets)->toHaveKeys(['repeat', 'actors', 'targets']);
 });
 
-it('omits the actors axis when there is no target', function () {
+it('omits the actors axis when there is no object', function () {
     $user = User::create(['name' => 'Sally', 'email' => 'sally@example.com']);
     $delivery = Delivery::create(['tracking_number' => 'TN-1']);
 
-    $activity = Storyfeed::activity()->actor($user)->verb('confirm', $delivery)->publish();
+    $activity = Storyfeed::activity()->actor($user)->verb('confirm')->publish();
 
     $buckets = Grouping::query()->where('activity_id', $activity->id)->pluck('bucket');
 
@@ -55,9 +55,9 @@ it('drops buckets an activity no longer emits', function () {
     expect(Grouping::query()->where('activity_id', $activity->id)->pluck('bucket')->all())
         ->toContain('actors');
 
-    // The target is dropped, so the actors axis no longer applies: its row
+    // The object is dropped, so the actors axis no longer applies: its row
     // must go, not linger and keep grouping the activity forever.
-    $activity->forceFill(['target_type' => null, 'target_id' => null])->save();
+    $activity->forceFill(['object_type' => null, 'object_id' => null])->save();
     (new WriteGroupings)($activity);
 
     expect(Grouping::query()->where('activity_id', $activity->id)->pluck('bucket')->all())

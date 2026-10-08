@@ -36,14 +36,13 @@ use Storyfeed\StoryfeedManager;
  * inline from the publish transaction.
  *
  * Cost is amortized O(1). A publish touches only the <= 3 clusters it emits
- * hashes for; within a day clusters only grow, so winners are monotone and
+ * hashes for; within a burst clusters only grow, so winners are monotone and
  * the O(cluster) resettle sweep runs only when a threshold is actually
  * crossed — after which every member is already stamped and the sweep finds
  * nothing to do.
  */
 class CurateCluster
 {
-    /** @param (Closure(bool): void)|null $onSettled Optional maintenance accounting; absent on the publish path. */
     /**
      * Cluster eligibility decided during one repairMany() pass; null outside
      * one, when nothing is remembered.
@@ -52,6 +51,7 @@ class CurateCluster
      */
     private ?array $eligibility = null;
 
+    /** @param (Closure(bool): void)|null $onSettled Optional maintenance accounting; absent on the publish path. */
     public function __construct(protected ?Closure $onSettled = null) {}
 
     /**
@@ -312,6 +312,12 @@ class CurateCluster
         $this->eligibility = [];
 
         try {
+            // Bursts can make thousands of small clusters. Count each rule
+            // for hundreds of hashes per query, rather than a query per tiny
+            // cluster when a popular entity is tombstoned/restored.
+            foreach ($hashesByAxis as $axis => $hashes) {
+                $this->rememberEligibility($axis, array_keys($hashes));
+            }
             foreach (array_chunk(array_keys($ids), 500) as $chunk) {
                 $rows = $this->groupings()
                     ->whereIn('activity_id', $chunk)
@@ -327,6 +333,42 @@ class CurateCluster
             }
         } finally {
             $this->eligibility = null;
+        }
+    }
+
+    /** @param list<string> $hashes */
+    protected function rememberEligibility(string $axis, array $hashes): void
+    {
+        $rules = $this->manager()->axis($axis)?->eligibility() ?? [];
+        $activities = $this->activitiesTable();
+        $groupings = $this->groupingsTable();
+        foreach (array_chunk($hashes, 300) as $chunk) {
+            $passes = array_fill_keys($chunk, $rules !== []);
+            foreach ($rules as $rule) {
+                $query = $this->activityModel()->newQuery()
+                    ->join($groupings, fn (JoinClause $join) => $join
+                        ->on("{$groupings}.activity_id", '=', "{$activities}.id")
+                        ->where("{$groupings}.bucket", $axis))
+                    ->whereIn("{$groupings}.hash", $chunk);
+                if (isset($rule['distinct'])) {
+                    $role = $rule['distinct'];
+                    $distinct = $query->whereNotNull("{$activities}.{$role}_type")
+                        ->select(["{$groupings}.hash", "{$activities}.{$role}_type", "{$activities}.{$role}_id"])->distinct();
+                    $counts = $this->activityModel()->getConnection()->query()->fromSub($distinct->toBase(), 'd')
+                        ->groupBy('hash')->select('hash')->selectRaw('count(*) as total')->pluck('total', 'hash');
+                    $min = $rule['min'] ?? 1;
+                } else {
+                    $counts = $query->groupBy("{$groupings}.hash")->select("{$groupings}.hash")
+                        ->selectRaw('count(*) as total')->pluck('total', 'hash');
+                    $min = $rule['members'] ?? 1;
+                }
+                foreach ($passes as $hash => $passed) {
+                    $passes[$hash] = $passed && ($counts[$hash] ?? 0) >= $min;
+                }
+            }
+            foreach ($passes as $hash => $passed) {
+                $this->eligibility["{$axis}\0{$hash}"] = $passed;
+            }
         }
     }
 

@@ -52,19 +52,18 @@ it('reports every pair and says reachability is unknown when no feeds are regist
         ->toBe(Severity::Error);
 });
 
-it('calls an object-axis pair latent when every registered feed reads the digest', function () {
-    Storyfeed::feeds(['dashboard' => fn (FeedBuilder $feed) => $feed->summary()]);
+it('calls an object-axis pair latent when every registered feed reads the Log', function () {
+    Storyfeed::feeds(['dashboard' => fn (FeedBuilder $feed) => $feed->log()]);
 
     objectCluster();
 
     $report = Storyfeed::doctor(['aggregates']);
     $latent = $report->withCode('aggregates.latent')->first();
 
-    // `summary()` selects the period's partition bucket and never consults
-    // the winner column — so no object.* template could ever fire.
+    // Log renders individual activities, so no object template can fire.
     expect($latent)->not->toBeNull()
         ->and($latent->subject['axis'])->toBe('object')
-        ->and($latent->subject['modes'])->toBe('summary')
+        ->and($latent->subject['modes'])->toBe('log')
         ->and($latent->severity)->toBe(Severity::Info)
         // Still reported, and still not a gap to go fix: a stub here is six
         // registrations that cannot render.
@@ -198,7 +197,6 @@ it('restricts live reachability to repeat with curation off and preserves mode a
     Storyfeed::feeds([
         'newsroom' => fn (FeedBuilder $feed) => $feed->live(),
         'orders' => fn (FeedBuilder $feed) => $feed->live()->only(['order.*']),
-        'digest' => fn (FeedBuilder $feed) => $feed->summary(),
         'audit' => fn (FeedBuilder $feed) => $feed->log(),
     ]);
 
@@ -207,14 +205,12 @@ it('restricts live reachability to repeat with curation off and preserves mode a
         ->and($reach->readers('repeat', 'order.place'))->toBe(['newsroom', 'orders'])
         ->and($reach->readers('object', 'upload'))->toBe([])
         ->and($reach->readers('actors', 'upload'))->toBe([])
-        ->and($reach->readers('summary', 'upload'))->toBe(['digest'])
         ->and($reach->isConclusive())->toBeTrue();
 });
 
 it('keeps curation-off repeat gaps latent when declared feeds cannot read them', function (string $surface) {
     config()->set('storyfeed.grouping.curate', false);
     Storyfeed::feeds(['dashboard' => fn (FeedBuilder $feed) => match ($surface) {
-        'summary' => $feed->summary(),
         'log' => $feed->log(),
         'filtered live' => $feed->live()->only(['order.*']),
     }]);
@@ -228,13 +224,12 @@ it('keeps curation-off repeat gaps latent when declared feeds cannot read them',
         ->and($report->has('aggregates.missing'))->toBeFalse()
         ->and($report->has('aggregates.reachability_unknown'))->toBeFalse()
         ->and($report->fixes())->toBeEmpty();
-})->with(['summary', 'log', 'filtered live']);
+})->with(['log', 'filtered live']);
 
 it('keeps unknown reachability at error severity for curation-off repeats', function (bool $opaque) {
     config()->set('storyfeed.grouping.curate', false);
     if ($opaque) {
         Storyfeed::feeds([
-            'digest' => fn (FeedBuilder $feed) => $feed->summary(),
             'broken' => fn (FeedBuilder $feed) => throw new RuntimeException('boom'),
         ]);
     }

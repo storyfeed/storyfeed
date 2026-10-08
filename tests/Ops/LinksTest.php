@@ -184,7 +184,7 @@ it('caps the actual page at thirty top-level items without extrapolating', funct
     linksLog();
     Storyfeed::activity('onboard', linksCustomer('Linked'))->publishedAt(now()->subHours(2))->publish();
     foreach (range(1, 31) as $i) {
-        Storyfeed::activity('onboard', linksCustomer())->publishedAt(now()->subSeconds($i))->publish();
+        Storyfeed::activity('onboard', linksCustomer())->publishedAt(now()->subSeconds(32 - $i))->publish();
     }
 
     expect(Storyfeed::doctor(['links'])->withCode('links.missing')->sole()->subject)->toMatchArray([
@@ -214,7 +214,7 @@ it('counts distinct returned group entities rather than the group total', functi
     config()->set('storyfeed.grouping.children_limit', 2);
     $actor = User::create(['name' => 'Reader', 'email' => 'reader@example.test']);
     foreach (range(1, 6) as $i) {
-        Storyfeed::activity('onboard', linksCustomer())->actor($actor)->publishedAt(now()->subSeconds($i))->publish();
+        Storyfeed::activity('onboard', linksCustomer())->actor($actor)->publishedAt(now()->subSeconds(32 - $i))->publish();
     }
     $item = Storyfeed::feed('audit')->get()->collect()->sole();
     expect($item->isGroup())->toBeTrue()->and($item->count())->toBe(6)
@@ -222,20 +222,6 @@ it('counts distinct returned group entities rather than the group total', functi
 
     expect(Storyfeed::doctor(['links'])->withCode('links.missing')->sole()->subject)->toMatchArray([
         'items' => 1, 'sampled' => 2, 'role' => 'object',
-    ]);
-});
-
-it('reads digest phrases in the declared summary mode', function () {
-    Storyfeed::feeds(['audit' => fn (FeedBuilder $feed) => $feed->summary()], merge: false);
-    $actor = User::create(['name' => 'Reader', 'email' => 'reader@example.test']);
-    foreach (range(1, 3) as $i) {
-        Storyfeed::activity('onboard', linksCustomer())->actor($actor)->publish();
-    }
-    $item = Storyfeed::feed('audit')->get()->collect()->sole();
-    expect($item->isDigest())->toBeTrue()->and($item->phrases())->not->toBeEmpty();
-
-    expect(Storyfeed::doctor(['links'])->withCode('links.missing')->sole()->subject)->toMatchArray([
-        'items' => 1, 'sampled' => 3, 'role' => 'object',
     ]);
 });
 

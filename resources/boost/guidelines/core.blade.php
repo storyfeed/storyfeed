@@ -81,25 +81,24 @@ Story::for(Order::class)->verb('place')->grouped(
     fn (GroupBuilder $group) => $group->repeat(':actor placed :count orders with :target'),
 );
 
-// Groups that may mix types go on the verb alone:
+// The targets axis may mix types and goes on the verb alone:
 Story::verb('place')->grouped(
-    fn (GroupBuilder $group) => $group->actors(':actors ordered from :target'),
+    fn (GroupBuilder $group) => $group->targets(':actor ordered across :targets'),
 );
 </code-snippet>
 @endverbatim
 
 ### Reading the feed
 
-`Storyfeed::feed()` returns a builder. `get()` returns a `FeedPage` and `cursorPaginate()` a paginator. Both serialize to the payload, so you can return them from a route. The read modes are `live()` (grouped, and the default), `summary()` (per actor per period) and `log()` (one row per activity). Filter with `involving($model)`, `actor()`, `object()`, `target()` or `context()`.
+`Storyfeed::feed()` returns a builder. `get()` returns a `FeedPage` and `cursorPaginate()` a paginator. Both serialize to the payload, so you can return them from a route. The read modes are `live()` (one-action bursts, and the default) and `log()` (one row per activity). `summary()` is retired and throws naming Live. Live closes after 15 quiet minutes or a 4-hour ceiling; configure `grouping.bursts` or a verb's `bursts(within: '15 minutes', ceiling: '4 hours')`. Filter with `involving($model)`, `actor()`, `object()`, `target()` or `context()`.
 
 @verbatim
 <code-snippet name="Read the feed" lang="php">
 use Storyfeed\Facades\Storyfeed;
-use Storyfeed\Grouping\Period;
 
 Storyfeed::feed()->get();
 Storyfeed::feed()->involving($order)->log()->limit(20)->get();
-Storyfeed::feed()->summary(Period::Week)->get();
+Storyfeed::feed()->live()->get();
 $order->storyfeed()->get(); // the same as involving($order)
 </code-snippet>
 @endverbatim

@@ -55,19 +55,19 @@ it('reports missing aggregate grammar for axes actually in use', function () {
 
         Storyfeed::activity()
             ->actor($user)
-            ->verb('upload', Delivery::create(['tracking_number' => $name]))
+            ->verb('upload', Delivery::firstOrCreate(['tracking_number' => 'Shared']))
             ->for($project)
             ->publish();
     }
 
     $this->artisan('storyfeed:doctor')
-        ->expectsOutputToContain('No group headline resolves for `actors.upload`')
+        ->expectsOutputToContain('No group headline resolves for `actors.delivery.upload`')
         ->assertSuccessful();
 
     Story::verb('upload')->grouped(Group::on('actors')->headline(':actors uploaded :count files to :target'));
 
     $this->artisan('storyfeed:doctor')
-        ->doesntExpectOutputToContain('No group headline resolves for `actors.upload`')
+        ->doesntExpectOutputToContain('No group headline resolves for `actors.delivery.upload`')
         ->assertSuccessful();
 });
 
@@ -103,17 +103,17 @@ it('warns when an aggregate template references a token its axis does not pin', 
         ->assertSuccessful();
 });
 
-it('warns on :context outside a context-pinning axis — stricter than the old hand map', function () {
-    // The hand-maintained token map allowed :context on repeat/actors by
-    // accident; no built-in recipe includes the context pair, so it was
+it('warns on :origin outside a origin-pinning axis — stricter than the old hand map', function () {
+    // The hand-maintained token map allowed :origin on repeat/actors by
+    // accident; no built-in recipe includes the origin pair, so it was
     // never homogeneous. Derivation from the recipe fixed the leniency.
     // Malformed cached token must remain diagnosable even though modern authoring refuses it.
     $compiled = Storyfeed::compiledStories();
-    $compiled['aggregateGrammar']['actors.upload'] = ':actors uploaded :count files in :context';
+    $compiled['aggregateGrammar']['actors.upload'] = ':actors uploaded :count files in :origin';
     Storyfeed::useCompiledStories($compiled);
 
     $this->artisan('storyfeed:doctor')
-        ->expectsOutputToContain('Group headline `actors.upload` references `:context`')
+        ->expectsOutputToContain('Group headline `actors.upload` references `:origin`')
         ->assertSuccessful();
 });
 
@@ -171,7 +171,7 @@ it('can produce a coverage finding for EVERY registered axis', function () {
     // actors: three actors, one verb+target.
     foreach (['A1', 'A2', 'A3'] as $name) {
         $u = User::create(['name' => $name, 'email' => "{$name}@example.com"]);
-        Storyfeed::activity()->actor($u)->verb('alpha', Delivery::create(['tracking_number' => "al-{$name}"]))->for($project)->publish();
+        Storyfeed::activity()->actor($u)->verb('alpha', Delivery::firstOrCreate(['tracking_number' => 'al-shared']))->for($project)->publish();
     }
 
     // targets: one actor, one verb, three distinct targets.
@@ -201,7 +201,7 @@ it('can produce a coverage finding for EVERY registered axis', function () {
     ])->publish();
 
     $this->artisan('storyfeed:doctor')
-        ->expectsOutputToContain('No group headline resolves for `actors.alpha`')
+        ->expectsOutputToContain('No group headline resolves for `actors.delivery.alpha`')
         ->expectsOutputToContain('No group headline resolves for `targets.beta`')
         ->expectsOutputToContain('No group headline resolves for `object.delivery.gamma`')
         ->expectsOutputToContain('No group headline resolves for `repeat.delivery.delta`')

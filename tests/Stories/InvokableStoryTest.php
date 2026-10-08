@@ -58,11 +58,11 @@ it('binds a verb for every type, with a group headline that names no type', func
         ->and(Storyfeed::registeredAggregateGrammar())->toHaveKey('actors.confirm', ':actors confirmed :count things');
 });
 
-it('refuses a byActors headline from a class bound to one type, as a resource class does', function () {
+it('accepts a byActors headline from a class bound to its pinned object type', function () {
     Story::for(Delivery::class)->verb('confirm', ConfirmAnything::class);
 
-    Storyfeed::compiledStories();
-})->throws(StoryMisconfigured::class, ConfirmAnything::class.'::__invoke() gives its Group::byActors() grouping a headline');
+    expect(Storyfeed::registeredAggregateGrammar())->toHaveKey('actors.delivery.confirm');
+});
 
 it('accepts the three return forms an action does', function (object $class, string $headline) {
     Story::for(Delivery::class)->verb('ship', $class::class);

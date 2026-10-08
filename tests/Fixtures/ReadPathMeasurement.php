@@ -22,7 +22,7 @@ final class ReadPathMeasurement
         }
         foreach ([false, true] as $curate) {
             config()->set('storyfeed.grouping.curate', $curate);
-            foreach (['live', 'summary'] as $mode) {
+            foreach (['live'] as $mode) {
                 $cursor = null;
                 foreach ([1, 2] as $page) {
                     $times = [];

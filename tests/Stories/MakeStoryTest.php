@@ -283,9 +283,9 @@ it('offers each uncertain spelling of a grouping that can hold other kinds of th
     $class = file_get_contents(storyPath('DishWentLive'));
 
     expect($class)->toContain(implode(PHP_EOL, [
-        '            // Group::byActors() can hold other kinds of thing, so its headline goes in routes/feed.php:',
-        "            // Story::verb('ship')->grouped(Group::byActors()->headline(':actors shiped :objects'));",
-        "            // Story::verb('ship')->grouped(Group::byActors()->headline(':actors shipped :objects'));",
+        '            // Group::byTargets() can hold other kinds of thing, so its headline goes in routes/feed.php:',
+        "            // Story::verb('ship')->grouped(Group::byTargets()->headline(':actor shiped :objects'));",
+        "            // Story::verb('ship')->grouped(Group::byTargets()->headline(':actor shipped :objects'));",
     ]));
 });
 
@@ -325,12 +325,12 @@ it('offers a grouping that can hold other kinds of thing as a routes/feed.php li
     $this->artisan('make:story', ['name' => 'DeliveryWasConfirmed'])->assertSuccessful();
 
     $lines = explode(PHP_EOL, file_get_contents(storyPath('DeliveryWasConfirmed')));
-    $actorsLine = collect($lines)->first(fn ($l) => str_contains($l, 'byActors()->headline'));
+    $targetsLine = collect($lines)->first(fn ($l) => str_contains($l, 'byTargets()->headline'));
     $repeatLine = collect($lines)->first(fn ($l) => str_contains($l, 'repeat()->headline'));
 
     // Uncommented in the class it would fail at compile: a headline there is
     // about deliveries, and this grouping's rows are not all deliveries.
-    expect(trim($actorsLine))->toStartWith("// Story::verb('confirm')->grouped(Group::byActors()->headline(")
+    expect(trim($targetsLine))->toStartWith("// Story::verb('confirm')->grouped(Group::byTargets()->headline(")
         ->and(trim($repeatLine))->toStartWith('Group::repeat()->headline(');
 });
 

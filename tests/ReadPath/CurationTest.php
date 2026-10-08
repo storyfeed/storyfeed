@@ -21,7 +21,7 @@ function uploadsTo(Customer $project, string $actor, int $files = 1): void
     foreach (range(1, $files) as $i) {
         Storyfeed::activity()
             ->actor($user)
-            ->verb('upload', Delivery::create(['tracking_number' => "{$actor}-{$i}"]))
+            ->verb('upload', Delivery::firstOrCreate(['tracking_number' => "{$project->id}-{$i}"]))
             ->for($project)
             ->publish();
     }
@@ -105,14 +105,6 @@ it('leaves activities solo when no aggregate is eligible and the fallback declin
         ->and(collect($items)->pluck('id')->sort()->values()->all())
         ->toBe(Activity::query()->orderBy('uid')->pluck('uid')->all());
 
-    // Summary now builds a per-person digest rather than reading winners.
-    // Its honest summary row is not the old, ineligible actors group.
-    $summary = Storyfeed::feed()->summary()->get()->items();
-
-    expect($summary)->toHaveCount(1)
-        ->and($summary[0]['axis'])->toBe('summary')
-        ->and($summary[0]['count'])->toBe(2);
-
     // Ineligible clusters are skipped by resettle(): each invocation settles
     // only its own activity, and its already-false stamps need no writes.
     $changes = [];
@@ -135,11 +127,11 @@ it('leaves activities solo when no aggregate is eligible and the fallback declin
 
     $items = Storyfeed::feed()->live()->get()->items();
 
-    expect(Grouping::query()->where('bucket', 'actors')->where('winner', true)->count())->toBe(4)
-        ->and($items)->toHaveCount(1)
+    expect(Grouping::query()->where('bucket', 'actors')->where('winner', true)->count())->toBe(3)
+        ->and($items)->toHaveCount(2)
         ->and($items[0]['kind'])->toBe('group')
         ->and($items[0]['axis'])->toBe('actors')
-        ->and($items[0]['count'])->toBe(4)
+        ->and($items[0]['count'])->toBe(3)
         ->and($items[0]['distinct']['actors'])->toBe(3);
 });
 
@@ -368,21 +360,6 @@ it('reads the stamped winner with ->live(), the default', function () {
     expect($items)->toHaveCount(1)
         ->and($items[0]['axis'])->toBe('actors')
         ->and(Storyfeed::feed()->get()->toArray()['items'])->toBe($items);
-});
-
-it('reads the app-wide default mode from config', function () {
-    config()->set('storyfeed.grouping.default', 'summary');
-
-    $project = Customer::create(['name' => 'Concur']);
-
-    foreach (['Bob', 'Sally', 'Ann'] as $name) {
-        uploadsTo($project, $name);
-    }
-
-    // Three people who each uploaded once to Concur: one crowd row in the
-    // digest, as in live, but read through the summary axis.
-    expect(Storyfeed::feed()->get()->toArray()['items'][0]['axis'])->toBe('summary')
-        ->and(Storyfeed::feed()->live()->get()->toArray()['items'][0]['axis'])->toBe('actors');
 });
 
 it('rejects unknown feed modes', function () {

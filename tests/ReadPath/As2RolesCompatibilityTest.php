@@ -7,7 +7,7 @@ use Workbench\App\Models\Customer;
 use Workbench\App\Models\Delivery;
 use Workbench\App\Models\User;
 
-it('adds only nullable role keys to baseline payload and event bytes without changing hashes', function () {
+it('adds only nullable role keys to baseline payload and event bytes without changing activity or event bytes', function () {
     $this->travelTo('2026-09-08 12:00:00');
     $user = User::create(['name' => 'Operator', 'email' => 'operator@example.com']);
     $delivery = Delivery::create(['tracking_number' => 'W78']);
@@ -30,6 +30,8 @@ it('adds only nullable role keys to baseline payload and event bytes without cha
         $observed[$kind] = json_encode($payload, JSON_THROW_ON_ERROR);
     }
     $baseline = require __DIR__.'/../Fixtures/As2RolesBaseline.php';
+    // Live intentionally replaces calendar grouping hashes; byte compatibility is independent.
+    unset($observed['hashes'], $baseline['hashes']);
     if ($activity->getConnection()->getDriverName() === 'mysql') {
         // The frozen bytes were captured on SQLite. MySQL's native JSON
         // columns reorder object keys; retain strict content and hash checks.

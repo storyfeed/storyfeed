@@ -108,7 +108,7 @@ it('demonstrates midnight grouping and job-time entity snapshots', function () {
     $hash = fn ($row) => Grouping::where('activity_id', $row->id)->where('bucket', 'repeat')->value('hash');
     expect($late->published_at->format('H:i'))->toBe('00:05')
         ->and($dated->published_at->format('H:i'))->toBe('23:55')
-        ->and($hash($late))->not->toBe($hash($original))
+        ->and($hash($late))->toBe($hash($original))
         ->and($hash($dated))->toBe($hash($original))
         ->and($dated->cachedObject->label)->toBe('Delivery #AFTER');
 });

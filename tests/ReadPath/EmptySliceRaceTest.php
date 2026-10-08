@@ -114,7 +114,7 @@ it('follows its own cursor when every slice on a page is dropped', function (str
 
     expect($next['items'])->toHaveCount(1)
         ->and($next['items'][0]['verb'])->toBe('ping-2');
-})->with(['live', 'summary']);
+})->with(['live']);
 
 it('gives up after five further reads and still returns a resumable page', function () {
     // Seven groups, newest first. Each read of one item selects the newest
@@ -122,7 +122,7 @@ it('gives up after five further reads and still returns a resumable page', funct
     $groups = collect(range(1, 7))->map(function (int $g) {
         $user = User::create(['name' => "User {$g}", 'email' => "user{$g}@example.com"]);
 
-        return collect(range(1, 2))->map(fn (int $i) => Storyfeed::activity()
+        return collect([2, 1])->map(fn (int $i) => Storyfeed::activity()
             ->actor($user)
             ->verb('upload', Delivery::create(['tracking_number' => "TN-{$g}-{$i}"]))
             ->publishedAt(now()->subHours($g)->subMinutes($i))

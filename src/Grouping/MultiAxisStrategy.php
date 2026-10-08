@@ -11,18 +11,17 @@ use Storyfeed\StoryfeedManager;
  * axis registry is the single source of truth for recipes, applicability,
  * eligibility and pinned tokens; this strategy is just the loop.
  *
- * The default registry, day-bucketed:
+ * The default registry emits logical keys; WriteGroupings assigns persisted
+ * burst membership to those keys:
  *
  *  - repeat:  the same actor doing the same kind of thing
  *             ("Sally uploaded 12 photos")
- *  - actors:  many actors, same verb + target
- *             ("Bob, Sally, and 3 others uploaded files to Project X")
+ *  - actors:  many actors, same verb + object + place
+ *             ("Bob, Sally, and 3 others commented on tokens.pdf")
  *  - targets: same actor + verb across many targets
  *             ("Sally commented on 2 projects")
  *  - object:  the same actor acting on ONE object repeatedly
- *             ("Bob made 5 revisions to Aut Beatae.docx") — the only axis
- *             that pins object identity, which is what makes an :object
- *             token safe in its aggregate templates
+ *             ("Bob made 5 revisions to Aut Beatae.docx")
  */
 class MultiAxisStrategy implements GroupingStrategy
 {

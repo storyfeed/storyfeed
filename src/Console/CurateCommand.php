@@ -4,6 +4,7 @@ namespace Storyfeed\Console;
 
 use Illuminate\Console\Command;
 use Storyfeed\Actions\CurateCluster;
+use Storyfeed\Actions\RebuildGroupingBursts;
 use Storyfeed\Actions\ReleaseComposite;
 use Storyfeed\Actions\WriteGroupings;
 use Storyfeed\Models\Activity;
@@ -38,6 +39,7 @@ class CurateCommand extends Command
     protected $signature = 'storyfeed:curate
         {--window= : Only activities published within this many days (a verb grouped per week or month: its whole period)}
         {--rehash : Re-run the grouping strategy first, so rows adopt newly added axes}
+        {--rebuild-bursts : Replace calendar groups with deterministic chronological bursts (pause publishers first)}
         {--release : First release composite members whose parent no longer exists (one-off repair)}';
 
     protected $description = 'Select the winning grouping axis for activities (backfill/repair)';
@@ -46,6 +48,20 @@ class CurateCommand extends Command
     {
         $window = $this->option('window');
         $rehash = (bool) $this->option('rehash');
+
+        if ($this->option('rebuild-bursts')) {
+            if ($window !== null || $this->option('release')) {
+                $this->error('--rebuild-bursts requires all history; run without --window or --release.');
+
+                return self::FAILURE;
+            }
+            $stats = (new RebuildGroupingBursts)();
+            MaintenanceHistory::record('curate', $stats);
+            $count = $stats['processed'];
+            $this->info("Rebuilt bursts and curated {$count} activities.");
+
+            return self::SUCCESS;
+        }
 
         if ($this->option('release')) {
             $released = (new ReleaseComposite)->dangling();

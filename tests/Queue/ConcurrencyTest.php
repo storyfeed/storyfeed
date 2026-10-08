@@ -1,8 +1,6 @@
 <?php
 
 use Illuminate\Database\Eloquent\Relations\Relation;
-use Illuminate\Events\CallQueuedListener;
-use Illuminate\Queue\DatabaseQueue;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Storyfeed\Actions\CloseBatches;
@@ -117,48 +115,49 @@ it('closes each batch once across overlapping PostgreSQL sweepers', function () 
     }
 });
 
-// Ported from W98, keeping only the half that is still true. W98's original
-// went on to assert two sweepers each emitting BatchClosed for the same three
-// batches; W102 fixed that, and the test above now asserts the fix. What
-// survives is the half nothing has fixed yet: todo 843, the stale curation
-// winner. It is a CHARACTERIZATION of a known defect, not a guarantee — when
-// the race is fixed, this test should fail and be rewritten to assert the fix.
-it('leaves a stale curation winner when overlapping workers cross a threshold', function () {
-    if (! function_exists('pcntl_fork') || ! getenv('W102_PG_DATABASE')) {
-        $this->markTestSkipped('Opt-in two-process probe: set W102_PG_DATABASE to a disposable local PostgreSQL database; requires pcntl.');
+it('serializes burst membership across overlapping publishers', function (string $engine, string $variable, int $initial) {
+    if (! function_exists('pcntl_fork') || ! getenv($variable)) {
+        $this->markTestSkipped("Opt-in burst probe: set {$variable}; requires pcntl.");
     }
     $directory = sys_get_temp_dir().'/storyfeed-race-'.bin2hex(random_bytes(6));
     mkdir($directory);
     $schema = 'race_'.bin2hex(random_bytes(6));
     $previous = config('database.connections.testing');
-    config()->set('database.connections.testing', [
-        'driver' => 'pgsql', 'host' => '/tmp', 'port' => 5432,
-        'database' => getenv('W102_PG_DATABASE'), 'username' => 'postgres',
-        'password' => '', 'charset' => 'utf8', 'prefix' => '', 'search_path' => $schema,
-    ]);
-    DB::purge('testing');
-    DB::statement('CREATE SCHEMA '.$schema);
+    if ($engine === 'pgsql') {
+        config()->set('database.connections.testing', [
+            'driver' => 'pgsql', 'host' => '/tmp', 'port' => 5432,
+            'database' => getenv($variable), 'username' => 'postgres',
+            'password' => '', 'charset' => 'utf8', 'prefix' => '', 'search_path' => $schema,
+        ]);
+        DB::purge('testing');
+        DB::statement('CREATE SCHEMA '.$schema);
+    } else {
+        config()->set('database.connections.testing', [
+            'driver' => $engine, 'host' => '127.0.0.1', 'port' => (int) getenv($variable),
+            'database' => 'mysql', 'username' => 'root', 'password' => '',
+            'charset' => 'utf8mb4', 'collation' => 'utf8mb4_unicode_ci', 'prefix' => '', 'strict' => true,
+        ]);
+        DB::purge('testing');
+        DB::statement('CREATE DATABASE '.$schema);
+        config()->set('database.connections.testing.database', $schema);
+        DB::purge('testing');
+    }
 
     try {
         $this->defineDatabaseMigrations();
         Relation::morphMap(['queue-target' => PlainTarget::class]);
-        config()->set('queue.connections.database.connection', 'testing');
-        DB::statement('CREATE TABLE jobs (id BIGSERIAL PRIMARY KEY, queue TEXT, payload TEXT, attempts INTEGER, reserved_at INTEGER NULL, available_at INTEGER, created_at INTEGER)');
+        config()->set('storyfeed.grouping.batch.enabled', false);
+        config()->set('storyfeed.grouping.policy.min_actors', 2);
 
-        // Three activities sharing one target. The actors axis needs three
-        // distinct actors, so the cluster crosses its threshold only when all
-        // three are counted — which is the moment the race exists.
-        $target = PlainTarget::create(['name' => 'Shared target']);
-        $inputs = [];
+        // Plain models have no shared snapshot writes: only the burst lock
+        // serializes these otherwise independent actors on one object.
+        $object = PlainTarget::create(['name' => 'Shared object']);
+        $actors = [];
         foreach ([0, 1, 2] as $worker) {
-            $delivery = Delivery::create(['tracking_number' => 'CONCURRENT-'.$worker]);
-            Storyfeed::party('Importer '.$worker);
-            $inputs[$worker] = ['delivery' => $delivery->id, 'actor' => 'Importer '.$worker, 'target' => $target->id];
+            $actors[$worker] = PlainTarget::create(['name' => 'Actor '.$worker]);
         }
-
-        (new PublishListener)->handle($inputs[0]);
-        foreach ([1, 2] as $worker) {
-            app('queue')->connection('database')->push(new CallQueuedListener(PublishListener::class, 'handle', [$inputs[$worker]]), '', 'worker-'.$worker);
+        if ($initial) {
+            Storyfeed::activity('comment', $object)->actor($actors[0])->publish();
         }
 
         DB::disconnect('testing');
@@ -172,22 +171,26 @@ it('leaves a stale curation winner when overlapping workers cross a threshold', 
                 $result = ['worker' => $worker];
                 try {
                     DB::purge('testing');
-                    DB::statement("SET lock_timeout = '5s'");
-                    $queue = new DatabaseQueue(DB::connection('testing'), 'jobs');
-                    $queue->setContainer(app());
-                    $job = $queue->pop('worker-'.$worker);
-                    DB::beginTransaction();
-                    $job->fire();
-                    // Both workers curate before either commits, so neither
-                    // read includes the other's row.
-                    touch($directory.'/ready-'.$worker);
-                    $deadline = microtime(true) + 10;
-                    while (! file_exists($directory.'/ready-'.(3 - $worker))) {
-                        if (microtime(true) > $deadline) {
-                            throw new RuntimeException('worker barrier timed out');
+                    DB::statement($engine === 'pgsql' ? "SET lock_timeout = '5s'" : 'SET innodb_lock_wait_timeout = 5');
+                    // Both transactions reach the first burst lock together.
+                    $waited = false;
+                    DB::connection()->beforeExecuting(function ($query) use ($directory, $worker, &$waited) {
+                        if ($waited || ! (str_starts_with($query, 'insert into ') && str_contains($query, 'feed_grouping_bursts'))) {
+                            return;
                         }
-                        usleep(1000);
-                    }
+                        $waited = true;
+                        touch($directory.'/ready-'.$worker);
+                        $deadline = microtime(true) + 10;
+                        while (! file_exists($directory.'/ready-'.(3 - $worker))) {
+                            if (microtime(true) > $deadline) {
+                                throw new RuntimeException('burst barrier timed out');
+                            }
+                            usleep(1000);
+                        }
+                    });
+                    DB::beginTransaction();
+                    Storyfeed::activity('comment', $object)->actor($actors[$worker])->publish();
+                    usleep(100_000); // Hold membership and curation locks until commit.
                     DB::commit();
                     $result['published'] = true;
                 } catch (Throwable $exception) {
@@ -209,27 +212,28 @@ it('leaves a stale curation winner when overlapping workers cross a threshold', 
 
         DB::purge('testing');
 
-        // No activity is lost and every hash is present. What is wrong is only
-        // the winner stamps: three activities, one actors hash, and nothing
-        // stamped actors — so a summary read shows three plain rows where one
-        // group belongs.
-        expect(Activity::count())->toBe(3)
-            ->and(DB::table('jobs')->count())->toBe(0)
-            ->and(Grouping::where('bucket', 'actors')->distinct()->count('hash'))->toBe(1)
-            ->and(Grouping::where('bucket', 'actors')->where('winner', true)->count())->toBe(0)
-            ->and(Grouping::where('bucket', 'repeat')->where('winner', true)->count())->toBe(3);
-
-        // And it heals: re-curating from the stored hashes picks the right
-        // winner with no new information. This is what the scheduled hourly
-        // `storyfeed:curate` does, which is why the defect is bounded in time.
+        expect(Activity::count())->toBe(2 + $initial)
+            ->and(Grouping::where('bucket', 'actors')->distinct()->count('hash'))->toBe(1);
+        // Burst membership is serialized on every engine. InnoDB's existing
+        // REPEATABLE READ curation race (todo 843) can retain an older read
+        // snapshot; normal curation repair resolves stamps without rehashing.
+        $memberships = Grouping::query()->orderBy('id')->pluck('hash', 'id')->all();
         foreach (Activity::all() as $activity) {
             (new CurateCluster)($activity);
         }
-
-        expect(Grouping::where('bucket', 'actors')->where('winner', true)->count())->toBe(3);
+        expect(Grouping::query()->orderBy('id')->pluck('hash', 'id')->all())->toBe($memberships)
+            ->and(Grouping::where('bucket', 'actors')->where('winner', true)->count())->toBe(2 + $initial)
+            ->and(Grouping::where('bucket', 'repeat')->where('winner', true)->count())->toBe(0);
+        expect(Storyfeed::feed()->live()->get()->items())->toHaveCount(1);
     } finally {
         DB::purge('testing');
-        DB::statement('DROP SCHEMA '.$schema.' CASCADE');
+        if ($engine === 'pgsql') {
+            DB::statement('DROP SCHEMA '.$schema.' CASCADE');
+        } else {
+            config()->set('database.connections.testing.database', 'mysql');
+            DB::purge('testing');
+            DB::statement('DROP DATABASE '.$schema);
+        }
         config()->set('database.connections.testing', $previous);
         DB::purge('testing');
         foreach (glob($directory.'/*') as $file) {
@@ -237,7 +241,11 @@ it('leaves a stale curation winner when overlapping workers cross a threshold', 
         }
         rmdir($directory);
     }
-});
+})->with([
+    ['pgsql', 'W102_PG_DATABASE', 0], ['pgsql', 'W102_PG_DATABASE', 1],
+    ['mysql', 'W102_MYSQL_PORT', 0], ['mysql', 'W102_MYSQL_PORT', 1],
+    ['mariadb', 'W102_MARIADB_PORT', 0], ['mariadb', 'W102_MARIADB_PORT', 1],
+]);
 
 // Todo 843's remaining BatchClosed exposure, fixed by todo 1339: two publishes
 // by the SAME actor with no open batch. There is no batch row to lock, so each

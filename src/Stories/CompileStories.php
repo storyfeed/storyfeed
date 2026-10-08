@@ -51,6 +51,7 @@ use Storyfeed\StoryfeedManager;
  *     casts: array<string, array<string, string|list<string>>>,
  *     keepLatest: array<string, array{per: list<string>, within: string|null}>,
  *     periods: array<string, string>,
+ *     bursts: array<string, array{within: string, ceiling: string}>,
  *     queue: array<string, array{connection?: string, queue?: string, delay?: int, afterCommit?: bool, deleteWhenMissingModels?: bool}>,
  *     middleware: array<string, array{middleware: list<string|Closure>, excluded: list<string>}>,
  *     actors: array<string, string>,
@@ -62,7 +63,7 @@ use Storyfeed\StoryfeedManager;
 class CompileStories
 {
     /** The registries a compile produces, in the order they are applied. */
-    public const REGISTRIES = ['grammar', 'aggregateGrammar', 'actorlessGrammar', 'icons', 'glyphIntents', 'nouns', 'objectTypes', 'verbs', 'missing', 'missingGrammar', 'forget', 'retention', 'casts', 'keepLatest', 'periods', 'queue', 'middleware', 'actors', 'actions', 'names', 'wheres'];
+    public const REGISTRIES = ['grammar', 'aggregateGrammar', 'actorlessGrammar', 'icons', 'glyphIntents', 'nouns', 'objectTypes', 'verbs', 'missing', 'missingGrammar', 'forget', 'retention', 'casts', 'keepLatest', 'periods', 'bursts', 'queue', 'middleware', 'actors', 'actions', 'names', 'wheres'];
 
     /**
      * @param  array<int, Verb>  $definitions
@@ -85,6 +86,7 @@ class CompileStories
         $casts = [];
         $keepLatest = [];
         $periods = [];
+        $bursts = [];
         $queue = [];
         $middleware = [];
         $actors = [];
@@ -226,6 +228,11 @@ class CompileStories
 
                 // The calendar period its groups live in, as the Period's
                 // value. Unsaid, a broader definition's, or a day.
+                if (($burst = $definition->burstWindows()) !== null) {
+                    $this->claim($owners, 'bursts', $key, $source);
+                    $bursts[$key] = $burst;
+                }
+
                 if (($period = $definition->period()) !== null) {
                     $this->claim($owners, 'periods', $key, $source);
                     $periods[$key] = $period->value;
@@ -351,6 +358,7 @@ class CompileStories
             'casts' => $casts,
             'keepLatest' => $keepLatest,
             'periods' => $periods,
+            'bursts' => $bursts,
             'queue' => $queue,
             'middleware' => $middleware,
             'actors' => $actors,
@@ -482,7 +490,7 @@ class CompileStories
      * A grouping that can gather several types (everything one person did,
      * say) has no one type to file under, so a type's headline for it throws
      * rather than being filed somewhere untrue. Row-backed axes (composite,
-     * batch) and the digest's phrases (summary) keep `axis.verb`; their
+     * batch) keep `axis.verb`; their
      * headline belongs to the verb already.
      *
      * Verb::make()/for() keep `axis.verb`.
@@ -496,10 +504,8 @@ class CompileStories
 
         $axis = $storyfeed->axis($group->axis);
 
-        // A digest phrase is per verb across types, like a row-backed
-        // headline: it belongs to the verb, and two types claiming the same
-        // verb's phrase collide loudly at claim().
-        if ((! $definition->isTypeScoped() && $method === null) || $axis?->isRowBacked() === true || $axis?->isPartition() === true) {
+        // Row-backed headlines belong to the verb.
+        if ((! $definition->isTypeScoped() && $method === null) || $axis?->isRowBacked() === true) {
             return ["{$group->axis}.{$verb}"];
         }
 

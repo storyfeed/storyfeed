@@ -96,6 +96,9 @@ final class Verb
     /** The calendar bucket its groups live in; null: not said, so a broader definition's, or a day. */
     protected ?Period $period = null;
 
+    /** @var array{within: string, ceiling: string}|null */
+    protected ?array $bursts = null;
+
     /** @var array{connection?: string, queue?: string, delay?: int, afterCommit?: bool, deleteWhenMissingModels?: bool} where a queued publish goes, as declared */
     protected array $queueing = [];
 
@@ -244,6 +247,10 @@ final class Verb
                 $definition = $definition->keepLatest(...($latest === true ? [] : $latest));
             }
 
+            if (($bursts = $instance->bursts()) !== null) {
+                $definition = $definition->bursts(...$bursts);
+            }
+
             if (($period = $instance->period()) !== null) {
                 $definition = $definition->groupedPer($period);
             }
@@ -292,7 +299,7 @@ final class Verb
      *
      * @deprecated Declare it in routes/feed.php; removed before v1.
      */
-    public const ARRAY_KEYS = ['name', 'headline', 'anonymousHeadline', 'icon', 'intent', 'type', 'noun', 'activityStreamsType', 'missing', 'missingHeadline', 'forgetWhenMissing', 'keepFor', 'keepForever', 'keepLatest', 'groupedPer', 'middleware', 'withoutMiddleware', 'actor', 'where', 'groups'];
+    public const ARRAY_KEYS = ['name', 'headline', 'anonymousHeadline', 'icon', 'intent', 'type', 'noun', 'activityStreamsType', 'missing', 'missingHeadline', 'forgetWhenMissing', 'keepFor', 'keepForever', 'keepLatest', 'groupedPer', 'bursts', 'middleware', 'withoutMiddleware', 'actor', 'where', 'groups'];
 
     /**
      * Configure from the array form: what an action returning an array
@@ -387,6 +394,10 @@ final class Verb
             /** @var true|array{per?: list<string>|string|null, within?: string|DateInterval|null} $latest */
             $latest = $spec['keepLatest'];
             $definition = $definition->keepLatest(...($latest === true ? [] : $latest));
+        }
+
+        if (isset($spec['bursts'])) {
+            $definition = $definition->bursts(...$spec['bursts']);
         }
 
         // A Period, or its value: `'groupedPer' => 'week'`.
@@ -863,16 +874,31 @@ final class Verb
         return $this->excludedMiddleware;
     }
 
+    /** Override Live's quiet gap and hard ceiling for this verb. */
+    public function bursts(string|DateInterval $within = '15 minutes', string|DateInterval $ceiling = '4 hours'): self
+    {
+        $this->bursts = [
+            'within' => self::window($within, $this->key(), 'bursts', 'within: '),
+            'ceiling' => self::window($ceiling, $this->key(), 'bursts', 'ceiling: '),
+        ];
+
+        return $this;
+    }
+
+    /** @return array{within: string, ceiling: string}|null */
+    public function burstWindows(): ?array
+    {
+        return $this->bursts;
+    }
+
     /**
      * Join the actor's sitting, with this verb's own quiet window:
      *
-     *     Story::verb('comment')->batched();                      // storyfeed.grouping.batch.quiet_minutes
+     *     Story::verb('comment')->batched();
      *     Story::for(Todo::class)->verb('add')->batched(within: '5 minutes');
      *
-     * Shorthand for the `batch` middleware, as `->can('update', 'post')` is
-     * for `can:update,post`: with a window it takes `batch` out and puts
-     * `batch:5 minutes` in; without one it makes sure `batch` is there.
-     * The last of `batched()` and `unbatched()` wins.
+     * Shorthand for the `batch` middleware. The last of batched() and
+     * unbatched() wins. This sitting is independent of Live burst membership.
      */
     public function batched(string|DateInterval|null $within = null): self
     {
@@ -1476,6 +1502,7 @@ final class Verb
             'retention' => $this->retention,
             'keepLatest' => $this->keepLatest === null ? null : [...$this->keepLatest['per'], '@', (string) $this->keepLatest['within']],
             'period' => $this->period,
+            'bursts' => $this->bursts,
             'queue' => $this->queueing === [] ? null : array_map(
                 fn (string $key, mixed $value) => $key.'='.var_export($value, true),
                 array_keys($this->queueing),

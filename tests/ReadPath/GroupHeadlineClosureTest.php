@@ -23,12 +23,10 @@ it('defers translated group templates to the reader locale through an on-disk ca
     $definition = Story::verb('inspect');
     if ($shorthand) {
         $definition->grouped(fn (GroupBuilder $group) => $group
-            ->repeat(FeedHeadline::trans('feed.inspections'))
-            ->summary(FeedHeadline::trans('feed.summary')));
+            ->repeat(FeedHeadline::trans('feed.inspections')));
     } else {
         $definition->grouped(
             Group::repeat()->headline(FeedHeadline::trans('feed.inspections')),
-            Group::summary()->headline(FeedHeadline::trans('feed.summary')),
         );
     }
     Storyfeed::compileStories();
@@ -61,7 +59,6 @@ it('defers translated group templates to the reader locale through an on-disk ca
 
     app()->setLocale('fr');
     $french = app(NodePresenter::class)->groupNode($slice);
-    expect(Storyfeed::summaryTemplate('inspect'))->toBe('a inspecté :count fichiers');
     app()->setLocale('en');
     $english = app(NodePresenter::class)->groupNode($slice);
 
@@ -74,7 +71,7 @@ it('defers translated group templates to the reader locale through an on-disk ca
 
     Artisan::call('storyfeed:list', ['--json' => true]);
     $row = collect(json_decode(Artisan::output(), true))->firstWhere('verb', 'inspect');
-    expect($row['groups'])->toBe(['repeat' => 'trans(feed.inspections)', 'summary' => 'trans(feed.summary)']);
+    expect($row['groups'])->toBe(['repeat' => 'trans(feed.inspections)']);
 })->with([false, true])->with([false, true]);
 
 it('keeps literal group token and unknown-axis validation', function () {

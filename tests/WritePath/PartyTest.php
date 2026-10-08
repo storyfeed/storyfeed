@@ -136,7 +136,7 @@ it('collapses a shared target party on the actors axis', function () {
     $bob = User::create(['name' => 'Bob', 'email' => 'b@example.com']);
 
     Storyfeed::activity('push', Delivery::create(['tracking_number' => 'A']))->actor($sally)->to('Concur')->publish();
-    Storyfeed::activity('push', Delivery::create(['tracking_number' => 'B']))->actor($bob)->to('Concur')->publish();
+    Storyfeed::activity('push', Delivery::firstOrCreate(['tracking_number' => 'A']))->actor($bob)->to('Concur')->publish();
 
     $hashes = Grouping::query()->where('bucket', 'actors')->pluck('hash')->unique();
 

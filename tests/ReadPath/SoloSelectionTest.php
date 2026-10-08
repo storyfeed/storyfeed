@@ -110,35 +110,3 @@ it('treats a stamped loss with no winner beside it as solo', function () {
 
     expect(soloUids())->toEqualCanonicalizing($uids);
 });
-
-it('does not treat a winning composite as solo', function () {
-    shaped('composite', [['composite', true]]);
-
-    expect(soloUids())->toBeEmpty()
-        ->and(soloUids('summary'))->toBeEmpty();
-});
-
-it('reads an actors winner as grouped in live and solo in summary', function () {
-    // summary() has its own winning() branch (the period's partition bucket),
-    // so it has its own mirror in notSolo(). A curated row is invisible to
-    // the digest, which makes these activities solo THERE and grouped here.
-    $uids = shaped('digest', [['actors', true]]);
-
-    expect(soloUids('summary'))->toEqualCanonicalizing($uids)
-        ->and(soloUids())->toBeEmpty();
-});
-
-it('does not treat a partition row as solo in summary', function () {
-    shaped('partition', [['summary.day', null]]);
-
-    expect(soloUids('summary'))->toBeEmpty();
-});
-
-it('reads a composite parent with no partition row as solo in summary', function () {
-    // A parent written before partition rows existed carries only its
-    // self-row (winner null). The digest must not lose it: it reads solo
-    // until the trickle or `storyfeed:curate --rehash` writes its row.
-    $uids = shaped('parent', [['composite', null]]);
-
-    expect(soloUids('summary'))->toEqualCanonicalizing($uids);
-});

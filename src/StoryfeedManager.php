@@ -3,6 +3,7 @@
 namespace Storyfeed;
 
 use BackedEnum;
+use Carbon\CarbonInterval;
 use Closure;
 use DateTimeInterface;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -185,6 +186,9 @@ class StoryfeedManager
      * @var array<string, string>
      */
     protected array $storyPeriods = [];
+
+    /** @var array<string, array{within: string, ceiling: string}> */
+    protected array $storyBursts = [];
 
     /**
      * Where a verb's queued publishes go (`->onQueue()`, `->delay()`,
@@ -1198,37 +1202,10 @@ class StoryfeedManager
         return $this->axes ??= $this->defaultAxes();
     }
 
-    /**
-     * A registered axis by name. A partition family's grammar name
-     * (`summary`) answers with its day axis: the periods share one recipe,
-     * so they pin the same tokens and take the same headlines.
-     */
+    /** A registered axis by name. */
     public function axis(string $name): ?Axis
     {
-        $axes = $this->registeredAxes();
-
-        if (isset($axes[$name])) {
-            return $axes[$name];
-        }
-
-        foreach ($axes as $axis) {
-            if ($axis->isPartition() && $axis->grammarName() === $name) {
-                return $axes["{$name}.".Period::Day->value] ?? $axis;
-            }
-        }
-
-        return null;
-    }
-
-    /**
-     * The partition axis `summary()` reads for a period, or null when the
-     * app's registry has none.
-     */
-    public function summaryAxis(Period $period): ?Axis
-    {
-        $axis = $this->registeredAxes()['summary.'.$period->value] ?? null;
-
-        return $axis?->isPartition() === true ? $axis : null;
+        return $this->registeredAxes()[$name] ?? null;
     }
 
     /**
@@ -1247,7 +1224,7 @@ class StoryfeedManager
     {
         return array_keys(array_filter(
             $this->registeredAxes(),
-            fn (Axis $axis) => ! $axis->isPartition() && $axis->appliesToRoles(array_values($filledRoles)),
+            fn (Axis $axis) => $axis->appliesToRoles(array_values($filledRoles)),
         ));
     }
 
@@ -1293,7 +1270,7 @@ class StoryfeedManager
     {
         return array_keys(array_filter(
             $this->registeredAxes(),
-            fn (Axis $axis) => ! $axis->isFallback() && ! $axis->isRowBacked() && ! $axis->isPartition(),
+            fn (Axis $axis) => ! $axis->isFallback() && ! $axis->isRowBacked(),
         ));
     }
 
@@ -1313,10 +1290,8 @@ class StoryfeedManager
     }
 
     /**
-     * Buckets curation never reads or stamps: the row-backed ones, and the
-     * partition axes `summary()` reads (Axis::partition()). A partition row
-     * is written and stale-deleted like any strategy row; it just never
-     * competes.
+     * Row-backed buckets have their own membership rules and never compete
+     * in inferred curation.
      *
      * @return array<int, string>
      */
@@ -1324,7 +1299,7 @@ class StoryfeedManager
     {
         return array_keys(array_filter(
             $this->registeredAxes(),
-            fn (Axis $axis) => $axis->isRowBacked() || $axis->isPartition(),
+            fn (Axis $axis) => $axis->isRowBacked(),
         ));
     }
 
@@ -1479,6 +1454,7 @@ class StoryfeedManager
         $this->storyCasts = $compiled['casts'];
         $this->storyKeepLatest = $compiled['keepLatest'];
         $this->storyPeriods = $compiled['periods'];
+        $this->storyBursts = $compiled['bursts'];
         $this->storyQueue = $compiled['queue'];
         $this->storyMiddleware = $compiled['middleware'];
         $this->storyActions = $compiled['actions'];
@@ -1506,7 +1482,7 @@ class StoryfeedManager
 
         foreach (CompileStories::REGISTRIES as $registry) {
             // Held by TombstoneRules, or replaced whole by the next compile.
-            if (in_array($registry, ['missing', 'forget', 'retention', 'casts', 'keepLatest', 'periods', 'queue', 'middleware', 'missingGrammar', 'actors', 'actions', 'names', 'wheres'], true)) {
+            if (in_array($registry, ['missing', 'forget', 'retention', 'casts', 'keepLatest', 'periods', 'bursts', 'queue', 'middleware', 'missingGrammar', 'actors', 'actions', 'names', 'wheres'], true)) {
                 continue;
             }
 
@@ -1567,7 +1543,7 @@ class StoryfeedManager
      * with the Story facade (2026-09-23): actorless grammar, nouns and object
      * types.
      *
-     * @param  array{grammar: array<string, string|Closure|FeedHeadline>, aggregateGrammar: array<string, string|Closure|FeedHeadline>, actorlessGrammar?: array<string, string|Closure|FeedHeadline>, icons: array<string, string>, glyphIntents?: array<string, string>, nouns?: array<string, string|FeedNoun>, objectTypes?: array<string, ObjectType|string>, verbs: array<string, mixed>, missing?: array<string, list<string>>, missingGrammar?: array<string, string|Closure|FeedHeadline>, forget?: array<string, bool>, retention?: array<string, string>, casts?: array<string, array<string, string|list<string>>>, keepLatest?: array<string, array{per: list<string>, within: string|null}>, periods?: array<string, string>, queue?: array<string, array{connection?: string, queue?: string, delay?: int, afterCommit?: bool, deleteWhenMissingModels?: bool}>, middleware?: array<string, array{middleware: list<string|Closure>, excluded: list<string>}>, actors?: array<string, string>, actions?: array<string, array{uses: string, request: bool, parts: array<string, string>|null}>, names?: array<string, string>, wheres?: array<string, array<string, list<string>>>}  $compiled
+     * @param  array{grammar: array<string, string|Closure|FeedHeadline>, aggregateGrammar: array<string, string|Closure|FeedHeadline>, actorlessGrammar?: array<string, string|Closure|FeedHeadline>, icons: array<string, string>, glyphIntents?: array<string, string>, nouns?: array<string, string|FeedNoun>, objectTypes?: array<string, ObjectType|string>, verbs: array<string, mixed>, missing?: array<string, list<string>>, missingGrammar?: array<string, string|Closure|FeedHeadline>, forget?: array<string, bool>, retention?: array<string, string>, casts?: array<string, array<string, string|list<string>>>, keepLatest?: array<string, array{per: list<string>, within: string|null}>, periods?: array<string, string>, bursts?: array<string, array{within: string, ceiling: string}>, queue?: array<string, array{connection?: string, queue?: string, delay?: int, afterCommit?: bool, deleteWhenMissingModels?: bool}>, middleware?: array<string, array{middleware: list<string|Closure>, excluded: list<string>}>, actors?: array<string, string>, actions?: array<string, array{uses: string, request: bool, parts: array<string, string>|null}>, names?: array<string, string>, wheres?: array<string, array<string, list<string>>>}  $compiled
      * @param  list<string>  $stories  the Story classes the manifest was compiled from
      */
     public function useCompiledStories(array $compiled, array $stories = []): static
@@ -1585,6 +1561,7 @@ class StoryfeedManager
         $compiled['casts'] ??= [];
         $compiled['keepLatest'] ??= [];
         $compiled['periods'] ??= [];
+        $compiled['bursts'] ??= [];
         $compiled['queue'] ??= [];
         $compiled['middleware'] ??= [];
         $compiled['actors'] ??= [];
@@ -1900,17 +1877,17 @@ class StoryfeedManager
 
         $axes = [
             Axis::make('actors')
-                ->key('v:ta!:tid:d')
+                ->key('v:oa!:oid!:ta:tid:ca:cid')->bursts()
                 ->eligibleWhenDistinct('actor', min: (int) ($policy['min_actors'] ?? 3)),
             Axis::make('targets')
-                ->key('aa!:aid:v:d')
+                ->key('aa!:aid:v:ca:cid')->bursts()
                 ->eligibleWhenDistinct('target', min: (int) ($policy['min_targets'] ?? 2))
                 ->eligibleWhenMembers(min: (int) ($policy['min_target_members'] ?? 3)),
             Axis::make('object')
-                ->key('aa:aid:v:oa!:oid!:d')
+                ->key('aa:aid:v:oa!:oid!:ta:tid:ca:cid')->bursts()
                 ->eligibleWhenMembers(min: (int) ($policy['min_object_members'] ?? 2)),
             Axis::make('repeat')
-                ->key('aa:aid:v:oa:ta:tid:d')
+                ->key('aa:aid:v:oa:ta:tid:ca:cid')->bursts()
                 ->fallback(),
             // Row-backed buckets: composite claims (authored/auto-bundled
             // collection stories — pins derived from what a composite
@@ -1921,15 +1898,6 @@ class StoryfeedManager
                 ->pins(':actor', ':target', ':context'),
             Axis::make('batch')
                 ->rowBacked(),
-            // Partition axes: what `summary()` reads. One row per person per
-            // period, across verbs; never curated. Actorless activities have
-            // no row and read solo — anonymous is not a person.
-            ...array_map(
-                fn (Period $period) => Axis::make('summary.'.$period->value)
-                    ->key('aa!:aid!:d')
-                    ->partition($period),
-                Period::cases(),
-            ),
         ];
 
         return array_combine(array_column($axes, 'name'), $axes);
@@ -2066,28 +2034,6 @@ class StoryfeedManager
 
         return self::headlineEntry($this->aggregateGrammar[self::qualifiedKey($axis, $verb, $objectType)]
             ?? $this->resolve($this->aggregateGrammar, $axis, $verb));
-    }
-
-    /**
-     * A digest's grammar, by EXACT key only: a phrase is `summary.{verb}`
-     * (or `summary.{type}.{verb}`), and the row's own sentence is
-     * `summary.*`. None of the wildcard ladder applies: `*.upload` is a
-     * whole sentence with a subject (":actors uploaded :count files"), and a
-     * phrase is a predicate without one ("uploaded :count files"), so a
-     * wildcard would put the subject in twice.
-     *
-     * A null verb asks for the row's sentence.
-     */
-    public function summaryTemplate(?string $verb, ?string $objectType = null): string|Closure|null
-    {
-        $this->ensureStoriesCompiled();
-
-        if ($verb === null) {
-            return self::headlineEntry($this->aggregateGrammar['summary.*'] ?? null);
-        }
-
-        return self::headlineEntry(($objectType === null ? null : $this->aggregateGrammar["summary.{$objectType}.{$verb}"] ?? null)
-            ?? $this->aggregateGrammar["summary.{$verb}"] ?? null);
     }
 
     /**
@@ -2765,12 +2711,30 @@ class StoryfeedManager
         return $declared === null ? Period::Day : Period::from($declared);
     }
 
-    /**
-     * Every declared period, as its value, keyed `type.verb` (wildcards
-     * allowed).
-     *
-     * @return array<string, string>
-     */
+    /** @return array{int, int} quiet gap and hard ceiling, in seconds */
+    public function burstWindow(?string $type, string $verb): array
+    {
+        $this->ensureStoriesCompiled();
+        $declared = $this->resolve($this->storyBursts, $type, $verb);
+        $within = $declared['within'] ?? config('storyfeed.grouping.bursts.within', '15 minutes');
+        $ceiling = $declared['ceiling'] ?? config('storyfeed.grouping.bursts.ceiling', '4 hours');
+        $seconds = [];
+        foreach ([$within, $ceiling] as $value) {
+            try {
+                $interval = CarbonInterval::make($value);
+            } catch (Throwable) {
+                $interval = null;
+            }
+            if ($interval === null || $interval->invert || $interval->totalSeconds < 1 || $interval->totalSeconds > 4294967295) {
+                throw new InvalidArgumentException('Live burst windows must be positive intervals of at least one second.');
+            }
+            $seconds[] = (int) $interval->totalSeconds;
+        }
+
+        return [$seconds[0], $seconds[1]];
+    }
+
+    /** @return array<string, string> */
     public function storyPeriods(): array
     {
         $this->ensureStoriesCompiled();

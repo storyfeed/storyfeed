@@ -21,8 +21,8 @@ use Workbench\App\Models\User;
  */
 
 it('derives required roles from the recipe', function () {
-    // actors: 'v:ta!:tid:d' — target required, actor free to vary.
-    expect(Storyfeed::axis('actors')->requiredRoles())->toBe(['target'])
+    // actors pins one required object; the actor varies.
+    expect(Storyfeed::axis('actors')->requiredRoles())->toBe(['object'])
         // targets: 'aa!:aid:v:d' — actor required.
         ->and(Storyfeed::axis('targets')->requiredRoles())->toBe(['actor'])
         // object: 'aa:aid:v:oa!:oid!:d' — object required.
@@ -47,7 +47,7 @@ it('reports undecidable for closure recipes too', function () {
 });
 
 it('answers which axes apply to a set of filled roles', function () {
-    // An actor-only activity cannot group on `actors` (needs a target) or
+    // An actor-only activity cannot group on `actors` (needs an object) or
     // `object` (needs an object), but `targets` and `repeat` both apply.
     expect(Storyfeed::axesApplicableTo(['actor']))
         ->toContain('targets')
@@ -104,6 +104,7 @@ it('sees group headlines filed under a type, the way a Story class writes them',
     Story::for(Delivery::class)->verb('upload')->headline(':actor uploaded :object')
         ->grouped(fn (GroupBuilder $group) => $group
             ->repeat(':actor uploaded :count deliveries')
+            ->actors(':actors uploaded :object')
             ->object(':actor uploaded :object :count times'));
     Story::verb('upload')->grouped(Group::byTargets()->headline(':actor uploaded :objects to :targets'));
 
@@ -118,6 +119,7 @@ it('sees them reading from the table too, without a fake', function () {
     Story::for(Delivery::class)->verb('upload')
         ->grouped(fn (GroupBuilder $group) => $group
             ->repeat(':actor uploaded :count deliveries')
+            ->actors(':actors uploaded :object')
             ->object(':actor uploaded :object :count times'));
     Story::verb('upload')->grouped(Group::byTargets()->headline(':actor uploaded :objects to :targets'));
 
@@ -135,6 +137,7 @@ it('does not let one type\'s group headline stand in for another\'s', function (
     Story::for(Delivery::class)->verb('upload')
         ->grouped(fn (GroupBuilder $group) => $group
             ->repeat(':actor uploaded :count deliveries')
+            ->actors(':actors uploaded :object')
             ->object(':actor uploaded :object :count times'));
     Story::verb('upload')->grouped(Group::byTargets()->headline(':actor uploaded :objects to :targets'));
 

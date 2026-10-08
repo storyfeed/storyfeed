@@ -145,9 +145,7 @@ final class ReadPathPresenterOracle extends NodePresenter
 
         [$sample, $distinct, $distinctTombstoned] = $this->samples($members, $slice->distinct, $slice->tombstoned);
 
-        [$template, $headline] = $slice->period === null
-            ? $this->aggregateHeadline($slice, $distinct)
-            : $this->summaryHeadline($slice, null, $slice->members);
+        [$template, $headline] = $this->aggregateHeadline($slice, $distinct);
 
         // Optional segments: a role no member holds is empty for the group.
         $template = $template === null ? null : FeedHeadline::resolveSegments(
@@ -196,7 +194,7 @@ final class ReadPathPresenterOracle extends NodePresenter
 
         // A digest row that spans verbs names none, and wears no glyph of
         // its own: the rail shows the person, and each phrase its verb.
-        $verb = $slice->period !== null && count($slice->phrases) > 1 ? null : $first->verb;
+        $verb = $first->verb;
 
         $node = [
             'kind' => 'group',
@@ -204,7 +202,7 @@ final class ReadPathPresenterOracle extends NodePresenter
             // axes once a group can win on more than `repeat`. A digest row
             // hashes its bucket (`summary.week`), so periods never collide.
             'id' => 'grp_'.sha1("v1\x1f{$slice->axis}\x1f{$slice->hash}"),
-            'axis' => $slice->period === null ? $slice->axis : 'summary',
+            'axis' => $slice->axis,
             'count' => $slice->count,
             'verb' => $verb,
             'published_at' => $first->published_at?->toISOString(),
@@ -226,22 +224,7 @@ final class ReadPathPresenterOracle extends NodePresenter
             'distinct_tombstoned' => $distinctTombstoned,
         ];
 
-        if ($slice->period === null) {
-            return $node;
-        }
-
-        // Additive (2026-09-25): the digest's keys, on summary rows only.
-        // `period` is the calendar cut the row covers; `phrases` its per-verb
-        // parts, capped, with `phrases_truncated` saying more exist — "and N
-        // more", where N is `count` less the phrases' counts.
-        $phrases = $this->phrases($slice);
-
-        return [
-            ...$node,
-            'period' => $slice->period->value,
-            'phrases' => $phrases,
-            'phrases_truncated' => count($slice->phrases) > count($phrases),
-        ];
+        return $node;
     }
 
     protected function entity(?string $type, int|string|null $id, ?Snapshot $snapshot): ?array

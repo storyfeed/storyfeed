@@ -14,7 +14,7 @@ function curationRaceCluster(): Customer
     foreach (['Ann', 'Bob', 'Cid'] as $name) {
         Storyfeed::activity('upload')
             ->actor(User::create(['name' => $name, 'email' => strtolower($name).'@example.test']))
-            ->object(Delivery::create(['tracking_number' => $name]))
+            ->object(Delivery::firstOrCreate(['tracking_number' => 'shared']))
             ->target($target)->publish();
     }
 
@@ -52,7 +52,7 @@ it('converges after writers stop to one canonical winner per activity without lo
 
     if ($repair === 'publish') {
         Storyfeed::activity('upload')->actor('Dee')
-            ->object(Delivery::create(['tracking_number' => 'Dee']))->target($target)->publish();
+            ->object(Delivery::firstOrCreate(['tracking_number' => 'shared']))->target($target)->publish();
     } else {
         $this->artisan('storyfeed:curate')->assertSuccessful();
     }

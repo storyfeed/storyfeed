@@ -100,8 +100,7 @@ it('reads an activity by named accessors', function () {
         ->and($item->origin())->toBeNull()
         ->and($item->result())->toBeNull()
         ->and($item->instrument())->toBeNull()
-        ->and($item->children())->toBeEmpty()
-        ->and($item->phrases())->toBeEmpty();
+        ->and($item->children())->toBeEmpty();
 });
 
 it('reads activity data', function () {
@@ -124,7 +123,6 @@ it('reads a group: count, axis, samples, true totals and children', function () 
     $item = FeedItem::of(readerGroup());
 
     expect($item->isGroup())->toBeTrue()
-        ->and($item->isDigest())->toBeFalse()
         ->and($item->axis())->toBe('actors')
         ->and($item->count())->toBe(5)
         ->and($item->actor())->toBeNull()
@@ -140,30 +138,6 @@ it('reads a group: count, axis, samples, true totals and children', function () 
         ->and($item->children()->first())->toBeInstanceOf(FeedItem::class)
         ->and($item->children()->map->id()->all())->toBe(['a', 'b'])
         ->and($item->childrenTruncated())->toBeTrue();
-});
-
-it('reads a digest row and its phrases', function () {
-    $item = FeedItem::of(readerGroup([
-        'axis' => 'summary',
-        'period' => 'day',
-        'verb' => null,
-        'headline_template' => null,
-        'actor' => readerEntity('user', 'Jasper Tey'),
-        'phrases' => [
-            ['verb' => 'ride', 'count' => 3, 'headline_template' => 'went on :count rides', 'headline' => null, 'glyph' => null, 'glyph_intent' => null, 'sample' => [], 'distinct' => []],
-        ],
-        'phrases_truncated' => false,
-    ]));
-
-    expect($item->isDigest())->toBeTrue()
-        ->and($item->period())->toBe('day')
-        ->and($item->verb())->toBeNull()
-        ->and($item->phrases())->toHaveCount(1)
-        ->and($item->phrases()->first()->verb())->toBe('ride')
-        ->and($item->phrases()->first()->count())->toBe(3)
-        ->and($item->phrases()->first()->kind())->toBeNull()
-        ->and($item->phrases()->first()->publishedAt())->toBeNull()
-        ->and($item->phrasesTruncated())->toBeFalse();
 });
 
 it('reads the tombstone fact', function () {

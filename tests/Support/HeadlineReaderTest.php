@@ -195,38 +195,6 @@ it('reads an activity with no headline from its actor, verb and object', functio
         ->and(headlineActivity(['headline_template' => null])->headline()->isFallback())->toBeTrue();
 });
 
-it('reads a digest row: the person once, then the phrases joined', function () {
-    $phrase = fn (string $verb, int $count, ?string $template) => [
-        'verb' => $verb, 'count' => $count, 'headline_template' => $template, 'headline' => null,
-        'glyph' => null, 'glyph_intent' => null, 'sample' => ['targets' => [headlineEntity('customer', 'the Fun Fair')]], 'distinct' => ['targets' => 1],
-    ];
-
-    $item = headlineGroup([
-        'axis' => 'summary', 'period' => 'day', 'verb' => null, 'count' => 7, 'headline_template' => null,
-        'actor' => headlineEntity('user', 'Jasper Tey', '/users/9'),
-        'phrases' => [
-            $phrase('check_in', 1, 'checked in at :target'),
-            $phrase('balloon', 1, 'got a balloon'),
-            $phrase('ride', 3, null),
-        ],
-        'phrases_truncated' => true,
-    ]);
-
-    expect($item->headline()->toString())->toBe('Jasper Tey checked in at the Fun Fair, got a balloon, ride (3) and 2 more')
-        ->and($item->headline()->isFallback())->toBeTrue()
-        ->and($item->headline()->toHtml())->toStartWith('<a href="/users/9">Jasper Tey</a> checked in at the Fun Fair, ');
-});
-
-it('reads a crowd digest row by its people', function () {
-    $item = headlineGroup([
-        'axis' => 'summary', 'period' => 'day', 'verb' => null, 'count' => 5, 'headline_template' => null,
-        'actor' => null,
-        'phrases' => [['verb' => 'balloon', 'count' => 5, 'headline_template' => 'got a balloon', 'headline' => null, 'sample' => [], 'distinct' => []]],
-    ]);
-
-    expect($item->headline()->toString())->toBe('Ana, Ben, Cy and 2 more got a balloon');
-});
-
 it('translates its words in the current locale', function () {
     Lang::addLines(['feed.someone' => 'Quelqu’un', 'feed.activities' => '{1} :count activité|[2,*] :count activités'], 'fr', 'storyfeed');
     app()->setLocale('fr');

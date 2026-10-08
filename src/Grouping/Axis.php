@@ -40,8 +40,7 @@ class Axis
 
     protected bool $rowBacked = false;
 
-    /** Set on a partition axis: the fixed period its `d` token is cut in. */
-    protected ?Period $partition = null;
+    protected bool $bursts = false;
 
     /**
      * @var array<int, array{distinct?: string, members?: int, min?: int}>
@@ -136,41 +135,22 @@ class Axis
         return $this->rowBacked;
     }
 
-    /**
-     * A PARTITION axis: every activity it applies to lands in exactly one of
-     * its groups, and nothing competes for it. Hashed at write time like any
-     * axis, never curated, never a fallback; read only by `summary()`.
-     *
-     * The `d` token is cut in the period given here, whatever the verb
-     * declared with `groupedPer()`: a weekly digest must not change shape
-     * because one verb groups per month.
-     *
-     * The axis's name is `{family}.{period}` (`summary.week`), and its
-     * aggregate grammar is keyed on the family (`summary.{verb}`), so one
-     * headline serves every period.
-     */
-    public function partition(Period $period): static
+    /** Assign this logical key to a persisted sliding burst at write time. */
+    public function bursts(bool $bursts = true): static
     {
-        $this->partition = $period;
+        $this->bursts = $bursts;
 
         return $this;
     }
 
-    public function isPartition(): bool
+    public function usesBursts(): bool
     {
-        return $this->partition !== null;
+        return $this->bursts;
     }
 
-    /** The period a partition axis is cut in; null on every other axis. */
-    public function partitionPeriod(): ?Period
-    {
-        return $this->partition;
-    }
-
-    /** The name aggregate grammar knows this axis by: the family for a partition. */
     public function grammarName(): string
     {
-        return $this->partition === null ? $this->name : explode('.', $this->name, 2)[0];
+        return $this->name;
     }
 
     public function isFallback(): bool
@@ -376,7 +356,7 @@ class Axis
 
         foreach (Field::CANONICAL_ORDER as $field) {
             if (($this->fields & $field->value) !== 0) {
-                $parts[] = $field->valueFor($activity, $this->partition);
+                $parts[] = $field->valueFor($activity);
             }
         }
 

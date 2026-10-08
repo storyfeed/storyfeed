@@ -105,7 +105,7 @@ it('paginates history that shares one timestamp without dropping or repeating a 
 });
 
 it('renders a hand-rolled timeline shape only in log() mode — the default groups it', function () {
-    foreach (['09:00', '10:00', '11:00'] as $time) {
+    foreach (['09:00', '09:05', '09:10'] as $time) {
         Storyfeed::activity()->actor($this->ines)
             ->verb('note', $this->order)
             ->publishedAt("2024-03-01 {$time}:00")
@@ -119,7 +119,7 @@ it('renders a hand-rolled timeline shape only in log() mode — the default grou
 
 it('leaves raw-inserted rows ungrouped forever if storyfeed:rebuild runs before the trickle', function () {
     foreach (range(1, 4) as $i) {
-        rawInsert("raw-{$i}", $this->ines, $this->order, "2024-03-01 0{$i}:00:00");
+        rawInsert("raw-{$i}", $this->ines, $this->order, "2024-03-01 09:0{$i}:00");
     }
 
     // rebuild snapshots and caches links — and writes no grouping rows at all.
@@ -136,7 +136,7 @@ it('leaves raw-inserted rows ungrouped forever if storyfeed:rebuild runs before 
     expect(Storyfeed::doctor(['backlog'])->all())->toBeEmpty();
 
     // The way out, and the way not to get in.
-    $this->artisan('storyfeed:curate --rehash')->assertSuccessful();
+    $this->artisan('storyfeed:curate --rebuild-bursts')->assertSuccessful();
 
     expect(DB::table('feed_groupings')->where('winner', true)->count())->toBe(4)
         ->and(Storyfeed::feed()->get()->items())->toHaveCount(1)

@@ -29,10 +29,12 @@ it('reports absent evidence without inventing a run or mutating storage', functi
 });
 
 it('keeps a curation repair spike followed by quiet passes including resettled peers outside the command window', function () {
+    config()->set('storyfeed.grouping.bursts.within', '2 hours');
     $target = Customer::create(['name' => 'Project']);
+    $file = Delivery::create(['tracking_number' => 'Shared']);
     foreach (['Ann', 'Bob', 'Cid'] as $index => $name) {
         Storyfeed::activity('upload')->actor($name)
-            ->object(Delivery::create(['tracking_number' => $name]))->target($target)
+            ->object($file)->target($target)
             ->publishedAt($index === 2 ? now() : now()->subHour())->publish();
     }
     Grouping::query()->where('bucket', '!=', 'batch')->update(['winner' => false]);

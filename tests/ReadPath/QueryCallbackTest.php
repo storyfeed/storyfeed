@@ -182,24 +182,9 @@ it('runs the callback once per branch of the read, with no side effects assumed'
         $grouped++;
     })->live()->get();
 
-    $digest = 0;
-    $this->project->storyfeed()->query(function () use (&$digest) {
-        $digest++;
-    })->summary()->get();
-
-    // Pinned for this fixture: one group and no solo rows. A grouped page runs
-    // the group stream's window probe and aggregate, the solo stream, the member
-    // ranking/hydration reads and one count per role. (History this shallow never fits a window,
-    // so the windowed recount does not run here.) The digest swaps the seven
-    // role counts for two branches (one SQL ROLLUP on MySQL/PostgreSQL).
-    // (One row on the page, so no crowd probe.) If these
-    // numbers move, the docblock on FeedBuilder::query() is now wrong.
-    expect($log)->toBe(1)
-        ->and($grouped)->toBe(12)
-        ->and($digest)->toBe(match (DB::getDriverName()) {
-            'mysql', 'mariadb', 'pgsql', 'sqlite' => 7,
-            default => 20,
-        });
+    // The Live branches include the window probe, aggregate, solo stream,
+    // member hydration, and distinct-role counts for this single-group page.
+    expect($log)->toBe(1)->and($grouped)->toBe(12);
 });
 
 /**

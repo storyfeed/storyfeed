@@ -21,6 +21,11 @@ class WriteGroupings
      */
     public function __invoke(Activity $activity, bool $inserted = false): void
     {
+        $activity->getConnection()->transaction(fn () => $this->write($activity, $inserted));
+    }
+
+    private function write(Activity $activity, bool $inserted): void
+    {
         $grouping = config('storyfeed.models.grouping', Grouping::class);
 
         // A composite parent or member is CLAIMED: its story is the
@@ -38,13 +43,12 @@ class WriteGroupings
 
         $strategy = app(config('storyfeed.grouping.strategy', MultiAxisStrategy::class));
 
-        $hashes = self::admitted($strategy->hashes($activity), $claim !== null);
+        $existing = $inserted ? [] : $grouping::query()->where('activity_id', $activity->getKey())->pluck('hash', 'bucket')->all();
+        $hashes = (new AssignGroupingBursts)($activity, self::admitted($strategy->hashes($activity), $claim !== null), $existing);
 
         // A fresh publish has no rows to update, so every axis goes in one
-        // multi-row insert, as many() writes new rows. The four partition
-        // axes made this matter: a SELECT and an INSERT per axis would be
-        // sixteen statements inside the publish transaction, and on Postgres
-        // the cost is planning per statement, not row width.
+        // multi-row insert, as many() writes new rows. On Postgres the cost
+        // of separate statements includes planning for every axis.
         if ($inserted) {
             $now = now();
 
@@ -94,6 +98,16 @@ class WriteGroupings
      */
     public function many(iterable $activities): void
     {
+        $activities = collect($activities);
+        if ($activities->isEmpty()) {
+            return;
+        }
+        $activities->first()->getConnection()->transaction(fn () => $this->writeMany($activities));
+    }
+
+    /** @param iterable<Activity> $activities */
+    private function writeMany(iterable $activities): void
+    {
         $byKey = [];
 
         foreach ($activities as $activity) {
@@ -131,8 +145,8 @@ class WriteGroupings
                 continue;
             }
 
-            $hashes = self::admitted($strategy->hashes($activity), $claim !== null);
             $own = ($existing->get($id) ?? collect())->keyBy('bucket');
+            $hashes = (new AssignGroupingBursts)($activity, self::admitted($strategy->hashes($activity), $claim !== null), $own->pluck('hash', 'bucket')->all());
 
             foreach ($hashes as $bucket => $hash) {
                 $row = $own->get($bucket);
@@ -163,27 +177,14 @@ class WriteGroupings
     }
 
     /**
-     * A COMPOSITE PARENT KEEPS ITS PARTITION ROWS. Its members are told by
-     * the parent, so they stay claimed; but the parent is the telling, and
-     * the digest must place it under its person's day like anything else.
-     * Every other axis stays out: the parent never enters inference.
+     * Composite parents and members stay outside inference.
      *
      * @param  array<string, string>  $hashes
      * @return array<string, string>
      */
     private static function admitted(array $hashes, bool $parent): array
     {
-        if (! $parent) {
-            return $hashes;
-        }
-
-        $storyfeed = app(StoryfeedManager::class);
-
-        return array_filter(
-            $hashes,
-            fn (string $bucket) => $storyfeed->axis($bucket)?->isPartition() === true,
-            ARRAY_FILTER_USE_KEY,
-        );
+        return $parent ? [] : $hashes;
     }
 
     /**

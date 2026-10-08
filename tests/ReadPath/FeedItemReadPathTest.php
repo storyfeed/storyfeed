@@ -73,19 +73,6 @@ it('reads a real group and its children', function () {
         ->and($group->headline()->toString())->not->toBe('');
 });
 
-it('reads a real digest row', function () {
-    Storyfeed::activity('check_in')->by($this->dana)->for($this->acme)->publishedAt(now()->setTime(9, 0))->publish();
-    Storyfeed::activity('confirm', $this->delivery)->by($this->dana)->publishedAt(now()->setTime(10, 0))->publish();
-
-    $row = Storyfeed::feed()->summary()->get()->collect()->sole();
-
-    expect($row->isDigest())->toBeTrue()
-        ->and($row->actor()->label())->toBe('Dana')
-        ->and($row->phrases()->map->verb()->all())->toBe(['check_in', 'confirm'])
-        ->and($row->headline()->isFallback())->toBeTrue()
-        ->and($row->headline()->toString())->toStartWith('Dana check_in (1) and confirm (1)');
-});
-
 it('reads a real tombstone', function () {
     Storyfeed::activity('confirm', $this->delivery)->by($this->dana)->publish();
     $this->delivery->delete();

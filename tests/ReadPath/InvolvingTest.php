@@ -107,7 +107,8 @@ it('keeps group counts scope-correct when involving narrows a group', function (
     $all = Storyfeed::feed()->get()->toArray()['items'];
     $scoped = Storyfeed::feed()->involving($project)->get()->toArray()['items'];
 
-    expect($all[0]['count'])->toBe(4)
+    expect($all)->toHaveCount(2)
+        ->and(array_sum(array_column($all, 'count')))->toBe(4)
         ->and($scoped)->toHaveCount(1)
         ->and($scoped[0]['kind'])->toBe('group')
         ->and($scoped[0]['count'])->toBe(2); // recounted within scope, not 4

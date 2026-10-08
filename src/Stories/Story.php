@@ -260,6 +260,12 @@ abstract class Story implements PublishesToFeed
         return null;
     }
 
+    /** @return array{within: string|DateInterval, ceiling?: string|DateInterval}|null */
+    public function bursts(): ?array
+    {
+        return null;
+    }
+
     /**
      * Middleware this activity goes through when it is published, after the
      * `default` group, as a job's `middleware()` wraps the job — see

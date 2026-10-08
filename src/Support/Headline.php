@@ -23,8 +23,7 @@ use Stringable;
  *
  * Every item reads as something. An item with neither field gets the words
  * a renderer is told to use (docs/payload.md): a group reads as its count,
- * "5 activities", never as prose borrowed from one member; a digest row
- * names its person once and joins its phrases; an activity reads
+ * "5 activities", never as prose borrowed from one member; an activity reads
  * ":actor :verb :object". `isFallback()` says when that happened.
  *
  * The words are the package's lang lines (`storyfeed::feed.*`), so they
@@ -114,6 +113,7 @@ final class Headline implements Htmlable, JsonSerializable, Stringable
     /** @return Collection<int, array<string, mixed>> */
     protected function tokenize(string $template): Collection
     {
+        $template = FeedHeadline::forCount($template, $this->item->count());
         $parts = preg_split('/(:[a-z]+)/', $template, flags: PREG_SPLIT_DELIM_CAPTURE | PREG_SPLIT_NO_EMPTY) ?: [];
 
         return collect($parts)->map($this->segment(...))->values();
@@ -222,20 +222,11 @@ final class Headline implements Htmlable, JsonSerializable, Stringable
      */
     protected function fallback(): Collection
     {
-        if ($this->item->isDigest() && $this->item->phrases()->isNotEmpty()) {
-            return $this->digest();
-        }
-
         if ($this->item->isGroup()) {
             return collect([self::text(trans_choice('storyfeed::feed.activities', $this->item->count(), ['count' => $this->item->count()]))]);
         }
 
         $verb = (string) $this->item->verb();
-
-        // A phrase: named by its verb and count.
-        if ($this->item->kind() === null) {
-            return $this->tokenize(str_replace(':verb', $verb, (string) __('storyfeed::feed.phrase')));
-        }
 
         $template = FeedHeadline::resolveSegments(
             str_replace(':verb', $verb, (string) __('storyfeed::feed.unnamed')),
@@ -243,40 +234,6 @@ final class Headline implements Htmlable, JsonSerializable, Stringable
         );
 
         return $this->tokenize(trim((string) preg_replace('/ {2,}/', ' ', $template)));
-    }
-
-    /**
-     * A digest row: the person once, then the phrases joined, then how many
-     * activities the phrases do not cover.
-     *
-     * @return Collection<int, array<string, mixed>>
-     */
-    protected function digest(): Collection
-    {
-        $person = $this->item->actor() !== null
-            ? $this->tokenize(':actor')
-            : collect([$this->list('actor')]);
-
-        $phrases = $this->item->phrases()->map(fn (FeedItem $phrase): Collection => $phrase->headline()->segments());
-
-        $more = $this->item->count() - $this->item->phrases()->sum(fn (FeedItem $phrase): int => $phrase->count());
-
-        if ($more > 0) {
-            $phrases->push(collect([self::text(self::more($more))]));
-        }
-
-        $segments = $person->push(self::text(' '));
-        $last = $phrases->count() - 1;
-
-        foreach ($phrases->values() as $index => $phrase) {
-            if ($index > 0) {
-                $segments->push(self::text($index === $last ? ' '.self::and().' ' : ', '));
-            }
-
-            $segments = $segments->concat($phrase);
-        }
-
-        return $segments->values();
     }
 
     /** @return array<string, mixed> */

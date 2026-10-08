@@ -145,7 +145,7 @@ it('names a role shared by every member rather than saying "1 file"', function (
 });
 
 it('falls to the verb label when the template names a role nothing carries', function () {
-    Story::for('delivery')->verb('upload')->override()->headline(':actor uploaded :object in :context');
+    Story::for('delivery')->verb('upload')->override()->headline(':actor uploaded :object in :origin');
 
     $project = Customer::create(['name' => 'Concur']);
 
@@ -153,10 +153,10 @@ it('falls to the verb label when the template names a role nothing carries', fun
 
     $item = Storyfeed::feed()->get()->toArray()['items'][0];
 
-    // Zero distinct contexts means the role is ABSENT, not plural. "0 items"
+    // Zero distinct origins means the role is ABSENT, not plural. "0 items"
     // would paper over exactly what the `roles` doctor check is watching
     // for; the muted label reads as unfinished, which is the truth.
-    expect($item['distinct']['contexts'])->toBe(0)
+    expect($item['distinct']['origins'])->toBe(0)
         ->and($item['headline_template'])->toBeNull();
 });
 
@@ -261,7 +261,7 @@ it('still suppresses a fallback whose role KIND the axis does not pin', function
 
         Storyfeed::activity()
             ->actor($user)
-            ->verb('upload', Delivery::create(['tracking_number' => "{$name}.docx"]))
+            ->verb('upload', Delivery::firstOrCreate(['tracking_number' => 'shared.docx']))
             ->for($project)
             ->publish();
     }

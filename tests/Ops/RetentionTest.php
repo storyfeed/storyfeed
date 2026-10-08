@@ -230,7 +230,7 @@ describe('which rows a prune takes', function () {
 
 describe('what a pruned group reads as', function () {
     it('shrinks: the group reads as what remains', function () {
-        Story::verb('view')->keepFor('12 hours');
+        Story::verb('view')->keepFor('12 hours')->bursts(within: '24 hours', ceiling: '24 hours');
 
         foreach (range(1, 9) as $i) {
             aged('view', '20 hours', Delivery::create(['tracking_number' => "Old-{$i}"]));
@@ -256,7 +256,7 @@ describe('what a pruned group reads as', function () {
     });
 
     it('re-decides what remains, so a group below its threshold reads as singles', function () {
-        Story::verb('view')->keepFor('12 hours');
+        Story::verb('view')->keepFor('12 hours')->bursts(within: '24 hours', ceiling: '24 hours');
         $delivery = Delivery::create(['tracking_number' => 'TN-1']);
 
         foreach (['Ada', 'Ben', 'Cy'] as $name) {
@@ -275,7 +275,7 @@ describe('what a pruned group reads as', function () {
     });
 
     it('disappears when every member is pruned, leaving no empty node', function () {
-        Story::verb('view')->keepFor('12 hours');
+        Story::verb('view')->keepFor('12 hours')->bursts(within: '24 hours', ceiling: '24 hours');
 
         foreach (range(1, 3) as $i) {
             aged('view', '20 hours', Delivery::create(['tracking_number' => "Old-{$i}"]));

@@ -234,8 +234,8 @@ class FeedMakeCommand extends GeneratorCommand
             return '';
         }
 
-        if (! in_array($mode, ['log', 'live', 'summary'], true)) {
-            $this->fail("Unknown feed mode [{$mode}]. Valid modes: log, live, summary.");
+        if (! in_array($mode, ['log', 'live'], true)) {
+            $this->fail("Unknown feed mode [{$mode}]. Valid modes: log, live.");
         }
 
         return "->{$mode}()";
@@ -288,7 +288,7 @@ class FeedMakeCommand extends GeneratorCommand
             ['subject', null, InputOption::VALUE_OPTIONAL, 'The model this feed is scoped to (omit for a global feed)'],
             ['role', null, InputOption::VALUE_OPTIONAL, 'The role the subject binds to: '.implode(', ', FeedDefinition::ROLES).' (default: context)'],
             ['only', null, InputOption::VALUE_OPTIONAL, 'Comma-separated verbs for the allowlist'],
-            ['mode', null, InputOption::VALUE_OPTIONAL, 'Read mode: log, live or summary'],
+            ['mode', null, InputOption::VALUE_OPTIONAL, 'Read mode: log or live'],
             ['from-doctor', null, InputOption::VALUE_NONE, "Transcribe doctor's undecided verbs into the file, commented"],
             ['force', 'f', InputOption::VALUE_NONE, 'Overwrite an existing feed'],
         ];

@@ -127,7 +127,7 @@ class Links extends Check
             }
         }
 
-        foreach ($item->children()->concat($item->phrases()) as $child) {
+        foreach ($item->children() as $child) {
             yield from $this->entities($child);
         }
     }

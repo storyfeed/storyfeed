@@ -1,0 +1,32 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        $name = config('storyfeed.tables.grouping_bursts', 'feed_grouping_bursts');
+        if (Schema::hasTable($name)) {
+            return;
+        }
+        // One existing primary-key row is the lock AND the latest window.
+        // Closed membership lives in feed_groupings, never in this table.
+        Schema::create($name, function (Blueprint $table) {
+            $table->char('key', 64)->primary();
+            $table->string('hash', 200)->nullable();
+            $table->dateTime('opened_at', 6)->nullable();
+            $table->dateTime('last_activity_at', 6)->nullable();
+            $table->unsignedInteger('within_seconds')->nullable();
+            $table->unsignedInteger('ceiling_seconds')->nullable();
+            $table->timestamp('locked_at')->nullable();
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists(config('storyfeed.tables.grouping_bursts', 'feed_grouping_bursts'));
+    }
+};

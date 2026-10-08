@@ -76,7 +76,7 @@ it('pages past the first screen of groups', function () {
 
         foreach (range(1, 2) as $n) {
             Storyfeed::activity()->actor($user)->verb('ping')
-                ->publishedAt(now()->subMinutes($i * 10 + $n))
+                ->publishedAt(now()->subMinutes($i * 10 + 3 - $n))
                 ->publish();
         }
     }
@@ -104,7 +104,7 @@ it('emits one node with a true count and capped children for a large group', fun
     $user = User::create(['name' => 'Sally', 'email' => 'sally@example.com']);
 
     foreach (range(1, 25) as $i) {
-        Storyfeed::activity()->actor($user)->verb('ping')->publishedAt(now()->subMinutes($i))->publish();
+        Storyfeed::activity()->actor($user)->verb('ping')->publishedAt(now()->subMinutes(26 - $i))->publish();
     }
 
     $payload = Storyfeed::feed()->limit(2)->get()->toArray();

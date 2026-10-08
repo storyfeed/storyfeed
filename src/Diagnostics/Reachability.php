@@ -12,7 +12,7 @@ use Throwable;
  *
  * WHY THIS EXISTS. A coverage check that walks the groupings table knows what
  * the database clustered; it knows nothing about what the reader is about to
- * do. A `->summary()` dashboard renders digest rows and NOTHING else, so
+ * do. A `->log()` dashboard renders individual activities, so
  * aggregate grammar for `object.upload` on such an app is a template that
  * cannot fire — doctor asking for it is asking for
  * work with no effect. This is the seam that lets a check tell the two apart.
@@ -23,9 +23,6 @@ use Throwable;
  *            so no axis is readable.
  *   live     with curation on, winner rows on ANY bucket plus the repeat
  *            fallback; with curation off, only repeat, ignoring old stamps.
- *   summary  the period's partition bucket only (`summary.day` and the
- *            rest) — no curated axis is readable, and the digest's phrases
- *            are keyed `summary.{verb}`.
  *
  * THE HONEST LIMITS, all of which push the SAME way — toward reporting a pair
  * rather than excusing it:
@@ -103,7 +100,6 @@ final class Reachability
     {
         return match ($mode) {
             'log' => [],
-            'summary' => ['summary'],
             default => config('storyfeed.grouping.curate', true) ? null : ['repeat'],
         };
     }
