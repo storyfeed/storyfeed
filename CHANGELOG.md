@@ -34,8 +34,12 @@ calendar days. App-model reference ids are strings, and verbs cannot contain dot
   a row even when each comment is a separate object. The group pins that target.
 - Live page selection bounds the combined group-and-solo stream, with indexed
   winner probes and page-local membership reads. Ordering and cursors are unchanged.
-- Existing history regroups with `php artisan storyfeed:curate --rebuild-bursts`
-  while activity writers are paused.
+- Existing history regroups with
+  `php artisan storyfeed:curate --rebuild-bursts --writers-paused` while every
+  publisher, queue worker and publishing schedule is paused. The rebuild runs in
+  resumable chunks: after an interruption, run it again with `--resume`;
+  `--restart` discards progress and replays all history. 100K activities rebuild
+  in about two and a half minutes on MariaDB.
 - Every app-model reference uses case-sensitive varchar(36) storage. Numeric
   keys, UUIDs and ULIDs use the same schema, independently of Laravel's morph-key
   default. Event snapshots expose every non-null role id, including batch actor
