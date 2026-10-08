@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## v0.14.1 - 2026-10-08
+
 ### Fixed
 
 - The participants ancestry upgrade removes duplicate identities in one
