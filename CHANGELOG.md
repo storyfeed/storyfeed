@@ -34,6 +34,8 @@ calendar days. App-model reference ids are strings, and verbs cannot contain dot
   a row even when each comment is a separate object. The group pins that target.
 - Live page selection bounds the combined group-and-solo stream, with indexed
   winner probes and page-local membership reads. Ordering and cursors are unchanged.
+- Existing history regroups with `php artisan storyfeed:curate --rebuild-bursts`
+  while activity writers are paused.
 - Every app-model reference uses case-sensitive varchar(36) storage. Numeric
   keys, UUIDs and ULIDs use the same schema, independently of Laravel's morph-key
   default. Event snapshots expose every non-null role id, including batch actor
@@ -68,87 +70,6 @@ calendar days. App-model reference ids are strings, and verbs cannot contain dot
   renders tombstones as escaped text even when the payload retains a URL.
 - Batch-lock backfills skip typed actors with null ids.
 - Wildcard verb allowlists and denylists use a portable MySQL LIKE escape.
-
-### Upgrading from v0.12
-
-1. Back up the database and pause all activity writers, including queue workers
-   and scheduled publishers, before migrating and rebuilding history.
-2. Upgrade core to `^0.13` and `storyfeed/ui` to `^0.4` if installed. Update any
-   other renderers together with core. Replace Summary reads and tabs with Live:
-
-   ```php
-   $page = Storyfeed::feed()->live()->get();
-   ```
-
-   Set `storyfeed.grouping.default` to `live` (or `log`). Remove Summary period
-   arguments and application rendering that requires Summary phrases or periods.
-3. Apply the app-reference column and dotted-verb changes below where needed.
-   Publish the migrations and run the pending ones. Publishing stubs alone does
-   not change an existing table:
-
-   ```bash
-   php artisan vendor:publish --tag=storyfeed-migrations
-   php artisan migrate
-   ```
-
-   Confirm `add_read_path_indexes_to_feed_groupings_table` and
-   `create_feed_grouping_bursts_table` are present and run.
-4. With writers still paused, rebuild historical grouping:
-
-   ```bash
-   php artisan storyfeed:curate --rebuild-bursts
-   ```
-
-   **P3 RELEASE PLACEHOLDER — final rebuild flags, resume procedure and measured
-   timing are pending the rebuild-speed lane. This upgrade step must be finalized
-   before tagging.** The current rebuild requires all history; do not combine it
-   with `--window` or `--release`.
-5. Remove `storyfeed.grouping.summary`, `storyfeed.morph_key_type` and
-   `storyfeed.demo.enabled` from published config. Add these defaults (merge into
-   the existing `tables`, `grouping` and `doctor` arrays):
-
-   ```php
-   'tables' => ['grouping_bursts' => 'feed_grouping_bursts'],
-   'grouping' => ['bursts' => ['within' => '15 minutes', 'ceiling' => '4 hours']],
-   'doctor' => ['acknowledgments' => []],
-   ```
-
-   If a custom burst ceiling exceeds `storyfeed.curate.window`, raise that repair
-   window to cover it. Replace obsolete authoring setters with `Story`
-   declarations. Event listeners using strict integer role-id comparisons must
-   compare strings; null role ids remain null.
-6. Regenerate `storyfeed:cache`, check Log and Live, then resume writers after
-   the rebuild succeeds.
-
-#### App-model reference ids and dotted verbs
-
-For a fresh database, publish the current migration stubs before migrating.
-Every app-model reference is now varchar(36),
-including participants, snapshots, batch locks and tombstones, independently
-of Laravel's morph-key default. UUIDs, ULIDs and decimal bigint keys share this
-schema; custom keys longer than 36 characters are outside the supported contract.
-MySQL/MariaDB use ASCII with ascii_bin collation; SQL Server uses
-Latin1_General_100_BIN2; PostgreSQL and SQLite retain case-sensitive defaults.
-Package-owned primary keys and cached snapshot pointers remain bigint; party
-and tombstone references store those keys as decimal strings.
-`storyfeed.morph_key_type` and Doctor's `morph_keys` check have been removed.
-A stale key in an app's published config is harmless and ignored.
-Existing databases need an explicit migration of their app-model id columns
-and collations; changing config or re-publishing stubs alone does not alter them.
-
-Use the action alone in base form (`email`, not `document.emailed`); the object
-already stores its type. Migrate each old verb explicitly, using your configured
-activities table, for example:
-
-```sql
-UPDATE feed_activities SET verb = 'email' WHERE verb = 'document.emailed';
-```
-
-Update declarations, publishing calls, feed allowlists and grammar keys together:
-`document.document.emailed` becomes `document.email`, and actorless
-`*.document.emailed` becomes `email` (or `*.email`). Rebuild stored grouping hashes
-with `storyfeed:curate --rehash` and regenerate `storyfeed:cache` after migration.
-Use `->name('document.emailed')` for dotted story lookups.
 
 ## v0.12.0 — Pictures only when a body asks, and the thread leaves core (2026-10-01)
 
