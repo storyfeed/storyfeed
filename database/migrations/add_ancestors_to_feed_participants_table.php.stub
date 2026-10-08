@@ -10,24 +10,44 @@ return new class extends Migration
     public function up(): void
     {
         $name = config('storyfeed.tables.participants', 'feed_participants');
-        Schema::table($name, function (Blueprint $table) {
-            $table->unsignedTinyInteger('distance')->default(0);
-            $table->dropUnique(['activity_id', 'role']);
-        });
         // A self-acting entity may fill several direct roles. Its roles stay
         // on the activity; the involving index needs just one identity row.
-        do {
-            $duplicates = DB::table($name)->select(['activity_id', 'entity_type', 'entity_id'])
-                ->selectRaw('min(id) as keep_id')->groupBy('activity_id', 'entity_type', 'entity_id')
-                ->havingRaw('count(*) > 1')->limit(500)->get();
-            foreach ($duplicates as $row) {
-                DB::table($name)->where('activity_id', $row->activity_id)->where('entity_type', $row->entity_type)
-                    ->where('entity_id', $row->entity_id)->where('id', '<>', $row->keep_id)->delete();
+        $identityUnique = 'feed_participants_activity_entity_unique';
+        $hasIdentityUnique = Schema::hasIndex($name, $identityUnique, 'unique');
+        if (! $hasIdentityUnique) {
+            $table = DB::connection()->getQueryGrammar()->wrapTable($name);
+            if (in_array(DB::getDriverName(), ['mysql', 'mariadb'], true)) {
+                // Materialize the ranking before deleting, even when an
+                // interrupted old upgrade already dropped the role index.
+                DB::delete("DELETE duplicate FROM {$table} AS duplicate
+                    INNER JOIN (
+                        SELECT id, ROW_NUMBER() OVER (
+                            PARTITION BY activity_id, entity_type, entity_id ORDER BY id
+                        ) AS identity_position FROM {$table}
+                    ) AS ranked ON duplicate.id = ranked.id
+                    WHERE ranked.identity_position > 1");
+            } else {
+                DB::delete("DELETE FROM {$table} WHERE id IN (
+                    SELECT id FROM (
+                        SELECT id, ROW_NUMBER() OVER (
+                            PARTITION BY activity_id, entity_type, entity_id ORDER BY id
+                        ) AS identity_position FROM {$table}
+                    ) AS ranked WHERE identity_position > 1
+                )");
             }
-        } while ($duplicates->isNotEmpty());
-        Schema::table($name, function (Blueprint $table) {
-            $table->unique(['activity_id', 'entity_type', 'entity_id'], 'feed_participants_activity_entity_unique');
-        });
+        }
+        // MySQL/MariaDB DDL commits independently. Guard every step so a
+        // deployment interrupted here can rerun, including the old stub's
+        // partially applied distance column and removed role constraint.
+        if (! Schema::hasColumn($name, 'distance')) {
+            Schema::table($name, fn (Blueprint $table) => $table->unsignedTinyInteger('distance')->default(0));
+        }
+        if (Schema::hasIndex($name, ['activity_id', 'role'], 'unique')) {
+            Schema::table($name, fn (Blueprint $table) => $table->dropUnique(['activity_id', 'role']));
+        }
+        if (! $hasIdentityUnique) {
+            Schema::table($name, fn (Blueprint $table) => $table->unique(['activity_id', 'entity_type', 'entity_id'], $identityUnique));
+        }
     }
 
     public function down(): void

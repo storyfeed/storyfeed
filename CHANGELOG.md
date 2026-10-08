@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Fixed
+
+- The participants ancestry upgrade removes duplicate identities in one
+  set-based delete, keeping the lowest row id, and safely resumes after
+  partially applied schema changes instead of deleting identities one by one.
+
 ## v0.14.0 - 2026-10-08
 
 ### Added

@@ -1,0 +1,46 @@
+<?php
+
+namespace Storyfeed\Tests\Fixtures;
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+
+/** Frozen pre-set-based upgrade, used as the survivor and timing oracle. */
+class LegacyParticipantsUpgrade extends Migration
+{
+    public function up(): void
+    {
+        $name = config('storyfeed.tables.participants', 'feed_participants');
+        Schema::table($name, function (Blueprint $table) {
+            $table->unsignedTinyInteger('distance')->default(0);
+            $table->dropUnique(['activity_id', 'role']);
+        });
+        // A self-acting entity may fill several direct roles. Its roles stay
+        // on the activity; the involving index needs just one identity row.
+        do {
+            $duplicates = DB::table($name)->select(['activity_id', 'entity_type', 'entity_id'])
+                ->selectRaw('min(id) as keep_id')->groupBy('activity_id', 'entity_type', 'entity_id')
+                ->havingRaw('count(*) > 1')->limit(500)->get();
+            foreach ($duplicates as $row) {
+                DB::table($name)->where('activity_id', $row->activity_id)->where('entity_type', $row->entity_type)
+                    ->where('entity_id', $row->entity_id)->where('id', '<>', $row->keep_id)->delete();
+            }
+        } while ($duplicates->isNotEmpty());
+        Schema::table($name, function (Blueprint $table) {
+            $table->unique(['activity_id', 'entity_type', 'entity_id'], 'feed_participants_activity_entity_unique');
+        });
+    }
+
+    public function down(): void
+    {
+        $name = config('storyfeed.tables.participants', 'feed_participants');
+        DB::table($name)->where('role', 'ancestor')->delete();
+        Schema::table($name, function (Blueprint $table) {
+            $table->dropUnique('feed_participants_activity_entity_unique');
+            $table->dropColumn('distance');
+            $table->unique(['activity_id', 'role']);
+        });
+    }
+}
