@@ -62,6 +62,9 @@ work leads to is a demonstration of a working package, not a launch event, so
 - [x] **v0.12 — Pictures and quotes are bodies** *(tagged `v0.12.0`)*. An `Image`
       body names the picture a row shows; quoted words are an `Excerpt`; the
       discussion-specific thread leaves core.
+- [x] **v0.13 — Live bursts and renderer kits.** Live groups one action into
+      bursts; Summary is retired. Free React, Vue/Inertia and Blade kits render
+      the feed. Live first pages stay under 300ms at 3M activities in benchmarks.
 - [ ] **v1.0 — Stable.** Frozen payload contract, semver promise, both authoring
       APIs (fluent builder + `Story` classes).
 
@@ -69,15 +72,12 @@ work leads to is a demonstration of a working package, not a launch event, so
 
 - Smarter feed curation — dynamic, social-style activity grouping ("Bob, Sally and 3
   others uploaded files to Project X") that improves behind the stable payload
-  contract. Three per-view read modes — `->log()` (atomic log), `->live()`
-  (classic repeat grouping), and `->summary()` multi-axis grouping as the
-  **default** — and the curation policy is free to keep evolving after 1.0
-  because it was never part of the contract.
+  contract. Two read modes — Log (`->log()`, the atomic timeline) and Live
+  (`->live()`, one-action bursts). Curation keeps evolving behind the contract.
 - Story auto-discovery.
-- **Feed components for `storyfeed/ui`** — the free, MIT detail vocabulary is
-  available on Packagist now. Vue/Inertia and plain Blade components are planned
-  first; Livewire and React follow as sponsorship allows the time (see
-  [Sponsor-funded](#sponsor-funded)).
+- **Feed components for `storyfeed/ui`** — free, MIT React, Vue/Inertia and
+  Blade kits are available now. Livewire follows as sponsorship allows the time
+  (see [Sponsor-funded](#sponsor-funded)).
 - A public demo API, so any frontend — Nuxt, Next, SvelteKit, mobile — can be
   pointed at a live Storyfeed and render it however it likes.
 - Laravel notifications, bridged both ways — a notification class that
@@ -97,7 +97,7 @@ built regardless.
 |---|---|
 | **Exceptional scale** | Feeds that stay fast at billions of activities without pruning. This needs research into partitioned and tiered storage behind the same cursor, so the payload does not change. Performance at normal scale is part of the plan and is not waiting on funding. |
 | **Agent reliability** | A modelling guide comes first, as part of the plan. Proving that coding agents set up and record a feed correctly without a person correcting them needs continued research: testing agents against real apps, finding where they go wrong, and building the docs and tools that close each gap. |
-| **Official UI adapters for frontend frameworks** | Livewire and React, for example. The Vue/Inertia and Blade components in `storyfeed/ui` come first. Each further framework is another set of components to maintain. |
+| **Official UI adapters for frontend frameworks** | Livewire, for example. React, Vue/Inertia and Blade kits in `storyfeed/ui` are available now. Each further framework is another set of components to maintain. |
 | **Support for additional drivers such as SQL Server** | Storyfeed is tested on SQLite, MySQL 8.0+, MariaDB and PostgreSQL on every commit. A test run on SQL Server passes all but a handful of cases, but adding a database to the supported list is a promise to keep it working. |
 
 [Sponsor Storyfeed on GitHub](https://github.com/sponsors/storyfeed)
