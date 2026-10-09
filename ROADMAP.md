@@ -75,6 +75,11 @@ work leads to is a demonstration of a working package, not a launch event, so
       are gone, Story classes are no longer experimental, and entities can
       declare a text avatar.
 
+- [x] **v0.17 — Bodies** *(tagged `v0.17.0`)*. A base class every body builds
+      on, links that own their behaviour, `CallToAction` and `Table` bodies,
+      time ranges, and a body's own `$meta` for rendering concerns. The array
+      source for static content arrived early.
+
 ## The countdown to 1.0
 
 Each version below is a GitHub milestone holding its concrete issues. Issue
@@ -82,11 +87,6 @@ titles start with the version they target, such as `[0.17]`. Milestones show
 the current plan: items may be reordered, moved to a later version or dropped as
 the work teaches us, and a dropped item is closed as not planned with its reason.
 
-- [ ] **[v0.17 — Bodies](https://github.com/storyfeed/storyfeed/milestone/2).**
-      A base class every body builds on, links that own their behaviour
-      (modal and attributes), `CallToAction` and `Table` bodies, time ranges
-      (`startTime`, `endTime`), and kits that render text through Tailwind
-      Typography.
 - [ ] **[v0.18 — Feed sources](https://github.com/storyfeed/storyfeed/milestone/22).**
       The database becomes one source among several, driver-style, so a feed can
       come from static content or an API and still render through the same
