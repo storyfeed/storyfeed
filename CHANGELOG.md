@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## v0.15.0 - 2026-10-09
+
 ### Added
 
 - Feed and activity builders can filter each role or any participant by model type using a class, instance, morph alias or list of types, with optional direct-only participation.
