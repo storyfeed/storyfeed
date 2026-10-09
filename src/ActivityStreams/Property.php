@@ -26,6 +26,13 @@ enum Property: string implements VocabularyTerm
     case Result = 'result';
     case Instrument = 'instrument';
     case Published = 'published';
+
+    // An activity's time range (docs/payload.md, time ranges). `duration` is
+    // emitted only when both ends are known, and derived from them.
+    case StartTime = 'startTime';
+    case EndTime = 'endTime';
+    case Duration = 'duration';
+
     case TotalItems = 'totalItems';
 
     case OrderedItems = 'orderedItems';

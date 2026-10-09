@@ -24,7 +24,7 @@ it('emits the same payload shape as before the recording API change', function (
     // refetch. Null until the first settled-history rewrite ever.
     expect(array_keys($payload))->toBe(['payload_version', 'items', 'next_cursor', 'sync_token']);
     expect(array_keys($payload['items'][0]))->toBe([
-        'kind', 'id', 'verb', 'published_at', 'headline_template', 'headline',
+        'kind', 'id', 'verb', 'published_at', 'starts_at', 'ends_at', 'headline_template', 'headline',
         'glyph', 'glyph_intent', 'actor', 'object', 'target', 'context', 'origin', 'result', 'instrument', 'data',
         'tombstoned', 'redundant', 'missing_headline_template', 'missing_headline',
     ]);
@@ -69,7 +69,7 @@ it('emits the frozen group-node shape', function () {
     expect(array_keys($item['distinct']))->toBe(['actors', 'objects', 'targets', 'contexts', 'origins', 'results', 'instruments']);
     // A group's children are ordinary activity nodes.
     expect(array_keys($item['children'][0]))->toBe([
-        'kind', 'id', 'verb', 'published_at', 'headline_template', 'headline',
+        'kind', 'id', 'verb', 'published_at', 'starts_at', 'ends_at', 'headline_template', 'headline',
         'glyph', 'glyph_intent', 'actor', 'object', 'target', 'context', 'origin', 'result', 'instrument', 'data',
         'tombstoned', 'redundant', 'missing_headline_template', 'missing_headline',
     ]);

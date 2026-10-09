@@ -87,6 +87,22 @@ final class FeedItem implements Arrayable, ArrayAccess, JsonSerializable
         return $at === null ? null : CarbonImmutable::parse($at);
     }
 
+    /** When what the activity describes began or begins, if it has a range. */
+    public function startsAt(): ?CarbonImmutable
+    {
+        $at = $this->string('starts_at');
+
+        return $at === null ? null : CarbonImmutable::parse($at);
+    }
+
+    /** When what the activity describes ended or ends, if it has a range. */
+    public function endsAt(): ?CarbonImmutable
+    {
+        $at = $this->string('ends_at');
+
+        return $at === null ? null : CarbonImmutable::parse($at);
+    }
+
     /** The sentence, read from `headline_template` or `headline`. */
     public function headline(): Headline
     {

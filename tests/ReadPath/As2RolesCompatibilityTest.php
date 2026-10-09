@@ -27,6 +27,13 @@ it('adds only nullable role keys to baseline payload and event bytes without cha
             expect($payload)->toHaveKey($role, null);
             unset($payload[$role]);
         }
+        // The time range (#78) is the same kind of addition: nullable keys.
+        if ($kind === 'node') {
+            foreach (['starts_at', 'ends_at'] as $key) {
+                expect($payload)->toHaveKey($key, null);
+                unset($payload[$key]);
+            }
+        }
         $observed[$kind] = json_encode($payload, JSON_THROW_ON_ERROR);
     }
     $baseline = require __DIR__.'/../Fixtures/As2RolesBaseline.php';

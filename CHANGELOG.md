@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Added
+
+- Activities can record the time range they describe: `->startsAt($date)` and `->endsAt($date)` on the builder and on verb enums, and `record(startsAt:, endsAt:)`. Either end may be left open ("from Oct 9"); a range that ends before it starts throws. The names follow `->publishedAt()` and Laravel's `*_at` columns (Cashier's `ends_at`). `published_at` stays the sort key and the cursor. Publish and run the additive `add_time_range_to_feed_activities_table` migration before recording a range.
+- Activity nodes carry `starts_at` and `ends_at`, null when absent; `FeedItem::startsAt()` and `FeedItem::endsAt()` read them. Group nodes carry no range.
+- The Activity Streams document carries `startTime` and `endTime`, and `duration` when both are known, as an ISO 8601 duration in days and time (`P19DT4H30M5S`), never months, whose length depends on the calendar. The range lives on the activity because AS2 defines these properties on every Object and an activity is one; the payload has no `duration` key, since a renderer derives it from the two ends.
+
 ## v0.16.0 - 2026-10-09
 
 ### Added

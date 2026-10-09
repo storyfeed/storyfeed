@@ -53,6 +53,8 @@ use Storyfeed\Support\MorphKeyType;
  * @property int|null $cached_instrument_id
  * @property array<array-key, mixed>|null $data
  * @property Carbon|null $published_at
+ * @property Carbon|null $starts_at
+ * @property Carbon|null $ends_at
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property Carbon|null $deleted_at
@@ -94,6 +96,8 @@ class Activity extends Model
             'instrument_id' => MorphKeyType::class,
             'data' => 'array',
             'published_at' => 'datetime',
+            'starts_at' => 'datetime',
+            'ends_at' => 'datetime',
         ];
     }
 

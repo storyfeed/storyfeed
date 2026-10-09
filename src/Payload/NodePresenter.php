@@ -157,6 +157,12 @@ class NodePresenter
             'id' => $activity->uid,
             'verb' => $activity->verb,
             'published_at' => Chronology::iso($activity->published_at),
+            // Additive (2026-10-09): the time range the activity describes,
+            // AS2's `startTime` / `endTime`, beside `published_at` and never
+            // instead of it. Either may be null on its own: a range open at
+            // one end. See docs/payload.md, time ranges.
+            'starts_at' => Chronology::iso($activity->starts_at),
+            'ends_at' => Chronology::iso($activity->ends_at),
             'headline_template' => $template,
             'headline' => $headline,
             // Renamed from `icon` (2026-09-07, pre-freeze): a verb-resolved GLYPH

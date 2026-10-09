@@ -95,6 +95,8 @@ trait AsFeedVerb
         Model|string|null $result = null,
         Model|string|null $instrument = null,
         iterable $objects = [],
+        DateTimeInterface|string|null $startsAt = null,
+        DateTimeInterface|string|null $endsAt = null,
     ): Activity {
         return storyfeed()->record(
             verb: $this,
@@ -108,6 +110,8 @@ trait AsFeedVerb
             result: $result,
             instrument: $instrument,
             objects: $objects,
+            startsAt: $startsAt,
+            endsAt: $endsAt,
         );
     }
 
@@ -224,6 +228,16 @@ trait AsFeedVerb
     public function publishedAt(DateTimeInterface|string $date): PendingActivity
     {
         return $this->of()->publishedAt($date);
+    }
+
+    public function startsAt(DateTimeInterface|string $date): PendingActivity
+    {
+        return $this->of()->startsAt($date);
+    }
+
+    public function endsAt(DateTimeInterface|string $date): PendingActivity
+    {
+        return $this->of()->endsAt($date);
     }
 
     // ── Terminals ────────────────────────────────────────────────────────

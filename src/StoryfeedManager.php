@@ -516,6 +516,8 @@ class StoryfeedManager
         Model|string|null $result = null,
         Model|string|null $instrument = null,
         bool $anonymous = false,
+        DateTimeInterface|string|null $startsAt = null,
+        DateTimeInterface|string|null $endsAt = null,
     ): Activity {
         if ($actor !== null && $anonymous) {
             throw new LogicException('record() was given an actor and anonymous: true; an anonymous activity has no actor.');
@@ -531,6 +533,8 @@ class StoryfeedManager
             ->instrument($instrument)
             ->when($data !== [], fn (PendingActivity $a) => $a->data($data))
             ->when($publishedAt !== null, fn (PendingActivity $a) => $a->publishedAt($publishedAt))
+            ->when($startsAt !== null, fn (PendingActivity $a) => $a->startsAt($startsAt))
+            ->when($endsAt !== null, fn (PendingActivity $a) => $a->endsAt($endsAt))
             ->when($anonymous, fn (PendingActivity $a) => $a->anonymously())
             ->publish();
     }

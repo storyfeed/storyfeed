@@ -357,6 +357,47 @@ class PendingActivity
     }
 
     /**
+     * When what the activity describes began or begins: a milestone's first
+     * commit, a meeting's start. Optional, and beside `published_at` rather
+     * than instead of it: the feed still sorts and pages by when the activity
+     * was published. With no end, the range is open (“from Oct 9”).
+     */
+    public function startsAt(DateTimeInterface|string $date): static
+    {
+        $this->activity->starts_at = $this->rangeBound($date);
+
+        return $this->assertRange();
+    }
+
+    /**
+     * When what the activity describes ended or ends. With no start, the
+     * range is open the other way (“until Oct 9”).
+     */
+    public function endsAt(DateTimeInterface|string $date): static
+    {
+        $this->activity->ends_at = $this->rangeBound($date);
+
+        return $this->assertRange();
+    }
+
+    private function rangeBound(DateTimeInterface|string $date): Carbon
+    {
+        return $date instanceof DateTimeInterface ? Carbon::instance($date) : Carbon::parse($date);
+    }
+
+    private function assertRange(): static
+    {
+        $starts = $this->activity->starts_at;
+        $ends = $this->activity->ends_at;
+
+        if ($starts !== null && $ends !== null && $ends->lt($starts)) {
+            throw new InvalidArgumentException("An activity cannot end [{$ends->toIso8601String()}] before it starts [{$starts->toIso8601String()}].");
+        }
+
+        return $this;
+    }
+
+    /**
      * Publish through the verb's story middleware, as a request goes through
      * its route's: the `default` group, then what the verb declared, minus
      * what it excludes ({@see StoryfeedManager::middleware()}). Each one gets

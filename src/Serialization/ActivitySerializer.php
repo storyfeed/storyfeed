@@ -29,7 +29,9 @@ use Throwable;
  *
  * Reader::activity() faithfully recovers a defined subset: `uid` from `id`,
  * `verb` from `sf:verb`, the emitted `type`, and `published_at` from
- * `published` at whole-second precision. Serialized `actor`, `object`,
+ * `published` at whole-second precision, and `starts_at` / `ends_at` from
+ * `startTime` / `endTime` the same way (`duration` is derived from the two, so
+ * it is not read back). Serialized `actor`, `object`,
  * `target`, `context`, `origin`, `result` and `instrument` pass through
  * unchanged, with absent roles returned as null. Top-level `summary` and
  * `replies` are dropped; this is not whole-document or storage reconstruction.
@@ -91,7 +93,59 @@ class ActivitySerializer
                 ...$this->roles($activity, $links),
             ], fn (mixed $value) => $value !== null),
             'published' => $activity->published_at?->utc()->format('Y-m-d\TH:i:s\Z'),
+            ...$this->timeRange($activity),
         ];
+    }
+
+    /**
+     * AS2's `startTime` and `endTime`, each only when recorded, and
+     * `duration` only when both are: a range open at one end has no length.
+     *
+     * The duration is days and time (`P20DT4H30M`), never months or years,
+     * whose length depends on the calendar: xsd:duration allows both, and
+     * only one reading of `P1M` survives a peer that does not know where the
+     * month began.
+     *
+     * @return array<string, string>
+     */
+    private function timeRange(Activity $activity): array
+    {
+        $starts = $activity->starts_at?->utc()->startOfSecond();
+        $ends = $activity->ends_at?->utc()->startOfSecond();
+
+        return array_filter([
+            Property::StartTime->value => $starts?->format('Y-m-d\TH:i:s\Z'),
+            Property::EndTime->value => $ends?->format('Y-m-d\TH:i:s\Z'),
+            Property::Duration->value => $starts !== null && $ends !== null
+                ? self::duration((int) $starts->diffInSeconds($ends, true))
+                : null,
+        ], fn (?string $value) => $value !== null);
+    }
+
+    /** Whole seconds as an xsd:duration in days and time: `PT0S`, `P1DT2H`. */
+    private static function duration(int $seconds): string
+    {
+        $days = intdiv($seconds, 86400);
+        $time = array_filter([
+            'H' => intdiv($seconds % 86400, 3600),
+            'M' => intdiv($seconds % 3600, 60),
+            'S' => $seconds % 60,
+        ]);
+
+        if ($days === 0 && $time === []) {
+            return 'PT0S';
+        }
+
+        $spec = 'P'.($days > 0 ? $days.'D' : '');
+
+        if ($time !== []) {
+            $spec .= 'T';
+            foreach ($time as $unit => $value) {
+                $spec .= $value.$unit;
+            }
+        }
+
+        return $spec;
     }
 
     /** @return array<string, array<string, mixed>|null> */
