@@ -63,15 +63,15 @@ use Storyfeed\Exceptions\IncompleteFeedValue;
  * A body type that slims a shape it used to write in full bumps its
  * `version()`, so the rows already stored keep reading as they did.
  *
- * ## A body may suggest its height
+ * ## A body sets its maximum height
  *
  *     Prose::markdown($notes)->maxHeight('none');   // show it all
  *     Table::make()->maxHeight('16rem');            // cap this one lower
  *
  * `maxHeight()` takes a CSS length or `none`, after Filament's `->maxHeight()`,
- * and writes `$maxHeight`. It is a SUGGESTION, as `FeedLink::modal()` is: what
- * happens past the height, an inner scroll or a "Show more", is each
- * renderer's choice, and a renderer that cannot honour it ignores it.
+ * and writes `$maxHeight`. The body states its intent and a renderer draws it:
+ * what happens past the height, an inner scroll or a "Show more", is the
+ * renderer's to decide.
  */
 abstract class FeedBody implements Contracts\FeedBody
 {

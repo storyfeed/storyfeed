@@ -217,12 +217,12 @@ interface FeedBody extends Arrayable
     public const string FALLBACK = '$fallback';
 
     /**
-     * The reserved key carrying how tall a body may get before a renderer
-     * shortens it: a CSS length such as `16rem`, or `none` to show it all.
+     * The reserved key carrying a body's maximum height: a CSS length such as
+     * `16rem`, or `none` to show it all.
      *
-     * A SUGGESTION, as `FeedLink::modal()` is: what happens past the height —
-     * an inner scroll, a "Show more" — is each renderer's choice, and a
-     * renderer that cannot honour it ignores it. `$`-prefixed like
+     * The body sets it, as `FeedLink::modal()` sets a modal: what happens past
+     * the height — an inner scroll, a "Show more" — is the renderer's to
+     * decide. `$`-prefixed like
      * {@see FALLBACK}, because it is bookkeeping and not the body's own data,
      * and written only when set.
      */
