@@ -112,8 +112,9 @@ final class Entity implements Arrayable, ArrayAccess, Htmlable, JsonSerializable
     }
 
     /**
-     * The typed image slots (`icon`, `image`, `preview`, `url`) and
-     * `files`, or null when the entity has no media.
+     * The typed image slots (`icon`, `image`, `preview`, `url`), the text
+     * avatar (`initials`, `color`) and `files`, or null when the entity has
+     * no media.
      *
      * @return Fluent<string, mixed>|null
      */

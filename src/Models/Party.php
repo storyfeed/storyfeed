@@ -138,7 +138,8 @@ class Party extends Model implements Feedable, HasActivityStreamsType
      * Both links and pictures resolve from snapshots without a Party query.
      * A picture represents a participant without claiming a host record exists.
      * `$media` accepts icon, preview and image slots: non-empty source strings
-     * or FeedImage-shaped arrays. Absent or malformed media degrades to null.
+     * or FeedImage-shaped arrays. It also accepts the text avatar, `initials`
+     * and `color`, as strings. Absent or malformed media degrades to null.
      * Written out rather than taken from InteractsWithFeed because Party does not use
      * the trait: it keeps its own saved hook and deliberately no delete
      * cascade (history outlives a retired integration).
@@ -149,11 +150,17 @@ class Party extends Model implements Feedable, HasActivityStreamsType
         $link = is_string($url) && trim($url) !== '' ? FeedMedia::make(url: $url) : null;
         $data = $context->data('$media');
 
-        if (! is_array($data) || $data === [] || array_diff(array_keys($data), ['icon', 'preview', 'image']) !== []) {
+        if (! is_array($data) || $data === [] || array_diff(array_keys($data), ['icon', 'preview', 'image', 'initials', 'color']) !== []) {
             return $link;
         }
 
-        $media = FeedMedia::make(url: $link?->href());
+        foreach (['initials', 'color'] as $field) {
+            if (isset($data[$field]) && ! is_string($data[$field])) {
+                return $link;
+            }
+        }
+
+        $media = FeedMedia::make(url: $link?->href(), initials: $data['initials'] ?? null, color: $data['color'] ?? null);
 
         foreach (['icon', 'preview', 'image'] as $slot) {
             $value = $data[$slot] ?? null;

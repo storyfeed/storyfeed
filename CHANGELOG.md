@@ -5,6 +5,7 @@
 ### Added
 
 - Feed and activity builders can filter origin, result and instrument by identity.
+- `FeedMedia::make()->initials('AC')->color('#438d98')` declares a text avatar for an entity without a picture, carried as `media.initials` and `media.color` beside the `icon` slot. Parties accept both in `$media`.
 
 ## v0.15.0 - 2026-10-09
 

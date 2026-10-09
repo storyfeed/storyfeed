@@ -138,6 +138,8 @@ it('emits entity.media on the payload with url as a string and the typed url und
                 'height' => 3024,
                 'alt' => 'Pad thai',
             ],
+            'initials' => null,
+            'color' => null,
             'files' => [],
         ]);
 });

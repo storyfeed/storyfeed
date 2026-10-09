@@ -59,6 +59,19 @@ use Throwable;
  * do; lists append (`files()`, `body()`) and maps merge in
  * `View::with()`'s manner (`attributes()`). The properties are
  * `private(set)`, so a presenter can read every slot and change none.
+ *
+ * ## An avatar without a picture
+ *
+ * The icon is the avatar a model shows whenever it is the actor. A model
+ * with no picture (a project, a client, a milestone) declares text instead:
+ *
+ *     FeedMedia::make()->initials('AC')->color('#438d98')
+ *
+ * A renderer draws the icon when there is one, else the initials on a disc
+ * of that colour, else its own default. Only the disc colour is declared:
+ * the renderer picks light or dark text for contrast, as GitHub does for a
+ * label's colour. AS2 has no word for either, so they stay in the payload
+ * and do not reach the Activity Streams document.
  */
 final class FeedMedia
 {
@@ -77,6 +90,12 @@ final class FeedMedia
     public private(set) bool $modal = false;
 
     public private(set) ?FeedImage $icon = null;
+
+    /** Text for the avatar disc when there is no icon, such as `AC`. */
+    public private(set) ?string $initials = null;
+
+    /** The avatar disc's colour, as lowercase `#rrggbb`. */
+    public private(set) ?string $color = null;
 
     public private(set) ?FeedImage $preview = null;
 
@@ -155,6 +174,8 @@ final class FeedMedia
         FeedImage|string|null $image = null,
         iterable $files = [],
         string|FeedBody|iterable|Closure|null $body = null,
+        ?string $initials = null,
+        ?string $color = null,
     ) {
         $this->url($url)
             ->label($label)
@@ -164,7 +185,9 @@ final class FeedMedia
             ->preview($preview)
             ->image($image)
             ->files($files)
-            ->body($body);
+            ->body($body)
+            ->initials($initials)
+            ->color($color);
     }
 
     /**
@@ -185,8 +208,10 @@ final class FeedMedia
         FeedImage|string|null $image = null,
         iterable $files = [],
         string|FeedBody|iterable|Closure|null $body = null,
+        ?string $initials = null,
+        ?string $color = null,
     ): self {
-        return new self($url, $label, $attributes, $modal, $icon, $preview, $image, $files, $body);
+        return new self($url, $label, $attributes, $modal, $icon, $preview, $image, $files, $body, $initials, $color);
     }
 
     /**
@@ -282,6 +307,34 @@ final class FeedMedia
         return $this;
     }
 
+    /** The avatar's text when there is no icon. Blank is null. */
+    public function initials(?string $initials): self
+    {
+        $initials = $initials === null ? null : trim($initials);
+
+        $this->initials = $initials === '' ? null : $initials;
+
+        return $this;
+    }
+
+    /**
+     * The avatar disc's colour, as hex: `#438d98` or `#4a9`. Stored as
+     * lowercase `#rrggbb` so a renderer parses one form; anything else is
+     * null, as FeedImage degrades an impossible width.
+     */
+    public function color(?string $color): self
+    {
+        $hex = $color === null ? '' : ltrim(strtolower(trim($color)), '#');
+
+        if (strlen($hex) === 3) {
+            $hex = $hex[0].$hex[0].$hex[1].$hex[1].$hex[2].$hex[2];
+        }
+
+        $this->color = preg_match('/^[0-9a-f]{6}$/', $hex) === 1 ? '#'.$hex : null;
+
+        return $this;
+    }
+
     /** The derivative painted in a dense list: a thumbnail. */
     public function preview(FeedImage|string|null $preview): self
     {
@@ -330,17 +383,18 @@ final class FeedMedia
     }
 
     /**
-     * The image slots and the file list, or null when nothing is set.
+     * The image slots, the avatar text and the file list, or null when
+     * nothing is set.
      *
      * Null rather than four nulls and an empty list so "does this entity
      * have media at all" is one check, the same one `url: null` answers for
      * linkability. When it is an object every key is present — the four
-     * image slots as an image object or null, `files` as a list that
-     * may be empty — so a renderer that wants one slot reads it without
+     * image slots as an image object or null, `initials` and `color` as a
+     * string or null, `files` as a list that may be empty — so a renderer that wants one slot reads it without
      * first asking which slots exist. `url` here is the typed form only: a
      * string url is not media and appears solely as `entity.url`.
      *
-     * @return array{icon: array<string, mixed>|null, image: array<string, mixed>|null, preview: array<string, mixed>|null, url: array<string, mixed>|null, files: list<array<string, mixed>>}|null
+     * @return array{icon: array<string, mixed>|null, initials: string|null, color: string|null, image: array<string, mixed>|null, preview: array<string, mixed>|null, url: array<string, mixed>|null, files: list<array<string, mixed>>}|null
      */
     public function media(): ?array
     {
@@ -351,12 +405,14 @@ final class FeedMedia
             'url' => $this->url instanceof FeedImage ? $this->url : null,
         ];
 
-        if (array_filter($images) === [] && $this->files === []) {
+        if (array_filter($images) === [] && $this->files === [] && $this->initials === null && $this->color === null) {
             return null;
         }
 
         return [
             ...array_map(fn (?FeedImage $image) => $image?->toArray(), $images),
+            'initials' => $this->initials,
+            'color' => $this->color,
             'files' => array_map(fn (FeedResource $resource) => $resource->toArray(), $this->files),
         ];
     }

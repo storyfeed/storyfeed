@@ -19,6 +19,7 @@ it('accepts typed resource files through every construction path', function () {
             ->and($media->media())->toBe([
                 'icon' => null, 'image' => null, 'preview' => null,
                 'url' => null,
+                'initials' => null, 'color' => null,
                 'files' => [$payload],
             ]);
     }
@@ -53,6 +54,7 @@ it('always carries the files key on a media object, empty when the media is only
         'icon' => null, 'image' => null,
         'preview' => ['src' => '/thumb.png', 'mediaType' => null, 'width' => null, 'height' => null, 'alt' => null],
         'url' => null,
+        'initials' => null, 'color' => null,
         'files' => [],
     ]);
 });
