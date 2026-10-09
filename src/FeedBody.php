@@ -66,6 +66,7 @@ use Storyfeed\Exceptions\IncompleteFeedValue;
  * ## `$meta` is how a body tells its renderer how to draw it
  *
  *     Prose::markdown($notes)->maxHeight('none');            // writes $meta.maxHeight
+ *     Prose::markdown($notes)->fullHeight();                 // the same, by name
  *     Table::make()->maxHeight('16rem');                     // cap this one lower
  *     Prose::markdown($notes)->withMeta(['acme.layout' => 'wide']);
  *
@@ -192,6 +193,16 @@ abstract class FeedBody implements Contracts\FeedBody
         }
 
         return $this;
+    }
+
+    /**
+     * No maximum height: the body is shown in full. Shorthand for
+     * `maxHeight('none')`, and writes the same `$meta.maxHeight`. Not
+     * Tailwind's `h-full`, which fills the parent.
+     */
+    public function fullHeight(): static
+    {
+        return $this->maxHeight('none');
     }
 
     /**

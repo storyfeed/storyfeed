@@ -138,6 +138,11 @@ it('sets a maximum height in the $meta bucket, written only when set', function 
     }
 });
 
+it('shows a body in full with fullHeight(), the same as maxHeight(\'none\')', function () {
+    expect(Prose::markdown('notes')->fullHeight()->toPayload())->toBe(Prose::markdown('notes')->maxHeight('none')->toPayload())
+        ->and(Table::make(rows: [['a']])->maxHeight('16rem')->fullHeight()->toPayload()['$meta'])->toBe(['maxHeight' => 'none']);
+});
+
 it('merges app keys into $meta with withMeta(), as Nova does', function () {
     $body = Prose::markdown('notes')
         ->withMeta(['acme.layout' => 'wide', 'acme.tone' => 'quiet'])
