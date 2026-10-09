@@ -11,7 +11,8 @@ boundary.
 
 - `SPEC.md` — the design spec; settled decisions live here
 - `docs/payload.md` — the Payload v1 contract (freezes at v0.3)
-- `docs/stories.md`, `docs/grouping.md` — the two R&D tracks (explicitly unsettled)
+- `docs/stories.md` — the Story layer (shipped; no longer experimental)
+- `docs/grouping.md` — curation, the remaining R&D track (explicitly unsettled)
 - `docs/verbs.md` — the verb ladder (strings → FeedVerb enum → Story classes)
 - `docs/parties.md` — named participants with no app model (any role)
 - `docs/feeds.md` — named feeds: verb allowlists a doctor check can see
@@ -62,7 +63,7 @@ Write it while it's fresh; never reconstruct after the fact. See
 ## Workflow
 
 - Trunk-based: commit to `main`, tags are releases, no develop branch.
-  Short-lived `rnd/*` branches for Story-layer and curator experiments
+  Short-lived `rnd/*` branches for curator experiments
   (experiment in workbench/, throw away freely).
 - Checks before commit: `vendor/bin/pest`, `vendor/bin/phpstan analyse`,
   `vendor/bin/pint`.
