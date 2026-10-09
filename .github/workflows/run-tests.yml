@@ -20,9 +20,12 @@ on:
       - 'composer.json'
       - 'composer.lock'
 
+# On main every commit keeps its own full run: several lanes push to main, and a
+# shared group would cancel (or replace the queued run of) another lane's commit.
+# Branches and pull requests still cancel superseded runs.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  group: ${{ github.workflow }}-${{ github.ref == 'refs/heads/main' && github.sha || github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
   test:
