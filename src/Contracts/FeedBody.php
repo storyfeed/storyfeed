@@ -27,8 +27,9 @@ use Storyfeed\Concerns\HasPayload;
  * can draw a body type defined by a package it has never heard of, and a body
  * outlives whichever library defined it. Nothing below assumes otherwise.
  *
- * Core also ships eight body types under `Storyfeed\Body` — Excerpt,
- * KeyValue, FileAttachment, Image, Prose, ItemList, MediaObject, Component —
+ * Core also ships nine body types under `Storyfeed\Body` — Excerpt,
+ * KeyValue, FileAttachment, Image, Prose, ItemList, MediaObject, Component,
+ * Table —
  * each extending the {@see \Storyfeed\FeedBody} base class. **They are a vocabulary, not a
  * mechanism**: nothing in this package reads them, and an app may write its own
  * and owe them nothing. They were in `storyfeed/ui` until 2026-09-14 and moved
@@ -39,7 +40,7 @@ use Storyfeed\Concerns\HasPayload;
  *
  * That leaves one property to protect deliberately. A body type in core must
  * not acquire core's release gravity: a body carries its own `$v` and the
- * renderer upgrades it, so these eight evolve on their own timeline and NOT on
+ * renderer upgrades it, so these nine evolve on their own timeline and NOT on
  * the payload contract's.
  *
  * So core learns NO NAME and NO SHAPE. Nothing here is a registry, nothing
@@ -95,8 +96,8 @@ use Storyfeed\Concerns\HasPayload;
  * so no extension term has to be minted, and a term named for a shape we are
  * still learning is a permanent commitment to this week's spelling.
  *
- * The eight already agree with this. `content`, `mediaType`, `size`, `image`,
- * `files`, `rows`, `changes`, `text`, `from`, `truncated`, `footnote` —
+ * The nine already agree with this. `content`, `mediaType`, `size`, `image`,
+ * `files`, `rows`, `headers`, `footer`, `text`, `from`, `truncated`, `footnote` —
  * each is the plainest word for what it holds, and `FileAttachment`'s `name` is a
  * filename rather than a heading, as `Component`'s is the name of the
  * frontend component that draws it.
@@ -163,7 +164,7 @@ interface FeedBody extends Arrayable
      * prevents permanent leaks into the frozen payload contract.
      *
      * This belongs on the published interface so every future body DTO,
-     * including the eight core ships, must supply a payload deliberately. A
+     * including the nine core ships, must supply a payload deliberately. A
      * trait alone would leave that obligation optional; widening the interface
      * is affordable before the v0.3 freeze, not after it.
      *

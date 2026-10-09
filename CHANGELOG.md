@@ -12,6 +12,7 @@
 - `Storyfeed\Body\Concerns`: `HasTitle`, `HasContent`, `HasFiles`, `HasImageSlot` and `HasFootnote`, each a typed property with a setter and a getter (`getTitle()` and so on), shared by the core bodies and available to app bodies.
 - A reserved `$fallback` key (`Contracts\FeedBody::FALLBACK`): `->fallback('…')` on any body writes one plain-text line for renderers that cannot draw its type. A body type may derive one by overriding `defaultFallback()`.
 - `Image::make()` accepts `image:`, and `Image` gains `image(?MediaSlot)`.
+- `Storyfeed\Body\Table`, a body for tabular data after Artisan's `table($headers, $rows)`: `Table::make($headers, $rows)->title('…')`, or fluently with `headers()`, `rows()`, `row()` and `footer()` for subtotal and total rows. A cell is a string, int, float, null or `FeedLink`; text is plain and keeps its line breaks. Ragged rows are padded with null, and a row wider than the headers throws, naming the row. A titled table falls back to its title.
 
 ### Changed
 

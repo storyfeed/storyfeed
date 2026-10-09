@@ -9,6 +9,7 @@ use Storyfeed\Body\ItemList;
 use Storyfeed\Body\KeyValue;
 use Storyfeed\Body\MediaObject;
 use Storyfeed\Body\Prose;
+use Storyfeed\Body\Table;
 use Storyfeed\Contracts\FeedBody as FeedBodyContract;
 use Storyfeed\Exceptions\IncompleteFeedValue;
 use Storyfeed\FeedBody;
@@ -62,7 +63,7 @@ class ShipmentBody extends FeedBody
 }
 
 it('is the base every body type core ships extends', function () {
-    foreach ([Component::class, Excerpt::class, FileAttachment::class, Image::class, ItemList::class, KeyValue::class, MediaObject::class, Prose::class] as $class) {
+    foreach ([Component::class, Excerpt::class, FileAttachment::class, Image::class, ItemList::class, KeyValue::class, MediaObject::class, Prose::class, Table::class] as $class) {
         expect(is_subclass_of($class, FeedBody::class))->toBeTrue()
             ->and(is_subclass_of($class, FeedBodyContract::class))->toBeTrue();
     }

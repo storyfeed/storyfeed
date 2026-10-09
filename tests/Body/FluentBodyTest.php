@@ -8,6 +8,7 @@ use Storyfeed\Body\ItemList;
 use Storyfeed\Body\KeyValue;
 use Storyfeed\Body\MediaObject;
 use Storyfeed\Body\Prose;
+use Storyfeed\Body\Table;
 use Storyfeed\Exceptions\IncompleteFeedValue;
 use Storyfeed\FeedLink;
 use Storyfeed\FeedResource;
@@ -50,6 +51,10 @@ dataset('fluent and named bodies', fn () => [
         fn () => MediaObject::make()->subject(FeedLink::make()->label('N201'))->content('Basmati.')->image(MediaSlot::Preview)
             ->files(FeedResource::make()->href('/a.pdf'))->files([FeedResource::make('/b.pdf')])->footnote('Approved'),
         fn () => MediaObject::make(subject: FeedLink::make('N201'), content: 'Basmati.', image: MediaSlot::Preview, files: [FeedResource::make('/a.pdf'), FeedResource::make('/b.pdf')], footnote: 'Approved'),
+    ],
+    'Table' => [
+        fn () => Table::make()->title('Pricing')->headers(['Plan', 'Price'])->row(['Starter', '$9'])->row(['Team', '$49'])->footer(['Total', '$58']),
+        fn () => Table::make(['Plan', 'Price'], [['Starter', '$9'], ['Team', '$49']], title: 'Pricing')->footer(['Total', '$58']),
     ],
     'Component' => [
         fn () => Component::make()->name('Common/ScoreCard')->props(['home' => 2])->props('away', 1),
@@ -118,7 +123,7 @@ it('supports when() and unless() on every body type', function () {
     expect($prose->toPayload()['title'])->toBe('Shown')
         ->and(rendered(Component::make('Card')->when(false, fn ($c) => $c->props('x', 1)))['props'])->toBe([]);
 
-    foreach ([Excerpt::class, FileAttachment::class, Image::class, ItemList::class, KeyValue::class, MediaObject::class, Prose::class, Component::class] as $class) {
+    foreach ([Excerpt::class, FileAttachment::class, Image::class, ItemList::class, KeyValue::class, MediaObject::class, Prose::class, Component::class, Table::class] as $class) {
         expect(method_exists($class, 'when') && method_exists($class, 'unless'))->toBeTrue();
     }
 });
