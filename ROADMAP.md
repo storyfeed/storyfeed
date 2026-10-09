@@ -85,7 +85,8 @@ the work teaches us, and a dropped item is closed as not planned with its reason
 - [ ] **[v0.17 — Feed sources](https://github.com/storyfeed/storyfeed/milestone/2).**
       The database becomes one source among several, driver-style, so a feed can
       come from static content or an API and still render through the same
-      payload. The roadmap on storyfeed.dev becomes its first feed.
+      payload. Activities gain time ranges (`startTime`, `endTime`). The
+      roadmap on storyfeed.dev becomes the first feed to use both.
 - [ ] **[v0.18 — Read path at scale](https://github.com/storyfeed/storyfeed/milestone/3).**
       Scoped feeds stay fast at a million activities on every supported database,
       with nightly benchmark gates.
@@ -107,9 +108,9 @@ no particular order: a notifications bridge, Story auto-discovery, a public demo
 API, more feed sources (Markdown, Laravel Pennant), sections other than dates,
 and multi-tenancy exploration.
 
-The rest of Activity Streams 2.0, each additive to Payload v1: time ranges
-(`startTime`, `endTime`, `duration`), replies (`inReplyTo`), tags and mentions,
-questions (`oneOf`, `anyOf`, `closed`) and place coordinates. Addressing
+The rest of Activity Streams 2.0, each additive to Payload v1: replies
+(`inReplyTo`), tags and mentions, questions (`oneOf`, `anyOf`, `closed`) and
+place coordinates. Addressing
 (`to`, `cc`, `bto`, `bcc`, `audience`) arrives with delivery, long-range,
 alongside ActivityPub.
 
