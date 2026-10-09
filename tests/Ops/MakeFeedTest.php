@@ -59,6 +59,17 @@ it('generates a global feed — no constructor, no scope — when given no subje
         ->not->toContain('function scope');
 });
 
+it('generates subject scopes for every new identity role', function (string $role) {
+    $this->artisan('make:feed', [
+        'name' => 'Connected',
+        '--subject' => Delivery::class,
+        '--role' => $role,
+    ])->assertSuccessful();
+
+    expect(file_get_contents(feedPath('ConnectedFeed')))
+        ->toContain('$feed->'.$role.'($this->delivery);');
+})->with(['origin', 'result', 'instrument']);
+
 it('tells you to register it, because that is what doctor needs', function () {
     $this->artisan('make:feed', ['name' => 'Customer'])
         ->expectsOutputToContain('storyfeed:doctor')

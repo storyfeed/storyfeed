@@ -85,6 +85,12 @@ class FeedBuilder
 
     protected ?Model $context = null;
 
+    protected ?Model $origin = null;
+
+    protected ?Model $result = null;
+
+    protected ?Model $instrument = null;
+
     protected ?Model $involving = null;
 
     protected bool $involvingDeep = true;
@@ -203,6 +209,36 @@ class FeedBuilder
 
         $this->boundRoles[] = 'context';
         $this->context = $this->resolve($model);
+
+        return $this;
+    }
+
+    public function origin(Model|string $model): static
+    {
+        $this->assertUnlocked('origin');
+
+        $this->boundRoles[] = 'origin';
+        $this->origin = $this->resolve($model);
+
+        return $this;
+    }
+
+    public function result(Model|string $model): static
+    {
+        $this->assertUnlocked('result');
+
+        $this->boundRoles[] = 'result';
+        $this->result = $this->resolve($model);
+
+        return $this;
+    }
+
+    public function instrument(Model|string $model): static
+    {
+        $this->assertUnlocked('instrument');
+
+        $this->boundRoles[] = 'instrument';
+        $this->instrument = $this->resolve($model);
 
         return $this;
     }
@@ -380,7 +416,7 @@ class FeedBuilder
      * ASSIGNMENTS — a second involving() replaces the first. So
      * `TicketFeed::make($ticket)->involving($someoneElse)` would silently swap
      * the scope a surface was built on, and no allowlist protects you from
-     * that. Declared scope is therefore pinned; the other four roles stay open,
+     * that. Declared scope is therefore pinned; the other roles stay open,
      * because adding a role NARROWS (they AND together) and narrowing was never
      * the problem.
      *
@@ -1647,6 +1683,9 @@ class FeedBuilder
             ->when($this->object, fn (ActivityBuilder $q, Model $m) => $q->object($m))
             ->when($this->target, fn (ActivityBuilder $q, Model $m) => $q->target($m))
             ->when($this->context, fn (ActivityBuilder $q, Model $m) => $q->context($m))
+            ->when($this->origin, fn (ActivityBuilder $q, Model $m) => $q->origin($m))
+            ->when($this->result, fn (ActivityBuilder $q, Model $m) => $q->result($m))
+            ->when($this->instrument, fn (ActivityBuilder $q, Model $m) => $q->instrument($m))
             ->when($this->involving, fn (ActivityBuilder $q, Model $m) => $q->involving($m, deep: $this->involvingDeep))
             ->when($this->verb, fn (ActivityBuilder $q, string $verb) => $q->verb($verb))
             ->tap(fn (ActivityBuilder $q) => $this->applyConstraints($q));

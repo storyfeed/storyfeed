@@ -16,7 +16,7 @@ use Workbench\App\Models\Customer;
 it('binds numeric model keys as strings in role and batch lookups', function () {
     $model = Customer::create(['name' => 'Binding probe']);
     DB::enableQueryLog();
-    foreach (['actor', 'object', 'target', 'context'] as $scope) {
+    foreach (ActivityRoles::STORED as $scope) {
         Activity::query()->{$scope}($model)->get();
     }
     Batch::query()->forActor($model)->get();

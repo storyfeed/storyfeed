@@ -41,7 +41,7 @@ use Storyfeed\Exceptions\FeedMisconfigured;
 final class FeedDefinition
 {
     /** The roles a subject may be bound to in a Feed's scope(). */
-    public const ROLES = ['involving', 'context', 'target', 'actor', 'object'];
+    public const ROLES = ['involving', 'context', 'target', 'actor', 'object', 'origin', 'result', 'instrument'];
 
     /**
      * @param  Closure(FeedBuilder): mixed|null  $preset  the closure form

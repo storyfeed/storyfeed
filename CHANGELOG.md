@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Added
+
+- Feed and activity builders can filter origin, result and instrument by identity.
+
 ## v0.15.0 - 2026-10-09
 
 ### Added
