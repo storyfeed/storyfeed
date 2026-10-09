@@ -669,7 +669,9 @@ class NodePresenter
             'type' => $type,
             'id' => $id === null ? null : (string) $id,
             'label' => $link->label ?? $this->snapshotPlain($snapshot, 'label'),
-            'url' => $link?->href(),
+            // An entity with no model behind it (a source's lightweight
+            // `['type', 'label', 'url']`) carries its link in the snapshot.
+            'url' => $link?->href() ?? self::staticUrl($this->snapshotJson($snapshot, 'meta')),
             'attributes' => $link->attributes ?? [],
             'modal' => $link->modal ?? false,
             'data' => $data,
@@ -700,6 +702,14 @@ class NodePresenter
                 'attributedTo' => $this->snapshotPlain($snapshot, 'attributed_to'),
             ], fn ($value) => $value !== null),
         ];
+    }
+
+    /** @param  array<array-key, mixed>|null  $meta */
+    private static function staticUrl(?array $meta): ?string
+    {
+        $url = $meta['url'] ?? null;
+
+        return is_string($url) && $url !== '' ? $url : null;
     }
 
     /** @return array<string, array<string, mixed>|null> */

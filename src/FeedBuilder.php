@@ -15,6 +15,7 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Traits\Conditionable;
 use InvalidArgumentException;
 use Storyfeed\Concerns\FiltersRoleTypes;
+use Storyfeed\Contracts\FeedSource;
 use Storyfeed\Contracts\FeedVerb;
 use Storyfeed\Exceptions\FeedMisconfigured;
 use Storyfeed\Grouping\NullStrategy;
@@ -26,8 +27,13 @@ use Storyfeed\Models\Party;
 use Storyfeed\Payload\FeedPage;
 use Storyfeed\Payload\GroupSlice;
 use Storyfeed\Payload\NodePresenter;
+use Storyfeed\Sources\DatabaseSource;
+use Storyfeed\Sources\SourceItem;
+use Storyfeed\Sources\SourceManager;
+use Storyfeed\Sources\SourceRead;
 use Storyfeed\Support\ActivityRoles;
 use Storyfeed\Support\Chronology;
+use Storyfeed\Support\MorphKeyType;
 use Storyfeed\Support\RoleTypes;
 use Storyfeed\Support\SyncToken;
 use Storyfeed\Support\VerbFilter;
@@ -77,21 +83,16 @@ class FeedBuilder
     /** @var list<array{role: string, types: list<string>}> */
     protected array $roleTypes = [];
 
-    protected ?Model $actor = null;
+    /**
+     * The role filters, as given: a string names a Party, looked up only when
+     * the database is read, so a source that never touches it can match the
+     * name itself.
+     *
+     * @var array<string, Model|string>
+     */
+    protected array $roles = [];
 
-    protected ?Model $object = null;
-
-    protected ?Model $target = null;
-
-    protected ?Model $context = null;
-
-    protected ?Model $origin = null;
-
-    protected ?Model $result = null;
-
-    protected ?Model $instrument = null;
-
-    protected ?Model $involving = null;
+    protected Model|string|null $involving = null;
 
     protected bool $involvingDeep = true;
 
@@ -135,10 +136,29 @@ class FeedBuilder
 
     protected int $limit = 30;
 
+    /** Where the activities come from; null is the database. */
+    protected ?FeedSource $source = null;
+
+    /** The source's name, for errors; the class when it was passed in. */
+    protected ?string $sourceName = null;
+
     protected ?string $cursor = null;
 
-    /** A named filter was requested but matched no party. */
-    protected bool $unresolvable = false;
+    /**
+     * Every party name a filter was given, kept when the role is rebound: a
+     * name nobody has used empties the read for good.
+     *
+     * @var array<string, true>
+     */
+    protected array $names = [];
+
+    /**
+     * Party names already looked up, so a read that queries more than once
+     * asks once.
+     *
+     * @var array<string, Model|null>
+     */
+    protected array $parties = [];
 
     /** Read mode: 'log' | 'live'. Null = configured default (live when unconfigured). */
     protected ?string $mode = null;
@@ -178,7 +198,7 @@ class FeedBuilder
         $this->assertUnlocked('actor');
 
         $this->boundRoles[] = 'actor';
-        $this->actor = $this->resolve($model);
+        $this->roles['actor'] = $this->named($model);
 
         return $this;
     }
@@ -188,7 +208,7 @@ class FeedBuilder
         $this->assertUnlocked('object');
 
         $this->boundRoles[] = 'object';
-        $this->object = $this->resolve($model);
+        $this->roles['object'] = $this->named($model);
 
         return $this;
     }
@@ -198,7 +218,7 @@ class FeedBuilder
         $this->assertUnlocked('target');
 
         $this->boundRoles[] = 'target';
-        $this->target = $this->resolve($model);
+        $this->roles['target'] = $this->named($model);
 
         return $this;
     }
@@ -208,7 +228,7 @@ class FeedBuilder
         $this->assertUnlocked('context');
 
         $this->boundRoles[] = 'context';
-        $this->context = $this->resolve($model);
+        $this->roles['context'] = $this->named($model);
 
         return $this;
     }
@@ -218,7 +238,7 @@ class FeedBuilder
         $this->assertUnlocked('origin');
 
         $this->boundRoles[] = 'origin';
-        $this->origin = $this->resolve($model);
+        $this->roles['origin'] = $this->named($model);
 
         return $this;
     }
@@ -228,7 +248,7 @@ class FeedBuilder
         $this->assertUnlocked('result');
 
         $this->boundRoles[] = 'result';
-        $this->result = $this->resolve($model);
+        $this->roles['result'] = $this->named($model);
 
         return $this;
     }
@@ -238,7 +258,7 @@ class FeedBuilder
         $this->assertUnlocked('instrument');
 
         $this->boundRoles[] = 'instrument';
-        $this->instrument = $this->resolve($model);
+        $this->roles['instrument'] = $this->named($model);
 
         return $this;
     }
@@ -260,7 +280,7 @@ class FeedBuilder
         $this->assertUnlocked('involving');
 
         $this->boundRoles[] = 'involving';
-        $this->involving = $this->resolve($model);
+        $this->involving = $this->named($model);
         $this->involvingDeep = $deep;
 
         return $this;
@@ -591,6 +611,27 @@ class FeedBuilder
         return $this;
     }
 
+    /**
+     * Read from a named source in `storyfeed.sources`, or from a source
+     * given here, instead of the database:
+     *
+     *   Storyfeed::feed()->source('roadmap')->live()->get();
+     *   Storyfeed::feed()->source(new GitHubSource($config))->get();
+     *
+     * A source other than the database is read in memory, through the same
+     * pipeline and into the same payload. It has no stored history, so
+     * involving(), involvingType() and query() throw on one; its pages carry
+     * no sync_token.
+     */
+    public function source(string|FeedSource $source): static
+    {
+        $this->sourceName = is_string($source) ? $source : $source::class;
+        $source = is_string($source) ? app(SourceManager::class)->source($source) : $source;
+        $this->source = $source instanceof DatabaseSource ? null : $source;
+
+        return $this;
+    }
+
     public function limit(int $limit): static
     {
         $this->limit = $limit;
@@ -716,9 +757,98 @@ class FeedBuilder
         // group-selection query and the member fetch.
         $now = Carbon::now();
 
+        if ($this->source !== null) {
+            return $this->sourcePage($now, $this->source);
+        }
+
         return $this->shouldGroup()
             ? $this->groupedPage($now)
             : $this->logPage($now);
+    }
+
+    /**
+     * One page from a source read in memory: the same filters, grouping,
+     * ordering and cursor rules, answered without a query.
+     */
+    protected function sourcePage(Carbon $now, FeedSource $source): FeedPage
+    {
+        $name = (string) $this->sourceName;
+
+        match (true) {
+            $this->involving !== null => throw FeedMisconfigured::unsupportedBySource($name, 'involving()'),
+            $this->involvingTypes !== [] => throw FeedMisconfigured::unsupportedBySource($name, 'involvingType()'),
+            $this->callbacks !== [] => throw FeedMisconfigured::unsupportedBySource($name, 'query()'),
+            default => null,
+        };
+
+        [$slices, $next] = (new SourceRead(
+            $source, $this->admitsActivity($now), $this->shouldGroup(), $this->limit, $this->cursor, $this->childrenLimit(),
+        ))->page();
+
+        return new FeedPage($slices, $next, $this->presenter());
+    }
+
+    /**
+     * filteredActivities(), as a test of one activity.
+     *
+     * @return Closure(Activity): bool
+     */
+    protected function admitsActivity(Carbon $now): Closure
+    {
+        $now = Chronology::stamp($now);
+
+        return function (Activity $activity) use ($now): bool {
+            if ($activity->published_at === null || Chronology::stamp($activity->published_at) > $now) {
+                return false;
+            }
+
+            foreach ($this->roles as $role => $value) {
+                if (! $this->plays($activity, $role, $value)) {
+                    return false;
+                }
+            }
+
+            if ($this->verb !== null && $activity->verb !== $this->verb) {
+                return false;
+            }
+
+            foreach ($this->roleTypes as $filter) {
+                if (! in_array($activity->{$filter['role'].'_type'}, $filter['types'], true)) {
+                    return false;
+                }
+            }
+
+            return $this->verbFilter?->admits((string) $activity->verb) ?? true;
+        };
+    }
+
+    /** Whether the model, or the party a string names, plays this role in the activity. */
+    protected function plays(Activity $activity, string $role, Model|string $value): bool
+    {
+        $type = $activity->{"{$role}_type"};
+        $id = (string) $activity->{"{$role}_id"};
+
+        if (is_string($value)) {
+            return $type === SourceItem::partyAlias() && in_array($id, [$value, SourceItem::partyKey($value)], true);
+        }
+
+        if ($type !== $value->getMorphClass()) {
+            return false;
+        }
+
+        // A party from a source is filed under its key; a stored one under its id.
+        return $id === MorphKeyType::value($value->getKey())
+            || ($value instanceof Party && $id === (string) $value->getAttribute('key'));
+    }
+
+    /** Remember a party name, so an unknown one empties the read even once rebound. */
+    protected function named(Model|string $model): Model|string
+    {
+        if (is_string($model)) {
+            $this->names[$model] = true;
+        }
+
+        return $model;
     }
 
     /**
@@ -731,15 +861,13 @@ class FeedBuilder
             return $model;
         }
 
+        if (array_key_exists($model, $this->parties)) {
+            return $this->parties[$model];
+        }
+
         $party = config('storyfeed.models.party', Party::class);
 
-        $resolved = $party::find($model);
-
-        // Filtering by a name nobody has used must match nothing — not
-        // silently drop the filter and return the whole feed.
-        $this->unresolvable = $this->unresolvable || $resolved === null;
-
-        return $resolved;
+        return $this->parties[$model] = $party::find($model);
     }
 
     protected function shouldGroup(): bool
@@ -1676,17 +1804,25 @@ class FeedBuilder
     /** @return ActivityBuilder<Activity> */
     protected function filteredActivities(Carbon $now): ActivityBuilder
     {
-        return $this->activityModel()->newQuery()
-            ->published($now)
-            ->when($this->unresolvable, fn (ActivityBuilder $q) => $q->whereRaw('1 = 0'))
-            ->when($this->actor, fn (ActivityBuilder $q, Model $m) => $q->actor($m))
-            ->when($this->object, fn (ActivityBuilder $q, Model $m) => $q->object($m))
-            ->when($this->target, fn (ActivityBuilder $q, Model $m) => $q->target($m))
-            ->when($this->context, fn (ActivityBuilder $q, Model $m) => $q->context($m))
-            ->when($this->origin, fn (ActivityBuilder $q, Model $m) => $q->origin($m))
-            ->when($this->result, fn (ActivityBuilder $q, Model $m) => $q->result($m))
-            ->when($this->instrument, fn (ActivityBuilder $q, Model $m) => $q->instrument($m))
-            ->when($this->involving, fn (ActivityBuilder $q, Model $m) => $q->involving($m, deep: $this->involvingDeep))
+        $query = $this->activityModel()->newQuery()->published($now);
+
+        // Filtering by a name nobody has used must match nothing — not
+        // silently drop the filter and return the whole feed.
+        foreach (array_keys($this->names) as $name) {
+            if ($this->resolve($name) === null) {
+                return $query->whereRaw('1 = 0');
+            }
+        }
+
+        foreach ($this->roles as $role => $value) {
+            $query->{$role}($this->resolve($value));
+        }
+
+        if ($this->involving !== null) {
+            $query->involving($this->resolve($this->involving), deep: $this->involvingDeep);
+        }
+
+        return $query
             ->when($this->verb, fn (ActivityBuilder $q, string $verb) => $q->verb($verb))
             ->tap(fn (ActivityBuilder $q) => $this->applyConstraints($q));
     }

@@ -23,9 +23,51 @@ class SnapshotEntity
 {
     public function __invoke(Model $model): Snapshot
     {
-        $entity = app(Feedables::class)->toFeed($model);
-
         $snapshot = config('storyfeed.models.snapshot', Snapshot::class);
+
+        [$identity, $values, $sourceUpdatedAt] = $this->describe($model);
+
+        // Compare and save under the same row lock. firstOrCreate also handles
+        // concurrent initial inserts through the existing unique entity key.
+        return (new $snapshot)->getConnection()->transaction(function () use ($snapshot, $identity, $values, $sourceUpdatedAt): Snapshot {
+            $row = $snapshot::query()->firstOrCreate($identity, $values);
+
+            if ($row->wasRecentlyCreated) {
+                return $row;
+            }
+
+            $row = $snapshot::query()->whereKey($row->getKey())->lockForUpdate()->firstOrFail();
+
+            if ($sourceUpdatedAt !== null && $row->source_updated_at !== null
+                && $sourceUpdatedAt->lessThan(CarbonImmutable::parse($row->source_updated_at, 'UTC'))) {
+                return $row;
+            }
+
+            // Unknown source time cannot establish ordering. Write as before,
+            // clearing the watermark so it still describes the stored payload.
+            $row->fill($values)->save();
+
+            return $row;
+        });
+    }
+
+    /**
+     * The snapshot this model would write, unsaved: what a source that never
+     * touches the database presents a model role from.
+     */
+    public function make(Model $model): Snapshot
+    {
+        $snapshot = config('storyfeed.models.snapshot', Snapshot::class);
+
+        [$identity, $values] = $this->describe($model);
+
+        return (new $snapshot)->forceFill([...$identity, ...$values]);
+    }
+
+    /** @return array{array<string, mixed>, array<string, mixed>, CarbonImmutable|null} */
+    private function describe(Model $model): array
+    {
+        $entity = app(Feedables::class)->toFeed($model);
 
         $sourceUpdatedAt = $this->sourceUpdatedAt($model);
         $identity = [
@@ -52,28 +94,7 @@ class SnapshotEntity
             ),
         ];
 
-        // Compare and save under the same row lock. firstOrCreate also handles
-        // concurrent initial inserts through the existing unique entity key.
-        return (new $snapshot)->getConnection()->transaction(function () use ($snapshot, $identity, $values, $sourceUpdatedAt): Snapshot {
-            $row = $snapshot::query()->firstOrCreate($identity, $values);
-
-            if ($row->wasRecentlyCreated) {
-                return $row;
-            }
-
-            $row = $snapshot::query()->whereKey($row->getKey())->lockForUpdate()->firstOrFail();
-
-            if ($sourceUpdatedAt !== null && $row->source_updated_at !== null
-                && $sourceUpdatedAt->lessThan(CarbonImmutable::parse($row->source_updated_at, 'UTC'))) {
-                return $row;
-            }
-
-            // Unknown source time cannot establish ordering. Write as before,
-            // clearing the watermark so it still describes the stored payload.
-            $row->fill($values)->save();
-
-            return $row;
-        });
+        return [$identity, $values, $sourceUpdatedAt];
     }
 
     private function sourceUpdatedAt(Model $model): ?CarbonImmutable

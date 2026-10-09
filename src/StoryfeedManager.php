@@ -6,6 +6,7 @@ use BackedEnum;
 use Carbon\CarbonInterval;
 use Closure;
 use DateTimeInterface;
+use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Bus\PendingDispatch;
@@ -22,6 +23,7 @@ use Storyfeed\ActivityStreams\ObjectType;
 use Storyfeed\Contracts\Bundleable;
 use Storyfeed\Contracts\DiagnosticCheck;
 use Storyfeed\Contracts\FeedHealer;
+use Storyfeed\Contracts\FeedSource;
 use Storyfeed\Contracts\FeedVerb;
 use Storyfeed\Contracts\HasActivityStreamsType;
 use Storyfeed\Contracts\PublishesToFeed;
@@ -39,6 +41,7 @@ use Storyfeed\Grouping\Period;
 use Storyfeed\Models\Activity;
 use Storyfeed\Models\FeedTombstone;
 use Storyfeed\Models\Party;
+use Storyfeed\Sources\SourceManager;
 use Storyfeed\Stories\BoundStory;
 use Storyfeed\Stories\CompileStories;
 use Storyfeed\Stories\DefinitionsFile;
@@ -946,6 +949,34 @@ class StoryfeedManager
         }
 
         return $this->feedDefinition($preset)->build();
+    }
+
+    /**
+     * A named source from `storyfeed.sources` — where a feed's activities
+     * come from, the way `Storage::disk()` names a disk. The default is the
+     * database.
+     *
+     *   Storyfeed::feed()->source('roadmap')->get();
+     */
+    public function source(?string $name = null): FeedSource
+    {
+        return app(SourceManager::class)->source($name);
+    }
+
+    /**
+     * Register a source driver, as `Storage::extend()` registers a
+     * filesystem driver. The callback receives the application and the
+     * source's config, and returns a FeedSource.
+     *
+     *   Storyfeed::extend('github', fn ($app, array $config) => new GitHubSource($config));
+     *
+     * @param  Closure(Application, array<string, mixed>): FeedSource  $callback
+     */
+    public function extend(string $driver, Closure $callback): static
+    {
+        app(SourceManager::class)->extend($driver, $callback);
+
+        return $this;
     }
 
     /**

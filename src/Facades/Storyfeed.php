@@ -42,6 +42,8 @@ use Storyfeed\Testing\StoryfeedFake;
  * @method static \Illuminate\Support\Collection<int, \Storyfeed\Models\Activity> queued(string|\Storyfeed\Contracts\FeedVerb|\BackedEnum|\Closure|null $verb = null)
  * @method static \Illuminate\Support\Collection<int, \Storyfeed\Models\Activity> published(string|\Storyfeed\Contracts\FeedVerb|\BackedEnum|\Closure|null $verb = null)
  * @method static \Storyfeed\FeedBuilder feed(?string $preset = null)
+ * @method static \Storyfeed\Contracts\FeedSource source(?string $name = null)
+ * @method static \Storyfeed\StoryfeedManager extend(string $driver, \Closure $callback)
  * @method static string|\Storyfeed\FeedNoun|null noun(?string $type, string $verb)
  * @method static array<string, string|\Storyfeed\FeedNoun> registeredNouns()
  * @method static \Storyfeed\StoryfeedManager verbs(array<array-key, \Storyfeed\ActivityStreams\ActivityType|string>|class-string $verbs, bool $merge = true)

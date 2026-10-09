@@ -1,5 +1,6 @@
 <?php
 
+use Storyfeed\Contracts\FeedSource;
 use Storyfeed\Models\Activity;
 use Storyfeed\Serialization\ActivitySerializer;
 use Storyfeed\Stories\Verb;
@@ -55,4 +56,18 @@ function jsonObjectKeys(array $value): array
     }
 
     return $value;
+}
+
+/** A source of the given items, for tests that are about reading one. */
+function itemsSource(iterable $items): FeedSource
+{
+    return new class($items) implements FeedSource
+    {
+        public function __construct(protected iterable $items) {}
+
+        public function items(): iterable
+        {
+            return $this->items;
+        }
+    };
 }

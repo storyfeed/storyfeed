@@ -22,6 +22,7 @@ use Storyfeed\Events\ActivityDeleted;
 use Storyfeed\Http\Middleware\UseActor;
 use Storyfeed\Http\Middleware\UseContext;
 use Storyfeed\Models\Party;
+use Storyfeed\Sources\SourceManager;
 use Storyfeed\Stories\DefinitionsFile;
 use Storyfeed\Stories\Registrar;
 use Storyfeed\Stories\StoryManifest;
@@ -122,6 +123,7 @@ class StoryfeedServiceProvider extends PackageServiceProvider
         $this->app->singleton(Feedables::class);
         $this->app->singleton(DefinitionsFile::class);
         $this->app->singleton(TombstoneRules::class);
+        $this->app->singleton(SourceManager::class);
     }
 
     public function packageBooted(): void

@@ -88,4 +88,17 @@ class FeedMisconfigured extends InvalidArgumentException
             "[{$class}] was registered as a feed but does not extend Storyfeed\\Feed."
         );
     }
+
+    /**
+     * A call only stored history can answer, on a source read in memory.
+     * Ignoring it would return a feed the call was meant to narrow.
+     */
+    public static function unsupportedBySource(string $source, string $call): self
+    {
+        return new self(
+            "The [{$source}] source cannot read {$call}: only the database source stores what it "
+            .'reads. Filter by a role instead — actor(), object(), target(), context() — or read '
+            .'the database.'
+        );
+    }
 }
