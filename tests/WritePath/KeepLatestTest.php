@@ -62,10 +62,10 @@ describe('declaring it', function () {
             ->and(Storyfeed::keepLatest('customer', 'open'))->toBeNull();
     });
 
-    it('declares it in the array form and on a Story class', function () {
+    it('declares it on a Verb and on a Story class', function () {
         defineStories(
-            Verb::make('delivery.save')->fill(['keepLatest' => true], 'delivery.save'),
-            Verb::make('delivery.view')->fill(['keepLatest' => ['per' => ['object', 'actor']]], 'delivery.view'),
+            Verb::make('delivery.save')->keepLatest(),
+            Verb::make('delivery.view')->keepLatest(per: ['object', 'actor']),
             Verb::fromStory(new class extends BaseStory
             {
                 public string|array|null $objectType = 'customer';

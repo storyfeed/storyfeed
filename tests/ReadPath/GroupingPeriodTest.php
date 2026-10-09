@@ -151,10 +151,10 @@ describe('declaring it', function () {
             ->and(Storyfeed::compiledStories()['periods'])->toBe([]);
     });
 
-    it('declares it with groupedPer(), in the array form and on a Story class', function () {
+    it('declares it with groupedPer(), by its value and on a Story class', function () {
         defineStories(
             Verb::make('delivery.save')->groupedPer(Period::Month),
-            Verb::make('delivery.view')->fill(['groupedPer' => 'hour'], 'delivery.view'),
+            Verb::make('delivery.view')->groupedPer('hour'),
             Verb::fromStory(new class extends BaseStory
             {
                 public string|array|null $objectType = 'customer';

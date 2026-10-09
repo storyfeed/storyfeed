@@ -12,9 +12,9 @@ class PeriodicDeliveryStory
         return $verb->headline(':actor scanned :object')->groupedHourly();
     }
 
-    public function invoice(): array
+    public function invoice(Verb $verb): Verb
     {
-        return ['headline' => ':actor invoiced :object', 'groupedPer' => 'month'];
+        return $verb->headline(':actor invoiced :object')->groupedPer('month');
     }
 
     public function note(): string

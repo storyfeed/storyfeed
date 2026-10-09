@@ -80,10 +80,10 @@ describe('declaring', function () {
             ->and(Storyfeed::wheres(null, 'wave'))->toBe(['actor' => ['user'], 'target' => ['courier']]);
     });
 
-    it('takes them on a bound class, a resource, and the array form', function () {
+    it('takes them on a bound class, a resource, and a verb', function () {
         Story::for(Delivery::class)->verb('sort', DeliveryWasSorted::class)->whereActor('party');
         Story::resource(Customer::class)->only('create')->whereActor(User::class);
-        Story::verb('sync')->fill(['where' => ['actor' => User::class, 'origin' => [Courier::class]]], 'a test');
+        Story::verb('sync')->whereRole('actor', User::class)->whereRole('origin', [Courier::class]);
         Story::resources([Courier::class => null], ['only' => ['create'], 'wheres' => ['actor' => 'user']]);
 
         expect(Storyfeed::wheres('delivery', 'sort'))->toBe(['actor' => ['storyfeed.party']])

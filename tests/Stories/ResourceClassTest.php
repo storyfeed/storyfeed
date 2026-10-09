@@ -105,7 +105,7 @@ it('fails on a public method with another return type, naming it', function () {
     );
 });
 
-it('fails on an action with no return type, or a nullable one', function (object $class, string $message) {
+it('fails on an action with no return type, a nullable one, or an array', function (object $class, string $message) {
     Story::resource(Delivery::class, $class::class);
 
     expect(fn () => Storyfeed::compiledStories())->toThrow(StoryMisconfigured::class, $message);
@@ -124,6 +124,13 @@ it('fails on an action with no return type, or a nullable one', function (object
             return null;
         }
     }, 'returns [?string]'],
+    'array' => [new class
+    {
+        public function create(): array
+        {
+            return ['headline' => ':actor created :object'];
+        }
+    }, 'returns [array]'],
 ]);
 
 it('fails on an action that returns a Verb it was not given', function () {
@@ -227,7 +234,7 @@ it('stores verb → Class@method in the manifest, so nothing reflects again', fu
     ])->and(Storyfeed::storyActions())->toHaveKey('delivery.ship', DeliveryStory::class.'@ship');
 });
 
-it('carries a missing headline from the array form', function () {
+it('carries a missing headline from an action', function () {
     Story::resource(Delivery::class, DeliveryStory::class);
 
     expect(Storyfeed::missingTemplate('delivery', 'ship'))->toBe(':actor shipped a delivery since removed');

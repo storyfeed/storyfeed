@@ -11,7 +11,6 @@ class HealCommand extends Command
 {
     protected $signature = 'storyfeed:heal
         {--pretend : Preview permanent-source retirements without writing rows}
-        {--dry-run : Deprecated: use --pretend}
         {--only=* : Run only the named healers}';
 
     protected $description = 'Retire stories for permanently absent sources; writes bump sync_token and require clients to resync';
@@ -20,12 +19,6 @@ class HealCommand extends Command
     {
         $pretend = (bool) $this->option('pretend');
         $only = $this->option('only');
-
-        // Symfony can't hide an option, so --dry-run stays listed, labelled.
-        if ($this->option('dry-run')) {
-            $this->warn('--dry-run is deprecated and will be removed before v1; use --pretend.');
-            $pretend = true;
-        }
 
         $this->warn($pretend
             ? 'Preview only. Applying retirements rewrites history and bumps sync_token; accumulating clients must resync.'

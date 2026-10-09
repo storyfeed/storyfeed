@@ -190,16 +190,6 @@ class StoryMisconfigured extends LogicException
         );
     }
 
-    /** @param array<int, string> $allowed */
-    public static function unknownDefinitionKey(string $key, string $given, array $allowed): self
-    {
-        return new self(
-            "Ad-hoc story [{$key}] has an unrecognized option [{$given}]. Allowed: "
-            .implode(', ', $allowed).'. (A typo'."'".'d key must fail loudly — silently ignoring it is how '
-            .'an authored headline goes missing with nothing to show for it.)'
-        );
-    }
-
     public static function invalidDefinitionKey(string $key): self
     {
         return new self(
@@ -215,14 +205,14 @@ class StoryMisconfigured extends LogicException
         if (str_ends_with($uses, '@__invoke')) {
             return new self(
                 "[{$uses}] is an invokable story class's action, and it {$given}. It returns "
-                .'Storyfeed\Stories\Verb, string (the headline) or array (the array form): '
+                .'Storyfeed\Stories\Verb or string (the headline): '
                 .'public function __invoke(Verb $verb): Verb { return $verb->headline(...); }'
             );
         }
 
         return new self(
             "[{$uses}] is a public method of a resource Story class, so it is an action, and it {$given}. "
-            .'An action returns Storyfeed\Stories\Verb, string (the headline) or array (the array form). '
+            .'An action returns Storyfeed\Stories\Verb or string (the headline). '
             .'If it is a helper, make it protected or private.'
         );
     }

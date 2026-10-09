@@ -77,13 +77,6 @@ it('accepts the three return forms an action does', function (object $class, str
             return ':actor sent :object';
         }
     }, ':actor sent :object'],
-    'array' => [new class
-    {
-        public function __invoke(): array
-        {
-            return ['headline' => ':actor dispatched :object', 'icon' => 'truck'];
-        }
-    }, ':actor dispatched :object'],
 ]);
 
 it('holds __invoke to the rules of an action', function () {

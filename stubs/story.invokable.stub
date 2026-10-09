@@ -8,7 +8,7 @@ use Storyfeed\Stories\Verb;
  * What a `{{ verb }}` activity says. Call sites never touch this class:
  * they publish by the name its line in routes/feed.php gives, with
  * story(…), as for any named story.
- * Returns a Verb, a headline string, or the array form.
+ * Returns a Verb or a headline string.
  */
 class {{ class }}
 {

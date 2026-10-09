@@ -166,11 +166,6 @@ it('refuses Group::min(), pointing at the axis instead of ignoring it', function
     }
 });
 
-it('refuses a typod option rather than dropping it', function () {
-    expect(fn () => Verb::make('delivery.confirm')->fill(['headine' => ':actor confirmed'], 'delivery.confirm'))
-        ->toThrow(StoryMisconfigured::class, 'unrecognized option [headine]');
-});
-
 it('refuses a malformed ad-hoc key', function () {
     expect(fn () => Verb::make('confirm'))
         ->toThrow(StoryMisconfigured::class, '`{type}.{verb}` form');

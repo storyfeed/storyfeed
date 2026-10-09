@@ -7,8 +7,8 @@ use Storyfeed\Stories\Verb;
 /**
  * What each {{ model }} activity says. Every public method is a verb, named
  * as stored once snake-cased (confirmPayment() records `confirm_payment`),
- * and returns a Verb, a headline string, or the array form. Adding a method
- * adds the verb; keep helpers protected or private.
+ * and returns a Verb or a headline string. Adding a method adds the verb;
+ * keep helpers protected or private.
  */
 class {{ class }}
 {

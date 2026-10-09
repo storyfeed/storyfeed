@@ -87,7 +87,7 @@ it('registers a public method in each verb shape and returns the binding', funct
     }
 })->with(['scoped', 'unscoped', 'group']);
 
-it('supports string and legacy array returns by the resource contract', function () {
+it('supports string and Verb returns by the resource contract', function () {
     Story::for(Delivery::class)->verb('approve', [BasicDeliveryStory::class, 'confirm']);
     Story::for(Delivery::class)->verb('send', [DeliveryStory::class, 'ship']);
 

@@ -21,9 +21,9 @@ class DeliveryStory
         return ':actor confirmed payment for :object';
     }
 
-    public function ship(): array
+    public function ship(Verb $verb): Verb
     {
-        return ['headline' => ':actor shipped :object', 'icon' => 'send', 'missingHeadline' => ':actor shipped a delivery since removed'];
+        return $verb->headline(':actor shipped :object')->icon('send')->missingHeadline(':actor shipped a delivery since removed');
     }
 
     // Verbs a base class would have reserved.

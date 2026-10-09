@@ -289,13 +289,12 @@ it('replaces only explicit authored fields', function () {
         ->and(Storyfeed::noun('delivery', 'confirm'))->toBe('hand|hands');
 });
 
-it('accepts the new keys in the array form', function () {
-    defineStories(Verb::make('delivery.confirm')->fill([
-        'headline' => FeedHeadline::trans('feed.confirmed'),
-        'anonymousHeadline' => ':object was confirmed',
-        'noun' => FeedNoun::trans('nouns.delivery'),
-        'activityStreamsType' => 'Document',
-    ], 'delivery.confirm'));
+it('accepts a translated headline and noun, an anonymous headline and a vocabulary type', function () {
+    defineStories(Verb::make('delivery.confirm')
+        ->headline(FeedHeadline::trans('feed.confirmed'))
+        ->anonymousHeadline(':object was confirmed')
+        ->noun(FeedNoun::trans('nouns.delivery'))
+        ->activityStreamsType('Document'));
 
     expect(Storyfeed::registeredActorlessGrammar())->toBe(['delivery.confirm' => ':object was confirmed'])
         ->and(Storyfeed::registeredNouns()['delivery.confirm'])->toBeInstanceOf(FeedNoun::class)

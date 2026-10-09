@@ -104,8 +104,8 @@ it('resolves optional segments, and runs closures and translations as headlines 
         ->and(missingHeadlineNodes('ship')[0]['missing_headline_template'])->toBe(':actor shipped a removed delivery');
 });
 
-it('takes the array form', function () {
-    defineStories(Verb::make('*.confirm')->fill(['headline' => ':actor confirmed :object', 'missingHeadline' => ':actor confirmed a removed delivery'], '*.confirm'));
+it('takes it on a Verb', function () {
+    defineStories(Verb::make('*.confirm')->headline(':actor confirmed :object')->missingHeadline(':actor confirmed a removed delivery'));
     Storyfeed::activity()->actor($this->ines)->verb('confirm', $this->delivery)->publish();
 
     $this->delivery->delete();

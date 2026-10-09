@@ -83,10 +83,10 @@ describe('declaring a window', function () {
             ->and(Storyfeed::retention('customer', 'open'))->toBeNull();
     });
 
-    it('declares a window in the array form and on a Story class', function () {
+    it('declares a window on a Verb and on a Story class', function () {
         defineStories(
-            Verb::make('delivery.view')->fill(['keepFor' => '2 weeks'], 'delivery.view'),
-            Verb::make('delivery.sign')->fill(['keepForever' => true], 'delivery.sign'),
+            Verb::make('delivery.view')->keepFor('2 weeks'),
+            Verb::make('delivery.sign')->keepForever(),
             Verb::fromStory(new class extends BaseStory
             {
                 public string|array|null $objectType = 'customer';

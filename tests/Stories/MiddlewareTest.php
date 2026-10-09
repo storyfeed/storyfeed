@@ -191,10 +191,10 @@ describe('attaching', function () {
             ->and(Storyfeed::middleware('customer', 'delete'))->toBe([Trace::class.':resource']);
     });
 
-    it('declares it in the array form an action may return', function () {
-        defineStories(Verb::make('delivery.confirm')->fill(['middleware' => ['trace:array'], 'withoutMiddleware' => 'batch'], 'delivery.confirm'));
+    it('declares it on a Verb an action may return', function () {
+        defineStories(Verb::make('delivery.confirm')->middleware(['trace:verb'])->withoutMiddleware('batch'));
 
-        expect(Storyfeed::middleware('delivery', 'confirm'))->toBe([Trace::class.':array']);
+        expect(Storyfeed::middleware('delivery', 'confirm'))->toBe([Trace::class.':verb']);
     });
 });
 

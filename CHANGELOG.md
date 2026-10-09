@@ -7,6 +7,14 @@
 - Feed and activity builders can filter origin, result and instrument by identity.
 - `FeedMedia::make()->initials('AC')->color('#438d98')` declares a text avatar for an entity without a picture, carried as `media.initials` and `media.color` beside the `icon` slot. Parties accept both in `$media`.
 
+### Removed
+
+- `Verb::fill()` and `Verb::ARRAY_KEYS`. Configure the fluent `Verb` instead.
+- Array returns from resource and invokable Story actions. Return the `Verb` or a headline string.
+- `Storyfeed\Testing\GrammarCoverage`. Use `HeadlineCoverage`.
+- `Storyfeed\Healing\StoryRetirement`. Use `ActivityRetirement`.
+- `storyfeed:heal --dry-run`. Use `--pretend`.
+
 ## v0.15.0 - 2026-10-09
 
 ### Added

@@ -103,7 +103,7 @@ it('reads a closure result without a role token as finished text', function () {
         ->and($node['headline_template'])->toBeNull();
 });
 
-it('treats a closure in the array form the same way', function () {
+it('treats a closure declared on a verb the same way', function () {
     Story::for('delivery')->verb('confirm')->headline(fn () => ':actor confirmed :object');
 
     expect(confirmNode()['headline_template'])->toBe(':actor confirmed :object');

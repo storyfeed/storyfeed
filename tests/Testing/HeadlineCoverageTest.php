@@ -4,7 +4,6 @@ use PHPUnit\Framework\AssertionFailedError;
 use Storyfeed\Facades\Story;
 use Storyfeed\Facades\Storyfeed;
 use Storyfeed\Grouping\Group;
-use Storyfeed\Testing\GrammarCoverage;
 use Storyfeed\Testing\HeadlineCoverage;
 use Workbench\App\Models\Customer;
 use Workbench\App\Models\Delivery;
@@ -130,34 +129,4 @@ it('asserts a declared aggregate matrix proactively', function () {
     Story::fallback()->grouped(Group::on('targets')->headline(':actor acted on :count things'));
 
     HeadlineCoverage::assertCoversAggregateMatrix(['actors', 'targets'], ['upload', 'comment']);
-});
-
-it('keeps GrammarCoverage and its aggregate method names as deprecated aliases', function () {
-    $project = Customer::create(['name' => 'Concur']);
-
-    foreach (['Bob', 'Sally', 'Ann'] as $name) {
-        $user = User::create(['name' => $name, 'email' => strtolower($name).'@example.com']);
-
-        Storyfeed::activity()
-            ->actor($user)
-            ->verb('upload', Delivery::firstOrCreate(['tracking_number' => 'Shared']))
-            ->for($project)
-            ->publish();
-    }
-
-    expect(fn () => GrammarCoverage::assertCoversAggregates())
-        ->toThrow(AssertionFailedError::class, 'group headline coverage is incomplete');
-    expect(fn () => GrammarCoverage::assertCoversPossibleAggregates())
-        ->toThrow(AssertionFailedError::class, 'group headline coverage is incomplete');
-
-    Story::verb('upload')->grouped(Group::on('actors')->headline(':actors uploaded :count files to :target'));
-    Story::verb('upload')->grouped(Group::byActorsOnTarget()->headline(':actors uploaded :objects to :target'));
-    Story::verb('upload')->grouped(Group::on('targets')->headline(':actor uploaded files to :targets'));
-    Story::verb('upload')->grouped(Group::on('object')->headline(':actor uploaded :object :count times'));
-    Story::verb('upload')->grouped(Group::on('repeat')->headline(':actor uploaded :count files'));
-
-    GrammarCoverage::assertCoversAggregates();
-    GrammarCoverage::assertCoversPossibleAggregates();
-    GrammarCoverage::assertCoversGroups();
-    expect(new GrammarCoverage)->toBeInstanceOf(HeadlineCoverage::class);
 });

@@ -1435,7 +1435,7 @@ class StoryfeedManager
             $this->declaredVerbs[$verb] ??= true;
         }
 
-        // `->missing()` has no hand-written array form: its registry is the
+        // `->missing()` keeps its own registry: the
         // tombstone rules, which answer on the same ladder.
         $rules = app(TombstoneRules::class);
 

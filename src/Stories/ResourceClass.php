@@ -35,9 +35,9 @@ use Storyfeed\Exceptions\StoryMisconfigured;
  *   - Every public, non-static method declared on the class (or a trait it
  *     uses) is an action. The constructor and `__*` methods aren't. A helper
  *     is protected or private.
- *   - The declared return type is `Verb`, `string` (the headline alone) or
- *     `array` (deprecated; return the fluent Verb instead). Anything else,
- *     or none, is an error naming the method, so a helper left public fails loudly.
+ *   - The declared return type is `Verb` or `string` (the headline alone).
+ *     Anything else, or none, is an error naming the method, so a helper
+ *     left public fails loudly.
  *   - The verb is the method name, snake-cased: `requestReview()` stores
  *     `request_review`, `publish()` stores `publish`. Nothing else is mapped.
  *
@@ -57,7 +57,7 @@ use Storyfeed\Exceptions\StoryMisconfigured;
 final class ResourceClass
 {
     /** The return types an action may declare. */
-    private const RETURNS = [Verb::class, 'string', 'array'];
+    private const RETURNS = [Verb::class, 'string'];
 
     /**
      * The actions of a class, keyed by the verb each stores.
@@ -169,8 +169,6 @@ final class ResourceClass
             $result === $verb => $verb,
             $result instanceof Verb => throw StoryMisconfigured::actionReturnedAnotherVerb($uses),
             is_string($result) => $verb->headline($result),
-            // Compatibility path until v1: actions returning arrays still work.
-            is_array($result) => $verb->fill($result, $uses), // @phpstan-ignore method.deprecated
             default => throw StoryMisconfigured::actionReturn($uses, get_debug_type($result)),
         };
     }

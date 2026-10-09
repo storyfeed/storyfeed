@@ -13,7 +13,6 @@ use Storyfeed\Facades\Storyfeed;
 use Storyfeed\Healing\ActivityRetirement;
 use Storyfeed\Healing\HealFeed;
 use Storyfeed\Healing\HealOutcome;
-use Storyfeed\Healing\StoryRetirement;
 use Storyfeed\Models\Activity;
 use Storyfeed\Models\Meta;
 use Storyfeed\Support\SyncToken;
@@ -282,28 +281,6 @@ it('streams an earlier committed retirement with its token if a later policy fai
         ->and($first->fresh()->trashed())->toBeTrue()
         ->and($second->fresh()->trashed())->toBeFalse()
         ->and(SyncToken::current())->not->toBeNull();
-});
-
-it('keeps --dry-run as a deprecated alias of --pretend', function () {
-    $activity = healingStory();
-    registerRetirements([healingRetirement($activity)]);
-
-    $this->artisan('storyfeed:heal', ['--dry-run' => true])
-        ->expectsOutputToContain('--dry-run is deprecated')
-        ->expectsOutputToContain('Would retire: 1; unchanged: 0.')
-        ->assertSuccessful();
-    expect($activity->fresh()->trashed())->toBeFalse();
-});
-
-it('keeps StoryRetirement as a deprecated alias of ActivityRetirement', function () {
-    $activity = healingStory();
-    registerRetirements([new StoryRetirement('Old name', $activity->id, fn (): bool => true)]);
-
-    $results = runRetirements();
-
-    expect($results[0]->candidate)->toBeInstanceOf(ActivityRetirement::class)
-        ->and($results[0]->outcome)->toBe(HealOutcome::Retired)
-        ->and($activity->fresh()->trashed())->toBeTrue();
 });
 
 it('selects registered healers and prints preview policy metadata', function () {

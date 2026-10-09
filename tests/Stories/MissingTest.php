@@ -65,10 +65,10 @@ it('replaces the default set rather than adding to it', function () {
         ->and(constitutive('delivery', 'reassign'))->not->toContain('object');
 });
 
-it('declares roles in the array form, where an empty list means none', function () {
+it('declares roles on a Verb, where none means none', function () {
     defineStories(
-        Verb::make('delivery.note')->fill(['headline' => ':actor noted :object', 'missing' => ['target']], 'delivery.note'),
-        Verb::make('delivery.mention')->fill(['missing' => []], 'delivery.mention'),
+        Verb::make('delivery.note')->headline(':actor noted :object')->missing('target'),
+        Verb::make('delivery.mention')->missing(),
         Verb::make('delivery.pack')->missing('instrument'),
     );
 
