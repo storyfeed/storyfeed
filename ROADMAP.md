@@ -82,15 +82,19 @@ titles start with the version they target, such as `[0.17]`. Milestones show
 the current plan: items may be reordered, moved to a later version or dropped as
 the work teaches us, and a dropped item is closed as not planned with its reason.
 
-- [ ] **[v0.17 — Feed sources](https://github.com/storyfeed/storyfeed/milestone/2).**
+- [ ] **[v0.17 — Bodies](https://github.com/storyfeed/storyfeed/milestone/2).**
+      A base class every body builds on, links that own their behaviour
+      (modal and attributes), `CallToAction` and `Table` bodies, time ranges
+      (`startTime`, `endTime`), and kits that render text through Tailwind
+      Typography.
+- [ ] **[v0.18 — Feed sources](https://github.com/storyfeed/storyfeed/milestone/22).**
       The database becomes one source among several, driver-style, so a feed can
       come from static content or an API and still render through the same
-      payload. Activities gain time ranges (`startTime`, `endTime`). The
-      roadmap on storyfeed.dev becomes the first feed to use both.
-- [ ] **[v0.18 — Read path at scale](https://github.com/storyfeed/storyfeed/milestone/3).**
+      payload. The roadmap on storyfeed.dev becomes its first feed.
+- [ ] **[v0.19 — Read path at scale](https://github.com/storyfeed/storyfeed/milestone/3).**
       Scoped feeds stay fast at a million activities on every supported database,
       with nightly benchmark gates.
-- [ ] **[v0.19 — Payload and schema freeze](https://github.com/storyfeed/storyfeed/milestone/4).**
+- [ ] **[v0.20 — Payload and schema freeze](https://github.com/storyfeed/storyfeed/milestone/4).**
       The open points in the payload contract and the schema are settled,
       `location` and `generator` join the recorded roles, and Payload v1 is
       declared stable.
