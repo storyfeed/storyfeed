@@ -4,7 +4,7 @@
 
 ### Added
 
-- Feed and activity builders can filter each role by model type using a class, instance, morph alias or list of types.
+- Feed and activity builders can filter each role or any participant by model type using a class, instance, morph alias or list of types, with optional direct-only participation.
 - `storyfeed:participants --ancestors --missing --writers-paused` fills never-recorded parent paths without changing recorded ancestry.
 - `involving($model, deep: false)` and `involvingDirectly($model)` read only an entity's direct participation, excluding distant relations.
 - `Story::verb()` accepts `[StoryClass::class, 'method']` to bind one public action with container method injection.

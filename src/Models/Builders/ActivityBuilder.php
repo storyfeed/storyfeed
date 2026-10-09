@@ -150,6 +150,28 @@ class ActivityBuilder extends Builder
         return $this;
     }
 
+    /**
+     * Activities involving any entity of these types, including recorded
+     * ancestors. Direct-only reads keep participants with distance zero.
+     *
+     * @param  Model|string|list<Model|string>  $types
+     */
+    public function involvingType(Model|string|array $types, bool $deep = true): static
+    {
+        $participants = SyncParticipants::table();
+        $activities = $this->getModel()->getTable();
+        $resolved = RoleTypes::resolve('involving', $types);
+
+        $this->whereIn("{$activities}.id", function (QueryBuilder $query) use ($participants, $resolved, $deep) {
+            $query->from($participants)
+                ->select('activity_id')
+                ->whereIn('entity_type', $resolved)
+                ->when(! $deep, fn (QueryBuilder $query) => $query->where('distance', 0));
+        });
+
+        return $this;
+    }
+
     /** Every activity that mentions the entity directly, in any role. */
     public function involvingDirectly(Model $model): static
     {

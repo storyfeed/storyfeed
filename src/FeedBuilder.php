@@ -89,6 +89,9 @@ class FeedBuilder
 
     protected bool $involvingDeep = true;
 
+    /** @var list<array{types: list<string>, deep: bool}> */
+    protected array $involvingTypes = [];
+
     protected ?string $verb = null;
 
     /** Verb allowlist/denylist, lazily created by only()/except(). */
@@ -223,6 +226,23 @@ class FeedBuilder
         $this->boundRoles[] = 'involving';
         $this->involving = $this->resolve($model);
         $this->involvingDeep = $deep;
+
+        return $this;
+    }
+
+    /**
+     * Any participant of these types, including recorded ancestors.
+     * Repeated calls narrow with AND, independently of involving() identity.
+     *
+     * @param  Model|string|list<Model|string>  $types
+     */
+    public function involvingType(Model|string|array $types, bool $deep = true): static
+    {
+        $this->assertUnlocked('involving');
+
+        $resolved = RoleTypes::resolve('involving', $types);
+        $this->boundRoles[] = 'involving';
+        $this->involvingTypes[] = ['types' => $resolved, 'deep' => $deep];
 
         return $this;
     }
@@ -1665,6 +1685,10 @@ class FeedBuilder
             $query->whereIn($query->qualifyColumn($filter['role'].'_type'), $filter['types']);
         }
 
+        foreach ($this->involvingTypes as $filter) {
+            $query->involvingType($filter['types'], deep: $filter['deep']);
+        }
+
         $this->verbFilter?->applyTo($query);
     }
 
@@ -1779,6 +1803,10 @@ class FeedBuilder
             throw new InvalidArgumentException('The feed cursor was issued with a different involving depth. Start from the first page.');
         }
 
+        if ($cursor !== null && ($cursor->toArray()['involving_type_depths'] ?? []) !== $this->involvingTypeDepths()) {
+            throw new InvalidArgumentException('The feed cursor was issued with a different involvingType depth. Start from the first page.');
+        }
+
         return $cursor;
     }
 
@@ -1786,11 +1814,27 @@ class FeedBuilder
      * Default cursors keep their existing shape. Older cursors included
      * distant relations too, so a missing marker means deep: true.
      *
-     * @return array{involving_deep?: false}
+     * @return array{involving_deep?: false, involving_type_depths?: list<bool>}
      */
     protected function cursorScope(): array
     {
-        return $this->involvingDeep ? [] : ['involving_deep' => false];
+        $scope = $this->involvingDeep ? [] : ['involving_deep' => false];
+        $depths = $this->involvingTypeDepths();
+
+        if ($depths !== []) {
+            $scope['involving_type_depths'] = $depths;
+        }
+
+        return $scope;
+    }
+
+    /** @return list<bool> */
+    protected function involvingTypeDepths(): array
+    {
+        $depths = array_column($this->involvingTypes, 'deep');
+
+        // Like involving(), all-deep reads retain the legacy cursor shape.
+        return in_array(false, $depths, true) ? $depths : [];
     }
 
     protected function activityModel(): Activity
