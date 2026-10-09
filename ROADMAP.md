@@ -65,6 +65,12 @@ work leads to is a demonstration of a working package, not a launch event, so
 - [x] **v0.13 — Live bursts and renderer kits.** Live groups one action into
       bursts; Summary is retired. Free React, Vue/Inertia and Blade kits render
       the feed. Live first pages stay under 300ms at 3M activities in benchmarks.
+- [x] **v0.14 — Distant relations** *(tagged `v0.14.0`)*. A model names its
+      parent, and `involving()` reaches activity anywhere beneath it.
+- [x] **v0.15 — Story classes and sharper filters** *(tagged `v0.15.0`)*. A verb
+      can bind one Story class method; feeds filter by role type or exclude
+      distant relations; never-recorded ancestry can be filled in without
+      rewriting history.
 - [ ] **v1.0 — Stable.** Frozen payload contract, semver promise, both authoring
       APIs (fluent builder + `Story` classes).
 
