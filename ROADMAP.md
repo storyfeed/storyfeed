@@ -9,7 +9,7 @@ land. Nothing on this list is scheduled against a conference date: the talk this
 work leads to is a demonstration of a working package, not a launch event, so
 1.0 arrives when the contract has earned it.
 
-## Toward 1.0
+## Shipped
 
 - [x] **v0.1 — Foundation.** Schema (activities, entity snapshots, groupings), the
       fluent recording API (`Storyfeed::activity(...)->actor($user)->publish()`),
@@ -71,27 +71,48 @@ work leads to is a demonstration of a working package, not a launch event, so
       can bind one Story class method; feeds filter by role type or exclude
       distant relations; never-recorded ancestry can be filled in without
       rewriting history.
-- [ ] **v1.0 — Stable.** Frozen payload contract, semver promise, both authoring
-      APIs (fluent builder + `Story` classes).
 
-## Beyond 1.0
+## The countdown to 1.0
 
-- Smarter feed curation — dynamic, social-style activity grouping ("Bob, Sally and 3
-  others uploaded files to Project X") that improves behind the stable payload
-  contract. Two read modes — Log (`->log()`, the atomic timeline) and Live
-  (`->live()`, one-action bursts). Curation keeps evolving behind the contract.
-- Story auto-discovery.
-- **Feed components for `storyfeed/ui`** — free, MIT React, Vue/Inertia and
-  Blade kits are available now. Livewire follows as sponsorship allows the time
-  (see [Sponsor-funded](#sponsor-funded)).
-- A public demo API, so any frontend — Nuxt, Next, SvelteKit, mobile — can be
-  pointed at a live Storyfeed and render it however it likes.
-- Laravel notifications, bridged both ways — a notification class that
-  `implements PublishesToFeed` also publishes its fact to the feed (same
-  interface events use, no channel plumbing at the call site), and feed
-  activities notifying subscribers via the `ActivityPublished` event.
-- Long-range: ActivityPub (the architecture already mints stable IRIs and speaks
-  AS2.0 for this reason).
+Each version below is a GitHub milestone holding its concrete issues. Issue
+titles start with the version they target, such as `[0.17]`. Milestones show
+the current plan: items may be reordered, moved to a later version or dropped as
+the work teaches us, and a dropped item is closed as not planned with its reason.
+
+- [ ] **[v0.16 — Cleanup and truth](https://github.com/storyfeed/storyfeed/milestone/1).**
+      Remove what was promised to be removed before 1.0, and make every document
+      match the code.
+- [ ] **[v0.17 — Feed sources](https://github.com/storyfeed/storyfeed/milestone/2).**
+      The database becomes one source among several, driver-style, so a feed can
+      come from static content or an API and still render through the same
+      payload. The [storyfeed.dev roadmap](https://github.com/storyfeed/website/milestone/1)
+      becomes its first feed.
+- [ ] **[v0.18 — Read path at scale](https://github.com/storyfeed/storyfeed/milestone/3).**
+      Scoped feeds stay fast at a million activities on every supported database,
+      with nightly benchmark gates.
+- [ ] **[v0.19 — Payload and schema freeze](https://github.com/storyfeed/storyfeed/milestone/4).**
+      The open points in the payload contract and the schema are settled, and
+      Payload v1 is declared stable.
+- [ ] **[v1.0 — Stable](https://github.com/storyfeed/storyfeed/milestone/5).** One
+      consolidated schema, a versioning and support policy, and a release
+      candidate before 1.0.0.
+
+Curation, which activities group together and when, keeps improving behind the
+stable payload contract and stays labelled experimental.
+
+## After 1.0
+
+Planned for the [1.x line](https://github.com/storyfeed/storyfeed/milestone/6), in
+no particular order: a notifications bridge, Story auto-discovery, a public demo
+API, more feed sources (Markdown, Laravel Pennant), sections other than dates,
+and multi-tenancy exploration. Long-range: ActivityPub.
+
+## Under discovery
+
+Ideas waiting on evidence from real applications before they join a milestone:
+
+- [Audience-aware phrasing](https://github.com/storyfeed/storyfeed/issues/44),
+  such as "You closed the list" for the reader who did it.
 
 ## Sponsor-funded
 
