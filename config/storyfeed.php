@@ -40,9 +40,9 @@ return [
     |
     | Where a feed's activities come from, named the way filesystem disks are:
     | `Storyfeed::feed()->source('changelog')`. The database is the default
-    | and needs no entry. Register your own drivers with
-    | Storyfeed::extend('github', fn ($app, array $config) => new
-    | GitHubSource($config)).
+    | and needs no entry. The `array` driver reads static items from config;
+    | register your own drivers with Storyfeed::extend('github', fn ($app,
+    | array $config) => new GitHubSource($config)).
     |
     | A source other than the database is read in memory and cannot answer
     | involving(), involvingType() or query(): those throw on one.

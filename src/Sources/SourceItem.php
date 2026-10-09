@@ -31,6 +31,7 @@ use Storyfeed\Support\MorphKeyType;
  *       'object' => ['type' => 'release', 'label' => 'v0.18.0', 'url' => 'https://…'],
  *       'context' => $project,                                   // a model
  *       'published_at' => '2026-10-20 09:00',
+ *       'starts_at' => '2026-10-09',                             // optional, as ->startsAt()
  *       'data' => ['notes' => 12],
  *       'body' => 'Feed sources and the array source.',
  *       'id' => 'release-0.18.0',
@@ -49,7 +50,7 @@ use Storyfeed\Support\MorphKeyType;
 final class SourceItem
 {
     /** The keys an array item may carry; anything else is an error. */
-    protected const KEYS = ['verb', 'published_at', 'data', 'body', 'id', ...ActivityRoles::STORED];
+    protected const KEYS = ['verb', 'published_at', 'starts_at', 'ends_at', 'data', 'body', 'id', ...ActivityRoles::STORED];
 
     /** The keys an entity array may carry. */
     protected const ENTITY_KEYS = ['type', 'label', 'url', 'id', 'data', 'body'];
@@ -57,6 +58,10 @@ final class SourceItem
     public readonly string $verb;
 
     public readonly Carbon $publishedAt;
+
+    public readonly ?Carbon $startsAt;
+
+    public readonly ?Carbon $endsAt;
 
     /**
      * @param  array<string, mixed>  $data
@@ -82,6 +87,8 @@ final class SourceItem
         public readonly array $data = [],
         public readonly string|FeedBody|iterable|null $body = null,
         public readonly ?string $id = null,
+        DateTimeInterface|string|null $startsAt = null,
+        DateTimeInterface|string|null $endsAt = null,
     ) {
         $verb = match (true) {
             $verb instanceof FeedVerb => $verb->verb(),
@@ -95,6 +102,12 @@ final class SourceItem
 
         $this->verb = $verb;
         $this->publishedAt = Carbon::parse($publishedAt);
+        $this->startsAt = $startsAt === null ? null : Carbon::parse($startsAt);
+        $this->endsAt = $endsAt === null ? null : Carbon::parse($endsAt);
+
+        if ($this->startsAt !== null && $this->endsAt !== null && $this->endsAt->lt($this->startsAt)) {
+            throw new InvalidArgumentException("An activity cannot end [{$this->endsAt->toIso8601String()}] before it starts [{$this->startsAt->toIso8601String()}].");
+        }
 
         foreach (ActivityRoles::STORED as $role) {
             if (is_array($this->{$role})) {
@@ -131,8 +144,10 @@ final class SourceItem
         array $data = [],
         string|FeedBody|iterable|null $body = null,
         ?string $id = null,
+        DateTimeInterface|string|null $startsAt = null,
+        DateTimeInterface|string|null $endsAt = null,
     ): self {
-        return new self($verb, $publishedAt, $actor, $object, $target, $context, $origin, $result, $instrument, $data, $body, $id);
+        return new self($verb, $publishedAt, $actor, $object, $target, $context, $origin, $result, $instrument, $data, $body, $id, $startsAt, $endsAt);
     }
 
     /**
@@ -172,6 +187,8 @@ final class SourceItem
             data: $item['data'] ?? [],
             body: $item['body'] ?? null,
             id: isset($item['id']) ? (string) $item['id'] : null,
+            startsAt: $item['starts_at'] ?? null,
+            endsAt: $item['ends_at'] ?? null,
         );
     }
 
@@ -193,6 +210,8 @@ final class SourceItem
             'verb' => $this->verb,
             'data' => $this->data === [] ? null : $this->data,
             'published_at' => $this->publishedAt,
+            'starts_at' => $this->startsAt,
+            'ends_at' => $this->endsAt,
         ]);
 
         foreach (ActivityRoles::STORED as $role) {

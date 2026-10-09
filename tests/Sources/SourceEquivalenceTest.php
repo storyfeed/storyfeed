@@ -2,6 +2,7 @@
 
 use Storyfeed\Facades\Storyfeed;
 use Storyfeed\Models\Activity;
+use Storyfeed\Sources\ArraySource;
 use Storyfeed\Sources\SourceItem;
 use Workbench\App\Models\Customer;
 use Workbench\App\Models\Delivery;
@@ -28,7 +29,7 @@ beforeEach(function () {
 
     // A repeat burst, a second burst after the quiet gap, a crowd on one
     // object, one actor across targets, solos, a party and an actorless row,
-    // and two rows at one instant.
+    // two rows at one instant, and a time range.
     $plan = [
         [$sally, 'upload', $docs[0], $acme, 0],
         [$sally, 'upload', $docs[1], $acme, 3],
@@ -41,12 +42,12 @@ beforeEach(function () {
         [$bob, 'confirm', $docs[1], $acme, 90],
         [$bob, 'confirm', $docs[2], $globex, 91],
         [$bob, 'confirm', $docs[3], $acme, 92],
-        [$priya, 'revise', $docs[0], null, 200],
-        [$priya, 'revise', $docs[0], null, 202],
         ['Courier Bot', 'dispatch', $docs[3], null, 120],
         [null, 'expire', $docs[2], null, 150],
         [$priya, 'archive', $docs[1], null, 180],
         [$bob, 'archive', $docs[3], null, 180],
+        [$priya, 'revise', $docs[0], null, 200],
+        [$priya, 'revise', $docs[0], null, 202],
     ];
 
     foreach ($plan as [$actor, $verb, $object, $target, $minutes]) {
@@ -54,7 +55,9 @@ beforeEach(function () {
             ? Storyfeed::anonymous()->verb($verb, $object)
             : Storyfeed::activity()->actor($actor)->verb($verb, $object);
 
-        $pending->when($target, fn ($p) => $p->target($target))->publishedAt($at($minutes))->publish();
+        $pending->when($target, fn ($p) => $p->target($target))
+            ->when($verb === 'archive', fn ($p) => $p->startsAt($at(0))->endsAt($at($minutes)))
+            ->publishedAt($at($minutes))->publish();
     }
 
     // The same rows as items, under the stored ids, so every derived hash
@@ -67,6 +70,8 @@ beforeEach(function () {
             object: $activity->object,
             target: $activity->target,
             id: $activity->uid,
+            startsAt: $activity->starts_at,
+            endsAt: $activity->ends_at,
         ))
         ->all();
 });
@@ -91,7 +96,7 @@ function comparable(array $payload): array
 it('reads the same payload as the database', function (string $mode) {
     $stored = Storyfeed::feed()->{$mode}()->get()->toArray();
 
-    $sourced = Storyfeed::feed()->source(itemsSource($this->items))->{$mode}()->get()->toArray();
+    $sourced = Storyfeed::feed()->source(new ArraySource($this->items))->{$mode}()->get()->toArray();
 
     expect(comparable($sourced))->toEqual(comparable($stored));
 
@@ -118,13 +123,13 @@ it('pages the same way as the database', function (string $mode) {
 
     $stored = $read(null);
 
-    expect($read(fn ($feed) => $feed->source(itemsSource($this->items))))->toBe($stored)
+    expect($read(fn ($feed) => $feed->source(new ArraySource($this->items))))->toBe($stored)
         ->and($stored)->toHaveCount(count(array_unique($stored)));
 })->with(['live', 'log']);
 
 it('filters the same way as the database', function (Closure $filter) {
     $stored = $filter(Storyfeed::feed()->live())->get()->toArray();
-    $sourced = $filter(Storyfeed::feed()->live()->source(itemsSource($this->items)))->get()->toArray();
+    $sourced = $filter(Storyfeed::feed()->live()->source(new ArraySource($this->items)))->get()->toArray();
 
     expect(array_column($sourced['items'], 'id'))->toBe(array_column($stored['items'], 'id'))
         ->and(array_column($sourced['items'], 'count'))->toBe(array_column($stored['items'], 'count'));
@@ -145,7 +150,7 @@ it('groups with curation off the same way as the database', function () {
 
     // Curation already stamped the stored rows; turning it off is a read-time switch.
     $stored = Storyfeed::feed()->live()->get()->toArray();
-    $sourced = Storyfeed::feed()->live()->source(itemsSource($this->items))->get()->toArray();
+    $sourced = Storyfeed::feed()->live()->source(new ArraySource($this->items))->get()->toArray();
 
     expect(array_column($sourced['items'], 'id'))->toBe(array_column($stored['items'], 'id'));
 });
@@ -154,6 +159,6 @@ it('hides what is not yet published, as the database does', function () {
     Storyfeed::activity()->actor(User::first())->verb('schedule', Delivery::first())->publishedAt(now()->addDay())->publish();
     $items = [...$this->items, SourceItem::make('schedule', now()->addDay(), actor: User::first(), object: Delivery::first())];
 
-    expect(Storyfeed::feed()->source(itemsSource($items))->log()->get()->items())
+    expect(Storyfeed::feed()->source(new ArraySource($items))->log()->get()->items())
         ->toHaveCount(count(Storyfeed::feed()->log()->get()->items()));
 });

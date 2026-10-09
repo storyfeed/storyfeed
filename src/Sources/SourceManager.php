@@ -105,6 +105,12 @@ class SourceManager
         return new DatabaseSource;
     }
 
+    /** @param  array<string, mixed>  $config */
+    public function createArrayDriver(array $config): ArraySource
+    {
+        return new ArraySource($config['items'] ?? []);
+    }
+
     /** @return array<string, mixed> */
     protected function getConfig(string $name): array
     {

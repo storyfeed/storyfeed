@@ -7,6 +7,7 @@ use Storyfeed\Exceptions\FeedMisconfigured;
 use Storyfeed\Facades\Story;
 use Storyfeed\Facades\Storyfeed;
 use Storyfeed\Models\Snapshot;
+use Storyfeed\Sources\ArraySource;
 use Storyfeed\Sources\DatabaseSource;
 use Storyfeed\Sources\SourceItem;
 use Storyfeed\Sources\SourceManager;
@@ -21,6 +22,8 @@ function releases(): array
             'actor' => 'Storyfeed',
             'object' => ['type' => 'release', 'label' => 'v0.17.0', 'url' => 'https://github.com/storyfeed/storyfeed/releases/tag/v0.17.0'],
             'published_at' => '2026-09-01 09:00',
+            'starts_at' => '2026-08-01',
+            'ends_at' => '2026-09-01',
         ],
         [
             'verb' => 'ship',
@@ -33,10 +36,11 @@ function releases(): array
     ];
 }
 
-it('renders party names and entities with no model', function () {
+it('reads a named source from config', function () {
+    config()->set('storyfeed.sources.changelog', ['driver' => 'array', 'items' => releases()]);
     Story::for('release')->verb('ship')->headline(':actor shipped :object');
 
-    $items = Storyfeed::feed()->source(itemsSource(releases()))->get()->items();
+    $items = Storyfeed::feed()->source('changelog')->get()->items();
 
     expect($items)->toHaveCount(2)
         ->and($items[0]['headline_template'])->toBe(':actor shipped :object')
@@ -47,6 +51,7 @@ it('renders party names and entities with no model', function () {
         ])
         ->and($items[0]['data'])->toBe(['breaking' => false])
         ->and($items[0]['published_at'])->toBe('2026-09-20T09:00:00.000000Z')
+        ->and($items[1])->toMatchArray(['starts_at' => '2026-08-01T00:00:00.000000Z', 'ends_at' => '2026-09-01T00:00:00.000000Z'])
         ->and($items[1]['object'])->toMatchArray([
             'id' => 'v0.17.0', 'url' => 'https://github.com/storyfeed/storyfeed/releases/tag/v0.17.0', 'body' => null,
         ]);
@@ -54,7 +59,7 @@ it('renders party names and entities with no model', function () {
 
 it('reads a source without a query', function () {
     Story::for('release')->verb('ship')->headline(':actor shipped :object');
-    $source = itemsSource(releases());
+    $source = new ArraySource(releases());
 
     DB::enableQueryLog();
 
@@ -98,7 +103,7 @@ it('defaults to the database', function () {
         ->and(Storyfeed::feed()->source('database')->get()->items())->toHaveCount(1)
         ->and(iterator_to_array(Storyfeed::source()->items()))->toHaveCount(1);
 
-    config()->set('storyfeed.sources', ['roadmap' => ['driver' => 'github']]);
+    config()->set('storyfeed.sources', ['changelog' => ['driver' => 'array']]);
     app(SourceManager::class)->forgetSource('database');
 
     expect(Storyfeed::source('database'))->toBeInstanceOf(DatabaseSource::class);
@@ -123,10 +128,10 @@ it('refuses an undefined source', function () {
 it('throws on what only stored history can answer', function (Closure $call, string $name) {
     $user = User::create(['name' => 'Sally', 'email' => 'sally@example.com']);
 
-    expect(fn () => $call(Storyfeed::feed()->source(itemsSource(releases())), $user)->get())
+    expect(fn () => $call(Storyfeed::feed()->source(new ArraySource(releases())), $user)->get())
         ->toThrow(FeedMisconfigured::class, "cannot read {$name}")
         // Whichever comes first.
-        ->and(fn () => $call(Storyfeed::feed(), $user)->source(itemsSource(releases()))->get())
+        ->and(fn () => $call(Storyfeed::feed(), $user)->source(new ArraySource(releases()))->get())
         ->toThrow(FeedMisconfigured::class, "cannot read {$name}");
 })->with([
     'involving' => [fn ($feed, $user) => $feed->involving($user), 'involving()'],
@@ -140,7 +145,7 @@ it('takes models, party names and entities as roles', function () {
     $delivery = Delivery::create(['tracking_number' => 'TN-1'])->refresh();
     $snapshots = Snapshot::query()->count();
 
-    $items = Storyfeed::feed()->source(itemsSource([
+    $items = Storyfeed::feed()->source(new ArraySource([
         SourceItem::make('dispatch', now()->subMinute(), actor: $sally, object: $delivery, target: 'Courier Bot', body: [Prose::make('Left the depot.')]),
     ]))->get()->items();
 
@@ -154,8 +159,8 @@ it('takes models, party names and entities as roles', function () {
 it('keeps each item\'s id from one read to the next', function () {
     $items = [...releases(), releases()[0]];
 
-    $first = array_column(Storyfeed::feed()->source(itemsSource($items))->log()->get()->items(), 'id');
-    $second = array_column(Storyfeed::feed()->source(itemsSource($items))->log()->get()->items(), 'id');
+    $first = array_column(Storyfeed::feed()->source(new ArraySource($items))->log()->get()->items(), 'id');
+    $second = array_column(Storyfeed::feed()->source(new ArraySource($items))->log()->get()->items(), 'id');
 
     expect($first)->toBe($second)
         ->and(array_unique($first))->toHaveCount(3);
@@ -163,7 +168,7 @@ it('keeps each item\'s id from one read to the next', function () {
 
 it('pages a source with cursorPaginate()', function () {
     $items = collect(range(1, 5))->map(fn ($i) => SourceItem::make('ship', now()->subDays($i), object: ['type' => 'release', 'label' => "v0.{$i}.0"]))->all();
-    $feed = Storyfeed::feed()->source(itemsSource($items))->log();
+    $feed = Storyfeed::feed()->source(new ArraySource($items))->log();
 
     $first = $feed->cursorPaginate(2);
     $labels = collect($first->items())->pluck('object.label')->all();
@@ -174,7 +179,7 @@ it('pages a source with cursorPaginate()', function () {
 });
 
 it('refuses an item it cannot read', function (array $item, string $message) {
-    expect(fn () => Storyfeed::feed()->source(itemsSource([$item]))->get())
+    expect(fn () => Storyfeed::feed()->source(new ArraySource([$item]))->get())
         ->toThrow(InvalidArgumentException::class, $message);
 })->with([
     'unknown key' => [['verb' => 'ship', 'published_at' => 'now', 'summary' => 'x'], 'Unknown source item key [summary]'],
@@ -183,10 +188,11 @@ it('refuses an item it cannot read', function (array $item, string $message) {
     'dotted verb' => [['verb' => 'release.ship', 'published_at' => 'now'], 'must be a non-empty verb without a dot'],
     'unknown entity key' => [['verb' => 'ship', 'published_at' => 'now', 'object' => ['type' => 'release', 'label' => 'v1', 'href' => '/']], 'Unknown key [href] on the [object] entity'],
     'entity without a label' => [['verb' => 'ship', 'published_at' => 'now', 'object' => ['type' => 'release']], 'The [object] entity needs a [label].'],
+    'range ending before it starts' => [['verb' => 'ship', 'published_at' => 'now', 'starts_at' => '2026-09-02', 'ends_at' => '2026-09-01'], 'An activity cannot end'],
     'body without an object' => [['verb' => 'ship', 'published_at' => 'now', 'body' => 'x'], 'A source item with a body needs an object'],
 ]);
 
 it('refuses an item that is neither an array nor a SourceItem', function () {
-    expect(fn () => Storyfeed::feed()->source(itemsSource(['ship']))->get())
+    expect(fn () => Storyfeed::feed()->source(new ArraySource(['ship']))->get())
         ->toThrow(InvalidArgumentException::class, 'A source item must be an array or a Storyfeed\Sources\SourceItem, string given.');
 });

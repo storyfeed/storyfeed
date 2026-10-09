@@ -616,7 +616,7 @@ class FeedBuilder
      * given here, instead of the database:
      *
      *   Storyfeed::feed()->source('roadmap')->live()->get();
-     *   Storyfeed::feed()->source(new GitHubSource($config))->get();
+     *   Storyfeed::feed()->source(new ArraySource($items))->get();
      *
      * A source other than the database is read in memory, through the same
      * pipeline and into the same payload. It has no stored history, so
