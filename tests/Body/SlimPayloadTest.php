@@ -85,7 +85,7 @@ dataset('rows the previous version wrote', fn () => [
         2, ['subject' => null, 'content' => null, 'image' => null, 'files' => [], 'footnote' => null],
     ],
     'MediaObject' => [
-        fn () => MediaObject::make(FeedLink::make('N201'), 'Basmati.', MediaSlot::Icon, [FeedResource::make('/a.pdf', 'application/pdf', 'a.pdf')], 'Approved'),
+        fn () => MediaObject::make(FeedLink::toEntity('N201'), 'Basmati.', MediaSlot::Icon, [FeedResource::make('/a.pdf', 'application/pdf', 'a.pdf')], 'Approved'),
         2, ['subject' => ['label' => 'N201', 'href' => null], 'content' => 'Basmati.', 'image' => 'icon', 'files' => [
             ['type' => 'Document', 'href' => '/a.pdf', 'mediaType' => 'application/pdf', 'name' => 'a.pdf'],
         ], 'footnote' => 'Approved'],
@@ -112,9 +112,9 @@ it('writes nothing but the envelope and the data for a body left at its defaults
         ->and(FileAttachment::make()->toPayload())->toBe(['$body' => FileAttachment::bodyType(), '$v' => 2])
         ->and(Image::make()->toPayload())->toBe(['$body' => Image::bodyType(), '$v' => 2])
         ->and(Component::make('Card')->toPayload())->toBe(['$body' => Component::bodyType(), '$v' => 2, 'name' => 'Card'])
-        ->and(ItemList::make(['a'])->toPayload())->toBe(['$body' => ItemList::bodyType(), '$v' => 2, 'items' => ['a']])
+        ->and(ItemList::make(['a'])->toPayload())->toBe(['$body' => ItemList::bodyType(), '$v' => 3, 'items' => ['a']])
         ->and(KeyValue::make(['A' => 1])->toPayload())->toBe(['$body' => KeyValue::bodyType(), '$v' => 3, 'items' => [['key' => 'A', 'value' => 1]]])
-        ->and(MediaObject::make()->toPayload())->toBe(['$body' => MediaObject::bodyType(), '$v' => 3])
+        ->and(MediaObject::make()->toPayload())->toBe(['$body' => MediaObject::bodyType(), '$v' => 4])
         ->and(Prose::make('A')->toPayload())->toBe(['$body' => Prose::bodyType(), '$v' => 2, 'content' => 'A']);
 });
 

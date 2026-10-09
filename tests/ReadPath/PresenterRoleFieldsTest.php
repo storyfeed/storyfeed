@@ -174,7 +174,7 @@ it('keeps live and deferred resolver reads fresh at their original field boundar
             ->and($first['body'])->toBe([Prose::make('after live')->toPayload(), Prose::make('minted 1')->toPayload()]);
         $second = $presenter->participant($snapshot);
         expect($second['data'])->toBe(['version' => 1])
-            ->and($second['url'])->toBe('/fresh/2')
+            ->and($second['link']['href'])->toBe('/fresh/2')
             ->and($second['body'])->toBe([Prose::make('after live')->toPayload(), Prose::make('minted 2')->toPayload()])
             ->and($mediaCalls)->toBe(2)->and($bodyCalls)->toBe(2);
     } finally {

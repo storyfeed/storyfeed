@@ -225,13 +225,13 @@ class Table extends FeedBody
 
     /**
      * @param  array<array-key, mixed>  $row
-     * @return list<string|int|float|array{label: string, href: string|null}|null>
+     * @return list<string|int|float|array{label: string, href: string|null, modal: bool, attributes: array<string, mixed>}|null>
      */
     private function cells(array $row): array
     {
         return array_map(fn (mixed $cell): string|int|float|array|null => match (true) {
             $cell === null, is_string($cell), is_int($cell), is_float($cell) => $cell,
-            $cell instanceof FeedLink => $cell->toPayload(),
+            $cell instanceof FeedLink => self::labelledLink($cell),
             $cell instanceof Htmlable => $cell->toHtml(),
             $cell instanceof Stringable => (string) $cell,
             default => throw new InvalidArgumentException(sprintf(
@@ -256,14 +256,14 @@ class Table extends FeedBody
 
     /**
      * @param  array<array-key, mixed>  $row
-     * @return list<string|int|float|array{label: string, href: string|null}|null>
+     * @return list<string|int|float|array{label: string, href: string|null, modal: bool, attributes: array<string, mixed>}|null>
      */
     private static function storedRow(array $row): array
     {
         return array_map(
             fn (mixed $cell): string|int|float|array|null => match (true) {
                 $cell === null, is_string($cell), is_int($cell), is_float($cell) => $cell,
-                default => FeedLink::from($cell)?->toPayload(),
+                default => self::storedLabelledLink($cell),
             },
             array_values($row),
         );

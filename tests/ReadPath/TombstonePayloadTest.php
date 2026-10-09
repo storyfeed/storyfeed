@@ -58,7 +58,7 @@ it('tells a tombstoned entity from a degraded one and an anonymous one', functio
         ->and($node['object']['type'])->toBe('storyfeed.tombstone')
         ->and($node['object']['id'])->toBe((string) FeedTombstone::sole()->id)
         ->and($node['object']['label'])->toBeNull()
-        ->and($node['object']['url'])->toBeNull()
+        ->and($node['object']['link'])->toBeNull()
         ->and($node['object']['tombstone'])->toBe([
             'formerType' => 'delivery',
             'deleted' => '2026-09-23T12:00:00.000000Z',

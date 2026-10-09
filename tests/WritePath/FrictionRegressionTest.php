@@ -38,7 +38,7 @@ it('never calls feedMedia() for un-snapshotted entities', function () {
     // The contract promises degraded entities arrive with url: null; calling
     // the app's resolver with empty data makes every naive implementation warn.
     expect(Delivery::$feedMediaCalls)->toBe(0)
-        ->and($item['object']['url'])->toBeNull();
+        ->and($item['object']['link'])->toBeNull();
 });
 
 it('supports the conditionable idiom on the feed builder', function () {

@@ -11,6 +11,7 @@ use Storyfeed\Contracts\FeedBody;
 use Storyfeed\Contracts\HasFeedShapeVersion;
 use Storyfeed\FeedContext;
 use Storyfeed\FeedEntity;
+use Storyfeed\FeedLink;
 use Storyfeed\FeedMedia;
 use Storyfeed\PendingTombstone;
 
@@ -111,7 +112,7 @@ class Delivery extends Model implements Feedable, HasFeedShapeVersion
                 $attributes['data-customer'] = $model->customer?->name;
             }
 
-            return FeedMedia::make("/deliveries/{$model->id}", attributes: $attributes);
+            return FeedMedia::make(link: FeedLink::to("/deliveries/{$model->id}")->attributes($attributes));
         }
 
         // Deliberately strict about the raw array — a naive real-world
@@ -120,8 +121,7 @@ class Delivery extends Model implements Feedable, HasFeedShapeVersion
         $data = $context->data();
 
         return FeedMedia::make(
-            "/deliveries/{$data['id']}",
-            attributes: ['data-status' => $data['status'] ?? null],
+            link: FeedLink::to("/deliveries/{$data['id']}")->attributes(['data-status' => $data['status'] ?? null]),
             body: static::$mintsBody,
         );
     }

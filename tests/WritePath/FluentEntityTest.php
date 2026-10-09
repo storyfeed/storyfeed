@@ -33,8 +33,7 @@ function mediaShape(FeedMedia $media): array
     return [
         'href' => $media->href(),
         'label' => $media->label,
-        'attributes' => $media->attributes,
-        'modal' => $media->modal,
+        'link' => $media->link?->toPayload(),
         'media' => $media->media(),
         'body' => $media->body,
     ];
@@ -116,11 +115,8 @@ it('has no component any more', function () {
 
 it('builds the same media chained or named', function () {
     $fluent = FeedMedia::make()
-        ->url(FeedImage::make()->src('/full.jpg')->width(800)->height(600))
+        ->link(FeedLink::to('/full.jpg')->attributes(['data-a' => 1])->attributes('data-b', 2)->modal())
         ->label('Fresh')
-        ->attributes(['data-a' => 1])
-        ->attributes('data-b', 2)
-        ->modal()
         ->icon('/icon.png')
         ->preview(FeedImage::make('/thumb.jpg')->alt('Thumb'))
         ->image('/hero.jpg')
@@ -129,10 +125,8 @@ it('builds the same media chained or named', function () {
         ->body(fn () => Excerpt::make('Resolved late'));
 
     $named = FeedMedia::make(
-        url: FeedImage::make(src: '/full.jpg', width: 800, height: 600),
         label: 'Fresh',
-        attributes: ['data-a' => 1, 'data-b' => 2],
-        modal: true,
+        link: FeedLink::to('/full.jpg')->attributes(['data-a' => 1, 'data-b' => 2])->modal(),
         icon: '/icon.png',
         preview: FeedImage::make(src: '/thumb.jpg', alt: 'Thumb'),
         image: '/hero.jpg',
@@ -154,7 +148,8 @@ it('builds the same image, link and resource chained or named', function () {
 });
 
 it('supports when() on media, images, links and resources', function () {
-    expect(FeedMedia::make()->when(true, fn (FeedMedia $m) => $m->modal())->modal)->toBeTrue()
+    expect(FeedMedia::make()->when(true, fn (FeedMedia $m) => $m->url('/x'))->href())->toBe('/x')
+        ->and(FeedLink::to('/x')->when(true, fn (FeedLink $l) => $l->modal())->modal)->toBeTrue()
         ->and(FeedImage::make('/a')->when(true, fn (FeedImage $i) => $i->alt('A'))->alt)->toBe('A')
         ->and(FeedLink::make('A')->when(false, fn (FeedLink $l) => $l->href('/x'))->href)->toBeNull()
         ->and(FeedResource::make('/a')->unless(false, fn (FeedResource $r) => $r->name('A'))->name)->toBe('A');
@@ -163,10 +158,9 @@ it('supports when() on media, images, links and resources', function () {
 it('names the method to call when a required value was never set', function (Closure $use, string $message) {
     expect($use)->toThrow(IncompleteFeedValue::class, $message);
 })->with([
-    'FeedLink' => [fn () => FeedLink::make()->href('/x')->toPayload(), 'FeedLink has no label. Call ->label(…) on it, or pass label: to FeedLink::make().'],
+    'FeedLink' => [fn () => FeedLink::make('Recall')->toPayload(), 'FeedLink has no href. Call ->href(…) on it, or pass href: to FeedLink::make().'],
     'FeedImage' => [fn () => FeedImage::make()->alt('A')->toArray(), 'FeedImage has no src. Call ->src(…) on it, or pass src: to FeedImage::make().'],
     'FeedResource' => [fn () => FeedResource::make()->name('A')->toPayload(), 'FeedResource has no href. Call ->href(…) on it, or pass href: to FeedResource::make().'],
-    'FeedMedia url' => [fn () => FeedMedia::make()->url(FeedImage::make())->href(), 'FeedImage has no src.'],
 ]);
 
 it('starts an entity and media empty, with nothing required', function () {

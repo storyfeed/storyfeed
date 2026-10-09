@@ -405,15 +405,9 @@ class ActivitySerializer
             'content' => $snapshot?->content,
             Property::MediaType->value => $snapshot?->media_type,
             'attributedTo' => $snapshot?->attributed_to,
-            // A url the resolver typed as an image becomes a Link object so
-            // its mediaType and dimensions travel; a plain href stays the
-            // bare string it always was. Both are legal values for as:url.
-            // A party actor also carries its external home as url.
-            Property::Url->value => match (true) {
-                $actor && $alias !== config('storyfeed.morph_alias', 'storyfeed.party') => null,
-                $media?->url instanceof FeedImage => $this->link($media->url),
-                default => $absolute,
-            },
+            // A party actor also carries its external home as url. The link's
+            // modal and attributes are a renderer's, and AS2 has no word for them.
+            Property::Url->value => $actor && $alias !== config('storyfeed.morph_alias', 'storyfeed.party') ? null : $absolute,
             // The remaining slots are AS2's own properties with AS2's own
             // meanings, which is the whole reason FeedMedia names them that
             // way — nothing to translate, only to spell out.

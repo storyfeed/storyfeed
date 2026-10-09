@@ -79,10 +79,12 @@ final class Entity implements Arrayable, ArrayAccess, Htmlable, JsonSerializable
         return $this->string('label');
     }
 
-    /** The link minted at read time, or null when the entity is not linkable. */
+    /** The link's href, minted at read time, or null when the entity is not linkable. */
     public function url(): ?string
     {
-        return $this->string('url');
+        $href = $this->link()['href'] ?? null;
+
+        return is_string($href) ? $href : null;
     }
 
     /**
@@ -92,13 +94,21 @@ final class Entity implements Arrayable, ArrayAccess, Htmlable, JsonSerializable
      */
     public function attributes(): array
     {
-        return is_array($this->payload['attributes'] ?? null) ? $this->payload['attributes'] : [];
+        $attributes = $this->link()['attributes'] ?? null;
+
+        return is_array($attributes) ? $attributes : [];
     }
 
     /** Whether the resolver asked for the link to open as a modal. */
     public function isModal(): bool
     {
-        return ($this->payload['modal'] ?? false) === true;
+        return ($this->link()['modal'] ?? false) === true;
+    }
+
+    /** @return array<array-key, mixed> */
+    private function link(): array
+    {
+        return is_array($this->payload['link'] ?? null) ? $this->payload['link'] : [];
     }
 
     /**

@@ -115,7 +115,7 @@ it('still renders every row, still degrades the link to null', function () {
     $items = Storyfeed::feed()->log()->get()->toArray()['items'];
 
     expect($items)->toHaveCount(3)
-        ->and(array_column(array_column($items, 'object'), 'url'))->toBe([null, null, null])
+        ->and(array_column(array_column($items, 'object'), 'link'))->toBe([null, null, null])
         ->and(array_column(array_column($items, 'object'), 'label'))->toBe(['Row 3', 'Row 2', 'Row 1'])
         ->and(array_column(array_column($items, 'object'), 'media'))->toBe([null, null, null]);
 });

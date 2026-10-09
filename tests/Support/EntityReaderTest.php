@@ -11,14 +11,15 @@ use Storyfeed\Support\Entity;
 function entityPayload(array $overrides = []): array
 {
     return [
-        'type' => 'photo', 'id' => '88', 'label' => 'Pad thai', 'url' => 'https://example.test/photos/88',
-        'attributes' => ['target' => '_blank', 'data-turbo' => false, 'download' => true],
-        'modal' => true,
+        'type' => 'photo', 'id' => '88', 'label' => 'Pad thai',
+        'link' => [
+            'href' => 'https://example.test/photos/88', 'modal' => true,
+            'attributes' => ['target' => '_blank', 'data-turbo' => false, 'download' => true],
+        ],
         'data' => ['table' => 4],
         'media' => [
             'icon' => null, 'image' => null,
             'preview' => ['src' => '/thumb.jpg', 'mediaType' => 'image/jpeg', 'width' => 400, 'height' => 300, 'alt' => null],
-            'url' => null,
             'files' => [['type' => 'Document', 'href' => '/menu.pdf', 'mediaType' => 'application/pdf', 'name' => 'Menu']],
         ],
         'body' => [['$body' => 'Storyfeed/Body/Prose', '$v' => 1, 'text' => 'Spicy']],
@@ -57,11 +58,11 @@ it('reads a live entity by named accessors', function () {
 it('draws a link with its attributes, and plain text without a url', function () {
     expect(Entity::of(entityPayload())->toHtml())
         ->toBe('<a href="https://example.test/photos/88" target="_blank" download>Pad thai</a>')
-        ->and(Entity::of(entityPayload(['url' => null, 'label' => 'A & B']))->toHtml())->toBe('A &amp; B');
+        ->and(Entity::of(entityPayload(['link' => null, 'label' => 'A & B']))->toHtml())->toBe('A &amp; B');
 });
 
 it('reads a degraded entity with its role placeholder', function () {
-    $degraded = entityPayload(['label' => null, 'url' => null, 'media' => null, 'body' => null]);
+    $degraded = entityPayload(['label' => null, 'link' => null, 'media' => null, 'body' => null]);
 
     expect(Entity::of($degraded, 'actor')->isDegraded())->toBeTrue()
         ->and(Entity::of($degraded, 'actor')->toString())->toBe('Someone')
@@ -74,7 +75,7 @@ it('reads a degraded entity with its role placeholder', function () {
 
 it('reads a tombstone', function () {
     $tombstone = entityPayload([
-        'type' => 'storyfeed.tombstone', 'id' => '17', 'label' => null, 'url' => null,
+        'type' => 'storyfeed.tombstone', 'id' => '17', 'label' => null, 'link' => null,
         'tombstone' => ['formerType' => 'order', 'deleted' => '2026-09-23T12:00:00.000000Z', 'approximate' => false, 'removedBy' => null],
     ]);
 

@@ -13,8 +13,8 @@ use Storyfeed\FeedMedia;
  *  - toFeed()     : the cacheable snapshot (label + data), written to the
  *                   snapshots table when an activity is published and
  *                   refreshed whenever the model is saved.
- *  - feedMedia()  : STATIC. Resolves what the snapshot cannot cache — a url,
- *                   a label override, link attributes, a modal hint, the
+ *  - feedMedia()  : STATIC. Resolves what the snapshot cannot cache — a link
+ *                   (href, modal, attributes), a label override, the
  *                   image slots — from that snapshot at read time, so
  *                   labels stay fast and links never go stale.
  *
@@ -55,7 +55,7 @@ interface Feedable
      *
      * DEGRADATION. Called only for entities that have a snapshot, so
      * `$context->data('id')` is never read against nothing. A throw is
-     * reported and the entity arrives with `url: null` and `media: null`;
+     * reported and the entity arrives with `link: null` and `media: null`;
      * a missing snapshot value reads as null through `$context->data()`
      * rather than warning. One broken resolver never breaks a feed.
      *

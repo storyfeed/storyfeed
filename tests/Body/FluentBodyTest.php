@@ -28,8 +28,8 @@ dataset('fluent and named bodies', fn () => [
         fn () => FileAttachment::make(size: 4200, mediaType: 'application/zip', name: 'archive.zip'),
     ],
     'ItemList' => [
-        fn () => ItemList::make()->items(['Rice', FeedLink::make()->label('Saffron')])->title('Pantry')->totalItems(9)->more(FeedLink::make('All nine', '/pantry')),
-        fn () => ItemList::make(['Rice', FeedLink::make('Saffron')], title: 'Pantry', totalItems: 9, more: FeedLink::make('All nine', '/pantry')),
+        fn () => ItemList::make()->items(['Rice', FeedLink::toEntity()->label('Saffron')])->title('Pantry')->totalItems(9)->more(FeedLink::make('All nine', '/pantry')),
+        fn () => ItemList::make(['Rice', FeedLink::toEntity('Saffron')], title: 'Pantry', totalItems: 9, more: FeedLink::make('All nine', '/pantry')),
     ],
     'ItemList, ordered' => [
         fn () => ItemList::ordered()->items(['Soak', 'Simmer']),
@@ -48,9 +48,9 @@ dataset('fluent and named bodies', fn () => [
         fn () => Prose::markdown('**Basmati**'),
     ],
     'MediaObject' => [
-        fn () => MediaObject::make()->subject(FeedLink::make()->label('N201'))->content('Basmati.')->image(MediaSlot::Preview)
+        fn () => MediaObject::make()->subject(FeedLink::toEntity()->label('N201'))->content('Basmati.')->image(MediaSlot::Preview)
             ->files(FeedResource::make()->href('/a.pdf'))->files([FeedResource::make('/b.pdf')])->footnote('Approved'),
-        fn () => MediaObject::make(subject: FeedLink::make('N201'), content: 'Basmati.', image: MediaSlot::Preview, files: [FeedResource::make('/a.pdf'), FeedResource::make('/b.pdf')], footnote: 'Approved'),
+        fn () => MediaObject::make(subject: FeedLink::toEntity('N201'), content: 'Basmati.', image: MediaSlot::Preview, files: [FeedResource::make('/a.pdf'), FeedResource::make('/b.pdf')], footnote: 'Approved'),
     ],
     'Table' => [
         fn () => Table::make()->title('Pricing')->headers(['Plan', 'Price'])->row(['Starter', '$9'])->row(['Team', '$49'])->footer(['Total', '$58']),
@@ -74,11 +74,11 @@ it('changes the body it is called on, and returns it', function () {
 });
 
 it('reads a value set after the body was handed on, because it is read when used', function () {
-    $link = FeedLink::make();
+    $link = FeedLink::toEntity();
     $list = ItemList::make()->items([$link]);
     $link->label('Saffron');
 
-    expect($list->toPayload()['items'])->toBe([['label' => 'Saffron', 'href' => null]]);
+    expect($list->toPayload()['items'])->toBe([['label' => 'Saffron', 'href' => null, 'modal' => false, 'attributes' => []]]);
 });
 
 it('appends lists and merges maps', function () {

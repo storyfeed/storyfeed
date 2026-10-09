@@ -15,8 +15,9 @@ use Storyfeed\Support\Headline;
 function readerEntity(string $type, ?string $label, ?string $url = null, array $extra = []): array
 {
     return [
-        'type' => $type, 'id' => '1', 'label' => $label, 'url' => $url,
-        'attributes' => [], 'modal' => false, 'data' => [], 'media' => null,
+        'type' => $type, 'id' => '1', 'label' => $label,
+        'link' => $url === null ? null : ['href' => $url, 'modal' => false, 'attributes' => []],
+        'data' => [], 'media' => null,
         'body' => null, 'tombstone' => null, ...$extra,
     ];
 }

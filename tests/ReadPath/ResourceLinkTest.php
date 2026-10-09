@@ -18,7 +18,6 @@ it('accepts typed resource files through every construction path', function () {
             ->and($media->files)->toBe([$resource])
             ->and($media->media())->toBe([
                 'icon' => null, 'image' => null, 'preview' => null,
-                'url' => null,
                 'initials' => null, 'color' => null,
                 'files' => [$payload],
             ]);
@@ -53,7 +52,6 @@ it('always carries the files key on a media object, empty when the media is only
     expect(FeedMedia::make(preview: '/thumb.png')->media())->toBe([
         'icon' => null, 'image' => null,
         'preview' => ['src' => '/thumb.png', 'mediaType' => null, 'width' => null, 'height' => null, 'alt' => null],
-        'url' => null,
         'initials' => null, 'color' => null,
         'files' => [],
     ]);
@@ -81,7 +79,7 @@ it('carries document links through the payload and AS2 without image properties'
     $activity = Storyfeed::activity('publish', $document)->publish();
 
     $object = Storyfeed::feed()->get()->toArray()['items'][0]['object'];
-    expect($object['url'])->toBeNull()
+    expect($object['link'])->toBeNull()
         ->and($object['media']['files'])->toBe([[
             'type' => $type, 'href' => '/files/'.$document->id, 'mediaType' => $mime, 'name' => 'Report',
         ]])

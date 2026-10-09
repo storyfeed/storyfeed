@@ -85,7 +85,7 @@ it('takes text, numbers, null and links as cells, and keeps line breaks', functi
     $table = Table::make(rows: [["14 Wyndham St\nGuelph", 1.5, null, $link, new HtmlString('<b>x</b>')]]);
     $link->label('Ana')->href('/people/ana');
 
-    expect($table->toPayload()['rows'])->toBe([["14 Wyndham St\nGuelph", 1.5, null, ['label' => 'Ana', 'href' => '/people/ana'], '<b>x</b>']]);
+    expect($table->toPayload()['rows'])->toBe([["14 Wyndham St\nGuelph", 1.5, null, ['label' => 'Ana', 'href' => '/people/ana', 'modal' => false, 'attributes' => []], '<b>x</b>']]);
 });
 
 it('refuses a cell that is not one, because bodies never nest', function (mixed $cell, string $type) {
@@ -113,7 +113,7 @@ it('upgrades anything stored into a table a renderer can draw', function () {
             ], $version))->toBe([
                 'title' => null,
                 'headers' => ['A', '2', ''],
-                'rows' => [['a', ['label' => 'Ana', 'href' => null], null, null], ['b', null, null, null]],
+                'rows' => [['a', ['label' => 'Ana', 'href' => null, 'modal' => false, 'attributes' => []], null, null], ['b', null, null, null]],
                 'footer' => [],
             ]);
     }

@@ -45,7 +45,7 @@ it('keeps the activity, its link and its other bodies when a deferred body throw
 
     expect($items)->toHaveCount(1)
         ->and($items[0]['object']['label'])->toBe('Ada')
-        ->and($items[0]['object']['url'])->toBe("/customers/{$customer->getKey()}")
+        ->and($items[0]['object']['link']['href'])->toBe("/customers/{$customer->getKey()}")
         ->and($items[0]['object']['media']['icon'])->not->toBeNull()
         ->and($items[0]['object']['body'])->toBe([
             Prose::make('Before.')->toPayload(),

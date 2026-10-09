@@ -140,7 +140,7 @@ describe('a model with no feed code', function () {
 
         expect(snapshotOf($plate)->label)->toBe('Carrot soup')
             ->and($object['label'])->toBe('Carrot soup')
-            ->and($object['url'])->toBeNull()
+            ->and($object['link'])->toBeNull()
             ->and($object['media'])->toBeNull();
     });
 
@@ -217,7 +217,7 @@ describe('feedMediaUsing()', function () {
 
         Storyfeed::activity('plate', $dish)->publish();
 
-        expect(Storyfeed::feed()->get()->toArray()['items'][0]['object']['url'])->toBe("/dishes/{$dish->id}");
+        expect(Storyfeed::feed()->get()->toArray()['items'][0]['object']['link']['href'])->toBe("/dishes/{$dish->id}");
     });
 
     it('leaves a model that registered none unlinkable', function () {
@@ -315,7 +315,7 @@ describe('Storyfeed::feedable()', function () {
         $object = Storyfeed::feed()->get()->toArray()['items'][0]['object'];
 
         expect($object['label'])->toBe('soup.jpg')
-            ->and($object['url'])->toBe("/photos/{$photo->id}");
+            ->and($object['link']['href'])->toBe("/photos/{$photo->id}");
     });
 
     it('hears the registered model being deleted', function () {

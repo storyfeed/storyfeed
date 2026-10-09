@@ -7,72 +7,53 @@ use Storyfeed\Concerns\HasPayload;
 use Storyfeed\Exceptions\IncompleteFeedValue;
 
 /**
- * A piece of text that leads somewhere: a label, and where a tap on it goes.
+ * A place you go: where a tap leads, and how the renderer should open it.
  *
- *     FeedLink::make()->label('Bronze Figure')                       // → my entity
- *     FeedLink::make()->label('The exhibition guide')->href('https://…') // → there
+ *     FeedLink::to(route('photos.show', $photo))->modal()     // an entity's link
+ *     FeedLink::make('The recall notice', $notice->url)       // a link in a body
+ *     FeedLink::toEntity($dish->name)                         // this entity's own link
  *
- * It exists so that a stored block can say "my title is a way in" without a
- * consumer reaching into a renderer's markup to add one. A consumer who has
- * to open a Blade file to make a title clickable ships a card containing the
- * words *Open the conversation*, and three of those in one viewport outweigh
- * the words they are a way into. That happened; this class is the answer.
+ * The one link type, everywhere a payload carries one: an entity's link
+ * (`FeedMedia::link()`) and the links inside bodies share the shape
+ * `{label, href, modal, attributes}`. `modal` and `attributes` are
+ * suggestions to a renderer, as they always were on the entity; they now
+ * live on the link, where they belong (ruled 2026-09-26, #79).
  *
- * ## A null href means "my entity", and that is the case worth defaulting
+ * ## The constructors
  *
- * An entity's url is resolved at read time by {@see Support\LinkResolver} for
- * the same reason {@see FeedImage}'s src is: a URL copied into a snapshot
- * ages. Disks move, signed links expire, routes get renamed, slugs change.
- * A stored href is a second copy of something the app already resolves live,
- * and every historical row would keep the route you had on the day you wrote
- * it.
+ * `to($href)` is href first, after Laravel's `URL::to()` and
+ * `redirect()->to()`, for the links that need no label: an entity's own, a
+ * call to action's. `make($label, $href)` is label first, for body links,
+ * where the label is the point. `toEntity($label)` is the redirector's
+ * `toRoute()` move: not a URL, but a named place the reader resolves, here
+ * the entity the body belongs to.
  *
- * So the common case — a title that leads to the thing the row is about —
- * stores no location at all. `href` is null and the renderer resolves it
- * against the entity the block belongs to, exactly as a stored `image:
- * "icon"` resolves against `entity.media.icon`.
+ * ## Nothing is inferred from a missing href
  *
- * An explicit href is the escape hatch for a target the entity's own
- * resolver cannot know: somewhere external, somewhere deep, somewhere else
- * entirely. It is stored, it ages, and that is the consumer choosing it with
- * their eyes open rather than the package choosing it for them.
- *
- * ## The name is a reuse, and the reuse is the point
- *
- * A `FeedLink` existed until 2026-09-05 and was deleted with the older
- * `toFeedLink()` contract. {@see FeedMedia} records why: it "stopped being
- * 'a link' once it grew a label and a modal flag". It died of scope creep,
- * and the name is taken back here for the thing it always meant.
- *
- * WHICH IS THE TRIPWIRE. This class is a label and an optional href. The day
- * one is proposed for it — a modal flag, an icon, a target attribute, a
- * "variant" — the name is wrong again and the same class is being rebuilt.
- * The correct response to that proposal is not a fourth field.
- *
- * Nothing ever stored the old one, so there is no repeat of the body
- * vocabulary fork, where two same-named classes held different shapes in
- * rows that were already written.
+ * `toEntity()` stores no location, and a renderer resolves it against the
+ * entity's own `link` at read time, every time: a URL copied into a snapshot
+ * ages, as {@see FeedImage}'s src would. In the payload that is `href: null`,
+ * the shape such a link always had, so rows written before this class grew
+ * keep their meaning. A `make()` or `to()` link without an href is a mistake
+ * and throws when it is written, naming `href()`: a reader of
+ * `FeedLink::make($photo->title)` should not have to guess where it goes.
  *
  * ## Not FeedResource, which is also an AS2 Link
  *
- * {@see FeedResource} models the same AS2 term and the two divide cleanly:
- * a resource is a FILE you fetch and its href is required; a link is a PLACE
- * you go and its href is optional, because the commonest place is the entity
- * the block is already attached to. A resource carries `mediaType` because
- * something has to be decided before it is opened; a link carries none,
- * because navigating is not fetching.
+ * {@see FeedResource} is a FILE you fetch: its href is required and it
+ * carries a `mediaType`, because something has to be decided before it is
+ * opened. A link is a PLACE you go, and navigating is not fetching.
  *
  * ## The label is the title, not a verb
  *
- * The misuse, named at birth the way `preview`'s was named too late:
- *
- *     FeedLink::make('Open the conversation', $url)      // ← the defect, back
+ *     FeedLink::make('Open the conversation', $url)      // ← the defect
  *
  * A label that says what a reader should DO is a call to action wearing a
  * title's clothes, and it reads as one the moment two rows carry it. The
- * label names the thing; the fact that it is a link is what says a tap goes
- * somewhere. If the only honest label is a verb, the row does not want a
- * link — it wants a different sentence.
+ * label names the thing. A call to action is a body of its own, whose text
+ * is a verb by design. The label is optional on the class: an entity's link
+ * takes its name from the entity. A body that draws the label requires it
+ * and throws, naming `label()`.
  *
  * Core owns this payload slot, so no `$body` discriminator or storage version
  * travels with it.
@@ -82,49 +63,96 @@ final class FeedLink
     use Conditionable;
     use HasPayload;
 
-    /**
-     * The text a reader sees. Required: reading it before `label()` is called
-     * throws, naming the method.
-     */
-    public private(set) string $label {
-        get => $this->label ?? throw IncompleteFeedValue::missing(self::class, 'label');
-    }
+    /** The text a reader sees — the thing's name, never an instruction. */
+    public private(set) ?string $label = null;
 
+    /** Where a tap goes. Null on a {@see toEntity()} link, which the renderer resolves. */
     public private(set) ?string $href = null;
+
+    /** Whether the renderer should open the link as a modal. */
+    public private(set) bool $modal = false;
+
+    /** @var array<string, mixed> attributes for the rendered link */
+    public private(set) array $attributes = [];
+
+    /** Whether this is the entity's own link, resolved by the renderer. */
+    public private(set) bool $entity = false;
 
     public function __construct(?string $label = null, ?string $href = null)
     {
-        if ($label !== null) {
-            $this->label($label);
-        }
-
-        $this->href($href);
+        $this->label($label)->href($href);
     }
 
     /**
-     * Start a link. Both arguments are optional and have a method of the same
-     * name; `label` must be set before the link is used.
+     * Start a link, label first, for a body.
      *
      * @param  string|null  $label  the text a reader sees — the thing's name, never an instruction
-     * @param  string|null  $href  where a tap goes; null resolves to the entity's own url at read time
+     * @param  string|null  $href  where a tap goes; required by the time the link is written
      */
     public static function make(?string $label = null, ?string $href = null): self
     {
         return new self($label, $href);
     }
 
-    /** The text a reader sees — the thing's name, never an instruction. */
-    public function label(string $label): self
+    /** A link to `$href`, after Laravel's `URL::to()` and `redirect()->to()`. */
+    public static function to(string $href): self
     {
-        $this->label = $label;
+        return new self(href: $href);
+    }
+
+    /**
+     * The entity's own link, resolved by the renderer against `entity.link`
+     * each time the feed is read. Its `modal()` and `attributes()` add to the
+     * entity's.
+     */
+    public static function toEntity(?string $label = null): self
+    {
+        $link = new self($label);
+        $link->entity = true;
+
+        return $link;
+    }
+
+    /** The text a reader sees — the thing's name, never an instruction. */
+    public function label(?string $label): self
+    {
+        $this->label = $label === '' ? null : $label;
 
         return $this;
     }
 
-    /** Where a tap goes; null resolves to the entity's own url at read time. */
+    /** Where a tap goes. */
     public function href(?string $href): self
     {
-        $this->href = $href;
+        $this->href = $href === '' ? null : $href;
+
+        return $this;
+    }
+
+    /** Suggest that the renderer open the link as a modal. */
+    public function modal(bool $modal = true): self
+    {
+        $this->modal = $modal;
+
+        return $this;
+    }
+
+    /**
+     * Attributes for the rendered link, such as `['target' => '_blank']`. An
+     * array MERGES — a repeated key takes the later value — and a key with a
+     * value sets that one key, as `View::with()` does.
+     *
+     * @param  array<string, mixed>|string  $key
+     */
+    public function attributes(array|string $key, mixed $value = null): self
+    {
+        if (is_string($key)) {
+            $this->attributes[$key] = $value;
+
+            return $this;
+        }
+
+        $this->attributes = array_merge($this->attributes, $key);
 
         return $this;
     }
@@ -134,14 +162,14 @@ final class FeedLink
      *
      * A PLAIN STRING IS NOT A LINK AND MUST NOT BECOME ONE. A field that
      * accepts `string|FeedLink` uses the two to mean different things: text
-     * that leads nowhere, and text that leads to the entity. Converting a
-     * string here would make every unlinked title clickable the moment its
-     * field widened, which is the same defect as an available picture being
-     * read as an instruction to draw one. The caller keeps the union; this
-     * method only ever answers about a link.
+     * that leads nowhere, and text that leads somewhere. Converting a string
+     * here would make every unlinked title clickable the moment its field
+     * widened. The caller keeps the union; this method only ever answers
+     * about a link.
      *
-     * Anything else is null: a malformed stored value renders as nothing,
-     * never as a broken row. Same rule as an unknown body.
+     * A stored `href: null` is the entity's own link, as it was before
+     * `toEntity()` named it. Anything malformed is null: it renders as
+     * nothing, never as a broken row. Same rule as an unknown body.
      */
     public static function from(mixed $value): ?self
     {
@@ -149,27 +177,36 @@ final class FeedLink
             return $value;
         }
 
-        if (! is_array($value)) {
+        if (! is_array($value) || ! array_key_exists('href', $value)) {
             return null;
         }
 
         $label = $value['label'] ?? null;
+        $href = $value['href'] ?? null;
 
-        if (! is_string($label) || $label === '') {
+        if (($label !== null && ! is_string($label)) || ($href !== null && ! is_string($href))) {
             return null;
         }
 
-        $href = $value['href'] ?? null;
+        $link = $href === null || $href === '' ? self::toEntity($label) : self::make($label, $href);
 
-        return new self($label, is_string($href) && $href !== '' ? $href : null);
+        $attributes = $value['attributes'] ?? [];
+
+        return $link
+            ->modal(($value['modal'] ?? false) === true)
+            ->attributes(is_array($attributes) ? array_filter($attributes, is_string(...), ARRAY_FILTER_USE_KEY) : []);
     }
 
-    /** @return array{label: string, href: string|null} */
+    /**
+     * @return array{label: string|null, href: string|null, modal: bool, attributes: array<string, mixed>}
+     */
     public function toPayload(): array
     {
         return [
             'label' => $this->label,
-            'href' => $this->href,
+            'href' => $this->entity ? null : ($this->href ?? throw IncompleteFeedValue::missing(self::class, 'href')),
+            'modal' => $this->modal,
+            'attributes' => $this->attributes,
         ];
     }
 }

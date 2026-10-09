@@ -18,7 +18,7 @@ it('reads reserved party pictures from snapshots without linking or querying the
 
     $actor = Storyfeed::feed()->get()->toArray()['items'][0]['actor'];
 
-    expect($actor['url'])->toBeNull()
+    expect($actor['link'])->toBeNull()
         ->and($actor['label'])->toBe('Studio')
         ->and($actor['data']['media'])->toBe(['app' => 'owned'])
         ->and($actor['media']['icon']['src'])->toBe('/avatar.svg')
@@ -57,9 +57,9 @@ it('keeps a party external home alongside pictures', function () {
     Storyfeed::activity('ping')->actor($party)->publish();
 
     $actor = Storyfeed::feed()->get()->toArray()['items'][0]['actor'];
-    expect($actor['url'])->toBe('https://example.com')
+    expect($actor['link']['href'])->toBe('https://example.com')
         ->and($actor['media']['icon']['src'])->toBe('/avatar.svg')
-        ->and($actor['media']['url'])->toBeNull();
+        ->and($actor['media'])->not->toHaveKey('url');
 });
 
 it('keeps a valid external home when pictures are malformed', function () {

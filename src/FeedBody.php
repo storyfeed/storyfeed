@@ -170,4 +170,35 @@ abstract class FeedBody implements Contracts\FeedBody
     {
         return $value ?? throw IncompleteFeedValue::missing(static::class, $method);
     }
+
+    /**
+     * A link whose label this body draws, as its payload: `{label, href,
+     * modal, attributes}`. The label is optional on a {@see FeedLink} and
+     * required here, so a missing one throws, naming `label()`.
+     *
+     * @return array{label: string, href: string|null, modal: bool, attributes: array<string, mixed>}
+     */
+    protected static function labelledLink(FeedLink $link): array
+    {
+        $payload = $link->toPayload();
+
+        if ($payload['label'] === null) {
+            throw IncompleteFeedValue::missing(FeedLink::class, 'label');
+        }
+
+        return $payload;
+    }
+
+    /**
+     * A stored link with its label, upgraded to the full shape, or null when
+     * the value is not one.
+     *
+     * @return array{label: string, href: string|null, modal: bool, attributes: array<string, mixed>}|null
+     */
+    protected static function storedLabelledLink(mixed $value): ?array
+    {
+        $link = FeedLink::from($value);
+
+        return $link?->label === null ? null : self::labelledLink($link);
+    }
 }

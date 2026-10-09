@@ -46,14 +46,14 @@ it('reads a named source from config', function () {
         ->and($items[0]['headline_template'])->toBe(':actor shipped :object')
         ->and($items[0]['actor'])->toMatchArray(['type' => 'storyfeed.party', 'id' => 'storyfeed', 'label' => 'Storyfeed'])
         ->and($items[0]['object'])->toMatchArray([
-            'type' => 'release', 'id' => '0.18', 'label' => 'v0.18.0', 'url' => null, 'data' => ['notes' => 12],
+            'type' => 'release', 'id' => '0.18', 'label' => 'v0.18.0', 'link' => null, 'data' => ['notes' => 12],
             'body' => [Prose::make('Feed sources and the array source.')->toArray()],
         ])
         ->and($items[0]['data'])->toBe(['breaking' => false])
         ->and($items[0]['published_at'])->toBe('2026-09-20T09:00:00.000000Z')
         ->and($items[1])->toMatchArray(['starts_at' => '2026-08-01T00:00:00.000000Z', 'ends_at' => '2026-09-01T00:00:00.000000Z'])
         ->and($items[1]['object'])->toMatchArray([
-            'id' => 'v0.17.0', 'url' => 'https://github.com/storyfeed/storyfeed/releases/tag/v0.17.0', 'body' => null,
+            'id' => 'v0.17.0', 'link' => ['href' => 'https://github.com/storyfeed/storyfeed/releases/tag/v0.17.0', 'modal' => false, 'attributes' => []], 'body' => null,
         ]);
 });
 
@@ -90,7 +90,7 @@ it('registers drivers with extend(), as Storage does', function () {
     $items = Storyfeed::feed()->source('roadmap')->get()->items();
 
     expect($items)->toHaveCount(1)
-        ->and($items[0]['object']['url'])->toBe('https://github.com/storyfeed/storyfeed/issues/50')
+        ->and($items[0]['object']['link']['href'])->toBe('https://github.com/storyfeed/storyfeed/issues/50')
         ->and(Storyfeed::source('roadmap'))->toBe(Storyfeed::source('roadmap'));
 });
 
@@ -150,7 +150,8 @@ it('takes models, party names and entities as roles', function () {
     ]))->get()->items();
 
     expect($items[0]['actor'])->toMatchArray(['type' => $sally->getMorphClass(), 'id' => (string) $sally->getKey(), 'label' => 'Sally'])
-        ->and($items[0]['object'])->toMatchArray(['label' => 'Delivery #TN-1', 'url' => '/deliveries/'.$delivery->getKey()])
+        ->and($items[0]['object'])->toMatchArray(['label' => 'Delivery #TN-1'])
+        ->and($items[0]['object']['link']['href'])->toBe('/deliveries/'.$delivery->getKey())
         ->and($items[0]['object']['body'])->toBe([Prose::make('Left the depot.')->toArray()])
         ->and($items[0]['target'])->toMatchArray(['type' => 'storyfeed.party', 'id' => 'courier-bot', 'label' => 'Courier Bot'])
         ->and(Snapshot::query()->count())->toBe($snapshots);

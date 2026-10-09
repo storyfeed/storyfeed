@@ -14,8 +14,9 @@ use Storyfeed\Support\FeedItem;
 function headlineEntity(string $type, ?string $label, ?string $url = null, array $extra = []): array
 {
     return [
-        'type' => $type, 'id' => '1', 'label' => $label, 'url' => $url,
-        'attributes' => [], 'modal' => false, 'data' => [], 'media' => null,
+        'type' => $type, 'id' => '1', 'label' => $label,
+        'link' => $url === null ? null : ['href' => $url, 'modal' => false, 'attributes' => []],
+        'data' => [], 'media' => null,
         'body' => null, 'tombstone' => null, ...$extra,
     ];
 }
@@ -74,7 +75,7 @@ it('reads an activity template in segments', function () {
 
 it('draws entities as links, and escapes everything else', function () {
     $item = headlineActivity([
-        'actor' => headlineEntity('user', 'Dana <3', '/users/1?a=1&b=2', ['attributes' => ['target' => '_blank']]),
+        'actor' => headlineEntity('user', 'Dana <3', '/users/1?a=1&b=2', ['link' => ['href' => '/users/1?a=1&b=2', 'modal' => false, 'attributes' => ['target' => '_blank']]]),
         'headline_template' => ':actor confirmed <b>:object</b>',
     ]);
 

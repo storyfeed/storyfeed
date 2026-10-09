@@ -5,6 +5,7 @@ use Illuminate\Support\Facades\Exceptions;
 use Storyfeed\Facades\Storyfeed;
 use Storyfeed\FeedContext;
 use Storyfeed\FeedImage;
+use Storyfeed\FeedLink;
 use Storyfeed\FeedMedia;
 use Storyfeed\Models\Activity;
 use Storyfeed\Serialization\ActivitySerializer;
@@ -12,15 +13,15 @@ use Workbench\App\Models\Customer;
 use Workbench\App\Models\User;
 
 /*
- * The media slots (todo 627): icon / image / preview / url on FeedMedia,
+ * The media slots (todo 627): icon / image / preview on FeedMedia,
  * `entity.media` on the payload, Link objects on the AS2 document. The
  * slots are AS2's property names and the slot is the meaning.
  */
 
 /**
  * A photo-shaped Feedable: the snapshot carries mediaType/width/height and
- * no URL; the resolver mints the full conversion as `url` and the thumb as
- * `preview` — the consumer's exact shape.
+ * no URL; the resolver mints the full conversion as `image`, links to it as
+ * a modal, and the thumb as `preview` — the consumer's exact shape.
  */
 function photoModel(): Customer
 {
@@ -31,7 +32,8 @@ function photoModel(): Customer
         public static function feedMedia(FeedContext $context): ?FeedMedia
         {
             return FeedMedia::make(
-                url: FeedImage::make(
+                link: FeedLink::to("/photos/{$context->key()}/full.jpg")->modal(),
+                image: FeedImage::make(
                     src: "/photos/{$context->key()}/full.jpg",
                     mediaType: 'image/jpeg',
                     width: 4032,
@@ -56,7 +58,7 @@ it('builds every slot from named arguments', function () {
         image: '/hero.jpg',
     );
 
-    expect($media->url)->toBe('/dishes/1')
+    expect($media->link?->href)->toBe('/dishes/1')
         ->and($media->href())->toBe('/dishes/1')
         ->and($media->icon)->toBeInstanceOf(FeedImage::class)
         ->and($media->icon?->src)->toBe('/avatars/1.png')
@@ -83,12 +85,22 @@ it('is immutable from outside despite the fluent setters', function () {
     expect(fn () => $media->preview = FeedImage::make('/y'))->toThrow(Error::class);
 });
 
-it('reads the href through a url given as an image', function () {
-    $media = FeedMedia::make(url: FeedImage::make('/full.jpg', 'image/jpeg', 100, 80));
+it('takes a FeedLink for a link with a suggestion, and a string as a plain one', function () {
+    $media = FeedMedia::make(link: FeedLink::to('/full.jpg')->modal()->attributes(['target' => '_blank']));
 
     expect($media->href())->toBe('/full.jpg')
-        ->and($media->url)->toBeInstanceOf(FeedImage::class);
+        ->and($media->link?->modal)->toBeTrue()
+        ->and($media->link?->attributes)->toBe(['target' => '_blank'])
+        ->and(FeedMedia::make()->link('/plain')->link?->modal)->toBeFalse()
+        ->and(FeedMedia::make()->url('/a')->link(FeedLink::to('/b'))->href())->toBe('/b');
 });
+
+it('refuses an entity link with nowhere to go', function (FeedLink $link) {
+    expect(fn () => FeedMedia::make()->link($link))->toThrow(InvalidArgumentException::class, 'FeedLink::to($href)');
+})->with([
+    'the entity itself' => fn () => FeedLink::toEntity('Pad thai'),
+    'no href' => fn () => FeedLink::make('Pad thai'),
+]);
 
 it('degrades impossible dimensions to null rather than reserving a zero box', function () {
     $image = FeedImage::make('/x.jpg', width: 0, height: -5);
@@ -102,41 +114,40 @@ it('degrades impossible dimensions to null rather than reserving a zero box', fu
 
 it('answers null media when no slot is set, and every slot key when one is', function () {
     expect(FeedMedia::make('/x')->media())->toBeNull()
-        ->and(FeedMedia::make('/x', 'Label', ['target' => '_blank'], modal: true)->media())->toBeNull()
+        ->and(FeedMedia::make('/x', 'Label', FeedLink::to('/x')->modal())->media())->toBeNull()
         ->and(FeedMedia::make()->media())->toBeNull();
 
     $media = FeedMedia::make(preview: '/thumb.jpg')->media();
 
-    expect($media)->toHaveKeys(['icon', 'image', 'preview', 'url'])
+    expect($media)->toHaveKeys(['icon', 'image', 'preview'])
+        ->and($media)->not->toHaveKey('url')
         ->and($media['icon'])->toBeNull()
-        ->and($media['url'])->toBeNull()
         ->and($media['preview']['src'])->toBe('/thumb.jpg');
 });
 
-it('emits entity.media on the payload with url as a string and the typed url under media', function () {
+it('emits entity.link with its suggestion and the full picture as the image slot', function () {
     $photo = photoModel()::create(['name' => 'Pad thai']);
 
     Storyfeed::activity('publish', $photo)->publish();
 
     $object = Storyfeed::feed()->get()->toArray()['items'][0]['object'];
 
-    expect($object['url'])->toBe("/photos/{$photo->id}/full.jpg")
+    expect($object['link'])->toBe(['href' => "/photos/{$photo->id}/full.jpg", 'modal' => true, 'attributes' => []])
         ->and($object['media'])->toBe([
             'icon' => null,
-            'image' => null,
+            'image' => [
+                'src' => "/photos/{$photo->id}/full.jpg",
+                'mediaType' => 'image/jpeg',
+                'width' => 4032,
+                'height' => 3024,
+                'alt' => 'Pad thai',
+            ],
             'preview' => [
                 'src' => "/photos/{$photo->id}/thumb.jpg",
                 'mediaType' => 'image/jpeg',
                 'width' => 400,
                 'height' => 300,
                 'alt' => null,
-            ],
-            'url' => [
-                'src' => "/photos/{$photo->id}/full.jpg",
-                'mediaType' => 'image/jpeg',
-                'width' => 4032,
-                'height' => 3024,
-                'alt' => 'Pad thai',
             ],
             'initials' => null,
             'color' => null,
@@ -151,7 +162,7 @@ it('emits media: null for an entity whose resolver returns only a link', functio
 
     $item = Storyfeed::feed()->get()->toArray()['items'][0];
 
-    expect($item['object']['url'])->toBe("/customers/{$customer->id}")
+    expect($item['object']['link']['href'])->toBe("/customers/{$customer->id}")
         ->and($item['object']['media'])->toBeNull()
         ->and($item['actor'])->toBeNull();
 });
@@ -168,7 +179,7 @@ it('emits media: null for an un-snapshotted entity without calling the resolver'
 
     $object = Storyfeed::feed()->get()->toArray()['items'][0]['object'];
 
-    expect($object['url'])->toBeNull()
+    expect($object['link'])->toBeNull()
         ->and($object['media'])->toBeNull()
         ->and($object['label'])->toBeNull();
 });
@@ -195,32 +206,33 @@ it('degrades a throwing resolver to no url and no media, reported', function () 
     $object = Storyfeed::feed()->get()->toArray()['items'][0]['object'];
 
     expect($object['label'])->toBe('Burnt')
-        ->and($object['url'])->toBeNull()
+        ->and($object['link'])->toBeNull()
         ->and($object['media'])->toBeNull();
     Exceptions::assertReported(RuntimeException::class);
 });
 
-it('serializes a typed url as an AS2 Link with mediaType and dimensions, and the derivative as preview', function () {
+it('serializes the link as a bare url, and the image and its derivative as AS2 Links', function () {
     $photo = photoModel()::create(['name' => 'Pad thai']);
 
     $activity = Storyfeed::activity('publish', $photo)->publish();
 
     $document = app(ActivitySerializer::class)->activity($activity->fresh(['cachedObject']));
 
-    expect($document['object']['url'])->toBe([
-        'type' => 'Link',
-        'href' => url("/photos/{$photo->id}/full.jpg"),
-        'mediaType' => 'image/jpeg',
-        'name' => 'Pad thai',
-        'width' => 4032,
-        'height' => 3024,
-    ])->and($document['object']['preview'])->toBe([
-        'type' => 'Link',
-        'href' => url("/photos/{$photo->id}/thumb.jpg"),
-        'mediaType' => 'image/jpeg',
-        'width' => 400,
-        'height' => 300,
-    ])->and($document['object'])->not->toHaveKeys(['icon', 'image']);
+    expect($document['object']['url'])->toBe(url("/photos/{$photo->id}/full.jpg"))
+        ->and($document['object']['image'])->toBe([
+            'type' => 'Link',
+            'href' => url("/photos/{$photo->id}/full.jpg"),
+            'mediaType' => 'image/jpeg',
+            'name' => 'Pad thai',
+            'width' => 4032,
+            'height' => 3024,
+        ])->and($document['object']['preview'])->toBe([
+            'type' => 'Link',
+            'href' => url("/photos/{$photo->id}/thumb.jpg"),
+            'mediaType' => 'image/jpeg',
+            'width' => 400,
+            'height' => 300,
+        ])->and($document['object'])->not->toHaveKeys(['icon', 'modal']);
 });
 
 it('keeps a plain href as a bare string url on the AS2 document', function () {

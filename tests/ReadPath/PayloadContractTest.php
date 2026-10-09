@@ -28,9 +28,11 @@ it('emits the same payload shape as before the recording API change', function (
         'glyph', 'glyph_intent', 'actor', 'object', 'target', 'context', 'origin', 'result', 'instrument', 'data',
         'tombstoned', 'redundant', 'missing_headline_template', 'missing_headline',
     ]);
+    // `url`, `attributes` and `modal` became one `link` (2026-10-09, #79).
     expect(array_keys($payload['items'][0]['object']))->toBe([
-        'type', 'id', 'label', 'url', 'attributes', 'modal', 'data', 'media', 'body', 'tombstone',
+        'type', 'id', 'label', 'link', 'data', 'media', 'body', 'tombstone',
     ]);
+    expect(array_keys($payload['items'][0]['object']['link']))->toBe(['href', 'modal', 'attributes']);
 });
 
 it('emits the frozen group-node shape', function () {

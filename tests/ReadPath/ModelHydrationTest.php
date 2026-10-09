@@ -116,8 +116,8 @@ it('returns the live model to a resolver, batched: one query per class however m
 
     $items = $page();
 
-    expect($items['items'][0]['object']['url'])->toBe('/deliveries/'.$items['items'][0]['object']['id'])
-        ->and($items['items'][0]['target']['url'])->toBe('/customers/'.$items['items'][0]['target']['id']);
+    expect($items['items'][0]['object']['link']['href'])->toBe('/deliveries/'.$items['items'][0]['object']['id'])
+        ->and($items['items'][0]['target']['link']['href'])->toBe('/customers/'.$items['items'][0]['target']['id']);
 });
 
 it('serves one instance per entity for the whole build — the identity map, not a fresh row each time', function () {
@@ -156,7 +156,7 @@ it('loads relations named in with: on the same batch, so nested access costs not
 
     $item = collect($page()['items'])->firstWhere('verb', 'confirm');
 
-    expect($item['object']['attributes']['data-customer'])->toStartWith('Customer ');
+    expect($item['object']['link']['attributes']['data-customer'])->toStartWith('Customer ');
 });
 
 it('answers null for a row that is gone, and the activity still renders with its snapshot label', function () {
@@ -174,7 +174,7 @@ it('answers null for a row that is gone, and the activity still renders with its
 
     expect(Customer::$hydrated)->toBe([null])
         ->and($item['object']['label'])->toBe('Acme')
-        ->and($item['object']['url'])->toBeNull();
+        ->and($item['object']['link'])->toBeNull();
 });
 
 it('hides a soft-deleted row by default and hands it over with withTrashed: true', function () {
@@ -189,7 +189,7 @@ it('hides a soft-deleted row by default and hands it over with withTrashed: true
     $item = Storyfeed::feed()->log()->get()->toArray()['items'][0];
 
     expect(Customer::$hydrated)->toBe([null])
-        ->and($item['object']['url'])->toBeNull();
+        ->and($item['object']['link'])->toBeNull();
 
     Customer::$hydrated = [];
     Customer::$hydratesTrashed = true;
@@ -198,7 +198,7 @@ it('hides a soft-deleted row by default and hands it over with withTrashed: true
 
     expect(Customer::$hydrated[0])->toBeInstanceOf(Customer::class)
         ->and(Customer::$hydrated[0]->trashed())->toBeTrue()
-        ->and($item['object']['url'])->toBe("/customers/{$customer->id}");
+        ->and($item['object']['link']['href'])->toBe("/customers/{$customer->id}");
 });
 
 it('ignores withTrashed on a class that does not soft-delete instead of throwing', function () {
@@ -266,7 +266,7 @@ it('does nothing when hydration is switched off: no query, no exception, null', 
     $item = $page()['items'][0];
 
     expect($item['object']['label'])->toBe('Acme')
-        ->and($item['object']['url'])->toBeNull();
+        ->and($item['object']['link'])->toBeNull();
 });
 
 it('starts a fresh identity map for every build, even through a singleton-bound presenter', function () {

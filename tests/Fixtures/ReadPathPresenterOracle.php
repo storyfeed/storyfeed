@@ -253,13 +253,9 @@ final class ReadPathPresenterOracle extends NodePresenter
             'type' => $type,
             'id' => $id === null ? null : (string) $id,
             'label' => $link->label ?? $snapshot?->label,
-            'url' => $link?->href(),
-            'attributes' => $link->attributes ?? [],
-            'modal' => $link->modal ?? false,
+            'link' => $link?->link === null ? null : ['href' => $link->link->href, 'modal' => $link->link->modal, 'attributes' => $link->link->attributes],
             'data' => $data,
-            // Additive (2026-09-05): the typed image slots, or null. `url`
-            // above stays the string it was frozen as; when the resource
-            // itself is an image its dimensions ride here as `media.url`.
+            // Additive (2026-09-05): the typed image slots, or null.
             'media' => $link?->media(),
             // Omit only absent body fields: old snapshots keep their shape,
             // while an explicitly empty string remains authored content. The

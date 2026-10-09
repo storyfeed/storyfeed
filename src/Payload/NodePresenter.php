@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
 use Storyfeed\FeedContext;
 use Storyfeed\FeedHeadline;
+use Storyfeed\FeedLink;
 use Storyfeed\FeedNoun;
 use Storyfeed\Models\Activity;
 use Storyfeed\Models\FeedTombstone;
@@ -652,10 +653,10 @@ class NodePresenter
         $data = $this->snapshotJson($snapshot, 'data') ?? [];
 
         // No snapshot ⇒ no link regeneration: the contract promises degraded
-        // entities arrive with url: null, and calling the app's resolver
+        // entities arrive with link: null, and calling the app's resolver
         // with empty data makes every naive implementation warn.
         $links = $this->links ?? new LinkResolver;
-        $link = $snapshot === null ? null : $links->resolve(new FeedContext(
+        $media = $snapshot === null ? null : $links->resolve(new FeedContext(
             type: $type,
             key: $id,
             label: $this->snapshotPlain($snapshot, 'label'),
@@ -668,17 +669,15 @@ class NodePresenter
         return [
             'type' => $type,
             'id' => $id === null ? null : (string) $id,
-            'label' => $link->label ?? $this->snapshotPlain($snapshot, 'label'),
-            // An entity with no model behind it (a source's lightweight
-            // `['type', 'label', 'url']`) carries its link in the snapshot.
-            'url' => $link?->href() ?? self::staticUrl($this->snapshotJson($snapshot, 'meta')),
-            'attributes' => $link->attributes ?? [],
-            'modal' => $link->modal ?? false,
+            'label' => $media->label ?? $this->snapshotPlain($snapshot, 'label'),
+            // Replaced `url`, `attributes` and `modal` (2026-10-09, #79): the
+            // FeedLink owns the place a tap goes. An entity with no model
+            // behind it (a source's lightweight `['type', 'label', 'url']`)
+            // carries its href in the snapshot.
+            'link' => self::link($media?->link, $this->snapshotJson($snapshot, 'meta')),
             'data' => $data,
-            // Additive (2026-09-05): the typed image slots, or null. `url`
-            // above stays the string it was frozen as; when the resource
-            // itself is an image its dimensions ride here as `media.url`.
-            'media' => $link?->media(),
+            // Additive (2026-09-05): the typed image slots, or null.
+            'media' => $media?->media(),
             // Omit only absent body fields: old snapshots keep their shape,
             // while an explicitly empty string remains authored content. The
             // body: what the snapshot stored, then what the resolver resolved.
@@ -688,7 +687,7 @@ class NodePresenter
             // and a renderer that draws them another way is not wrong. A
             // resolved body that throws is reported and left out; the stored
             // body and the rest of the entity still arrive.
-            'body' => self::bodyOrNull([...($this->snapshotJson($snapshot, 'body') ?? []), ...$links->body($link, $type)]),
+            'body' => self::bodyOrNull([...($this->snapshotJson($snapshot, 'body') ?? []), ...$links->body($media, $type)]),
             // Additive (2026-09-23): what a deleted entity left behind, or
             // null. Distinct from DEGRADED (a live entity with no snapshot
             // yet: `label: null`, `tombstone: null`) and from ANONYMOUS (no
@@ -704,12 +703,22 @@ class NodePresenter
         ];
     }
 
-    /** @param  array<array-key, mixed>|null  $meta */
-    private static function staticUrl(?array $meta): ?string
+    /**
+     * The entity's `link`: the resolver's, else a static href from the
+     * snapshot, else null.
+     *
+     * @param  array<array-key, mixed>|null  $meta
+     * @return array{href: string, modal: bool, attributes: array<string, mixed>}|null
+     */
+    private static function link(?FeedLink $link, ?array $meta): ?array
     {
+        if ($link?->href !== null) {
+            return ['href' => $link->href, 'modal' => $link->modal, 'attributes' => $link->attributes];
+        }
+
         $url = $meta['url'] ?? null;
 
-        return is_string($url) && $url !== '' ? $url : null;
+        return is_string($url) && $url !== '' ? ['href' => $url, 'modal' => false, 'attributes' => []] : null;
     }
 
     /** @return array<string, array<string, mixed>|null> */

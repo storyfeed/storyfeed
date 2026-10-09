@@ -20,11 +20,11 @@ it('emits fully self-describing entities with fresh links', function () {
             'type' => 'delivery',
             'id' => (string) $delivery->id,
             'label' => 'Delivery #TN-1042',
-            'url' => "/deliveries/{$delivery->id}",
+            'link' => ['href' => "/deliveries/{$delivery->id}", 'modal' => false, 'attributes' => ['data-status' => 'confirmed']],
         ])
         ->and($item['object'])->not->toHaveKey('component')
         ->and($item['object']['data']['status'])->toBe('confirmed')
-        ->and($item['actor']['url'])->toBe("/users/{$user->id}")
+        ->and($item['actor']['link']['href'])->toBe("/users/{$user->id}")
         ->and($item['target']['label'])->toBe('Acme Co.');
 });
 
@@ -52,5 +52,5 @@ it('regenerates links from cached data at read time', function () {
 
     $item = Storyfeed::feed()->get()->toArray()['items'][0];
 
-    expect($item['object']['attributes'])->toMatchArray(['data-status' => 'draft']);
+    expect($item['object']['link']['attributes'])->toMatchArray(['data-status' => 'draft']);
 });

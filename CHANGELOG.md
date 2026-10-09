@@ -14,6 +14,7 @@
 - A reserved `$fallback` key (`Contracts\FeedBody::FALLBACK`): `->fallback('…')` on any body writes one plain-text line for renderers that cannot draw its type. A body type may derive one by overriding `defaultFallback()`.
 - `Image::make()` accepts `image:`, and `Image` gains `image(?MediaSlot)`.
 - `Storyfeed\Body\Table`, a body for tabular data after Artisan's `table($headers, $rows)`: `Table::make($headers, $rows)->title('…')`, or fluently with `headers()`, `rows()`, `row()` and `footer()` for subtotal and total rows. A cell is a string, int, float, null or `FeedLink`; text is plain and keeps its line breaks. Ragged rows are padded with null, and a row wider than the headers throws, naming the row. A titled table falls back to its title.
+- `FeedLink` owns the link: `FeedLink::to($href)` (after `URL::to()` and `redirect()->to()`), `FeedLink::toEntity($label)` for the entity's own link (after `redirect()->toRoute()`), and `modal()` and `attributes()`, which merge as `View::with()` does. `FeedMedia::link(FeedLink|string)` and `link:` set the entity's link; `FeedMedia::url($href)` stays as the short form for a plain one.
 
 ### Changed
 
@@ -22,6 +23,14 @@
 - Bodies write a setting only when it differs from its default; `upgrade()` fills defaults back in. New versions: `Excerpt` v2, `FileAttachment` v2, `Image` v2, `Component` v2, `ItemList` v2, `Prose` v2, `KeyValue` v3, `MediaObject` v3. Stored rows of earlier versions upgrade as before. Renderers that read a body without calling `upgrade()` must apply the defaults: an absent `Excerpt.truncated` is `true`, an absent `Prose.mediaType` is `text/plain` from v2, and an absent `Image.image` is `preview`.
 - `KeyValue::upgrade()` returns `verbatim` on every row.
 - `Prose::content(null)` clears the text, so using the body throws `IncompleteFeedValue`; it used to store an empty string. `MediaObject::content()` accepts a `Stringable` or scalar.
+- The entity's `url`, `attributes` and `modal` are one `link`: `{href, modal, attributes}`, or null when the entity is not linkable. `Support\Entity::url()`, `attributes()` and `isModal()` read it.
+- Links inside bodies carry `{label, href, modal, attributes}`. `ItemList` v3 and `MediaObject` v4; stored links upgrade with `modal: false` and empty `attributes`. A body link without an href throws unless it is `FeedLink::toEntity()`, and one without a label throws naming `label()`. A `toEntity()` link is written as `href: null`, the shape it always had.
+
+### Removed
+
+- `FeedMedia`'s `attributes:` and `modal:` arguments and its `attributes()` and `modal()` methods. Use `link(FeedLink::to($href)->modal()->attributes([...]))`.
+- A `FeedImage` as `FeedMedia::url()`, and with it `media.url` and the AS2 `url` Link object. Put a full-size picture in `image`.
+- `FeedLink::make($label)` without an href as the entity's own link. Use `FeedLink::toEntity($label)`.
 
 ## v0.16.0 - 2026-10-09
 

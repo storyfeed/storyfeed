@@ -4,21 +4,21 @@ namespace Storyfeed;
 
 use Closure;
 use Illuminate\Support\Traits\Conditionable;
+use InvalidArgumentException;
 use Storyfeed\Contracts\FeedBody;
 use Storyfeed\Support\BodySlot;
 use Throwable;
 
 /**
  * What a resolver knows about an entity at read time that its snapshot
- * cannot cache: a fresh url, an optional label override, link attributes,
- * a modal hint, and the images that go with it. Returned by
- * Feedable::feedMedia().
+ * cannot cache: a fresh link, an optional label override, and the images
+ * that go with it. Returned by Feedable::feedMedia().
  *
- * Replaced the first FeedLink, which stopped being "a link" once it grew a
- * label and a modal flag, and was removed with the older toFeedLink()
- * contract on 2026-09-05 (journal 057). The name now belongs to
- * {@see FeedLink}, a label and an optional href inside bodies. Part of the
- * versioned payload contract.
+ * The link is a {@see FeedLink}, which owns everything about the place a tap
+ * goes: the href, a modal suggestion and attributes (#79, ruled 2026-09-26).
+ * `url($href)` is the short form for a plain link; anything more is
+ * `link(FeedLink::to($href)->modal())`. Part of the versioned payload
+ * contract.
  *
  * ## The slots are AS2's property names, and the slot IS the meaning
  *
@@ -26,38 +26,31 @@ use Throwable;
  *   image    a larger visual representation of a non-image object — a hero
  *            shot on a recipe
  *   preview  a preview of the resource — the dense-feed thumbnail
- *   url      where the resource itself lives — for a photo, the full image
  *
  * A single anonymous "media" field was rejected because it would have made
  * every renderer guess from the role what the picture was FOR. AS2 already
- * made the distinctions a renderer needs, in particular the one a photo
- * object turns on: `url` is the resource and `preview` is the derivative you
- * paint in a list. Honour it rather than invent it.
+ * made the distinctions a renderer needs. Honour them rather than invent them.
  *
- * So `url` accepts a FeedImage as well as a string. As a string it is what
- * it always was, the href a tap follows. As a FeedImage it is still that
- * href (href() reads either) and ALSO says the thing at the other end is an
- * image with these dimensions — which is what lets the payload carry
- * `media.url` and the AS2 serializer emit `url` as a Link with `mediaType`,
- * `width` and `height`.
+ * A full-size picture of a photo goes in `image`; the link is where a tap
+ * goes, and is a string, never an image. To open the picture large, say so:
+ * `link(FeedLink::to($full)->modal())`.
  *
  * Non-image resources are `files`, a list: each FeedResource carries
  * AS2's href, mediaType and name with a Document (or extension) object type,
  * and the list keeps the order it was given. AS2's `attachment` is
  * one-or-many, so a block listing four files gets four live hrefs, resolved
  * the way FeedImage::src is. Empty by default; the image slots retain
- * their meaning and `url` stays image-only.
+ * their meaning.
  *
  * ## Two ways to build one, both wanted
  *
- *     FeedMedia::make(url: $full, preview: $thumb)
- *     FeedMedia::make()->url($full)->preview($thumb)->icon($avatar)
+ *     FeedMedia::make(url: $href, preview: $thumb)
+ *     FeedMedia::make()->link(FeedLink::to($href)->modal())->preview($thumb)->icon($avatar)
  *
  * Named arguments for the one-expression case; fluent setters for the
  * resolver that decides slot by slot. Every `make()` argument has a method of
  * the same name. The setters mutate and return $this, as Stories\Verb's
- * do; lists append (`files()`, `body()`) and maps merge in
- * `View::with()`'s manner (`attributes()`). The properties are
+ * do; lists append (`files()`, `body()`). The properties are
  * `private(set)`, so a presenter can read every slot and change none.
  *
  * ## An avatar without a picture
@@ -77,17 +70,11 @@ final class FeedMedia
 {
     use Conditionable;
 
-    /** Where the resource lives: an href, or an image with its dimensions. */
-    public private(set) FeedImage|string|null $url = null;
+    /** Where a tap on the entity goes, and how the renderer should open it. */
+    public private(set) ?FeedLink $link = null;
 
     /** A label that overrides the snapshot's, read fresh on every request. */
     public private(set) ?string $label = null;
-
-    /** @var array<string, mixed> attributes for the rendered link */
-    public private(set) array $attributes = [];
-
-    /** Whether the link should open as a modal. */
-    public private(set) bool $modal = false;
 
     public private(set) ?FeedImage $icon = null;
 
@@ -160,15 +147,13 @@ final class FeedMedia
     }
 
     /**
-     * @param  array<string, mixed>  $attributes
      * @param  iterable<FeedResource>  $files
      * @param  string|FeedBody|iterable<mixed>|Closure|null  $body
      */
     public function __construct(
-        FeedImage|string|null $url = null,
+        ?string $url = null,
         ?string $label = null,
-        array $attributes = [],
-        bool $modal = false,
+        FeedLink|string|null $link = null,
         FeedImage|string|null $icon = null,
         FeedImage|string|null $preview = null,
         FeedImage|string|null $image = null,
@@ -179,8 +164,7 @@ final class FeedMedia
     ) {
         $this->url($url)
             ->label($label)
-            ->attributes($attributes)
-            ->modal($modal)
+            ->when($link !== null, fn (self $media) => $media->link($link))
             ->icon($icon)
             ->preview($preview)
             ->image($image)
@@ -194,15 +178,13 @@ final class FeedMedia
      * Start the media. Every argument is optional and has a method of the
      * same name, so `make()` with nothing is where the chain begins.
      *
-     * @param  array<string, mixed>  $attributes
      * @param  iterable<FeedResource>  $files
      * @param  string|FeedBody|iterable<mixed>|Closure|null  $body
      */
     public static function make(
-        FeedImage|string|null $url = null,
+        ?string $url = null,
         ?string $label = null,
-        array $attributes = [],
-        bool $modal = false,
+        FeedLink|string|null $link = null,
         FeedImage|string|null $icon = null,
         FeedImage|string|null $preview = null,
         FeedImage|string|null $image = null,
@@ -211,16 +193,36 @@ final class FeedMedia
         ?string $initials = null,
         ?string $color = null,
     ): self {
-        return new self($url, $label, $attributes, $modal, $icon, $preview, $image, $files, $body, $initials, $color);
+        return new self($url, $label, $link, $icon, $preview, $image, $files, $body, $initials, $color);
     }
 
     /**
-     * Where a tap goes: an href, or a FeedImage when the resource itself is
-     * an image.
+     * Where a tap goes, as a plain link: the short form of
+     * `link(FeedLink::to($url))`.
      */
-    public function url(FeedImage|string|null $url): self
+    public function url(?string $url): self
     {
-        $this->url = $url;
+        $this->link = $url === null || $url === '' ? null : FeedLink::to($url);
+
+        return $this;
+    }
+
+    /**
+     * Where a tap goes, and how: `FeedLink::to($href)->modal()`. A string is
+     * a plain link, as `url()` sets. The entity's own link needs an href, so
+     * `FeedLink::toEntity()` and a link without one throw.
+     */
+    public function link(FeedLink|string|null $link): self
+    {
+        if (is_string($link)) {
+            return $this->url($link);
+        }
+
+        if ($link !== null && ($link->entity || $link->href === null)) {
+            throw new InvalidArgumentException('An entity\'s link needs an href: use FeedLink::to($href). FeedLink::toEntity() is for links inside a body.');
+        }
+
+        $this->link = $link;
 
         return $this;
     }
@@ -231,36 +233,6 @@ final class FeedMedia
     public function label(?string $label): self
     {
         $this->label = $label;
-
-        return $this;
-    }
-
-    /**
-     * Attributes for the rendered link. An array MERGES — a repeated key
-     * takes the later value — and a key with a value sets that one key, as
-     * `View::with()` does.
-     *
-     * @param  array<string, mixed>|string  $key
-     */
-    public function attributes(array|string $key, mixed $value = null): self
-    {
-        if (is_string($key)) {
-            $this->attributes[$key] = $value;
-
-            return $this;
-        }
-
-        $this->attributes = array_merge($this->attributes, $key);
-
-        return $this;
-    }
-
-    /**
-     * Hint the renderer to open the link as a modal.
-     */
-    public function modal(bool $modal = true): self
-    {
-        $this->modal = $modal;
 
         return $this;
     }
@@ -372,14 +344,10 @@ final class FeedMedia
         return $this;
     }
 
-    /**
-     * The href, whichever form `url` took. Readers that only want somewhere
-     * to point a tap — the payload's `entity.url`, the AS2 actor `id` — read
-     * this and never learn whether the resource was an image.
-     */
+    /** Where a tap goes, or null when the entity is not linkable. */
     public function href(): ?string
     {
-        return $this->url instanceof FeedImage ? $this->url->src : $this->url;
+        return $this->link?->href;
     }
 
     /**
@@ -387,14 +355,13 @@ final class FeedMedia
      * nothing is set.
      *
      * Null rather than four nulls and an empty list so "does this entity
-     * have media at all" is one check, the same one `url: null` answers for
-     * linkability. When it is an object every key is present — the four
+     * have media at all" is one check, the same one `link: null` answers for
+     * linkability. When it is an object every key is present — the three
      * image slots as an image object or null, `initials` and `color` as a
-     * string or null, `files` as a list that may be empty — so a renderer that wants one slot reads it without
-     * first asking which slots exist. `url` here is the typed form only: a
-     * string url is not media and appears solely as `entity.url`.
+     * string or null, `files` as a list that may be empty — so a renderer
+     * that wants one slot reads it without first asking which slots exist.
      *
-     * @return array{icon: array<string, mixed>|null, initials: string|null, color: string|null, image: array<string, mixed>|null, preview: array<string, mixed>|null, url: array<string, mixed>|null, files: list<array<string, mixed>>}|null
+     * @return array{icon: array<string, mixed>|null, initials: string|null, color: string|null, image: array<string, mixed>|null, preview: array<string, mixed>|null, files: list<array<string, mixed>>}|null
      */
     public function media(): ?array
     {
@@ -402,7 +369,6 @@ final class FeedMedia
             'icon' => $this->icon,
             'image' => $this->image,
             'preview' => $this->preview,
-            'url' => $this->url instanceof FeedImage ? $this->url : null,
         ];
 
         if (array_filter($images) === [] && $this->files === [] && $this->initials === null && $this->color === null) {

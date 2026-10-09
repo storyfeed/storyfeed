@@ -89,7 +89,7 @@ it('emits a party as a normal payload entity with no url', function () {
     expect($item['actor'])->toMatchArray([
         'type' => 'storyfeed.party',
         'label' => 'Concur Web Service',
-        'url' => null,
+        'link' => null,
     ])
         ->and($item['actor']['data']['key'])->toBe('concur-web-service');
 });
@@ -148,7 +148,7 @@ it('links a string party using the declared external home from the docs example'
     Storyfeed::activity('launch')->object('TalkingFeed')->publish();
 
     expect($party->fresh()->data['$url'])->toBe('https://talkingfeed.app')
-        ->and(Storyfeed::feed()->get()->toArray()['items'][0]['object']['url'])->toBe('https://talkingfeed.app');
+        ->and(Storyfeed::feed()->get()->toArray()['items'][0]['object']['link']['href'])->toBe('https://talkingfeed.app');
 });
 
 it('preserves the external home through renames and replacement app data', function () {
@@ -161,7 +161,7 @@ it('preserves the external home through renames and replacement app data', funct
     expect($renamed->id)->toBe($party->id)
         ->and($renamed->fresh()->data)->toMatchArray(['version' => 2, '$url' => 'https://example.com'])
         ->and($actor['label'])->toBe('Platform')
-        ->and($actor['url'])->toBe('https://example.com');
+        ->and($actor['link']['href'])->toBe('https://example.com');
 });
 
 it('updates and explicitly removes an external home on existing activities', function () {
@@ -169,10 +169,10 @@ it('updates and explicitly removes an external home on existing activities', fun
     Storyfeed::activity('ping')->actor($party)->publish();
 
     Party::make('Studio', url: 'https://example.com/new');
-    expect(Storyfeed::feed()->get()->toArray()['items'][0]['actor']['url'])->toBe('https://example.com/new');
+    expect(Storyfeed::feed()->get()->toArray()['items'][0]['actor']['link']['href'])->toBe('https://example.com/new');
 
     Party::make('Studio', url: null);
-    expect(Storyfeed::feed()->get()->toArray()['items'][0]['actor']['url'])->toBeNull();
+    expect(Storyfeed::feed()->get()->toArray()['items'][0]['actor']['link'])->toBeNull();
 });
 
 it('reads external homes in every role from retired party snapshots without party queries or writes', function () {
@@ -188,7 +188,7 @@ it('reads external homes in every role from retired party snapshots without part
     $document = serialize_one($activity);
 
     foreach (['actor', 'object', 'target', 'context'] as $role) {
-        expect($item[$role]['url'])->toBe('https://example.com/studio');
+        expect($item[$role]['link']['href'])->toBe('https://example.com/studio');
     }
     expect($document['actor']['url'])->toBe('https://example.com/studio')
         ->and($document['object']['url'])->toBe('https://example.com/studio');

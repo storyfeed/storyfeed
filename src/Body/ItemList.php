@@ -142,7 +142,7 @@ class ItemList extends FeedBody
      * an unrecognised body type gets, for the same reason.
      *
      * @param  iterable<mixed>  $items
-     * @return list<string|array{label: string, href: string|null}>
+     * @return list<string|array{label: string, href: string|null, modal: bool, attributes: array<string, mixed>}>
      */
     private static function normalize(iterable $items): array
     {
@@ -150,7 +150,7 @@ class ItemList extends FeedBody
 
         foreach ($items as $item) {
             if ($item instanceof FeedLink) {
-                $normalized[] = $item->toPayload();
+                $normalized[] = self::labelledLink($item);
 
                 continue;
             }
@@ -173,10 +173,10 @@ class ItemList extends FeedBody
                 continue;
             }
 
-            $link = FeedLink::from($item);
+            $link = self::storedLabelledLink($item);
 
             if ($link !== null) {
-                $normalized[] = $link->toPayload();
+                $normalized[] = $link;
             }
         }
 
@@ -195,10 +195,14 @@ class ItemList extends FeedBody
         return 'Storyfeed/Body/ItemList';
     }
 
-    /** 2 since 2026-10-09: `title`, `ordered`, `totalItems` and `more` are written only when they differ from their defaults. */
+    /**
+     * 2 since 2026-10-09: `title`, `ordered`, `totalItems` and `more` are
+     * written only when they differ from their defaults. 3 since 2026-10-09:
+     * a link carries `modal` and `attributes` (#79).
+     */
     public static function version(): int
     {
-        return 2;
+        return 3;
     }
 
     /**
@@ -210,17 +214,16 @@ class ItemList extends FeedBody
         $items = is_array($payload['items'] ?? null) ? $payload['items'] : [];
         $title = $payload['title'] ?? null;
         $total = $payload['totalItems'] ?? null;
-        $more = FeedLink::from($payload['more'] ?? null);
 
         return [
             'title' => is_string($title) ? $title : null,
             'ordered' => (bool) ($payload['ordered'] ?? false),
-            'items' => array_values(array_filter(
+            'items' => array_values(array_filter(array_map(
+                fn (mixed $item): string|array|null => is_string($item) ? $item : self::storedLabelledLink($item),
                 $items,
-                fn (mixed $item): bool => is_string($item) || FeedLink::from($item) !== null,
-            )),
+            ), fn (mixed $item): bool => $item !== null)),
             'totalItems' => is_int($total) ? $total : null,
-            'more' => $more?->toPayload(),
+            'more' => self::storedLabelledLink($payload['more'] ?? null),
         ];
     }
 
@@ -231,7 +234,7 @@ class ItemList extends FeedBody
             'ordered' => $this->ordered,
             'items' => self::normalize($this->items),
             'totalItems' => $this->totalItems,
-            'more' => $this->more?->toPayload(),
+            'more' => $this->more === null ? null : self::labelledLink($this->more),
         ];
     }
 

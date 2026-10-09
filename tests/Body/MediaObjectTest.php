@@ -15,7 +15,7 @@ it('stores a slot name and no image, because the resolver mints the picture at r
 
     $expected = [
         '$body' => 'Storyfeed/Body/MediaObject',
-        '$v' => 3,
+        '$v' => 4,
         'subject' => 'N201 Saffron Butter Rice',
         'content' => 'Basmati replaces Jasmine.',
         'image' => 'icon',
@@ -50,7 +50,7 @@ it('is all-optional, so a block with only files is a file list and no second for
     $pdf = FeedResource::make('https://example.test/n201-v4.pdf', 'application/pdf', 'n201-v4.pdf');
 
     expect(MediaObject::make()->toPayload())
-        ->toBe(['$body' => MediaObject::bodyType(), '$v' => 3])
+        ->toBe(['$body' => MediaObject::bodyType(), '$v' => 4])
         ->and(MediaObject::make(files: [$pdf])->toPayload()['files'])
         ->toBe([['type' => 'Document', 'href' => 'https://example.test/n201-v4.pdf', 'mediaType' => 'application/pdf', 'name' => 'n201-v4.pdf']])
         ->and(rendered(MediaObject::make(subject: 'Minutes', content: 'Two items carried.'))['image'])->toBeNull();
@@ -178,11 +178,11 @@ it('takes a subject that is text or a subject that leads somewhere', function ()
 
     // A null href stores no location: the renderer resolves it against the
     // entity at read time, the same way `image: "icon"` resolves.
-    expect(MediaObject::make(subject: FeedLink::make('N201 Saffron Butter Rice'))->toPayload()['subject'])
-        ->toBe(['label' => 'N201 Saffron Butter Rice', 'href' => null]);
+    expect(MediaObject::make(subject: FeedLink::toEntity('N201 Saffron Butter Rice'))->toPayload()['subject'])
+        ->toBe(['label' => 'N201 Saffron Butter Rice', 'href' => null, 'modal' => false, 'attributes' => []]);
 
     expect(MediaObject::make(subject: FeedLink::make('The notice', 'https://example.test/n/9'))->toPayload()['subject'])
-        ->toBe(['label' => 'The notice', 'href' => 'https://example.test/n/9']);
+        ->toBe(['label' => 'The notice', 'href' => 'https://example.test/n/9', 'modal' => false, 'attributes' => []]);
 });
 
 it('does not make an old string subject clickable when the field widens', function () {
@@ -196,7 +196,7 @@ it('does not make an old string subject clickable when the field widens', functi
         ->toBe('N201 Saffron Butter Rice');
 
     expect(MediaObject::upgrade(['subject' => ['label' => 'A dish', 'href' => null]], 1)['subject'])
-        ->toBe(['label' => 'A dish', 'href' => null]);
+        ->toBe(['label' => 'A dish', 'href' => null, 'modal' => false, 'attributes' => []]);
 
     // Malformed degrades to no subject at all, never to a broken row.
     foreach ([['label' => ''], ['href' => 'https://example.test'], 7, []] as $malformed) {
@@ -214,11 +214,11 @@ it('takes a footnote that is text or a footnote that leads somewhere', function 
     expect(MediaObject::make(footnote: 'Approved by Jasper')->toPayload()['footnote'])
         ->toBe('Approved by Jasper');
 
-    expect(MediaObject::make(footnote: FeedLink::make('Approved by Jasper'))->toPayload()['footnote'])
-        ->toBe(['label' => 'Approved by Jasper', 'href' => null]);
+    expect(MediaObject::make(footnote: FeedLink::toEntity('Approved by Jasper'))->toPayload()['footnote'])
+        ->toBe(['label' => 'Approved by Jasper', 'href' => null, 'modal' => false, 'attributes' => []]);
 
     expect(MediaObject::make(footnote: FeedLink::make('Approved by Jasper', 'https://example.test/approvals/9'))->toPayload()['footnote'])
-        ->toBe(['label' => 'Approved by Jasper', 'href' => 'https://example.test/approvals/9']);
+        ->toBe(['label' => 'Approved by Jasper', 'href' => 'https://example.test/approvals/9', 'modal' => false, 'attributes' => []]);
 
     // It is one line of small print and nothing else. A footnote that grew a
     // picture or a heading would be a block asking to be born.
@@ -236,7 +236,7 @@ it('does not make a string footnote clickable, for the same reason a subject is 
         ->toBe('Approved by Jasper');
 
     expect(MediaObject::upgrade(['footnote' => ['label' => 'Approved by Jasper', 'href' => null]], 1)['footnote'])
-        ->toBe(['label' => 'Approved by Jasper', 'href' => null]);
+        ->toBe(['label' => 'Approved by Jasper', 'href' => null, 'modal' => false, 'attributes' => []]);
 
     // Malformed degrades to no footnote at all, never to a broken row.
     foreach ([['label' => ''], ['href' => 'https://example.test'], 7, []] as $malformed) {

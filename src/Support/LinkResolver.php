@@ -50,7 +50,7 @@ use Throwable;
  * 1472). A body closure runs when the body is read, not when feedMedia()
  * returns, so the try above never saw it: one throwing closure failed the
  * whole feed read. `body()` builds it under the same rule — reported once
- * per class per scope, left out, the entity kept with its label, url and
+ * per class per scope, left out, the entity kept with its label, link and
  * media. Its own ledger, because a class whose resolver throws never gets
  * as far as a body, and a class whose body throws has news of its own.
  *

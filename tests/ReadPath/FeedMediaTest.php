@@ -45,22 +45,17 @@ it('has one contract: feedMedia() lives on Feedable and the interim pieces are g
         ->and(method_exists(FeedMedia::class, 'fromLink'))->toBeFalse();
 });
 
-it('keeps the reused FeedLink out of the resolver contract', function () {
+it('keeps the link in FeedLink and the media in FeedMedia', function () {
     /*
-     * The tombstone, rewritten rather than deleted. It was `class_exists(...)
-     * ->toBeFalse()`, written to stop the old class walking back in, and the
-     * intent survives the reuse: an entity says where it points in exactly one
-     * place, `feedMedia()`. The new FeedLink is a value a STORED DETAIL may
-     * hold — a title that leads somewhere — and it never becomes a second
-     * resolver, a slot, or a member of FeedMedia.
+     * Ruled 2026-09-26 (#79): FeedLink owns the place a tap goes — href,
+     * modal, attributes — and FeedMedia keeps the media. The entity says where
+     * it points in exactly one place, `feedMedia()`, through its link; there
+     * is no second resolver and no link slot among the media.
      */
-    expect(class_exists(FeedLink::class))->toBeTrue()
-        ->and(method_exists(FeedLink::class, 'toFeedLink'))->toBeFalse()
-        ->and(property_exists(FeedLink::class, 'modal'))->toBeFalse()
-        ->and(array_keys(FeedLink::make('A dish')->toPayload()))->toBe(['label', 'href']);
-
-    // It is not one of FeedMedia's slots and cannot be set as one.
-    expect(method_exists(FeedMedia::class, 'link'))->toBeFalse()
+    expect(method_exists(FeedLink::class, 'toFeedLink'))->toBeFalse()
+        ->and(method_exists(FeedMedia::class, 'modal'))->toBeFalse()
+        ->and(method_exists(FeedMedia::class, 'attributes'))->toBeFalse()
+        ->and(array_keys(FeedLink::to('/a')->toPayload()))->toBe(['label', 'href', 'modal', 'attributes'])
         ->and(array_key_exists('link', FeedMedia::make(preview: 'https://example.test/p.jpg')->media() ?? []))->toBeFalse();
 });
 
@@ -71,7 +66,7 @@ it('answers through Feedable::feedMedia() for every model on the contract', func
 
     $item = Storyfeed::feed()->get()->toArray()['items'][0];
 
-    expect($item['object']['url'])->toBe("/customers/{$customer->id}")
+    expect($item['object']['link']['href'])->toBe("/customers/{$customer->id}")
         ->and(Customer::$lastContext)->toBeInstanceOf(FeedContext::class);
 });
 
@@ -117,7 +112,7 @@ it('reads a context value by dot path, a literal dotted key first', function () 
         ->and($context->data())->toHaveKeys(['photo', 'photo.width', 'caption']);
 });
 
-it('carries url, attributes and the modal hint from a migrated resolver without losing a slot', function () {
+it('carries the link, its attributes and the modal hint from a migrated resolver without losing a slot', function () {
     // Delivery was the last workbench model on toFeedLink(); the fold moved
     // it. Everything a FeedLink used to carry still arrives on the node.
     $delivery = Delivery::create(['tracking_number' => 'TN-1', 'status' => 'draft']);
@@ -126,9 +121,9 @@ it('carries url, attributes and the modal hint from a migrated resolver without 
 
     $item = Storyfeed::feed()->get()->toArray()['items'][0];
 
-    expect($item['object']['url'])->toBe("/deliveries/{$delivery->id}")
-        ->and($item['object']['attributes'])->toMatchArray(['data-status' => 'draft'])
-        ->and($item['object']['modal'])->toBeFalse();
+    expect($item['object']['link']['href'])->toBe("/deliveries/{$delivery->id}")
+        ->and($item['object']['link']['attributes'])->toMatchArray(['data-status' => 'draft'])
+        ->and($item['object']['link']['modal'])->toBeFalse();
 });
 
 it('compiles a bare Feedable with only toFeed() written, and links nothing', function () {
@@ -160,7 +155,7 @@ it('compiles a bare Feedable with only toFeed() written, and links nothing', fun
     $item = Storyfeed::feed()->get()->toArray()['items'][0];
 
     expect($item['object']['label'])->toBe('Bare')
-        ->and($item['object']['url'])->toBeNull()
+        ->and($item['object']['link'])->toBeNull()
         ->and($item['object']['media'])->toBeNull();
 });
 
@@ -181,7 +176,7 @@ it('lets feedMedia() override the cached label and hint a modal', function () {
 
         public static function feedMedia(FeedContext $context): ?FeedMedia
         {
-            return FeedMedia::make('/m/'.$context->key(), 'Fresh '.$context->label())->modal();
+            return FeedMedia::make(label: 'Fresh '.$context->label(), link: FeedLink::to('/m/'.$context->key())->modal());
         }
     };
 
@@ -189,9 +184,9 @@ it('lets feedMedia() override the cached label and hint a modal', function () {
 
     $media = (new LinkResolver)->resolve(new FeedContext(type: 'fresh', key: 7, label: 'Acme'));
 
-    expect($media?->url)->toBe('/m/7')
+    expect($media?->href())->toBe('/m/7')
         ->and($media?->label)->toBe('Fresh Acme')
-        ->and($media?->modal)->toBeTrue();
+        ->and($media?->link?->modal)->toBeTrue();
 });
 
 it('reports a throwing feedMedia() and degrades to null', function () {
@@ -233,7 +228,7 @@ it('never calls feedMedia() for un-snapshotted entities', function () {
     $item = Storyfeed::feed()->get()->toArray()['items'][0];
 
     expect(Customer::$lastContext)->toBeNull()
-        ->and($item['object']['url'])->toBeNull();
+        ->and($item['object']['link'])->toBeNull();
 });
 
 it('serializes the feedMedia() url into the AS2.0 document', function () {
@@ -295,7 +290,7 @@ it('tells the resolver which named feed the page was read through', function () 
     $item = Storyfeed::feed('kitchen')->get()->toArray()['items'][0];
 
     expect(Customer::$lastContext?->feed())->toBe('kitchen')
-        ->and($item['object']['url'])->toBe("/kitchen/customers/{$customer->id}");
+        ->and($item['object']['link']['href'])->toBe("/kitchen/customers/{$customer->id}");
 });
 
 it('reports the class-derived name for a feed entered through its constructor', function () {
@@ -349,7 +344,7 @@ it('reports one identity whichever door a registered class feed is entered by', 
     $item = CustomerFeed::make($customer)->get()->toArray()['items'][0];
 
     expect(Customer::$lastContext?->feed())->toBe('kitchen')
-        ->and($item['object']['url'])->toBe("/kitchen/customers/{$customer->id}")
+        ->and($item['object']['link']['href'])->toBe("/kitchen/customers/{$customer->id}")
         ->and(CustomerFeed::name())->toBe('kitchen')
         ->and(CustomerFeed::make($customer)->declaredFeed())->toBe('kitchen');
 
@@ -419,7 +414,7 @@ it('reports no feed for an ad-hoc builder rather than inventing a name', functio
     $item = Storyfeed::feed()->get()->toArray()['items'][0];
 
     expect(Customer::$lastContext?->feed())->toBeNull()
-        ->and($item['object']['url'])->toBe("/customers/{$customer->id}");
+        ->and($item['object']['link']['href'])->toBe("/customers/{$customer->id}");
 
     Customer::$lastContext = null;
     $customer->storyfeed()->get()->toArray();
@@ -458,8 +453,8 @@ it('carries the feed into every entity of a group node, sample and children alik
     $item = Storyfeed::feed('kitchen')->get()->toArray()['items'][0];
 
     expect($item['kind'])->toBe('group')
-        ->and($item['sample']['objects'][0]['url'])->toBe("/kitchen/customers/{$customer->id}")
-        ->and($item['children'][0]['object']['url'])->toBe("/kitchen/customers/{$customer->id}");
+        ->and($item['sample']['objects'][0]['link']['href'])->toBe("/kitchen/customers/{$customer->id}")
+        ->and($item['children'][0]['object']['link']['href'])->toBe("/kitchen/customers/{$customer->id}");
 });
 
 it('does not leak one page\'s feed into the next through a shared presenter', function () {
@@ -472,6 +467,6 @@ it('does not leak one page\'s feed into the next through a shared presenter', fu
     $kitchen = Storyfeed::feed('kitchen')->get()->toArray()['items'][0];
     $plain = Storyfeed::feed()->get()->toArray()['items'][0];
 
-    expect($kitchen['object']['url'])->toBe("/kitchen/customers/{$customer->id}")
-        ->and($plain['object']['url'])->toBe("/customers/{$customer->id}");
+    expect($kitchen['object']['link']['href'])->toBe("/kitchen/customers/{$customer->id}")
+        ->and($plain['object']['link']['href'])->toBe("/customers/{$customer->id}");
 });

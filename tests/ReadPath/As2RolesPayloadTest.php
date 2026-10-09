@@ -27,7 +27,7 @@ it('hydrates each promoted role through the ordinary entity presenter and preser
         expect($page['items'])->toHaveCount(2);
         $item = collect($page['items'])->firstWhere('id', $activity->uid);
         expect($item[$role]['label'])->toBe('Named entity')
-            ->and($item[$role]['url'])->toBeNull();
+            ->and($item[$role]['link'])->toBeNull();
     } finally {
         // These are process-wide fixture switches, not application/container
         // state. Restore them even when an assertion in this scenario fails.
@@ -43,5 +43,5 @@ it('hydrates each promoted role through the ordinary entity presenter and preser
     $item = Storyfeed::feed('kitchen')->get()->items()[0];
 
     expect(Customer::$lastContext?->feed())->toBe('kitchen')
-        ->and($item['object']['url'])->toBe("/kitchen/customers/{$next->id}");
+        ->and($item['object']['link']['href'])->toBe("/kitchen/customers/{$next->id}");
 })->with(['origin', 'result', 'instrument']);

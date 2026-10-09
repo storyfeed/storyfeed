@@ -16,7 +16,7 @@ it('declares a text avatar through every construction path', function () {
         expect($media->initials)->toBe('AC')
             ->and($media->color)->toBe('#438d98')
             ->and($media->media())->toBe([
-                'icon' => null, 'image' => null, 'preview' => null, 'url' => null,
+                'icon' => null, 'image' => null, 'preview' => null,
                 'initials' => 'AC', 'color' => '#438d98',
                 'files' => [],
             ]);

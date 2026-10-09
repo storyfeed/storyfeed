@@ -181,11 +181,11 @@ use Storyfeed\MediaSlot;
  * things: text that leads nowhere, and text that leads somewhere.
  *
  *     subject: $dish->name                                  // a title
- *     subject: FeedLink::make($dish->name)                  // → this entity
+ *     subject: FeedLink::toEntity($dish->name)              // → this entity
  *     subject: FeedLink::make($n->title, $n->external_url)  // → there
  *
- * A LINK WITH NO HREF IS THE ONE TO REACH FOR. It stores no location; the
- * renderer resolves it against the entity's own url, resolved at read time,
+ * THE ENTITY'S OWN LINK IS THE ONE TO REACH FOR. It stores no location; the
+ * renderer resolves it against the entity's own link, resolved at read time,
  * the same way `image: "icon"` resolves against `entity.media.icon`. An
  * explicit href is stored and ages, and is for a target the entity's
  * resolver cannot know.
@@ -327,10 +327,13 @@ class MediaObject extends FeedBody
         return 'Storyfeed/Body/MediaObject';
     }
 
-    /** 3 since 2026-10-09: a field is written only when it is set. */
+    /**
+     * 3 since 2026-10-09: a field is written only when it is set. 4 since
+     * 2026-10-09: a link carries `modal` and `attributes` (#79).
+     */
     public static function version(): int
     {
-        return 3;
+        return 4;
     }
 
     public static function upgrade(array $payload, int $from): array
@@ -362,25 +365,25 @@ class MediaObject extends FeedBody
             : ($from < 2 ? ($payload['attachments'] ?? null) : null);
 
         return [
-            'subject' => is_string($subject) ? $subject : FeedLink::from($subject)?->toPayload(),
+            'subject' => is_string($subject) ? $subject : self::storedLabelledLink($subject),
             'content' => is_string($payload['content'] ?? null) ? $payload['content'] : null,
             'image' => is_string($image) ? MediaSlot::tryFrom($image)?->value : null,
             'files' => array_values(array_filter(
                 array_map(self::resource(...), is_array($files) ? $files : []),
                 is_array(...),
             )),
-            'footnote' => is_string($footnote) ? $footnote : FeedLink::from($footnote)?->toPayload(),
+            'footnote' => is_string($footnote) ? $footnote : self::storedLabelledLink($footnote),
         ];
     }
 
     protected function body(): array
     {
         return [
-            'subject' => $this->subject instanceof FeedLink ? $this->subject->toPayload() : $this->subject,
+            'subject' => $this->subject instanceof FeedLink ? self::labelledLink($this->subject) : $this->subject,
             'content' => $this->content,
             'image' => $this->image?->value,
             'files' => array_map(fn (FeedResource $file): array => $file->toPayload(), $this->files),
-            'footnote' => $this->footnote instanceof FeedLink ? $this->footnote->toPayload() : $this->footnote,
+            'footnote' => $this->footnote instanceof FeedLink ? self::labelledLink($this->footnote) : $this->footnote,
         ];
     }
 
