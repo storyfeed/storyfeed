@@ -85,8 +85,7 @@ the work teaches us, and a dropped item is closed as not planned with its reason
 - [ ] **[v0.17 — Feed sources](https://github.com/storyfeed/storyfeed/milestone/2).**
       The database becomes one source among several, driver-style, so a feed can
       come from static content or an API and still render through the same
-      payload. The [storyfeed.dev roadmap](https://github.com/storyfeed/website/milestone/1)
-      becomes its first feed.
+      payload. The roadmap on storyfeed.dev becomes its first feed.
 - [ ] **[v0.18 — Read path at scale](https://github.com/storyfeed/storyfeed/milestone/3).**
       Scoped feeds stay fast at a million activities on every supported database,
       with nightly benchmark gates.
