@@ -15,6 +15,7 @@
 - `Image::make()` accepts `image:`, and `Image` gains `image(?MediaSlot)`.
 - `Storyfeed\Body\Table`, a body for tabular data after Artisan's `table($headers, $rows)`: `Table::make($headers, $rows)->title('…')`, or fluently with `headers()`, `rows()`, `row()` and `footer()` for subtotal and total rows. A cell is a string, int, float, null or `FeedLink`; text is plain and keeps its line breaks. Ragged rows are padded with null, and a row wider than the headers throws, naming the row. A titled table falls back to its title.
 - `FeedLink` owns the link: `FeedLink::to($href)` (after `URL::to()` and `redirect()->to()`), `FeedLink::toEntity($label)` for the entity's own link (after `redirect()->toRoute()`), and `modal()` and `attributes()`, which merge as `View::with()` does. `FeedMedia::link(FeedLink|string)` and `link:` set the entity's link; `FeedMedia::url($href)` stays as the short form for a plain one.
+- `Storyfeed\Body\CallToAction`, a short heading, a sentence or two and one action, after Laravel's `MailMessage::action($text, $url)`: `CallToAction::make(subject: '…', content: '…')->action('See the roadmap', FeedLink::to($url)->modal())`. The action's text is its own and its link is a `FeedLink`, so a string is a plain link and `FeedLink::toEntity()` goes to the body's entity. `subject` and `content` are optional; the fallback line is the subject, else the action's text.
 
 ### Changed
 

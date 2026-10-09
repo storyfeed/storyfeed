@@ -1,5 +1,6 @@
 <?php
 
+use Storyfeed\Body\CallToAction;
 use Storyfeed\Body\Component;
 use Storyfeed\Body\Concerns\HasTitle;
 use Storyfeed\Body\Excerpt;
@@ -63,7 +64,7 @@ class ShipmentBody extends FeedBody
 }
 
 it('is the base every body type core ships extends', function () {
-    foreach ([Component::class, Excerpt::class, FileAttachment::class, Image::class, ItemList::class, KeyValue::class, MediaObject::class, Prose::class, Table::class] as $class) {
+    foreach ([Component::class, Excerpt::class, FileAttachment::class, Image::class, ItemList::class, KeyValue::class, MediaObject::class, Prose::class, Table::class, CallToAction::class] as $class) {
         expect(is_subclass_of($class, FeedBody::class))->toBeTrue()
             ->and(is_subclass_of($class, FeedBodyContract::class))->toBeTrue();
     }
