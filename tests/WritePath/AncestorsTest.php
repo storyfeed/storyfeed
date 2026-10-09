@@ -203,7 +203,8 @@ it('resumes only after the last committed chunk and cleans its cursor', function
 it('requires paused writers and rejects incompatible rebuild options', function () {
     $this->artisan('storyfeed:participants --ancestors')->assertFailed();
     $this->artisan('storyfeed:participants --resume')->assertFailed();
-    $this->artisan('storyfeed:participants --ancestors --writers-paused --missing')->assertFailed();
+    $this->artisan('storyfeed:participants --ancestors --missing')->assertFailed();
+    $this->artisan('storyfeed:participants --ancestors --writers-paused --missing')->assertSuccessful();
     $this->artisan('storyfeed:participants --ancestors --writers-paused --resume --restart')->assertFailed();
 });
 

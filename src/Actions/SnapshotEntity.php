@@ -48,7 +48,7 @@ class SnapshotEntity
             'meta' => array_merge(
                 $routeKey === null || (string) $routeKey === (string) $model->getKey()
                     ? [] : ['route_key' => (string) $routeKey],
-                $entity->parent === null ? [] : ['parent' => Ancestors::identity($entity->parent)],
+                ! $entity->parentDeclared ? [] : ['parent' => $entity->parent === null ? null : Ancestors::identity($entity->parent)],
             ),
         ];
 

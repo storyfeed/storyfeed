@@ -61,6 +61,9 @@ final class FeedEntity
     /** The closest container; snapshotted as an identity, never a model graph. */
     public private(set) ?Model $parent = null;
 
+    /** Whether parent() was explicitly declared, including parent(null). */
+    public private(set) bool $parentDeclared = false;
+
     /** The entity's name as a feed shows it. */
     public private(set) ?string $label = null;
 
@@ -129,8 +132,12 @@ final class FeedEntity
             ->content($content)
             ->mediaType($mediaType)
             ->attributedTo($attributedTo)
-            ->body($body)
-            ->parent($parent);
+            ->body($body);
+
+        // An omitted parent is different from an explicitly declared null.
+        if (func_num_args() >= 7) {
+            $this->parent($parent);
+        }
     }
 
     /**
@@ -149,12 +156,15 @@ final class FeedEntity
         string|FeedBody|iterable|null $body = null,
         ?Model $parent = null,
     ): self {
-        return new self($label, $data, $content, $mediaType, $attributedTo, $body, $parent);
+        $entity = new self($label, $data, $content, $mediaType, $attributedTo, $body);
+
+        return func_num_args() >= 7 ? $entity->parent($parent) : $entity;
     }
 
     public function parent(?Model $parent): self
     {
         $this->parent = $parent;
+        $this->parentDeclared = true;
 
         return $this;
     }

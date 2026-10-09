@@ -4,6 +4,7 @@
 
 ### Added
 
+- `storyfeed:participants --ancestors --missing --writers-paused` fills never-recorded parent paths without changing recorded ancestry.
 - `involving($model, deep: false)` and `involvingDirectly($model)` read only an entity's direct participation, excluding distant relations.
 - `Story::verb()` accepts `[StoryClass::class, 'method']` to bind one public action with container method injection.
 

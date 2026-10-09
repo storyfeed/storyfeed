@@ -2,6 +2,7 @@
 
 namespace Storyfeed\Diagnostics\Checks;
 
+use Storyfeed\Actions\BackfillAncestors;
 use Storyfeed\Diagnostics\Finding;
 use Storyfeed\Models\Snapshot;
 use Storyfeed\StoryfeedManager;
@@ -35,6 +36,17 @@ final class Ancestors extends Check
         }
         if (! $this->hasTable('activities')) {
             return;
+        }
+        if ($this->hasTable('meta')) {
+            $backfill = new BackfillAncestors;
+            foreach ($this->activities()->withTrashed()->lazyById(200) as $row) {
+                foreach ($backfill->missingRoles($row) as $role) {
+                    yield Finding::warning('ancestors.missing',
+                        "Activity #{$row->getKey()} has no recorded {$role} parent path, but parent() is now declared. Pause readers and writers, then run storyfeed:participants --ancestors --missing --writers-paused to fill gaps while preserving recorded paths.",
+                        ['activity_id' => $row->getKey(), 'role' => $role],
+                    );
+                }
+            }
         }
         $query = $this->activities()->whereNull('object_type')->whereNull('target_type')->whereNull('context_type')->whereNotNull('actor_type');
         foreach ($query->lazyById(200) as $row) {

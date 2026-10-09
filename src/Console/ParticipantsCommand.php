@@ -18,13 +18,14 @@ use Storyfeed\Models\Activity;
  *
  * Idempotent: each activity's rows are rewritten from its own columns, so
  * re-running converges rather than duplicating. Chunked, newest-first, so a
- * partial run leaves the most-read history correct.
+ * partial run leaves the most-read history correct. The --ancestors mode
+ * walks current parents; adding --missing preserves every recorded path.
  */
 class ParticipantsCommand extends Command
 {
     protected $signature = 'storyfeed:participants
         {--chunk=500 : Activities to process per batch}
-        {--missing : Only activities that have no participant rows yet}
+        {--missing : Only missing participants, or never-recorded paths with --ancestors}
         {--ancestors : Rebuild all recorded paths from current parents}
         {--writers-paused : Confirm all publishers, workers and schedulers are paused}
         {--resume : Continue an interrupted ancestor rebuild}
@@ -40,8 +41,8 @@ class ParticipantsCommand extends Command
             return self::FAILURE;
         }
         if ($this->option('ancestors')) {
-            if ($this->option('missing') || ! $this->option('writers-paused')) {
-                $this->error('Pause ALL publishers, workers, schedulers and readers, then pass --ancestors --writers-paused without --missing.');
+            if (! $this->option('writers-paused')) {
+                $this->error('Pause ALL publishers, workers, schedulers and readers, then pass --ancestors --writers-paused (optionally --missing).');
 
                 return self::FAILURE;
             }
@@ -55,6 +56,7 @@ class ParticipantsCommand extends Command
                         $bar->setMaxSteps($total);
                         $bar->setProgress($done);
                     },
+                    missing: (bool) $this->option('missing'),
                 );
             } catch (RuntimeException $error) {
                 $this->newLine();
@@ -64,7 +66,8 @@ class ParticipantsCommand extends Command
             }
             $bar->finish();
             $this->newLine();
-            $this->info("Rebuilt ancestors for {$stats['processed']} activities.");
+            $operation = $this->option('missing') ? 'Backfilled missing ancestors' : 'Rebuilt ancestors';
+            $this->info("{$operation} for {$stats['processed']} activities.");
 
             return self::SUCCESS;
         }
