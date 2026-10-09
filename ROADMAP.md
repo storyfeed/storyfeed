@@ -31,9 +31,9 @@ work leads to is a demonstration of a working package, not a launch event, so
       Three explicit read modes (`->log()`, `->live()`, `->summary()`), multi-axis
       grouping, `involving()` as a first-class indexed read, self-healing snapshots
       and `sync_token` — plus spec-conformant JSON-LD serialization (`Activity`,
-      `OrderedCollection`) behind opt-in content-negotiated routes. Alpha caveat:
-      emitted documents reference an extension context that is not published yet,
-      which blocks a beta, not an alpha.
+      `OrderedCollection`) behind opt-in content-negotiated routes. Emitted
+      documents reference the extension context published at
+      [`https://ns.storyfeed.dev`](https://ns.storyfeed.dev).
 - [x] **v0.7 — Authoring DX** *(released as part of `v0.8.0-alpha.1`)*. `Story`
       classes — one class per activity type instead of seven registration sites —
       with `make:story`, `PublishesToFeed` for domain events, a structured `doctor`
