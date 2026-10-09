@@ -123,3 +123,22 @@ it('reads shared fields back through their getters', function () {
         ->and(MediaObject::make(footnote: 'Approved')->getFootnote())->toBe('Approved')
         ->and(MediaObject::make()->getFiles())->toBe([]);
 });
+
+it('suggests a maximum height in the reserved key, written only when set', function () {
+    expect(FeedBodyContract::MAX_HEIGHT)->toBe('$maxHeight')
+        ->and(Prose::markdown('notes')->toPayload())->not->toHaveKey('$maxHeight')
+        ->and(Prose::markdown('notes')->maxHeight('none')->toPayload())
+        ->toBe(['$body' => Prose::bodyType(), '$v' => 2, '$maxHeight' => 'none', 'content' => 'notes', 'mediaType' => 'text/markdown'])
+        ->and(Table::make(rows: [['a']])->maxHeight('16rem')->toPayload()['$maxHeight'])->toBe('16rem')
+        ->and(ShipmentBody::make('UPS')->maxHeight('320px')->maxHeight(null)->toPayload())->not->toHaveKey('$maxHeight')
+        ->and(rendered(Prose::make('x')->maxHeight('none')))->not->toHaveKey('$maxHeight');
+
+    foreach (['0', '16rem', '320px', '12.5em', '.5vh', '40%', '30dvh', '20ch'] as $height) {
+        expect(Excerpt::make('A')->maxHeight($height)->toPayload()['$maxHeight'])->toBe($height);
+    }
+});
+
+it('names the method when a maximum height is not a CSS length', function (string $height) {
+    expect(fn () => Prose::make('x')->maxHeight($height))
+        ->toThrow(InvalidArgumentException::class, "Prose::maxHeight() takes a CSS length such as `16rem` or `320px`, or `none`; `{$height}` given.");
+})->with(['16', '-4rem', 'auto', 'calc(100% - 1rem)', '', ' 16rem', '16 rem', '10px; color: red']);

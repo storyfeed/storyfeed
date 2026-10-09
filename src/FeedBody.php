@@ -4,6 +4,7 @@ namespace Storyfeed;
 
 use Illuminate\Support\Traits\Conditionable;
 use Illuminate\Support\Traits\Tappable;
+use InvalidArgumentException;
 use Storyfeed\Concerns\HasPayload;
 use Storyfeed\Exceptions\IncompleteFeedValue;
 
@@ -46,8 +47,8 @@ use Storyfeed\Exceptions\IncompleteFeedValue;
  *
  * ## `toPayload()` is final
  *
- * So every body writes its envelope — `$body`, `$v`, and `$fallback` when it
- * has one — the same way, and a body type writes only its own fields, in
+ * So every body writes its envelope — `$body`, `$v`, and `$fallback` and
+ * `$maxHeight` when it has them — the same way, and a body type writes only its own fields, in
  * {@see body()}. That is why this is a base class and not a trait.
  *
  * ## A body's payload reads as the body it renders
@@ -61,6 +62,16 @@ use Storyfeed\Exceptions\IncompleteFeedValue;
  *
  * A body type that slims a shape it used to write in full bumps its
  * `version()`, so the rows already stored keep reading as they did.
+ *
+ * ## A body may suggest its height
+ *
+ *     Prose::markdown($notes)->maxHeight('none');   // show it all
+ *     Table::make()->maxHeight('16rem');            // cap this one lower
+ *
+ * `maxHeight()` takes a CSS length or `none`, after Filament's `->maxHeight()`,
+ * and writes `$maxHeight`. It is a SUGGESTION, as `FeedLink::modal()` is: what
+ * happens past the height, an inner scroll or a "Show more", is each
+ * renderer's choice, and a renderer that cannot honour it ignores it.
  */
 abstract class FeedBody implements Contracts\FeedBody
 {
@@ -69,6 +80,8 @@ abstract class FeedBody implements Contracts\FeedBody
     use Tappable;
 
     protected ?string $fallback = null;
+
+    protected ?string $maxHeight = null;
 
     /**
      * Start a body. The arguments are the body type's constructor's, so named
@@ -110,6 +123,28 @@ abstract class FeedBody implements Contracts\FeedBody
     }
 
     /**
+     * How tall this body may get before a renderer shortens it: a CSS length
+     * such as `16rem` or `320px`, or `none` to show it all. Null clears it, and
+     * leaves the height to the renderer.
+     *
+     * @throws InvalidArgumentException when it is neither a length nor `none`
+     */
+    public function maxHeight(?string $height): static
+    {
+        if ($height !== null && $height !== 'none' && preg_match('/^(0|\d*\.?\d+(px|rem|em|ex|ch|lh|rlh|%|vh|svh|lvh|dvh|vw|svw|lvw|dvw|vmin|vmax|cm|mm|q|in|pt|pc))$/i', $height) !== 1) {
+            throw new InvalidArgumentException(sprintf(
+                '%s::maxHeight() takes a CSS length such as `16rem` or `320px`, or `none`; `%s` given.',
+                class_basename(static::class),
+                $height,
+            ));
+        }
+
+        $this->maxHeight = $height;
+
+        return $this;
+    }
+
+    /**
      * @return array<string, mixed>
      */
     final public function toPayload(): array
@@ -121,6 +156,7 @@ abstract class FeedBody implements Contracts\FeedBody
             self::KEY => static::bodyType(),
             self::VERSION => static::version(),
             ...($fallback === null || $fallback === '' ? [] : [self::FALLBACK => $fallback]),
+            ...($this->maxHeight === null ? [] : [self::MAX_HEIGHT => $this->maxHeight]),
             ...array_filter(
                 $this->body(),
                 fn (mixed $value, string $key): bool => ! array_key_exists($key, $defaults) || $value !== $defaults[$key],

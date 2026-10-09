@@ -217,6 +217,18 @@ interface FeedBody extends Arrayable
     public const string FALLBACK = '$fallback';
 
     /**
+     * The reserved key carrying how tall a body may get before a renderer
+     * shortens it: a CSS length such as `16rem`, or `none` to show it all.
+     *
+     * A SUGGESTION, as `FeedLink::modal()` is: what happens past the height —
+     * an inner scroll, a "Show more" — is each renderer's choice, and a
+     * renderer that cannot honour it ignores it. `$`-prefixed like
+     * {@see FALLBACK}, because it is bookkeeping and not the body's own data,
+     * and written only when set.
+     */
+    public const string MAX_HEIGHT = '$maxHeight';
+
+    /**
      * This body type's name, as it is written into storage.
      *
      * `bodyType()` AND NOT `name()`, because `name` is the plainest word for
@@ -255,8 +267,8 @@ interface FeedBody extends Arrayable
      *
      * The `$payload` handed here excludes {@see KEY} and {@see VERSION}: the
      * reader has already used both to get this far, and a body type should not
-     * have to filter its own bookkeeping back out. {@see FALLBACK} is for a
-     * renderer that cannot draw the type, so a body type ignores it here.
+     * have to filter its own bookkeeping back out. {@see FALLBACK} and
+     * {@see MAX_HEIGHT} are for the renderer, so a body type ignores them here.
      *
      * A payload may be SLIM: a setting equal to its default can be absent,
      * and this method fills it back in, so a renderer always gets every key.
