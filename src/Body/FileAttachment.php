@@ -2,9 +2,7 @@
 
 namespace Storyfeed\Body;
 
-use Illuminate\Support\Traits\Conditionable;
-use Storyfeed\Concerns\HasPayload;
-use Storyfeed\Contracts\FeedBody;
+use Storyfeed\FeedBody;
 
 /**
  * An artefact: what it is, how big, and where it lives.
@@ -52,18 +50,13 @@ use Storyfeed\Contracts\FeedBody;
  * The version travels in both storage and payload: core does not own the app's
  * key, so the renderer must upgrade the body at read time, never write it back.
  */
-class FileAttachment implements FeedBody
+class FileAttachment extends FeedBody
 {
-    use Conditionable;
-    use HasPayload;
+    protected ?string $name = null;
 
-    private ?string $name = null;
+    protected ?int $size = null;
 
-    private ?int $size = null;
-
-    private ?string $mediaType = null;
-
-    final protected function __construct() {}
+    protected ?string $mediaType = null;
 
     /**
      * Start a file. Every argument is optional and has a method of the same name.
@@ -71,9 +64,9 @@ class FileAttachment implements FeedBody
      * @param  int|null  $size  in bytes
      * @param  string|null  $name  only when it differs from the entity's label — a preview complements a headline
      */
-    public static function make(?int $size = null, ?string $mediaType = null, ?string $name = null): static
+    protected function __construct(?int $size = null, ?string $mediaType = null, ?string $name = null)
     {
-        return (new static)->size($size)->mediaType($mediaType)->name($name);
+        $this->size($size)->mediaType($mediaType)->name($name);
     }
 
     /** The size in bytes. A negative size is unknown, and null. */
@@ -103,7 +96,7 @@ class FileAttachment implements FeedBody
     /**
      * `Storyfeed/Body/FileAttachment` — the VOCABULARY'S name, not a package's.
      *
-     * A body outlives whichever library defined it ({@see FeedBody}), so the
+     * A body outlives whichever library defined it ({@see \Storyfeed\Contracts\FeedBody}), so the
      * name must not contain the library: this body type has already moved
      * packages once, and a `storyfeed-ui/` or any other package's prefix
      * would have moved with it. The name is a pure lookup key — no reflection,
@@ -118,9 +111,10 @@ class FileAttachment implements FeedBody
         return 'Storyfeed/Body/FileAttachment';
     }
 
+    /** 2 since 2026-10-09: a field is written only when it is set. */
     public static function version(): int
     {
-        return 1;
+        return 2;
     }
 
     public static function upgrade(array $payload, int $from): array
@@ -132,17 +126,17 @@ class FileAttachment implements FeedBody
         ];
     }
 
-    /**
-     * @return array{'$body': string, '$v': int, name: string|null, size: int|null, mediaType: string|null}
-     */
-    public function toPayload(): array
+    protected function body(): array
     {
         return [
-            self::KEY => self::bodyType(),
-            self::VERSION => self::version(),
             'name' => $this->name,
             'size' => $this->size,
             'mediaType' => $this->mediaType,
         ];
+    }
+
+    protected static function defaults(): array
+    {
+        return ['name' => null, 'size' => null, 'mediaType' => null];
     }
 }

@@ -2,10 +2,11 @@
 
 namespace Storyfeed\Body;
 
-use Illuminate\Support\Traits\Conditionable;
-use LogicException;
-use Storyfeed\Concerns\HasPayload;
-use Storyfeed\Contracts\FeedBody;
+use Storyfeed\Body\Concerns\HasContent;
+use Storyfeed\Body\Concerns\HasFiles;
+use Storyfeed\Body\Concerns\HasFootnote;
+use Storyfeed\Body\Concerns\HasImageSlot;
+use Storyfeed\FeedBody;
 use Storyfeed\FeedLink;
 use Storyfeed\FeedResource;
 use Storyfeed\MediaSlot;
@@ -27,20 +28,19 @@ use Storyfeed\MediaSlot;
  *
  * Stored:
  *
- *     {"$body": "Storyfeed/Body/MediaObject", "$v": 2,
+ *     {"$body": "Storyfeed/Body/MediaObject", "$v": 3,
  *      "subject": "Bronze Figure",
  *      "content": "Restoration is complete.",
- *      "image": "icon", "files": [], "footnote": "Restored by Ana"}
+ *      "image": "icon", "footnote": "Restored by Ana"}
  *
  * …and with a subject that leads to its entity, and a file it names itself:
  *
- *     {"$body": "Storyfeed/Body/MediaObject", "$v": 2,
+ *     {"$body": "Storyfeed/Body/MediaObject", "$v": 3,
  *      "subject": {"label": "Bronze Figure", "href": null},
  *      "content": "Restoration is complete.",
  *      "image": "icon",
  *      "files": [{"type": "Document", "href": "https://…/restoration-v4.pdf",
- *                 "mediaType": "application/pdf", "name": "restoration-v4.pdf"}],
- *      "footnote": null}
+ *                 "mediaType": "application/pdf", "name": "restoration-v4.pdf"}]}
  *
  * ## It stores no media, it names a slot
  *
@@ -265,23 +265,14 @@ use Storyfeed\MediaSlot;
  * app's key, so the renderer must upgrade the body at read time, never
  * write it back.
  */
-class MediaObject implements FeedBody
+class MediaObject extends FeedBody
 {
-    use Conditionable;
-    use HasPayload;
+    use HasContent;
+    use HasFiles;
+    use HasFootnote;
+    use HasImageSlot;
 
-    private string|FeedLink|null $subject = null;
-
-    private ?string $content = null;
-
-    private ?MediaSlot $image = null;
-
-    /** @var list<FeedResource> */
-    private array $files = [];
-
-    private string|FeedLink|null $footnote = null;
-
-    final protected function __construct() {}
+    protected string|FeedLink|null $subject = null;
 
     /**
      * Start a media object. Every argument is optional and has a method of the same name.
@@ -292,14 +283,14 @@ class MediaObject implements FeedBody
      * @param  array<array-key, mixed>  $files  the files this block names, as {@see FeedResource} values
      * @param  string|FeedLink|null  $footnote  small print under the content — a credit, an approval; never a second paragraph
      */
-    public static function make(
+    protected function __construct(
         string|FeedLink|null $subject = null,
         ?string $content = null,
         ?MediaSlot $image = null,
         array $files = [],
         string|FeedLink|null $footnote = null,
-    ): static {
-        return (new static)
+    ) {
+        $this
             ->subject($subject)
             ->content($content)
             ->image($image)
@@ -318,87 +309,10 @@ class MediaObject implements FeedBody
         return $this;
     }
 
-    /** Prose, as plain text. */
-    public function content(?string $content): static
-    {
-        $this->content = $content;
-
-        return $this;
-    }
-
-    /**
-     * Which of the entity's media slots is this block's picture. Sets it
-     * outright; {@see withIcon()} and its siblings refuse a second slot.
-     */
-    public function image(?MediaSlot $image): static
-    {
-        $this->image = $image;
-
-        return $this;
-    }
-
-    /**
-     * Add the files this block names. Each call APPENDS, in the order given.
-     *
-     * @param  FeedResource|iterable<FeedResource>  ...$files
-     */
-    public function files(FeedResource|iterable ...$files): static
-    {
-        foreach ($files as $attachment) {
-            foreach ($attachment instanceof FeedResource ? [$attachment] : $attachment as $file) {
-                $this->files[] = $file;
-            }
-        }
-
-        return $this;
-    }
-
-    /** Small print under the content — a credit, an approval; never a second paragraph. */
-    public function footnote(string|FeedLink|null $footnote): static
-    {
-        $this->footnote = $footnote;
-
-        return $this;
-    }
-
-    /** The picture is the entity's `icon` — which thing this is. */
-    public function withIcon(): static
-    {
-        return $this->naming(MediaSlot::Icon);
-    }
-
-    /** The picture is the entity's `preview` — a stand-in that previews the thing without depicting it. */
-    public function withPreview(): static
-    {
-        return $this->naming(MediaSlot::Preview);
-    }
-
-    /** The picture is the entity's `image` — what the thing looks like. */
-    public function withImage(): static
-    {
-        return $this->naming(MediaSlot::Image);
-    }
-
-    /**
-     * Name the files this block draws, replacing any already named.
-     *
-     * At least one is REQUIRED, so that the day the bool was retired lands
-     * as an error in the fluent form too. `withFiles()` meaning "draw
-     * the entity's files" is the shape that went away; accepting the same
-     * call and quietly producing an empty list would make an upgrade look
-     * like it worked.
-     */
-    public function withFiles(FeedResource $file, FeedResource ...$more): static
-    {
-        $this->files = [$file, ...$more];
-
-        return $this;
-    }
-
     /**
      * `Storyfeed/Body/MediaObject` — the VOCABULARY'S name, not a package's.
      *
-     * A body outlives whichever library defined it ({@see FeedBody}), so the
+     * A body outlives whichever library defined it ({@see \Storyfeed\Contracts\FeedBody}), so the
      * name must not contain the library: this body type has already moved
      * packages once, and a `storyfeed-ui/` or any other package's prefix
      * would have moved with it. The name is a pure lookup key — no reflection,
@@ -413,9 +327,10 @@ class MediaObject implements FeedBody
         return 'Storyfeed/Body/MediaObject';
     }
 
+    /** 3 since 2026-10-09: a field is written only when it is set. */
     public static function version(): int
     {
-        return 2;
+        return 3;
     }
 
     public static function upgrade(array $payload, int $from): array
@@ -458,20 +373,20 @@ class MediaObject implements FeedBody
         ];
     }
 
-    /**
-     * @return array{'$body': string, '$v': int, subject: string|array{label: string, href: string|null}|null, content: string|null, image: string|null, files: list<array{href: string, mediaType: string|null, name: string|null, type: string}>, footnote: string|array{label: string, href: string|null}|null}
-     */
-    public function toPayload(): array
+    protected function body(): array
     {
         return [
-            self::KEY => self::bodyType(),
-            self::VERSION => self::version(),
             'subject' => $this->subject instanceof FeedLink ? $this->subject->toPayload() : $this->subject,
             'content' => $this->content,
             'image' => $this->image?->value,
             'files' => array_map(fn (FeedResource $file): array => $file->toPayload(), $this->files),
             'footnote' => $this->footnote instanceof FeedLink ? $this->footnote->toPayload() : $this->footnote,
         ];
+    }
+
+    protected static function defaults(): array
+    {
+        return ['subject' => null, 'content' => null, 'image' => null, 'files' => [], 'footnote' => null];
     }
 
     /**
@@ -515,20 +430,5 @@ class MediaObject implements FeedBody
     private static function text(mixed $value): ?string
     {
         return is_string($value) && $value !== '' ? $value : null;
-    }
-
-    private function naming(MediaSlot $slot): static
-    {
-        if ($this->image !== null) {
-            throw new LogicException(sprintf(
-                'A MediaObject names at most one image slot; this one already names `%s` and cannot also name `%s`.',
-                $this->image->value,
-                $slot->value,
-            ));
-        }
-
-        $this->image = $slot;
-
-        return $this;
     }
 }

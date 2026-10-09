@@ -15,12 +15,10 @@ it('stores a slot name and no image, because the resolver mints the picture at r
 
     $expected = [
         '$body' => 'Storyfeed/Body/MediaObject',
-        '$v' => 2,
+        '$v' => 3,
         'subject' => 'N201 Saffron Butter Rice',
         'content' => 'Basmati replaces Jasmine.',
         'image' => 'icon',
-        'files' => [],
-        'footnote' => null,
     ];
 
     // No src, no mediaType, no width, no height, no alt: the FeedImage that
@@ -40,7 +38,9 @@ it('stores a slot name and no image, because the resolver mints the picture at r
 it('reads in the order it renders: subject, content, image, files, footnote', function () {
     // The footnote is last in the signature because it is subordinate to
     // everything above it, and the reading order of the two should match.
-    expect(array_keys(MediaObject::make()->toPayload()))
+    $full = MediaObject::make('N201', 'Basmati.', MediaSlot::Icon, [FeedResource::make('/a.pdf')], 'Approved');
+
+    expect(array_keys($full->toPayload()))
         ->toBe(['$body', '$v', 'subject', 'content', 'image', 'files', 'footnote'])
         ->and(array_keys(MediaObject::upgrade([], 1)))
         ->toBe(['subject', 'content', 'image', 'files', 'footnote']);
@@ -50,10 +50,10 @@ it('is all-optional, so a block with only files is a file list and no second for
     $pdf = FeedResource::make('https://example.test/n201-v4.pdf', 'application/pdf', 'n201-v4.pdf');
 
     expect(MediaObject::make()->toPayload())
-        ->toBe(['$body' => MediaObject::bodyType(), '$v' => 2, 'subject' => null, 'content' => null, 'image' => null, 'files' => [], 'footnote' => null])
+        ->toBe(['$body' => MediaObject::bodyType(), '$v' => 3])
         ->and(MediaObject::make(files: [$pdf])->toPayload()['files'])
         ->toBe([['type' => 'Document', 'href' => 'https://example.test/n201-v4.pdf', 'mediaType' => 'application/pdf', 'name' => 'n201-v4.pdf']])
-        ->and(MediaObject::make(subject: 'Minutes', content: 'Two items carried.')->toPayload()['image'])->toBeNull();
+        ->and(rendered(MediaObject::make(subject: 'Minutes', content: 'Two items carried.'))['image'])->toBeNull();
 });
 
 it('names the files it draws rather than deferring to whatever the entity holds', function () {

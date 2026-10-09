@@ -7,7 +7,7 @@ use Storyfeed\Exceptions\IncompleteFeedValue;
 it('names an app component verbatim and carries its props, versioned', function () {
     $expected = [
         '$body' => 'Storyfeed/Body/Component',
-        '$v' => 1,
+        '$v' => 2,
         'name' => 'Common/ScoreCard',
         'props' => ['home' => 2, 'away' => 1],
     ];

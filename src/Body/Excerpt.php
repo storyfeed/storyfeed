@@ -3,10 +3,7 @@
 namespace Storyfeed\Body;
 
 use Illuminate\Contracts\Support\Htmlable;
-use Illuminate\Support\Traits\Conditionable;
-use Storyfeed\Concerns\HasPayload;
-use Storyfeed\Contracts\FeedBody;
-use Storyfeed\Exceptions\IncompleteFeedValue;
+use Storyfeed\FeedBody;
 use Stringable;
 
 /**
@@ -23,7 +20,7 @@ use Stringable;
  *
  * ## Why `Excerpt` and not `Blockquote`
  *
- * {@see FeedBody}: a body type names what the data IS, not a component.
+ * {@see \Storyfeed\Contracts\FeedBody}: a body type names what the data IS, not a component.
  * `<blockquote>` is how this is drawn in Blade today and a Vue or React
  * renderer may not use it — naming the class after the markup would hand every
  * later renderer a decision made for one of them.
@@ -49,18 +46,13 @@ use Stringable;
  * The version travels in both storage and payload: core does not own the app's
  * key, so the renderer must upgrade the body at read time, never write it back.
  */
-class Excerpt implements FeedBody
+class Excerpt extends FeedBody
 {
-    use Conditionable;
-    use HasPayload;
+    protected ?string $text = null;
 
-    private ?string $text = null;
+    protected ?string $from = null;
 
-    private ?string $from = null;
-
-    private bool $truncated = true;
-
-    final protected function __construct() {}
+    protected bool $truncated = true;
 
     /**
      * Start an excerpt. Every argument is optional and has a method of the
@@ -70,11 +62,13 @@ class Excerpt implements FeedBody
      * @param  string|null  $from  who or what it came from, when the sentence above does not already say
      * @param  bool  $truncated  whether this is a fragment of something longer
      */
-    public static function make(mixed $text = null, ?string $from = null, bool $truncated = true): static
+    protected function __construct(mixed $text = null, ?string $from = null, bool $truncated = true)
     {
-        $excerpt = (new static)->from($from)->truncated($truncated);
+        $this->from($from)->truncated($truncated);
 
-        return $text === null ? $excerpt : $excerpt->text($text);
+        if ($text !== null) {
+            $this->text($text);
+        }
     }
 
     /**
@@ -106,7 +100,7 @@ class Excerpt implements FeedBody
     /**
      * `Storyfeed/Body/Excerpt` — the VOCABULARY'S name, not a package's.
      *
-     * A body outlives whichever library defined it ({@see FeedBody}), so the
+     * A body outlives whichever library defined it ({@see \Storyfeed\Contracts\FeedBody}), so the
      * name must not contain the library: this body type has already moved
      * packages once, and a `storyfeed-ui/` or any other package's prefix
      * would have moved with it. The name is a pure lookup key — no reflection,
@@ -121,34 +115,37 @@ class Excerpt implements FeedBody
         return 'Storyfeed/Body/Excerpt';
     }
 
+    /** 2 since 2026-10-09: `from` and `truncated` are written only when they differ from their defaults. */
     public static function version(): int
     {
-        return 1;
+        return 2;
     }
 
     public static function upgrade(array $payload, int $from): array
     {
         // Total by contract: a payload from a version this class does not know
         // still has to render, because the row is in the database either way.
+        // A v1 row always wrote `truncated`, so one without it was written by
+        // hand and reads as whole; from v2 an absent flag is the default.
         return [
             'text' => is_string($payload['text'] ?? null) ? $payload['text'] : '',
             'from' => is_string($payload['from'] ?? null) ? $payload['from'] : null,
-            'truncated' => (bool) ($payload['truncated'] ?? false),
+            'truncated' => (bool) ($payload['truncated'] ?? $from >= 2),
         ];
     }
 
-    /**
-     * @return array{'$body': string, '$v': int, text: string, from: string|null, truncated: bool}
-     */
-    public function toPayload(): array
+    protected function body(): array
     {
         return [
-            self::KEY => self::bodyType(),
-            self::VERSION => self::version(),
-            'text' => $this->text ?? throw IncompleteFeedValue::missing(static::class, 'text'),
+            'text' => $this->required($this->text, 'text'),
             'from' => $this->from,
             'truncated' => $this->truncated,
         ];
+    }
+
+    protected static function defaults(): array
+    {
+        return ['from' => null, 'truncated' => true];
     }
 
     /**

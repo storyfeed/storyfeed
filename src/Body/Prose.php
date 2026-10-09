@@ -2,11 +2,9 @@
 
 namespace Storyfeed\Body;
 
-use Illuminate\Support\Traits\Conditionable;
-use Storyfeed\Concerns\HasPayload;
-use Storyfeed\Contracts\FeedBody;
-use Storyfeed\Exceptions\IncompleteFeedValue;
-use Stringable;
+use Storyfeed\Body\Concerns\HasContent;
+use Storyfeed\Body\Concerns\HasTitle;
+use Storyfeed\FeedBody;
 
 /**
  * Authored text, carried as SOURCE, with the encoding that says how to read it.
@@ -47,28 +45,22 @@ use Stringable;
  * renderer must sanitize is a decision somebody typed, never one they got by
  * leaving an argument out.
  */
-class Prose implements FeedBody
+class Prose extends FeedBody
 {
-    use Conditionable;
-    use HasPayload;
+    use HasContent;
+    use HasTitle;
 
-    private ?string $content = null;
+    protected string $mediaType = 'text/plain';
 
-    private string $mediaType = 'text/plain';
-
-    private bool $verbatim = false;
-
-    private ?string $title = null;
-
-    final protected function __construct() {}
+    protected bool $verbatim = false;
 
     /**
      * Plain text, printed as written. Both arguments are optional and have a
      * method of the same name; `content` must be set before the body is used.
      */
-    public static function make(mixed $content = null, ?string $title = null): static
+    protected function __construct(mixed $content = null, ?string $title = null)
     {
-        return static::build($content, 'text/plain', false, $title);
+        $this->content($content)->title($title);
     }
 
     /** Markdown source, for a renderer to parse. */
@@ -95,22 +87,6 @@ class Prose implements FeedBody
         return static::build($content, $mediaType, true, $title);
     }
 
-    /** The text itself. */
-    public function content(mixed $content): static
-    {
-        $this->content = self::text($content);
-
-        return $this;
-    }
-
-    /** A line above the text, when the headline does not already say it. */
-    public function title(?string $title): static
-    {
-        $this->title = $title;
-
-        return $this;
-    }
-
     /** The encoding: `text/plain`, `text/markdown`, `text/html`, or a language. */
     public function mediaType(string $mediaType): static
     {
@@ -121,26 +97,16 @@ class Prose implements FeedBody
 
     protected static function build(mixed $content, string $mediaType, bool $verbatim, ?string $title): static
     {
-        $prose = (new static)->mediaType($mediaType)->title($title);
+        $prose = static::make($content, $title)->mediaType($mediaType);
         $prose->verbatim = $verbatim;
 
-        return $content === null ? $prose : $prose->content($content);
-    }
-
-    private static function text(mixed $content): string
-    {
-        return match (true) {
-            is_string($content) => $content,
-            is_scalar($content) => (string) $content,
-            $content instanceof Stringable, is_object($content) && method_exists($content, '__toString') => (string) $content,
-            default => '',
-        };
+        return $prose;
     }
 
     /**
      * `Storyfeed/Body/Prose` — the VOCABULARY'S name, not a package's.
      *
-     * A body type outlives whichever library defined it ({@see FeedBody}), so
+     * A body type outlives whichever library defined it ({@see \Storyfeed\Contracts\FeedBody}), so
      * the name must not contain the library. It is a pure lookup key — no
      * reflection, no autoloading — so it need not resolve to anything.
      * Renderers match it EXACTLY, so the casing is part of the name.
@@ -150,9 +116,10 @@ class Prose implements FeedBody
         return 'Storyfeed/Body/Prose';
     }
 
+    /** 2 since 2026-10-09: `mediaType`, `verbatim` and `title` are written only when they differ from their defaults. */
     public static function version(): int
     {
-        return 1;
+        return 2;
     }
 
     /**
@@ -166,26 +133,27 @@ class Prose implements FeedBody
 
         return [
             'content' => is_string($payload['content'] ?? null) ? $payload['content'] : '',
-            // A row written before this body type carried an encoding is
-            // markdown: that is all the one it replaced could ever hold.
-            'mediaType' => is_string($mediaType) && $mediaType !== '' ? $mediaType : 'text/markdown',
+            // A v1 row without an encoding was written before this body type
+            // carried one, so it is markdown: that is all the one it replaced
+            // could ever hold. From v2 an absent encoding is the default.
+            'mediaType' => is_string($mediaType) && $mediaType !== '' ? $mediaType : ($from >= 2 ? 'text/plain' : 'text/markdown'),
             'verbatim' => (bool) ($payload['verbatim'] ?? false),
             'title' => is_string($title) ? $title : null,
         ];
     }
 
-    /**
-     * @return array{'$body': string, '$v': int, content: string, mediaType: string, verbatim: bool, title: string|null}
-     */
-    public function toPayload(): array
+    protected function body(): array
     {
         return [
-            self::KEY => self::bodyType(),
-            self::VERSION => self::version(),
-            'content' => $this->content ?? throw IncompleteFeedValue::missing(static::class, 'content'),
+            'content' => $this->required($this->content, 'content'),
             'mediaType' => $this->mediaType,
             'verbatim' => $this->verbatim,
             'title' => $this->title,
         ];
+    }
+
+    protected static function defaults(): array
+    {
+        return ['mediaType' => 'text/plain', 'verbatim' => false, 'title' => null];
     }
 }

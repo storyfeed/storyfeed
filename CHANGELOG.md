@@ -8,10 +8,18 @@
 - Activity nodes carry `starts_at` and `ends_at`, null when absent; `FeedItem::startsAt()` and `FeedItem::endsAt()` read them. Group nodes carry no range.
 - The Activity Streams document carries `startTime` and `endTime`, and `duration` when both are known, as an ISO 8601 duration in days and time (`P19DT4H30M5S`), never months, whose length depends on the calendar. The range lives on the activity because AS2 defines these properties on every Object and an activity is one; the payload has no `duration` key, since a renderer derives it from the two ends.
 - Feed sources. `Storyfeed::feed()->source('roadmap')` reads a named source from `storyfeed.sources`, the way filesystem disks are named, and `Storyfeed::extend('github', fn ($app, array $config) => new GitHubSource($config))` registers a driver returning a `Storyfeed\Contracts\FeedSource`. A source returns `SourceItem`s or arrays: a verb, roles (a model, a party name, or a `['type', 'label', 'url']` entity with no model), `published_at`, data and a body. They go through the normal read pipeline into the same payload: headlines, bodies, Log and Live grouping, `only()`/`except()`, limits and cursors. `database` stays the default source. Any other source is read in memory, throws on `involving()`, `involvingType()` and `query()`, and its pages carry a null `sync_token`.
+- `Storyfeed\FeedBody`, an abstract base class for body types after Laravel's `JsonResource`: `make()` forwards to the body's constructor, `toPayload()` is final and writes the `$body`/`$v` envelope, and a body type supplies `body()`, `bodyType()` and optionally `defaults()`, `version()` and `upgrade()`. It includes `when()`, `unless()` and `tap()`, and `required()` throws naming the method to call. `Contracts\FeedBody` remains the contract for bodies that cannot extend it.
+- `Storyfeed\Body\Concerns`: `HasTitle`, `HasContent`, `HasFiles`, `HasImageSlot` and `HasFootnote`, each a typed property with a setter and a getter (`getTitle()` and so on), shared by the core bodies and available to app bodies.
+- A reserved `$fallback` key (`Contracts\FeedBody::FALLBACK`): `->fallback('…')` on any body writes one plain-text line for renderers that cannot draw its type. A body type may derive one by overriding `defaultFallback()`.
+- `Image::make()` accepts `image:`, and `Image` gains `image(?MediaSlot)`.
 
 ### Changed
 
 - A role filter given a party name looks the party up when the feed is read, not when the filter is added.
+- All eight core bodies extend `Storyfeed\FeedBody`, and their constructors are now the `make()` signatures.
+- Bodies write a setting only when it differs from its default; `upgrade()` fills defaults back in. New versions: `Excerpt` v2, `FileAttachment` v2, `Image` v2, `Component` v2, `ItemList` v2, `Prose` v2, `KeyValue` v3, `MediaObject` v3. Stored rows of earlier versions upgrade as before. Renderers that read a body without calling `upgrade()` must apply the defaults: an absent `Excerpt.truncated` is `true`, an absent `Prose.mediaType` is `text/plain` from v2, and an absent `Image.image` is `preview`.
+- `KeyValue::upgrade()` returns `verbatim` on every row.
+- `Prose::content(null)` clears the text, so using the body throws `IncompleteFeedValue`; it used to store an empty string. `MediaObject::content()` accepts a `Stringable` or scalar.
 
 ## v0.16.0 - 2026-10-09
 

@@ -10,12 +10,8 @@ it('serializes with the reserved keys, so a stored list describes itself', funct
     expect($list)->toBeInstanceOf(FeedBody::class)
         ->and($list->toPayload())->toBe([
             '$body' => 'Storyfeed/Body/ItemList',
-            '$v' => 1,
-            'title' => null,
-            'ordered' => false,
+            '$v' => 2,
             'items' => ['N101 Chicken Curry'],
-            'totalItems' => null,
-            'more' => null,
         ]);
 });
 
@@ -42,7 +38,7 @@ it('rehydrates a stored link so a list survives a JSON round trip', function () 
 });
 
 it('says whether the sequence is part of what it means', function () {
-    expect(ItemList::make(['a', 'b'])->toPayload()['ordered'])->toBeFalse()
+    expect(rendered(ItemList::make(['a', 'b']))['ordered'])->toBeFalse()
         ->and(ItemList::ordered(['a', 'b'])->toPayload()['ordered'])->toBeTrue();
 });
 

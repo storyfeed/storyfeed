@@ -3,9 +3,8 @@
 namespace Storyfeed\Body;
 
 use Illuminate\Contracts\Support\Htmlable;
-use Illuminate\Support\Traits\Conditionable;
-use Storyfeed\Concerns\HasPayload;
-use Storyfeed\Contracts\FeedBody;
+use Storyfeed\Body\Concerns\HasTitle;
+use Storyfeed\FeedBody;
 use Stringable;
 
 /**
@@ -48,10 +47,9 @@ use Stringable;
  * The version travels in both storage and payload: core does not own the app's
  * key, so the renderer must upgrade the body at read time, never write it back.
  */
-class KeyValue implements FeedBody
+class KeyValue extends FeedBody
 {
-    use Conditionable;
-    use HasPayload;
+    use HasTitle;
 
     /**
      * Each row as given; a row's own `placeholder` only when it said one, so the
@@ -59,13 +57,9 @@ class KeyValue implements FeedBody
      *
      * @var list<array{key: string, value: string|int|float|bool|null, verbatim: bool, placeholder?: string|null}>
      */
-    private array $rows = [];
+    protected array $rows = [];
 
-    private ?string $title = null;
-
-    private ?string $defaultPlaceholder = null;
-
-    final protected function __construct() {}
+    protected ?string $defaultPlaceholder = null;
 
     /**
      * Start the rows. Every argument is optional and has a method of the same name.
@@ -75,9 +69,9 @@ class KeyValue implements FeedBody
      * @param  string|null  $title  a line above the pairs, when the headline does not already say it
      * @param  string|null  $defaultPlaceholder  the sentence an absent value gets, if any — see {@see defaultPlaceholder()}
      */
-    public static function make(array $items = [], ?string $title = null, ?string $defaultPlaceholder = null): static
+    protected function __construct(array $items = [], ?string $title = null, ?string $defaultPlaceholder = null)
     {
-        return (new static)->items($items)->title($title)->defaultPlaceholder($defaultPlaceholder);
+        $this->items($items)->title($title)->defaultPlaceholder($defaultPlaceholder);
     }
 
     /**
@@ -125,14 +119,6 @@ class KeyValue implements FeedBody
                 $this->rows[$existing] = $normalized;
             }
         }
-
-        return $this;
-    }
-
-    /** A line above the pairs, when the headline does not already say it. */
-    public function title(?string $title): static
-    {
-        $this->title = $title;
 
         return $this;
     }
@@ -196,7 +182,7 @@ class KeyValue implements FeedBody
     /**
      * `Storyfeed/Body/KeyValue` — the VOCABULARY'S name, not a package's.
      *
-     * A body outlives whichever library defined it ({@see FeedBody}), so the
+     * A body outlives whichever library defined it ({@see \Storyfeed\Contracts\FeedBody}), so the
      * name must not contain the library: this body type has already moved
      * packages once, and a `storyfeed-ui/` or any other package's prefix
      * would have moved with it. The name is a pure lookup key — no reflection,
@@ -211,9 +197,14 @@ class KeyValue implements FeedBody
         return 'Storyfeed/Body/KeyValue';
     }
 
+    /**
+     * 3 since 2026-10-09: `title` and `defaultPlaceholder` are written only
+     * when set, and a row writes `verbatim` only when true and `placeholder`
+     * only when it differs from the body's default.
+     */
     public static function version(): int
     {
-        return 2;
+        return 3;
     }
 
     public static function upgrade(array $payload, int $from): array
@@ -233,28 +224,36 @@ class KeyValue implements FeedBody
                     ? $row['placeholder']
                     : ($from < 2 && array_key_exists('missing', $row) ? $row['missing'] : $default);
 
-                unset($row['missing']);
+                $verbatim = (bool) ($row['verbatim'] ?? false);
 
-                return [...$row, 'placeholder' => is_string($placeholder) ? $placeholder : null];
+                unset($row['missing'], $row['verbatim'], $row['placeholder']);
+
+                return [...$row, 'verbatim' => $verbatim, 'placeholder' => is_string($placeholder) ? $placeholder : null];
             }, array_filter($items, is_array(...)))),
         ];
     }
 
-    /**
-     * @return array{'$body': string, '$v': int, title: string|null, defaultPlaceholder: string|null, items: array<int, array{key: string, value: string|int|float|bool|null, verbatim: bool, placeholder: string|null}>}
-     */
-    public function toPayload(): array
+    protected function body(): array
     {
         return [
-            self::KEY => self::bodyType(),
-            self::VERSION => self::version(),
             'title' => $this->title,
             'defaultPlaceholder' => $this->defaultPlaceholder,
-            'items' => array_map(
-                fn (array $row): array => [...$row, 'placeholder' => array_key_exists('placeholder', $row) ? $row['placeholder'] : $this->defaultPlaceholder],
-                $this->rows,
-            ),
+            'items' => array_map(fn (array $row): array => [
+                'key' => $row['key'],
+                'value' => $row['value'],
+                ...($row['verbatim'] ? ['verbatim' => true] : []),
+                // A row's own word only where it differs from the body's, so
+                // an explicit null under a default survives the round trip.
+                ...(array_key_exists('placeholder', $row) && $row['placeholder'] !== $this->defaultPlaceholder
+                    ? ['placeholder' => $row['placeholder']]
+                    : []),
+            ], $this->rows),
         ];
+    }
+
+    protected static function defaults(): array
+    {
+        return ['title' => null, 'defaultPlaceholder' => null];
     }
 
     /**

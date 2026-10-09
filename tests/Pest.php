@@ -1,5 +1,6 @@
 <?php
 
+use Storyfeed\Contracts\FeedBody;
 use Storyfeed\Contracts\FeedSource;
 use Storyfeed\Models\Activity;
 use Storyfeed\Serialization\ActivitySerializer;
@@ -70,4 +71,18 @@ function itemsSource(iterable $items): FeedSource
             return $this->items;
         }
     };
+}
+
+/**
+ * What a renderer draws from a body: the stored row, through a JSON column,
+ * upgraded from the version it was written at.
+ */
+function rendered(FeedBody $body): array
+{
+    $stored = json_decode(json_encode($body->toPayload(), JSON_THROW_ON_ERROR), true, flags: JSON_THROW_ON_ERROR);
+
+    return $body::upgrade(
+        array_diff_key($stored, array_flip([FeedBody::KEY, FeedBody::VERSION, FeedBody::FALLBACK])),
+        $stored[FeedBody::VERSION],
+    );
 }

@@ -2,10 +2,7 @@
 
 namespace Storyfeed\Body;
 
-use Illuminate\Support\Traits\Conditionable;
-use Storyfeed\Concerns\HasPayload;
-use Storyfeed\Contracts\FeedBody;
-use Storyfeed\Exceptions\IncompleteFeedValue;
+use Storyfeed\FeedBody;
 
 /**
  * An app's own frontend component, named, with the props it is given.
@@ -20,7 +17,7 @@ use Storyfeed\Exceptions\IncompleteFeedValue;
  * A frontend maps `name` to its component the way Inertia maps a page name
  * to a page, and hands it `props`. Storyfeed stores both and returns them
  * unchanged; what a renderer does with a name it does not know is the
- * renderer's business, and by rule 3 of {@see FeedBody} it draws nothing.
+ * renderer's business, and by rule 3 of {@see \Storyfeed\Contracts\FeedBody} it draws nothing.
  *
  * ## It replaced `component`
  *
@@ -38,17 +35,12 @@ use Storyfeed\Exceptions\IncompleteFeedValue;
  * The version travels in both storage and payload: core does not own the app's
  * key, so the renderer must upgrade the body at read time, never write it back.
  */
-class Component implements FeedBody
+class Component extends FeedBody
 {
-    use Conditionable;
-    use HasPayload;
-
-    private ?string $name = null;
+    protected ?string $name = null;
 
     /** @var array<string, mixed> */
-    private array $props = [];
-
-    final protected function __construct() {}
+    protected array $props = [];
 
     /**
      * Start a component. Both arguments are optional and have a method of the
@@ -57,11 +49,13 @@ class Component implements FeedBody
      * @param  string|null  $name  the frontend component's name, kept verbatim — `Common/ScoreCard`
      * @param  array<string, mixed>  $props  what the component is given
      */
-    public static function make(?string $name = null, array $props = []): static
+    protected function __construct(?string $name = null, array $props = [])
     {
-        $component = (new static)->props($props);
+        $this->props($props);
 
-        return $name === null ? $component : $component->name($name);
+        if ($name !== null) {
+            $this->name($name);
+        }
     }
 
     /**
@@ -107,9 +101,10 @@ class Component implements FeedBody
         return 'Storyfeed/Body/Component';
     }
 
+    /** 2 since 2026-10-09: empty `props` are left out. */
     public static function version(): int
     {
-        return 1;
+        return 2;
     }
 
     public static function upgrade(array $payload, int $from): array
@@ -122,14 +117,16 @@ class Component implements FeedBody
         ];
     }
 
-    /** @return array{'$body': string, '$v': int, name: string, props: array<string, mixed>} */
-    public function toPayload(): array
+    protected function body(): array
     {
         return [
-            self::KEY => self::bodyType(),
-            self::VERSION => self::version(),
-            'name' => $this->name ?? throw IncompleteFeedValue::missing(static::class, 'name'),
+            'name' => $this->required($this->name, 'name'),
             'props' => $this->props,
         ];
+    }
+
+    protected static function defaults(): array
+    {
+        return ['props' => []];
     }
 }

@@ -4,15 +4,16 @@ use Storyfeed\Body\Image;
 
 it('stores picture facts and a slot without storing a URL', function () {
     expect(Image::make()->caption('USS Butterscotch')->alt('A boat')->width(640)->height(480)->withPreview()->toPayload())
-        ->toBe(['$body' => 'Storyfeed/Body/Image', '$v' => 1, 'caption' => 'USS Butterscotch', 'alt' => 'A boat', 'width' => 640, 'height' => 480, 'image' => 'preview'])
+        ->toBe(['$body' => 'Storyfeed/Body/Image', '$v' => 2, 'caption' => 'USS Butterscotch', 'alt' => 'A boat', 'width' => 640, 'height' => 480])
         ->and(Image::make('USS Butterscotch', 'A boat', 640, 480)->toPayload())
         ->toBe(Image::make()->caption('USS Butterscotch')->alt('A boat')->width(640)->height(480)->toPayload());
 });
 
 it('defaults to preview and can explicitly name each image slot', function () {
-    expect(Image::make()->toPayload()['image'])->toBe('preview');
+    expect(rendered(Image::make())['image'])->toBe('preview')
+        ->and(Image::make()->toPayload())->not->toHaveKey('image');
     foreach (['Icon', 'Preview', 'Image'] as $slot) {
-        expect(Image::make()->{'with'.$slot}()->toPayload()['image'])->toBe(strtolower($slot));
+        expect(rendered(Image::make()->{'with'.$slot}())['image'])->toBe(strtolower($slot));
     }
     expect(fn () => Image::make()->withPreview()->withImage())->toThrow(LogicException::class);
 });
@@ -23,5 +24,5 @@ it('normalizes malformed and future payloads without accepting a URL slot', func
             ->toBe(['caption' => null, 'alt' => null, 'width' => null, 'height' => null, 'image' => null]);
         expect(Image::upgrade([], $version)['image'])->toBe('preview');
     }
-    expect(Image::make(width: 0, height: -1)->toPayload()['width'])->toBeNull();
+    expect(rendered(Image::make(width: 0, height: -1))['width'])->toBeNull();
 });

@@ -8,9 +8,8 @@ it('serializes with the reserved keys, so a stored row describes itself', functi
     $body = KeyValue::make(['Address' => '99.225.169.111']);
     $expected = [
         '$body' => 'Storyfeed/Body/KeyValue',
-        '$v' => 2,
-        'title' => null, 'defaultPlaceholder' => null,
-        'items' => [['key' => 'Address', 'value' => '99.225.169.111', 'verbatim' => false, 'placeholder' => null]],
+        '$v' => 3,
+        'items' => [['key' => 'Address', 'value' => '99.225.169.111']],
     ];
 
     expect($body)->toBeInstanceOf(FeedBody::class)
@@ -20,7 +19,11 @@ it('serializes with the reserved keys, so a stored row describes itself', functi
     $stored = json_decode(json_encode($body->toArray(), JSON_THROW_ON_ERROR), true, flags: JSON_THROW_ON_ERROR);
     $props = array_diff_key($stored, array_flip([FeedBody::KEY, FeedBody::VERSION]));
 
-    expect(KeyValue::upgrade($props, $stored[FeedBody::VERSION]))->toBe(['title' => null, 'defaultPlaceholder' => null, 'items' => $expected['items']]);
+    expect(KeyValue::upgrade($props, $stored[FeedBody::VERSION]))->toBe([
+        'title' => null,
+        'defaultPlaceholder' => null,
+        'items' => [['key' => 'Address', 'value' => '99.225.169.111', 'verbatim' => false, 'placeholder' => null]],
+    ]);
 });
 
 it('accepts both shapes an app finds natural to write', function () {
@@ -45,15 +48,15 @@ it('flattens an Htmlable, because a stored value has to survive a JSON column', 
 });
 
 it('carries a missing sentence per row, because one payload holds two kinds of absence', function () {
-    $rows = KeyValue::make([
+    $rows = rendered(KeyValue::make([
         'Where' => ['value' => null, 'placeholder' => 'The address did not resolve to a place'],
         'Why' => null,
-    ])->toPayload()['items'];
+    ]))['items'];
 
     expect($rows[0]['placeholder'])->toBe('The address did not resolve to a place')
         ->and($rows[1]['placeholder'])->toBeNull();
 
-    $default = KeyValue::make(['Why' => null], defaultPlaceholder: 'Not recorded')->toPayload()['items'];
+    $default = rendered(KeyValue::make(['Why' => null], defaultPlaceholder: 'Not recorded'))['items'];
 
     expect($default[0]['placeholder'])->toBe('Not recorded');
 });
@@ -61,7 +64,7 @@ it('carries a missing sentence per row, because one payload holds two kinds of a
 it('normalizes malformed stored rows and renders unknown versions without throwing', function () {
     foreach ([1, 0, 999] as $version) {
         expect(KeyValue::upgrade(['items' => [['key' => 'A', 'value' => 1], 'junk', null]], $version))
-            ->toBe(['title' => null, 'defaultPlaceholder' => null, 'items' => [['key' => 'A', 'value' => 1, 'placeholder' => null]]]);
+            ->toBe(['title' => null, 'defaultPlaceholder' => null, 'items' => [['key' => 'A', 'value' => 1, 'verbatim' => false, 'placeholder' => null]]]);
 
         foreach ([[], ['items' => null], ['items' => 'invalid']] as $payload) {
             expect(KeyValue::upgrade($payload, $version))->toBe(['title' => null, 'defaultPlaceholder' => null, 'items' => []]);
@@ -74,17 +77,18 @@ it('carries a title above the pairs, and omits it when there is none', function 
     $plain = KeyValue::make(['Pickup' => '7:00 pm'])->toPayload();
 
     expect($titled['title'])->toBe('Order #1042')
-        ->and($plain['title'])->toBeNull();
+        ->and($plain)->not->toHaveKey('title');
 });
 
 it('gives one absence its own word without dropping into the payload shape', function () {
-    $items = KeyValue::make([
+    $body = KeyValue::make([
         'Table' => KeyValue::placeholder(null, 'not seated'),
         'Pickup' => '7:00 pm',
-    ])->toPayload()['items'];
+    ]);
 
-    expect($items[0])->toBe(['key' => 'Table', 'value' => null, 'verbatim' => false, 'placeholder' => 'not seated'])
-        ->and($items[1]['placeholder'])->toBeNull();
+    expect($body->toPayload()['items'])->toBe([['key' => 'Table', 'value' => null, 'placeholder' => 'not seated'], ['key' => 'Pickup', 'value' => '7:00 pm']])
+        ->and(rendered($body)['items'][0])->toBe(['key' => 'Table', 'value' => null, 'verbatim' => false, 'placeholder' => 'not seated'])
+        ->and(rendered($body)['items'][1]['placeholder'])->toBeNull();
 });
 
 it('upgrades stored v1 placeholders without changing the stored payload', function () {
@@ -121,7 +125,7 @@ it('preserves an explicit null over a body default in new and stored payloads', 
     ], defaultPlaceholder: 'Unknown');
 
     expect($body->toPayload()['defaultPlaceholder'])->toBe('Unknown')
-        ->and(array_column($body->toPayload()['items'], 'placeholder'))->toBe([null, 'Unknown', 'Not seated'])
+        ->and(array_column(rendered($body)['items'], 'placeholder'))->toBe([null, 'Unknown', 'Not seated'])
         ->and(KeyValue::upgrade(['missing' => 'Old', 'defaultPlaceholder' => null, 'items' => [['key' => 'A', 'value' => null]]], 1)['items'][0]['placeholder'])->toBeNull()
         ->and(method_exists(KeyValue::class, 'missing'))->toBeFalse()
         ->and(method_exists(KeyValue::class, 'missingAs'))->toBeFalse();

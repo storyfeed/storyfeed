@@ -7,8 +7,7 @@ it('never stores a file url, because the entity regenerates its own', function (
     $body = FileAttachment::make(size: 4404019, mediaType: 'application/zip');
     $expected = [
         '$body' => 'Storyfeed/Body/FileAttachment',
-        '$v' => 1,
-        'name' => null,
+        '$v' => 2,
         'size' => 4404019,
         'mediaType' => 'application/zip',
     ];
@@ -29,8 +28,8 @@ it('never stores a file url, because the entity regenerates its own', function (
 
 it('stores bytes as bytes and drops a negative size', function () {
     expect(FileAttachment::make(size: 900, name: 'archive.zip')->toPayload()['size'])->toBe(900)
-        ->and(FileAttachment::make(size: -1)->toPayload()['size'])->toBeNull()
-        ->and(FileAttachment::make()->toPayload())->toBe(['$body' => FileAttachment::bodyType(), '$v' => 1, 'name' => null, 'size' => null, 'mediaType' => null]);
+        ->and(rendered(FileAttachment::make(size: -1))['size'])->toBeNull()
+        ->and(FileAttachment::make()->toPayload())->toBe(['$body' => FileAttachment::bodyType(), '$v' => 2]);
 });
 
 it('normalizes malformed and unknown-version payloads without throwing', function () {

@@ -8,12 +8,8 @@ it('keeps a quotation out of the headline, with its form and version intact', fu
     $body = Excerpt::make('The fee for each subsequent term is agreed at renewal.');
     $expected = [
         '$body' => 'Storyfeed/Body/Excerpt',
-        '$v' => 1,
+        '$v' => 2,
         'text' => 'The fee for each subsequent term is agreed at renewal.',
-        'from' => null,
-        // The name claims partiality, so the default says so and a caller who
-        // has the whole thing turns it off.
-        'truncated' => true,
     ];
 
     expect($body)->toBeInstanceOf(FeedBody::class)
@@ -23,6 +19,8 @@ it('keeps a quotation out of the headline, with its form and version intact', fu
     $stored = json_decode(json_encode($body->toArray(), JSON_THROW_ON_ERROR), true, flags: JSON_THROW_ON_ERROR);
     $props = array_diff_key($stored, array_flip([FeedBody::KEY, FeedBody::VERSION]));
 
+    // The name claims partiality, so the default says so and a caller who
+    // has the whole thing turns it off.
     expect(Excerpt::upgrade($props, $stored[FeedBody::VERSION]))
         ->toBe(['text' => $expected['text'], 'from' => null, 'truncated' => true]);
 });
@@ -55,8 +53,10 @@ it('normalizes malformed and unknown-version payloads without throwing', functio
         expect(Excerpt::upgrade(['text' => 'A', 'from' => 'B', 'truncated' => 1, 'extra' => 'ignored'], $version))
             ->toBe(['text' => 'A', 'from' => 'B', 'truncated' => true]);
 
+        // A v1 row always wrote the flag, so one without it was written by
+        // hand and reads as whole; from v2 an absent flag is the default.
         foreach ([[], ['text' => null, 'from' => 42], ['text' => []]] as $payload) {
-            expect(Excerpt::upgrade($payload, $version))->toBe(['text' => '', 'from' => null, 'truncated' => false]);
+            expect(Excerpt::upgrade($payload, $version))->toBe(['text' => '', 'from' => null, 'truncated' => $version >= 2]);
         }
     }
 });

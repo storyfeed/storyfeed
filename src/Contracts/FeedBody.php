@@ -27,8 +27,9 @@ use Storyfeed\Concerns\HasPayload;
  * can draw a body type defined by a package it has never heard of, and a body
  * outlives whichever library defined it. Nothing below assumes otherwise.
  *
- * Core also ships seven body types under `Storyfeed\Body` — Excerpt,
- * KeyValue, FileAttachment, Image, Prose, ItemList, MediaObject, Component. **They are a vocabulary, not a
+ * Core also ships eight body types under `Storyfeed\Body` — Excerpt,
+ * KeyValue, FileAttachment, Image, Prose, ItemList, MediaObject, Component —
+ * each extending the {@see \Storyfeed\FeedBody} base class. **They are a vocabulary, not a
  * mechanism**: nothing in this package reads them, and an app may write its own
  * and owe them nothing. They were in `storyfeed/ui` until 2026-09-14 and moved
  * for one reason — their names always said `Storyfeed/`, because a body's
@@ -102,17 +103,34 @@ use Storyfeed\Concerns\HasPayload;
  *
  * ## Built fluently, as `FeedEntity` is
  *
- * Every body type core ships starts from an empty `make()` and has a method
- * for each of its arguments, and those setters change the body and return
- * it: `Excerpt::make()->text($note)->from('Jasper')`. Named arguments reach
- * the same payload. A value a body cannot do without is checked when the body
- * is USED, in `toPayload()`, with an exception naming the method to call.
- * Lists append and maps merge, in `View::with()`'s manner.
+ * Every body type core ships extends {@see \Storyfeed\FeedBody}, starts
+ * from an empty `make()` and has a method for each of its arguments, and
+ * those setters change the body and return it:
+ * `Excerpt::make()->text($note)->from('Jasper')`. Named arguments reach the
+ * same payload. A value a body cannot do without is checked when the body is
+ * USED, in `toPayload()`, with an exception naming the method to call. Lists
+ * append and maps merge, in `View::with()`'s manner.
+ *
+ * A field two body types share comes from the same concern in
+ * `Storyfeed\Body\Concerns` — `HasTitle`, `HasContent`, `HasFiles`,
+ * `HasImageSlot`, `HasFootnote` — so it has the same spelling everywhere, and
+ * an app body that uses one gets that spelling too.
  *
  * KNOWN DEVIATION: `Body\MediaObject` spells its title line `subject`.
  * Left alone rather than quietly aligned, because changing a stored key breaks
  * rows rather than renaming a parameter — but it is not a precedent, and a new
- * body type spells it `title`.
+ * body type spells it `title`, through `HasTitle`.
+ *
+ * ## A body's payload reads as the body it renders
+ *
+ * A setting is written only when it differs from its default. A three-fact
+ * `KeyValue` used to repeat `"verbatim": false, "placeholder": null` on every
+ * row, so the defaults outnumbered the data. Now a row is
+ * `{"key": "Carrier", "value": "UPS"}`, and `{"verbatim": true}` appears only
+ * on the row that is verbatim. {@see upgrade()} fills the defaults back in at
+ * read time, so a renderer still gets every key; only the stored row is
+ * smaller. A field a reader expects to see, such as a row's `value` or a
+ * `Prose`'s `content`, is always written, even when empty.
  *
  * ## A body type names what the data IS, not a component
  *
@@ -137,9 +155,11 @@ use Storyfeed\Concerns\HasPayload;
 interface FeedBody extends Arrayable
 {
     /**
-     * The node shape. Authors implement this and use {@see HasPayload} for
-     * toArray(), which defaults to toPayload(); only storage-only extras
-     * warrant overriding toArray(). The trait documents why this direction
+     * The node shape. A body extending {@see \Storyfeed\FeedBody} gets a
+     * final one that writes the envelope and leaves out the defaults; a body
+     * implementing this interface directly writes it, and uses
+     * {@see HasPayload} for toArray(), which defaults to toPayload(); only
+     * storage-only extras warrant overriding toArray(). The trait documents why this direction
      * prevents permanent leaks into the frozen payload contract.
      *
      * This belongs on the published interface so every future body DTO,
@@ -183,6 +203,19 @@ interface FeedBody extends Arrayable
     public const string VERSION = '$v';
 
     /**
+     * The reserved key carrying a body's fallback line: one short line of
+     * plain text that a renderer draws when it cannot draw the body's type —
+     * an app type a third-party renderer does not know, or a type whose
+     * package is not installed.
+     *
+     * `$`-prefixed like {@see KEY} and {@see VERSION} because it is
+     * bookkeeping, not the body's own field. It is optional: a body without
+     * one is drawn as nothing by a renderer that does not know its type,
+     * exactly as rule 3 says.
+     */
+    public const string FALLBACK = '$fallback';
+
+    /**
      * This body type's name, as it is written into storage.
      *
      * `bodyType()` AND NOT `name()`, because `name` is the plainest word for
@@ -221,7 +254,11 @@ interface FeedBody extends Arrayable
      *
      * The `$payload` handed here excludes {@see KEY} and {@see VERSION}: the
      * reader has already used both to get this far, and a body type should not
-     * have to filter its own bookkeeping back out.
+     * have to filter its own bookkeeping back out. {@see FALLBACK} is for a
+     * renderer that cannot draw the type, so a body type ignores it here.
+     *
+     * A payload may be SLIM: a setting equal to its default can be absent,
+     * and this method fills it back in, so a renderer always gets every key.
      *
      * @param  array<string, mixed>  $payload
      * @return array<string, mixed>

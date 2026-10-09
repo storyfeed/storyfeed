@@ -2,9 +2,8 @@
 
 namespace Storyfeed\Body;
 
-use Illuminate\Support\Traits\Conditionable;
-use Storyfeed\Concerns\HasPayload;
-use Storyfeed\Contracts\FeedBody;
+use Storyfeed\Body\Concerns\HasTitle;
+use Storyfeed\FeedBody;
 use Storyfeed\FeedLink;
 use Stringable;
 
@@ -50,10 +49,9 @@ use Stringable;
  * to go is a tease, so the two travel together or the count stands alone as a
  * plain fact.
  */
-class ItemList implements FeedBody
+class ItemList extends FeedBody
 {
-    use Conditionable;
-    use HasPayload;
+    use HasTitle;
 
     /**
      * Items as given. Turned into strings and links when the list is USED,
@@ -61,17 +59,13 @@ class ItemList implements FeedBody
      *
      * @var list<mixed>
      */
-    private array $items = [];
+    protected array $items = [];
 
-    private bool $ordered = false;
+    protected bool $ordered = false;
 
-    private ?string $title = null;
+    protected ?int $totalItems = null;
 
-    private ?int $totalItems = null;
-
-    private ?FeedLink $more = null;
-
-    final protected function __construct() {}
+    protected ?FeedLink $more = null;
 
     /**
      * Start a list. Every argument is optional and has a method of the same name.
@@ -81,13 +75,13 @@ class ItemList implements FeedBody
      * @param  int|null  $totalItems  how many exist, when that is more than were sent
      * @param  FeedLink|null  $more  where the rest live — a label and an href, never a bare url
      */
-    public static function make(
+    protected function __construct(
         iterable $items = [],
         ?string $title = null,
         ?int $totalItems = null,
         ?FeedLink $more = null,
-    ): static {
-        return (new static)->items($items)->title($title)->totalItems($totalItems)->more($more);
+    ) {
+        $this->items($items)->title($title)->totalItems($totalItems)->more($more);
     }
 
     /**
@@ -117,14 +111,6 @@ class ItemList implements FeedBody
         foreach ($items as $item) {
             $this->items[] = $item;
         }
-
-        return $this;
-    }
-
-    /** A line above the items, when the headline does not already say it. */
-    public function title(?string $title): static
-    {
-        $this->title = $title;
 
         return $this;
     }
@@ -209,9 +195,10 @@ class ItemList implements FeedBody
         return 'Storyfeed/Body/ItemList';
     }
 
+    /** 2 since 2026-10-09: `title`, `ordered`, `totalItems` and `more` are written only when they differ from their defaults. */
     public static function version(): int
     {
-        return 1;
+        return 2;
     }
 
     /**
@@ -237,19 +224,19 @@ class ItemList implements FeedBody
         ];
     }
 
-    /**
-     * @return array{'$body': string, '$v': int, title: string|null, ordered: bool, items: list<string|array{label: string, href: string|null}>, totalItems: int|null, more: array<string, mixed>|null}
-     */
-    public function toPayload(): array
+    protected function body(): array
     {
         return [
-            self::KEY => self::bodyType(),
-            self::VERSION => self::version(),
             'title' => $this->title,
             'ordered' => $this->ordered,
             'items' => self::normalize($this->items),
             'totalItems' => $this->totalItems,
             'more' => $this->more?->toPayload(),
         ];
+    }
+
+    protected static function defaults(): array
+    {
+        return ['title' => null, 'ordered' => false, 'totalItems' => null, 'more' => null];
     }
 }

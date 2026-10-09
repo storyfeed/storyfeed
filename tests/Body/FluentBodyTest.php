@@ -3,6 +3,7 @@
 use Storyfeed\Body\Component;
 use Storyfeed\Body\Excerpt;
 use Storyfeed\Body\FileAttachment;
+use Storyfeed\Body\Image;
 use Storyfeed\Body\ItemList;
 use Storyfeed\Body\KeyValue;
 use Storyfeed\Body\MediaObject;
@@ -93,9 +94,8 @@ it('appends lists and merges maps', function () {
 });
 
 it('gives rows the default missing word unless they say their own', function () {
-    $rows = KeyValue::make(['Seat' => null, 'Table' => KeyValue::placeholder(null, 'not seated')])
-        ->defaultPlaceholder('unknown')
-        ->toPayload()['items'];
+    $rows = rendered(KeyValue::make(['Seat' => null, 'Table' => KeyValue::placeholder(null, 'not seated')])
+        ->defaultPlaceholder('unknown'))['items'];
 
     expect(array_column($rows, 'placeholder'))->toBe(['unknown', 'not seated']);
 });
@@ -116,9 +116,9 @@ it('supports when() and unless() on every body type', function () {
         ->unless(true, fn (Prose $prose) => $prose->title('Hidden'));
 
     expect($prose->toPayload()['title'])->toBe('Shown')
-        ->and(Component::make('Card')->when(false, fn ($c) => $c->props('x', 1))->toPayload()['props'])->toBe([]);
+        ->and(rendered(Component::make('Card')->when(false, fn ($c) => $c->props('x', 1)))['props'])->toBe([]);
 
-    foreach ([Excerpt::class, FileAttachment::class, ItemList::class, KeyValue::class, MediaObject::class, Prose::class, Component::class] as $class) {
+    foreach ([Excerpt::class, FileAttachment::class, Image::class, ItemList::class, KeyValue::class, MediaObject::class, Prose::class, Component::class] as $class) {
         expect(method_exists($class, 'when') && method_exists($class, 'unless'))->toBeTrue();
     }
 });
@@ -132,8 +132,8 @@ it('names the method to call when a required value was never set', function (Clo
 ]);
 
 it('starts every body type empty', function () {
-    expect(FileAttachment::make()->toPayload()['name'])->toBeNull()
+    expect(rendered(FileAttachment::make())['name'])->toBeNull()
         ->and(ItemList::make()->toPayload()['items'])->toBe([])
         ->and(KeyValue::make()->toPayload()['items'])->toBe([])
-        ->and(MediaObject::make()->toPayload()['subject'])->toBeNull();
+        ->and(rendered(MediaObject::make())['subject'])->toBeNull();
 });
