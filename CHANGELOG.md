@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## v0.17.0 - 2026-10-09
+
 ### Added
 
 - Activities can record the time range they describe: `->startsAt($date)` and `->endsAt($date)` on the builder and on verb enums, and `record(startsAt:, endsAt:)`. Either end may be left open ("from Oct 9"); a range that ends before it starts throws. The names follow `->publishedAt()` and Laravel's `*_at` columns (Cashier's `ends_at`). `published_at` stays the sort key and the cursor. Publish and run the additive `add_time_range_to_feed_activities_table` migration before recording a range.
