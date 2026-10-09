@@ -71,6 +71,9 @@ work leads to is a demonstration of a working package, not a launch event, so
       can bind one Story class method; feeds filter by role type or exclude
       distant relations; never-recorded ancestry can be filled in without
       rewriting history.
+- [x] **v0.16 — Cleanup and truth** *(tagged `v0.16.0`)*. Deprecated aliases
+      are gone, Story classes are no longer experimental, and entities can
+      declare a text avatar.
 
 ## The countdown to 1.0
 
@@ -79,9 +82,6 @@ titles start with the version they target, such as `[0.17]`. Milestones show
 the current plan: items may be reordered, moved to a later version or dropped as
 the work teaches us, and a dropped item is closed as not planned with its reason.
 
-- [ ] **[v0.16 — Cleanup and truth](https://github.com/storyfeed/storyfeed/milestone/1).**
-      Remove what was promised to be removed before 1.0, and make every document
-      match the code.
 - [ ] **[v0.17 — Feed sources](https://github.com/storyfeed/storyfeed/milestone/2).**
       The database becomes one source among several, driver-style, so a feed can
       come from static content or an API and still render through the same
