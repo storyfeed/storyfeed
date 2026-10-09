@@ -4,6 +4,7 @@
 
 ### Added
 
+- `involving($model, deep: false)` and `involvingDirectly($model)` read only an entity's direct participation, excluding distant relations.
 - `Story::verb()` accepts `[StoryClass::class, 'method']` to bind one public action with container method injection.
 
 ## v0.14.1 - 2026-10-08

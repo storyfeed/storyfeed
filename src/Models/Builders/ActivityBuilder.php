@@ -79,9 +79,8 @@ class ActivityBuilder extends Builder
     }
 
     /**
-     * Activities involving the model in ANY role — actor, object, target or
-     * context. This is what an entity's own feed means: everything that
-     * mentions it, however it participated.
+     * Activities involving the model in any direct role or through distant
+     * relations. Pass `deep: false` to match direct participation only.
      *
      * A semi-join against feed_participants, driven FROM the participants
      * index — the direction matters more than the join does.
@@ -118,7 +117,7 @@ class ActivityBuilder extends Builder
      * SyncParticipants maintains the rows; `storyfeed:participants` backfills
      * an install that predates the table.
      */
-    public function involving(Model $model): static
+    public function involving(Model $model, bool $deep = true): static
     {
         $participants = SyncParticipants::table();
         $activities = $this->getModel()->getTable();
@@ -128,14 +127,21 @@ class ActivityBuilder extends Builder
         // Deliberately NOT limited/ordered inside: the candidate set has to stay
         // whole so verb filters, date ranges and curation still see everything
         // that qualifies. Ordering happens on the outer query.
-        $this->whereIn("{$activities}.id", function (QueryBuilder $query) use ($participants, $alias, $key) {
+        $this->whereIn("{$activities}.id", function (QueryBuilder $query) use ($participants, $alias, $key, $deep) {
             $query->from($participants)
                 ->select('activity_id')
                 ->where('entity_type', $alias)
-                ->where('entity_id', $key);
+                ->where('entity_id', $key)
+                ->when(! $deep, fn (QueryBuilder $query) => $query->where('distance', 0));
         });
 
         return $this;
+    }
+
+    /** Every activity that mentions the entity directly, in any role. */
+    public function involvingDirectly(Model $model): static
+    {
+        return $this->involving($model, deep: false);
     }
 
     public function today(): static

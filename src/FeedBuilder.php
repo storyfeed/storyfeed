@@ -81,6 +81,8 @@ class FeedBuilder
 
     protected ?Model $involving = null;
 
+    protected bool $involvingDeep = true;
+
     protected ?string $verb = null;
 
     /** Verb allowlist/denylist, lazily created by only()/except(). */
@@ -186,7 +188,8 @@ class FeedBuilder
 
     /**
      * An entity's own feed: every activity that mentions it, in any role —
-     * actor, object, target or context.
+     * actor, object, target, context, origin, result or instrument. Distant
+     * relations are included; `deep: false` keeps only direct participation.
      *
      * This is what a project page or a client page wants. `context()` answers
      * the narrower question ("what happened INSIDE this container"), and misses
@@ -195,14 +198,21 @@ class FeedBuilder
      * Indexed via feed_participants — see ActivityBuilder::involving(). An
      * install upgrading into this needs `storyfeed:participants` once.
      */
-    public function involving(Model|string $model): static
+    public function involving(Model|string $model, bool $deep = true): static
     {
         $this->assertUnlocked('involving');
 
         $this->boundRoles[] = 'involving';
         $this->involving = $this->resolve($model);
+        $this->involvingDeep = $deep;
 
         return $this;
+    }
+
+    /** Every activity that mentions the entity directly, in any role. */
+    public function involvingDirectly(Model|string $model): static
+    {
+        return $this->involving($model, deep: false);
     }
 
     /**
@@ -860,6 +870,7 @@ class FeedBuilder
             ? (new Cursor([
                 "{$activities}.published_at" => $this->normalizeTimestamp($last->published_at),
                 "{$activities}.id" => $last->getKey(),
+                ...$this->cursorScope(),
             ]))->encode()
             : null;
 
@@ -1598,7 +1609,7 @@ class FeedBuilder
             ->when($this->object, fn (ActivityBuilder $q, Model $m) => $q->object($m))
             ->when($this->target, fn (ActivityBuilder $q, Model $m) => $q->target($m))
             ->when($this->context, fn (ActivityBuilder $q, Model $m) => $q->context($m))
-            ->when($this->involving, fn (ActivityBuilder $q, Model $m) => $q->involving($m))
+            ->when($this->involving, fn (ActivityBuilder $q, Model $m) => $q->involving($m, deep: $this->involvingDeep))
             ->when($this->verb, fn (ActivityBuilder $q, string $verb) => $q->verb($verb))
             ->tap(fn (ActivityBuilder $q) => $this->applyConstraints($q));
     }
@@ -1720,6 +1731,7 @@ class FeedBuilder
             'axis' => $candidate->axis,
             'hash' => $candidate->hash,
             'id' => $candidate->activity?->getKey(),
+            ...$this->cursorScope(),
         ]))->encode();
     }
 
@@ -1739,7 +1751,24 @@ class FeedBuilder
 
     protected function decodedCursor(): ?Cursor
     {
-        return $this->cursor === null ? null : Cursor::fromEncoded($this->cursor);
+        $cursor = $this->cursor === null ? null : Cursor::fromEncoded($this->cursor);
+
+        if ($cursor !== null && ($cursor->toArray()['involving_deep'] ?? true) !== $this->involvingDeep) {
+            throw new InvalidArgumentException('The feed cursor was issued with a different involving depth. Start from the first page.');
+        }
+
+        return $cursor;
+    }
+
+    /**
+     * Default cursors keep their existing shape. Older cursors included
+     * distant relations too, so a missing marker means deep: true.
+     *
+     * @return array{involving_deep?: false}
+     */
+    protected function cursorScope(): array
+    {
+        return $this->involvingDeep ? [] : ['involving_deep' => false];
     }
 
     protected function activityModel(): Activity
