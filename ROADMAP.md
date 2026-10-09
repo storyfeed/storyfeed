@@ -90,8 +90,9 @@ the work teaches us, and a dropped item is closed as not planned with its reason
       Scoped feeds stay fast at a million activities on every supported database,
       with nightly benchmark gates.
 - [ ] **[v0.19 — Payload and schema freeze](https://github.com/storyfeed/storyfeed/milestone/4).**
-      The open points in the payload contract and the schema are settled, and
-      Payload v1 is declared stable.
+      The open points in the payload contract and the schema are settled,
+      `location` and `generator` join the recorded roles, and Payload v1 is
+      declared stable.
 - [ ] **[v1.0 — Stable](https://github.com/storyfeed/storyfeed/milestone/5).** One
       consolidated schema, a versioning and support policy, and a release
       candidate before 1.0.0.
@@ -104,7 +105,13 @@ stable payload contract and stays labelled experimental.
 Planned for the [1.x line](https://github.com/storyfeed/storyfeed/milestone/6), in
 no particular order: a notifications bridge, Story auto-discovery, a public demo
 API, more feed sources (Markdown, Laravel Pennant), sections other than dates,
-and multi-tenancy exploration. Long-range: ActivityPub.
+and multi-tenancy exploration.
+
+The rest of Activity Streams 2.0, each additive to Payload v1: time ranges
+(`startTime`, `endTime`, `duration`), replies (`inReplyTo`), tags and mentions,
+questions (`oneOf`, `anyOf`, `closed`) and place coordinates. Addressing
+(`to`, `cc`, `bto`, `bcc`, `audience`) arrives with delivery, long-range,
+alongside ActivityPub.
 
 ## Under discovery
 
