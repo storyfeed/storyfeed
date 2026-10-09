@@ -7,9 +7,11 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Query\Builder as QueryBuilder;
 use Storyfeed\Actions\SyncParticipants;
+use Storyfeed\Concerns\FiltersRoleTypes;
 use Storyfeed\Support\ActivityRoles;
 use Storyfeed\Support\Chronology;
 use Storyfeed\Support\MorphKeyType;
+use Storyfeed\Support\RoleTypes;
 
 /**
  * @template TModel of \Storyfeed\Models\Activity
@@ -18,6 +20,16 @@ use Storyfeed\Support\MorphKeyType;
  */
 class ActivityBuilder extends Builder
 {
+    use FiltersRoleTypes;
+
+    /** @param  Model|string|list<Model|string>  $types */
+    protected function whereRoleTypes(string $role, Model|string|array $types): static
+    {
+        $this->whereIn($this->qualifyColumn($role.'_type'), RoleTypes::resolve($role, $types));
+
+        return $this;
+    }
+
     /**
      * Activities visible to readers. The reader passes its own $now so the
      * gate cannot shift between the phases of one read.

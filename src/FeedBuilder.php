@@ -14,6 +14,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Traits\Conditionable;
 use InvalidArgumentException;
+use Storyfeed\Concerns\FiltersRoleTypes;
 use Storyfeed\Contracts\FeedVerb;
 use Storyfeed\Exceptions\FeedMisconfigured;
 use Storyfeed\Grouping\NullStrategy;
@@ -27,6 +28,7 @@ use Storyfeed\Payload\GroupSlice;
 use Storyfeed\Payload\NodePresenter;
 use Storyfeed\Support\ActivityRoles;
 use Storyfeed\Support\Chronology;
+use Storyfeed\Support\RoleTypes;
 use Storyfeed\Support\SyncToken;
 use Storyfeed\Support\VerbFilter;
 
@@ -70,6 +72,10 @@ use Storyfeed\Support\VerbFilter;
 class FeedBuilder
 {
     use Conditionable;
+    use FiltersRoleTypes;
+
+    /** @var list<array{role: string, types: list<string>}> */
+    protected array $roleTypes = [];
 
     protected ?Model $actor = null;
 
@@ -145,6 +151,18 @@ class FeedBuilder
      * was deleted mid-read. See groupedPage().
      */
     protected const MAX_EMPTY_HOPS = 5;
+
+    /** @param  Model|string|list<Model|string>  $types */
+    protected function whereRoleTypes(string $role, Model|string|array $types): static
+    {
+        $this->assertUnlocked($role);
+
+        $resolved = RoleTypes::resolve($role, $types);
+        $this->boundRoles[] = $role;
+        $this->roleTypes[] = ['role' => $role, 'types' => $resolved];
+
+        return $this;
+    }
 
     public function actor(Model|string $model): static
     {
@@ -1615,7 +1633,7 @@ class FeedBuilder
     }
 
     /**
-     * The caller's query() callbacks, plus the verb filter if there is one.
+     * The caller's query() callbacks, role types and verb restrictions.
      *
      * The nesting is the whole point of this method existing, and it is
      * UNCONDITIONAL. AND binds tighter than OR, so a callback whose first move
@@ -1641,6 +1659,10 @@ class FeedBuilder
     {
         if ($this->callbacks !== []) {
             $query->where(fn (ActivityBuilder $group) => $this->applyCallbacks($group));
+        }
+
+        foreach ($this->roleTypes as $filter) {
+            $query->whereIn($query->qualifyColumn($filter['role'].'_type'), $filter['types']);
         }
 
         $this->verbFilter?->applyTo($query);
