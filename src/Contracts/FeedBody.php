@@ -217,16 +217,20 @@ interface FeedBody extends Arrayable
     public const string FALLBACK = '$fallback';
 
     /**
-     * The reserved key carrying a body's maximum height: a CSS length such as
-     * `16rem`, or `none` to show it all.
+     * The reserved key carrying a body's `$meta`: the handshake between the
+     * backend and the frontend, after Laravel Nova's `withMeta()`. A map of
+     * how to draw the body — `{"maxHeight": "none"}` — written only when it
+     * holds something.
      *
-     * The body sets it, as `FeedLink::modal()` sets a modal: what happens past
-     * the height — an inner scroll, a "Show more" — is the renderer's to
-     * decide. `$`-prefixed like
-     * {@see FALLBACK}, because it is bookkeeping and not the body's own data,
-     * and written only when set.
+     * Core's keys are plain words (`maxHeight`: a CSS length or `none`); an
+     * app's own keys carry a dot (`acme.layout`), so they never clash with a
+     * later core key. The body sets these and a renderer applies the keys it
+     * knows; one it does not follow, it declines on its own terms. Meaning —
+     * intent, language, sensitivity, alt text, provenance — never goes here:
+     * it is the body's own data. `$`-prefixed like {@see FALLBACK}, because
+     * it is bookkeeping.
      */
-    public const string MAX_HEIGHT = '$maxHeight';
+    public const string META = '$meta';
 
     /**
      * This body type's name, as it is written into storage.
@@ -268,7 +272,7 @@ interface FeedBody extends Arrayable
      * The `$payload` handed here excludes {@see KEY} and {@see VERSION}: the
      * reader has already used both to get this far, and a body type should not
      * have to filter its own bookkeeping back out. {@see FALLBACK} and
-     * {@see MAX_HEIGHT} are for the renderer, so a body type ignores them here.
+     * {@see META} are for the renderer, so a body type ignores them here.
      *
      * A payload may be SLIM: a setting equal to its default can be absent,
      * and this method fills it back in, so a renderer always gets every key.

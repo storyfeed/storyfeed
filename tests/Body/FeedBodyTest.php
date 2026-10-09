@@ -124,18 +124,39 @@ it('reads shared fields back through their getters', function () {
         ->and(MediaObject::make()->getFiles())->toBe([]);
 });
 
-it('suggests a maximum height in the reserved key, written only when set', function () {
-    expect(FeedBodyContract::MAX_HEIGHT)->toBe('$maxHeight')
-        ->and(Prose::markdown('notes')->toPayload())->not->toHaveKey('$maxHeight')
+it('sets a maximum height in the $meta bucket, written only when set', function () {
+    expect(FeedBodyContract::META)->toBe('$meta')
+        ->and(Prose::markdown('notes')->toPayload())->not->toHaveKey('$meta')
         ->and(Prose::markdown('notes')->maxHeight('none')->toPayload())
-        ->toBe(['$body' => Prose::bodyType(), '$v' => 2, '$maxHeight' => 'none', 'content' => 'notes', 'mediaType' => 'text/markdown'])
-        ->and(Table::make(rows: [['a']])->maxHeight('16rem')->toPayload()['$maxHeight'])->toBe('16rem')
-        ->and(ShipmentBody::make('UPS')->maxHeight('320px')->maxHeight(null)->toPayload())->not->toHaveKey('$maxHeight')
-        ->and(rendered(Prose::make('x')->maxHeight('none')))->not->toHaveKey('$maxHeight');
+        ->toBe(['$body' => Prose::bodyType(), '$v' => 2, '$meta' => ['maxHeight' => 'none'], 'content' => 'notes', 'mediaType' => 'text/markdown'])
+        ->and(Table::make(rows: [['a']])->maxHeight('16rem')->toPayload()['$meta'])->toBe(['maxHeight' => '16rem'])
+        ->and(ShipmentBody::make('UPS')->maxHeight('320px')->maxHeight(null)->toPayload())->not->toHaveKey('$meta')
+        ->and(rendered(Prose::make('x')->maxHeight('none')))->not->toHaveKey('$meta');
 
     foreach (['0', '16rem', '320px', '12.5em', '.5vh', '40%', '30dvh', '20ch'] as $height) {
-        expect(Excerpt::make('A')->maxHeight($height)->toPayload()['$maxHeight'])->toBe($height);
+        expect(Excerpt::make('A')->maxHeight($height)->toPayload()['$meta']['maxHeight'])->toBe($height);
     }
+});
+
+it('merges app keys into $meta with withMeta(), as Nova does', function () {
+    $body = Prose::markdown('notes')
+        ->withMeta(['acme.layout' => 'wide', 'acme.tone' => 'quiet'])
+        ->maxHeight('none')
+        ->withMeta(['acme.layout' => 'narrow']);
+
+    expect($body->toPayload()['$meta'])->toBe(['acme.layout' => 'narrow', 'acme.tone' => 'quiet', 'maxHeight' => 'none'])
+        ->and($body->meta())->toBe($body->toPayload()['$meta'])
+        ->and(Excerpt::make('A')->withMeta(['maxHeight' => '16rem'])->toPayload()['$meta'])->toBe(['maxHeight' => '16rem'])
+        ->and(Excerpt::make('A')->maxHeight('16rem')->withMeta(['maxHeight' => null])->toPayload())->not->toHaveKey('$meta')
+        ->and(Excerpt::make('A')->withMeta(['acme.x' => 1])->fallback('Quoted')->toPayload())
+        ->toBe(['$body' => Excerpt::bodyType(), '$v' => 2, '$fallback' => 'Quoted', '$meta' => ['acme.x' => 1], 'text' => 'A']);
+});
+
+it('validates a core key given through withMeta() as its typed method does', function () {
+    expect(fn () => Prose::make('x')->withMeta(['maxHeight' => 'auto']))
+        ->toThrow(InvalidArgumentException::class, 'Prose::maxHeight() takes a CSS length such as `16rem` or `320px`, or `none`; `auto` given.')
+        ->and(fn () => Prose::make('x')->withMeta(['maxHeight' => 320]))
+        ->toThrow(InvalidArgumentException::class, 'Prose::maxHeight() takes a CSS length such as `16rem` or `320px`, or `none`; int given.');
 });
 
 it('names the method when a maximum height is not a CSS length', function (string $height) {

@@ -48,8 +48,8 @@ use Storyfeed\Exceptions\IncompleteFeedValue;
  * ## `toPayload()` is final
  *
  * So every body writes its envelope — `$body`, `$v`, and `$fallback` and
- * `$maxHeight` when it has them — the same way, and a body type writes only its own fields, in
- * {@see body()}. That is why this is a base class and not a trait.
+ * `$meta` when it has them — the same way, and a body type writes only its
+ * own fields, in {@see body()}. That is why this is a base class and not a trait.
  *
  * ## A body's payload reads as the body it renders
  *
@@ -63,15 +63,25 @@ use Storyfeed\Exceptions\IncompleteFeedValue;
  * A body type that slims a shape it used to write in full bumps its
  * `version()`, so the rows already stored keep reading as they did.
  *
- * ## A body sets its maximum height
+ * ## `$meta` is how a body tells its renderer how to draw it
  *
- *     Prose::markdown($notes)->maxHeight('none');   // show it all
- *     Table::make()->maxHeight('16rem');            // cap this one lower
+ *     Prose::markdown($notes)->maxHeight('none');            // writes $meta.maxHeight
+ *     Table::make()->maxHeight('16rem');                     // cap this one lower
+ *     Prose::markdown($notes)->withMeta(['acme.layout' => 'wide']);
  *
- * `maxHeight()` takes a CSS length or `none`, after Filament's `->maxHeight()`,
- * and writes `$maxHeight`. The body states its intent and a renderer draws it:
- * what happens past the height, an inner scroll or a "Show more", is the
- * renderer's to decide.
+ * `withMeta()` merges into the `$meta` bucket, after Laravel Nova's
+ * `->withMeta()`, and the bucket is written only when it holds something.
+ * Core's keys are plain words with a typed method each — `maxHeight()` takes
+ * a CSS length or `none`, after Filament's `->maxHeight()` — and an app's own
+ * keys carry a dot (`acme.layout`), so a later core key never clashes with
+ * one.
+ *
+ * The body sets these; it does not ask. A renderer applies the keys it knows
+ * and ignores the rest, and what happens past a height, an inner scroll or a
+ * "Show more", is the renderer's to decide.
+ *
+ * MEANING NEVER GOES IN `$meta`. Intent, language, sensitivity, alt text and
+ * provenance are what the body says, so they are its own fields.
  */
 abstract class FeedBody implements Contracts\FeedBody
 {
@@ -81,7 +91,8 @@ abstract class FeedBody implements Contracts\FeedBody
 
     protected ?string $fallback = null;
 
-    protected ?string $maxHeight = null;
+    /** @var array<string, mixed> */
+    protected array $meta = [];
 
     /**
      * Start a body. The arguments are the body type's constructor's, so named
@@ -123,9 +134,44 @@ abstract class FeedBody implements Contracts\FeedBody
     }
 
     /**
-     * How tall this body may get before a renderer shortens it: a CSS length
-     * such as `16rem` or `320px`, or `none` to show it all. Null clears it, and
-     * leaves the height to the renderer.
+     * Merge keys into this body's `$meta`, as Nova's `withMeta()` does: a key
+     * already here takes the later value. A core key goes through its typed
+     * method, so `['maxHeight' => '16rem']` is validated as `maxHeight()` is.
+     *
+     * @param  array<string, mixed>  $meta
+     */
+    public function withMeta(array $meta): static
+    {
+        foreach ($meta as $key => $value) {
+            if ($key === 'maxHeight') {
+                $this->maxHeight($value === null || is_string($value) ? $value : throw new InvalidArgumentException(sprintf(
+                    '%s::maxHeight() takes a CSS length such as `16rem` or `320px`, or `none`; %s given.',
+                    class_basename(static::class),
+                    get_debug_type($value),
+                )));
+
+                continue;
+            }
+
+            $this->meta[$key] = $value;
+        }
+
+        return $this;
+    }
+
+    /**
+     * This body's `$meta`, as {@see withMeta()} and the typed methods set it.
+     *
+     * @return array<string, mixed>
+     */
+    public function meta(): array
+    {
+        return $this->meta;
+    }
+
+    /**
+     * The body's maximum height, written as `$meta.maxHeight`: a CSS length
+     * such as `16rem` or `320px`, or `none` to show it all. Null clears it.
      *
      * @throws InvalidArgumentException when it is neither a length nor `none`
      */
@@ -139,7 +185,11 @@ abstract class FeedBody implements Contracts\FeedBody
             ));
         }
 
-        $this->maxHeight = $height;
+        if ($height === null) {
+            unset($this->meta['maxHeight']);
+        } else {
+            $this->meta['maxHeight'] = $height;
+        }
 
         return $this;
     }
@@ -156,7 +206,7 @@ abstract class FeedBody implements Contracts\FeedBody
             self::KEY => static::bodyType(),
             self::VERSION => static::version(),
             ...($fallback === null || $fallback === '' ? [] : [self::FALLBACK => $fallback]),
-            ...($this->maxHeight === null ? [] : [self::MAX_HEIGHT => $this->maxHeight]),
+            ...($this->meta === [] ? [] : [self::META => $this->meta]),
             ...array_filter(
                 $this->body(),
                 fn (mixed $value, string $key): bool => ! array_key_exists($key, $defaults) || $value !== $defaults[$key],

@@ -67,7 +67,7 @@ function rendered(FeedBody $body): array
     $stored = json_decode(json_encode($body->toPayload(), JSON_THROW_ON_ERROR), true, flags: JSON_THROW_ON_ERROR);
 
     return $body::upgrade(
-        array_diff_key($stored, array_flip([FeedBody::KEY, FeedBody::VERSION, FeedBody::FALLBACK, FeedBody::MAX_HEIGHT])),
+        array_diff_key($stored, array_flip([FeedBody::KEY, FeedBody::VERSION, FeedBody::FALLBACK, FeedBody::META])),
         $stored[FeedBody::VERSION],
     );
 }
