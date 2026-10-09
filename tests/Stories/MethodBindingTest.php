@@ -239,28 +239,28 @@ it('replaces an earlier action whole rather than retaining its presentation fiel
         ->and($compiled['names'])->toBe(['later' => 'delivery.place']);
 });
 
-class AccountMethodStory
+class LegacyMethodStory
 {
-    public function reOpen(): string
+    public function reopen(): string
     {
         return ':actor reopened :object';
     }
 
-    public function signInTwoFactor(): string
+    public function optIn(): string
     {
-        return ':actor signed in to :object';
+        return ':actor opted in to :object';
     }
 
-    public function enableTwoFactor(): string
+    public function edgeCase(): string
     {
-        return ':actor enabled two-factor authentication on :object';
+        return ':actor exercised :object';
     }
 }
 
 it('preserves a verb with no resource method spelling through compile cache and list', function (string $verb, string $method, string $headline) {
-    Story::for(Delivery::class)->verb($verb, [AccountMethodStory::class, $method]);
+    Story::for(Delivery::class)->verb($verb, [LegacyMethodStory::class, $method]);
     $key = 'delivery.'.$verb;
-    $uses = AccountMethodStory::class.'@'.$method;
+    $uses = LegacyMethodStory::class.'@'.$method;
     $compiled = Storyfeed::compiledStories();
 
     expect($compiled['actions'])->toHaveKey($key)
@@ -288,14 +288,14 @@ it('preserves a verb with no resource method spelling through compile cache and 
     expect(Storyfeed::template('delivery', $verb))->toBe($headline)
         ->and(Storyfeed::storyActions())->toHaveKey($key, $uses);
 })->with([
-    'hyphen' => ['re-open', 'reOpen', ':actor reopened :object'],
-    'digit boundary' => ['sign_in_2fa', 'signInTwoFactor', ':actor signed in to :object'],
-    'leading digit' => ['2fa_enable', 'enableTwoFactor', ':actor enabled two-factor authentication on :object'],
+    'hyphen' => ['re-open', 'reopen', ':actor reopened :object'],
+    'legacy opt-in' => ['opt-in', 'optIn', ':actor opted in to :object'],
+    'neutral digit edge case' => ['1_edge_case', 'edgeCase', ':actor exercised :object'],
 ]);
 
 it('still rejects dots in explicitly bound verbs', function () {
     expect(function () {
-        Story::for(Delivery::class)->verb('a.b', [AccountMethodStory::class, 'reOpen']);
+        Story::for(Delivery::class)->verb('a.b', [LegacyMethodStory::class, 'reopen']);
         Storyfeed::compiledStories();
     })->toThrow(DottedVerb::class, 'Verb [a.b] may not contain a dot');
 });

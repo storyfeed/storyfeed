@@ -7,6 +7,7 @@ use Storyfeed\Facades\Story;
 use Storyfeed\Facades\Storyfeed;
 use Storyfeed\Stories\StoryManifest;
 use Storyfeed\Stories\Verb;
+use Storyfeed\StoryfeedManager;
 use Storyfeed\Tests\Fixtures\Stories\DeliveryStory;
 use Workbench\App\Models\Delivery;
 use Workbench\App\Models\User;
@@ -243,16 +244,71 @@ it('reports a cached manifest as current, then stale once an action changes', fu
     expect(Storyfeed::doctor(['manifest'])->withCode('manifest.stale')->first()->message)->toContain('actions[customer.ship]');
 });
 
-it('registers a reserved word method as a resource verb', function () {
-    $class = new class
+class ReservedMethodStory
+{
+    public function default(): string
     {
-        public function list(): string
-        {
-            return ':actor listed :object';
-        }
-    };
-    Story::resource(Delivery::class, $class::class)->only('list');
+        return ':actor defaulted on :object';
+    }
 
-    expect(Storyfeed::template('delivery', 'list'))->toBe(':actor listed :object')
-        ->and(Storyfeed::storyActions())->toHaveKey('delivery.list', $class::class.'@list');
-});
+    public function print(Verb $verb): Verb
+    {
+        return $verb->headline(':actor printed :object')->icon('printer');
+    }
+
+    public function match(): string
+    {
+        return ':actor matched with :object';
+    }
+
+    public function list(): string
+    {
+        return ':actor listed :object for sale';
+    }
+}
+
+it('registers compiles caches lists and resolves a reserved word resource method', function (string $verb, string $headline) {
+    config(['storyfeed.verbs.strict' => true, 'storyfeed.grammar.strict' => true]);
+    Story::resource(Delivery::class, ReservedMethodStory::class)->only($verb);
+    $key = 'delivery.'.$verb;
+    $uses = ReservedMethodStory::class.'@'.$verb;
+    $compiled = Storyfeed::compiledStories();
+
+    expect($compiled['grammar'])->toBe([$key => $headline])
+        ->and($compiled['actions'][$key]['uses'])->toBe($uses)
+        ->and($compiled['verbs'])->toHaveKey($verb)
+        ->and(Storyfeed::template('delivery', $verb))->toBe($headline)
+        ->and(Storyfeed::declaredVerb($verb))->toBeTrue();
+
+    $this->artisan('storyfeed:cache')->assertSuccessful();
+    $manifest = require app(StoryManifest::class)->path();
+    expect($manifest['grammar'])->toBe([$key => $headline])
+        ->and($manifest['actions'][$key]['uses'])->toBe($uses);
+
+    Artisan::call('storyfeed:list', ['--json' => true]);
+    $rows = json_decode(Artisan::output(), true);
+    expect($rows)->toHaveCount(1)
+        ->and($rows[0]['verb'])->toBe($verb)
+        ->and($rows[0]['action'])->toBe($uses)
+        ->and($rows[0]['headline'])->toBe($headline);
+    Artisan::call('storyfeed:list');
+    expect(Artisan::output())->toContain($verb)->toContain($uses);
+
+    app()->forgetInstance(StoryfeedManager::class);
+    Storyfeed::clearResolvedInstances();
+    app(StoryManifest::class)->apply(app(StoryfeedManager::class));
+    expect(Storyfeed::template('delivery', $verb))->toBe($headline)
+        ->and(Storyfeed::storyActions())->toHaveKey($key, $uses);
+
+    $user = User::create(['name' => 'Dana', 'email' => 'dana@example.com']);
+    $delivery = Delivery::create(['tracking_number' => 'T1']);
+    $activity = story($key, $delivery)->by($user)->publish();
+    expect($activity->verb)->toBe($verb)
+        ->and(Storyfeed::feed()->get()->collect()->first()->headline()->toString())
+        ->toBe(str_replace([':actor', ':object'], ['Dana', 'Delivery #T1'], $headline));
+})->with([
+    'default' => ['default', ':actor defaulted on :object'],
+    'print' => ['print', ':actor printed :object'],
+    'match' => ['match', ':actor matched with :object'],
+    'list' => ['list', ':actor listed :object for sale'],
+]);
