@@ -24,7 +24,7 @@ use Storyfeed\Stories\Registrar;
  * middleware — the class says the rest.
  *
  * @method static \Storyfeed\Stories\PendingGroup for(string|array<int, string> $objectType)
- * @method static ($story is null ? \Storyfeed\Stories\Verb : \Storyfeed\Stories\BoundStory) verb(string|\Storyfeed\Contracts\FeedVerb|\BackedEnum $verb, ?string $story = null)
+ * @method static ($story is null ? \Storyfeed\Stories\Verb : \Storyfeed\Stories\BoundStory) verb(string|\Storyfeed\Contracts\FeedVerb|\BackedEnum $verb, class-string|array{class-string, string}|null $story = null)
  * @method static \Storyfeed\Stories\Verb fallback()
  * @method static \Storyfeed\Stories\PendingResource resource(string|array<int, string> $objectType, ?string $class = null)
  * @method static void resources(array<string, class-string|null> $resources, array<string, mixed> $options = [])

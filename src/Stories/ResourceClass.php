@@ -4,6 +4,7 @@ namespace Storyfeed\Stories;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
+use InvalidArgumentException;
 use ReflectionClass;
 use ReflectionIntersectionType;
 use ReflectionMethod;
@@ -100,6 +101,38 @@ final class ResourceClass
     public static function invokable(string $class): array
     {
         return self::action($class, new ReflectionMethod($class, '__invoke'));
+    }
+
+    /**
+     * One explicitly bound controller-style action, checked at registration.
+     *
+     * @phpstan-assert class-string $class
+     *
+     * @return array{method: string, request: bool}
+     */
+    public static function method(string $class, string $method): array
+    {
+        $reason = match (true) {
+            ! class_exists($class) => 'the class does not exist',
+            is_a($class, Story::class, true) => 'a message class cannot bind a method',
+            ! method_exists($class, $method) => 'the method does not exist',
+            default => null,
+        };
+
+        if ($reason === null) {
+            $reflection = new ReflectionMethod($class, $method);
+            $reason = match (true) {
+                ! $reflection->isPublic() => 'the method is not public',
+                $reflection->isStatic() => 'the method is static',
+                default => null,
+            };
+        }
+
+        if ($reason !== null) {
+            throw new InvalidArgumentException("Story::verb() binds [{$class}::{$method}]; {$reason}.");
+        }
+
+        return self::action($class, $reflection);
     }
 
     /**

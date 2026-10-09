@@ -242,3 +242,17 @@ it('reports a cached manifest as current, then stale once an action changes', fu
 
     expect(Storyfeed::doctor(['manifest'])->withCode('manifest.stale')->first()->message)->toContain('actions[customer.ship]');
 });
+
+it('registers a reserved word method as a resource verb', function () {
+    $class = new class
+    {
+        public function list(): string
+        {
+            return ':actor listed :object';
+        }
+    };
+    Story::resource(Delivery::class, $class::class)->only('list');
+
+    expect(Storyfeed::template('delivery', 'list'))->toBe(':actor listed :object')
+        ->and(Storyfeed::storyActions())->toHaveKey('delivery.list', $class::class.'@list');
+});

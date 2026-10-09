@@ -96,6 +96,21 @@ it('runs the job as the party the action chose at dispatch', function (string $c
     expect(carriedActorOf(Activity::sole()))->toBe('Stripe');
 })->with(['sync', 'database']);
 
+it('carries the actor from an explicitly bound method into a queued job', function () {
+    Story::for(Delivery::class)->verb('refund', [RefundStory::class, 'refund']);
+    Storyfeed::compileStories();
+    carriedRequest(['provider' => 'Stripe']);
+
+    CarriedPublishJob::dispatch($this->delivery->id);
+
+    expect(carriedPayload())->toBe(['delivery.refund' => ['party' => 'Stripe']]);
+    RefundStory::$seen = [];
+    carriedRun();
+
+    expect(carriedActorOf(Activity::sole()))->toBe('Stripe')
+        ->and(RefundStory::$seen)->toBe([]);
+});
+
 it('carries a model by morph alias and key, and runs the job as it', function () {
     $sam = User::create(['name' => 'Sam', 'email' => 'sam@example.com']);
     carriedRequest(['shipper' => $sam->id]);

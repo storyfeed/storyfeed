@@ -186,6 +186,28 @@ final class Verb
     }
 
     /**
+     * A copy limited to the still-owned types after a later action binding.
+     *
+     * @param  list<string>  $types  a subset of this definition's morph aliases
+     *
+     * @internal
+     */
+    public function onlyObjectTypes(array $types): self
+    {
+        $copy = new self($types, $this->verb, $this->source);
+
+        foreach (get_object_vars($this) as $property => $value) {
+            if (! in_array($property, ['objectTypes', 'verb', 'source'], true)) {
+                $copy->{$property} = $value;
+            }
+        }
+
+        $copy->typeNames = array_intersect_key($this->typeNames, array_flip($types));
+
+        return $copy;
+    }
+
+    /**
      * From a message class bound in routes/feed.php: the line gives the
      * types (null outside a scope, where the class's own stand), the verb
      * and the source.

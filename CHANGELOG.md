@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Added
+
+- `Story::verb()` accepts `[StoryClass::class, 'method']` to bind one public action with container method injection.
+
 ## v0.14.1 - 2026-10-08
 
 ### Fixed

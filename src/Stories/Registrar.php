@@ -117,12 +117,13 @@ class Registrar
      * only middleware, as a route bound to a controller does:
      * `Story::verb('create', ProjectWasCreated::class)->unbatched()`. Outside
      * a group, a message class's own `$objectType` names the types, and an
-     * invokable class defines the verb for every type.
+     * invokable class defines the verb for every type. An array binds one
+     * public method, as `Route::post(…, [OrderController::class, 'place'])`.
      *
-     * @param  class-string|null  $story
+     * @param  class-string|array{class-string, string}|null  $story
      * @return ($story is null ? Verb : BoundStory)
      */
-    public function verb(string|FeedVerb|BackedEnum $verb, ?string $story = null): Verb|BoundStory
+    public function verb(string|FeedVerb|BackedEnum $verb, string|array|null $story = null): Verb|BoundStory
     {
         if ($story !== null) {
             return $this->bind($this->groupTypes(), $verb, $story);
@@ -231,10 +232,11 @@ class Registrar
      * or, with none, the message class's own (every type, for an invokable).
      *
      * @param  array<int, string>|null  $objectTypes
+     * @param  class-string|array{class-string, string}  $story
      *
      * @internal Use Story::for(…)->verb('complete', TaskWasCompleted::class).
      */
-    public function bind(?array $objectTypes, string|FeedVerb|BackedEnum $verb, string $story): BoundStory
+    public function bind(?array $objectTypes, string|FeedVerb|BackedEnum $verb, string|array $story): BoundStory
     {
         $group = $this->currentGroup();
 

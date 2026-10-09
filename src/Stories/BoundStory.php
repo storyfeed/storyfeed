@@ -5,13 +5,14 @@ namespace Storyfeed\Stories;
 use BackedEnum;
 use Closure;
 use DateInterval;
+use InvalidArgumentException;
 use ReflectionMethod;
 use Storyfeed\Contracts\FeedVerb;
 use Storyfeed\Exceptions\StoryMisconfigured;
 
 /**
  * A class bound to its verb in routes/feed.php, as a controller is bound to
- * its route. Two shapes bind here, told apart as the router tells an
+ * its route. Class shapes are told apart as the router tells an
  * invokable controller from the rest, by the class itself:
  *
  *     Story::for(Task::class)->verb('complete', TaskWasCompleted::class);   // a message class
@@ -35,7 +36,9 @@ use Storyfeed\Exceptions\StoryMisconfigured;
  * outside a group it defines the verb for every type, which is what lets it
  * write the `Group::byActors()` headline a resource class can't.
  *
- * A resource Story class is bound with `Story::resource()` instead.
+ * A BASIC CLASS binds one public method with `[OrderStory::class, 'place']`.
+ * It runs by the same rules as an invokable or resource action; the same
+ * class may also be registered with `Story::resource()`.
  *
  * The line takes middleware, as a route bound to a controller does, ahead of
  * the class's own `middleware()`:
@@ -82,6 +85,7 @@ final class BoundStory
         public readonly string $class,
         public readonly string $source,
         public readonly bool $invokable = false,
+        public readonly ?string $method = null,
     ) {}
 
     /**
@@ -90,9 +94,14 @@ final class BoundStory
      * or neither is an error. The router's `method_exists($action, '__invoke')`.
      *
      * @param  array<int, string>|null  $objectTypes
+     * @param  class-string|array{class-string, string}  $class
      */
-    public static function make(?array $objectTypes, string|FeedVerb|BackedEnum $verb, string $class, string $source): self
+    public static function make(?array $objectTypes, string|FeedVerb|BackedEnum $verb, string|array $class, string $source): self
     {
+        if (is_array($class)) {
+            return self::bindMethod($objectTypes, $verb, $class, $source);
+        }
+
         $message = is_subclass_of($class, Story::class);
         $invokable = method_exists($class, '__invoke') && (new ReflectionMethod($class, '__invoke'))->isPublic();
 
@@ -105,10 +114,31 @@ final class BoundStory
         return new self($objectTypes, $verb, $class, $source, $invokable);
     }
 
+    /**
+     * Validate the runtime array before treating it as a class/method pair.
+     *
+     * @param  array<int, string>|null  $objectTypes
+     * @param  array<array-key, mixed>  $action
+     */
+    private static function bindMethod(?array $objectTypes, string|FeedVerb|BackedEnum $verb, array $action, string $source): self
+    {
+        if (! array_is_list($action) || count($action) !== 2
+            || ! is_string($action[0]) || ! is_string($action[1])) {
+            $target = implode('::', array_map(fn (mixed $part) => is_string($part) ? $part : get_debug_type($part), $action));
+
+            throw new InvalidArgumentException("Story::verb() at {$source} binds [{$target}]; expected exactly [Class::class, 'method'].");
+        }
+
+        [$class, $method] = $action;
+        ResourceClass::method($class, $method);
+
+        return new self($objectTypes, $verb, $class, $source, method: $method);
+    }
+
     /** Whether the class is a message class, constructed and published with `Storyfeed::publish()`. */
     public function isMessage(): bool
     {
-        return ! $this->invokable;
+        return ! $this->invokable && $this->method === null;
     }
 
     /**
@@ -259,7 +289,7 @@ final class BoundStory
     /** The definition the class compiles to, for the line's verb and types. */
     public function definition(): Verb
     {
-        $definition = $this->invokable ? $this->invokableDefinition() : $this->messageDefinition();
+        $definition = $this->isMessage() ? $this->messageDefinition() : $this->actionDefinition();
 
         foreach ($this->shortcuts as $shortcut) {
             $shortcut[0] === 'batched' ? $definition->batched($shortcut[1]) : $definition->unbatched();
@@ -279,19 +309,22 @@ final class BoundStory
     }
 
     /**
-     * Run `__invoke` once, as a resource class's action runs, on a definition
+     * Run the bound method once, as a resource class's action runs, on a definition
      * for the line's types, or every type outside a group.
      */
-    private function invokableDefinition(): Verb
+    private function actionDefinition(): Verb
     {
-        $uses = ResourceClass::uses($this->class, '__invoke');
-        $takesRequest = ResourceClass::invokable($this->class)['request'];
+        $method = $this->method ?? '__invoke';
+        $uses = ResourceClass::uses($this->class, $method);
+        $takesRequest = ($this->method === null
+            ? ResourceClass::invokable($this->class)
+            : ResourceClass::method($this->class, $method))['request'];
 
         $definition = Verb::for($this->objectTypes ?? ['*'], $this->verb, $this->source)
             ->middleware($this->middleware)
             ->withoutMiddleware($this->excludedMiddleware);
 
-        return ResourceClass::run($this->class, '__invoke', $definition)->fromAction($uses, $takesRequest);
+        return ResourceClass::run($this->class, $method, $definition)->fromAction($uses, $takesRequest);
     }
 
     private function messageDefinition(): Verb

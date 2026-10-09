@@ -1511,14 +1511,45 @@ class StoryfeedManager
         $definitions = [];
 
         foreach ($this->stories as $story) {
-            array_push($definitions, ...match (true) {
+            $expanded = match (true) {
                 $story instanceof Verb => [$story],
                 $story instanceof PendingResource => $story->definitions(),
                 $story instanceof BoundStory => [$story->definition()],
-            });
+            };
+
+            // Laravel's RouteCollection::addToCollections() replaces the route
+            // at the same method + URI. A later explicit action binding likewise
+            // replaces the whole type + verb, including a resource's action,
+            // names and middleware. Invokable and [Class, method] bindings use
+            // the same rule. Other registration shapes retain their existing
+            // conflict checks; override() is a separate presentation layer
+            // and keeps its original action owner.
+            if ($story instanceof BoundStory && ! $story->isMessage()) {
+                $bound = $expanded[0];
+
+                foreach ($definitions as $index => $earlier) {
+                    if ($earlier->verb !== $bound->verb || $earlier->isOverride()) {
+                        continue;
+                    }
+
+                    $types = array_values(array_diff($earlier->objectTypes, $bound->objectTypes));
+
+                    if ($types === $earlier->objectTypes) {
+                        continue;
+                    }
+
+                    if ($types === []) {
+                        unset($definitions[$index]);
+                    } else {
+                        $definitions[$index] = $earlier->onlyObjectTypes($types);
+                    }
+                }
+            }
+
+            array_push($definitions, ...$expanded);
         }
 
-        return $definitions;
+        return array_values($definitions);
     }
 
     /**

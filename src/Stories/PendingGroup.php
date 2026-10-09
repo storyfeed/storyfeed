@@ -174,14 +174,14 @@ final class PendingGroup
      * to take a name or middleware:
      * `->verb('ship', ShipStory::class)->name('order.ship')`.
      *
-     * @template TConfigure of (Closure(Verb): mixed)|string|null
+     * @template TConfigure of (Closure(Verb): mixed)|class-string|array{class-string, string}|null
      *
      * @param  TConfigure  $configure
-     * @return (TConfigure is null ? Verb : (TConfigure is string ? BoundStory : self))
+     * @return (TConfigure is null ? Verb : (TConfigure is Closure ? self : BoundStory))
      */
-    public function verb(string|FeedVerb|BackedEnum $verb, Closure|string|null $configure = null): Verb|BoundStory|self
+    public function verb(string|FeedVerb|BackedEnum $verb, Closure|string|array|null $configure = null): Verb|BoundStory|self
     {
-        if (is_string($configure)) {
+        if (is_string($configure) || is_array($configure)) {
             return $this->registrar->within($this, fn () => $this->registrar->verb($verb, $configure));
         }
 
