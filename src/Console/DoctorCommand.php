@@ -129,22 +129,27 @@ class DoctorCommand extends Command
      * code produced it. The root package's reference is the commit Composer
      * last installed from, not HEAD, so it gets none rather than a wrong one.
      *
+     * Read per dataset, because a process can hold more than one: a PHAR with
+     * its own vendor (PHPStan's) registers its install too, and the FIRST
+     * dataset's root is not this app's root.
+     *
      * @return array<string, array{version: string|null, reference: string|null}>
      */
     protected function installed(): array
     {
-        $root = InstalledVersions::getRootPackage()['name'];
         $installed = [];
 
-        foreach (InstalledVersions::getInstalledPackages() as $package) {
-            if (! str_starts_with($package, 'storyfeed/')) {
-                continue;
-            }
+        foreach (InstalledVersions::getAllRawData() as $data) {
+            foreach ($data['versions'] as $package => $version) {
+                if (! str_starts_with($package, 'storyfeed/') || isset($installed[$package]) || ! isset($version['pretty_version'])) {
+                    continue;
+                }
 
-            $installed[$package] = [
-                'version' => InstalledVersions::getPrettyVersion($package),
-                'reference' => $package === $root ? null : InstalledVersions::getReference($package),
-            ];
+                $installed[$package] = [
+                    'version' => $version['pretty_version'],
+                    'reference' => $package === $data['root']['name'] ? null : ($version['reference'] ?? null),
+                ];
+            }
         }
 
         ksort($installed);

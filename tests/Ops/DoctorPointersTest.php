@@ -47,16 +47,22 @@ it('names the assertion that guards a coverage finding, and only where one does'
 });
 
 it('stamps the report with every installed storyfeed package', function () {
-    $data = InstalledVersions::getAllRawData()[0];
+    // This package's own install: not necessarily the first dataset, since
+    // a PHAR with its own vendor (PHPStan's) can register one before it.
+    $data = collect(InstalledVersions::getAllRawData())
+        ->first(fn (array $set) => $set['root']['name'] === 'storyfeed/storyfeed');
     $root = $data['root']['name'];
+    $rootVersion = $data['root']['pretty_version'];
 
-    InstalledVersions::reload([...$data, 'versions' => [...$data['versions'], 'storyfeed/ui' => [
-        'pretty_version' => 'dev-main', 'version' => 'dev-main', 'reference' => 'abcdef1234567890abcdef1234567890abcdef12',
-        'type' => 'library', 'install_path' => __DIR__, 'aliases' => [], 'dev_requirement' => false,
-    ]]]);
+    InstalledVersions::reload([
+        'root' => ['name' => 'acme/app', 'pretty_version' => '1.0.0', 'version' => '1.0.0.0', 'reference' => null, 'type' => 'project', 'install_path' => __DIR__, 'aliases' => [], 'dev' => false],
+        'versions' => ['storyfeed/ui' => [
+            'pretty_version' => 'dev-main', 'version' => 'dev-main', 'reference' => 'abcdef1234567890abcdef1234567890abcdef12',
+            'type' => 'library', 'install_path' => __DIR__, 'aliases' => [], 'dev_requirement' => false,
+        ]],
+    ]);
 
     try {
-        $rootVersion = InstalledVersions::getPrettyVersion($root);
 
         $this->artisan('storyfeed:doctor', ['--only' => ['media']])
             ->expectsOutputToContain('Installed: storyfeed/ui dev-main@abcdef1')
