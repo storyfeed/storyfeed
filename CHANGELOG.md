@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## v0.18.0 - 2026-10-09
+
 ### Added
 
 - `Image` can carry its own picture: `Image::make('https://cdn…/day-3.jpg')->alt('…')->width(1200)->height(800)`, or `Image::make(FeedImage::make()->src(…))`. The src is stored in the body: cacheable, needing no `feedMedia()`, and it ages. Stored as `src` (with `mediaType`, `width`, `height`, `alt` and `caption`) in `Image` v3.
