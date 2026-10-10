@@ -22,6 +22,9 @@ class TestCase extends Orchestra
     /** @var array<string, true> */
     protected static array $provisionedWorkerDatabases = [];
 
+    /** @var array<string, string> Schema fingerprints, by database name. */
+    protected static array $builtSchemas = [];
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -142,12 +145,26 @@ class TestCase extends Orchestra
             $this->switchToDatabase($database);
         }
 
-        // Published migrations are timestamped in order; the stubs are not,
-        // so create_* stubs must run before any alter-style stub.
-        // A real engine keeps its tables between tests; SQLite's :memory: does not.
+        // A real engine keeps its tables between tests; SQLite's :memory: does
+        // not. Recreating the schema for every test took the MySQL cell past
+        // its CI timeout (#112), so while the schema still matches the one
+        // built here, empty the tables that hold rows instead, as Laravel's
+        // DatabaseTruncation does. A test that changes the schema (upgrade
+        // fixtures, ad-hoc tables) gets it rebuilt for the next test.
         if (Schema::getConnection()->getDriverName() !== 'sqlite') {
+            $database = Schema::getConnection()->getDatabaseName();
+
+            if ((self::$builtSchemas[$database] ?? null) === $this->schemaFingerprint()) {
+                $this->truncateTablesWithRows();
+
+                return;
+            }
+
             Schema::dropAllTables();
         }
+
+        // Published migrations are timestamped in order; the stubs are not,
+        // so create_* stubs must run before any alter-style stub.
 
         $stubs = glob(__DIR__.'/../database/migrations/*.stub');
 
@@ -160,5 +177,54 @@ class TestCase extends Orchestra
         foreach (glob(__DIR__.'/../workbench/database/migrations/*.php') as $migration) {
             (include $migration)->up();
         }
+
+        if (Schema::getConnection()->getDriverName() !== 'sqlite') {
+            self::$builtSchemas[Schema::getConnection()->getDatabaseName()] = $this->schemaFingerprint();
+        }
+    }
+
+    /**
+     * Every column and index in the current database, hashed, so a schema a
+     * test altered is never mistaken for the one defineDatabaseMigrations built.
+     */
+    protected function schemaFingerprint(): string
+    {
+        $connection = Schema::getConnection();
+
+        $rows = $connection->getDriverName() === 'pgsql'
+            ? $connection->select(<<<'SQL'
+                select concat_ws(':', table_name, column_name, data_type, is_nullable, column_default) as line
+                from information_schema.columns where table_schema = current_schema()
+                union all
+                select concat_ws(':', 'index', tablename, indexdef)
+                from pg_indexes where schemaname = current_schema()
+                SQL)
+            : $connection->select(<<<'SQL'
+                select concat_ws(':', table_name, column_name, column_type, is_nullable, column_default, extra) as line
+                from information_schema.columns where table_schema = database()
+                union all
+                select concat_ws(':', 'index', table_name, index_name, seq_in_index, column_name, non_unique)
+                from information_schema.statistics where table_schema = database()
+                SQL);
+
+        $lines = array_map(fn (object $row) => $row->line, $rows);
+        sort($lines);
+
+        return md5(implode("\n", $lines));
+    }
+
+    protected function truncateTablesWithRows(): void
+    {
+        $connection = Schema::getConnection();
+
+        Schema::withoutForeignKeyConstraints(function () use ($connection) {
+            foreach (Schema::getTables(Schema::getCurrentSchemaListing()) as $table) {
+                $query = $connection->table($table['schema_qualified_name']);
+
+                if ($query->exists()) {
+                    $query->truncate();
+                }
+            }
+        });
     }
 }
