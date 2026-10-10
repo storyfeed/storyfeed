@@ -76,7 +76,7 @@ it('reads a degraded entity with its role placeholder', function () {
 it('reads a tombstone', function () {
     $tombstone = entityPayload([
         'type' => 'storyfeed.tombstone', 'id' => '17', 'label' => null, 'link' => null,
-        'tombstone' => ['formerType' => 'order', 'deleted' => '2026-09-23T12:00:00.000000Z', 'approximate' => false, 'removedBy' => null],
+        'tombstone' => ['formerType' => 'order', 'deleted' => '2026-09-23T12:00:00.000000Z', 'approximate' => false],
     ]);
 
     $entity = Entity::of($tombstone, 'object');

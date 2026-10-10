@@ -102,10 +102,9 @@ class FeedTombstone extends Model implements Feedable, HasActivityStreamsType
 
     /**
      * The tombstone's entry on a payload entity (docs/payload.md,
-     * `entity.tombstone`). `removedBy` is reserved: who removed it, as a
-     * relation and never a name, which redaction will fill.
+     * `entity.tombstone`).
      *
-     * @return array{formerType: string, deleted: string|null, approximate: bool, removedBy: null}
+     * @return array{formerType: string, deleted: string|null, approximate: bool}
      */
     public function toPayload(): array
     {
@@ -113,7 +112,6 @@ class FeedTombstone extends Model implements Feedable, HasActivityStreamsType
             'formerType' => $this->formerType(),
             'deleted' => $this->deletedAt()?->toISOString(),
             'approximate' => $this->isApproximate(),
-            'removedBy' => null,
         ];
     }
 

@@ -123,7 +123,7 @@ it('reads a degraded entity with a placeholder for its role', function () {
 
 it('reads a tombstone by its former type', function () {
     $tombstone = fn (string $formerType, ?string $label = null) => headlineEntity('storyfeed.tombstone', $label, null, [
-        'tombstone' => ['formerType' => $formerType, 'deleted' => '2026-09-23T12:00:00.000000Z', 'approximate' => false, 'removedBy' => null],
+        'tombstone' => ['formerType' => $formerType, 'deleted' => '2026-09-23T12:00:00.000000Z', 'approximate' => false],
     ]);
 
     expect(headlineActivity(['object' => $tombstone('line_item')])->headline()->toString())->toBe('Dana confirmed a removed line item')

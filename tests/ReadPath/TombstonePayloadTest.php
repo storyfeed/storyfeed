@@ -63,7 +63,6 @@ it('tells a tombstoned entity from a degraded one and an anonymous one', functio
             'formerType' => 'delivery',
             'deleted' => '2026-09-23T12:00:00.000000Z',
             'approximate' => false,
-            'removedBy' => null,
         ]);
 });
 

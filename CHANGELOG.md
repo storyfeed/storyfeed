@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Removed
+
+- `removedBy` on a payload entity's `tombstone`. It was reserved for redaction and always `null`; nothing set it, and Activity Streams has no term for it. A tombstone carries `formerType`, `deleted` and `approximate`.
+
 ## v0.18.0 - 2026-10-09
 
 ### Added
