@@ -19,11 +19,11 @@ return new class extends Migration
     public function up(): void
     {
         foreach (SchemaState::misshapenReferences() as $table => $names) {
-            $columns = collect(Schema::getColumns($table))->keyBy('name');
+            $nullable = array_column(Schema::getColumns($table), 'nullable', 'name');
 
-            Schema::table($table, function (Blueprint $blueprint) use ($names, $columns) {
+            Schema::table($table, function (Blueprint $blueprint) use ($names, $nullable) {
                 foreach ($names as $name) {
-                    MorphKeyType::id($blueprint, $name)->nullable($columns[$name]['nullable'])->change();
+                    MorphKeyType::id($blueprint, $name)->nullable($nullable[$name])->change();
                 }
             });
         }
@@ -54,7 +54,7 @@ return new class extends Migration
         }
 
         foreach ($bigints as $table => $names) {
-            $nullable = collect(Schema::getColumns($table))->keyBy('name');
+            $nullable = array_column(Schema::getColumns($table), 'nullable', 'name');
             if (DB::getDriverName() === 'pgsql') {
                 foreach ($names as $name) {
                     DB::statement(sprintf('alter table %1$s alter column %2$s type bigint using %2$s::bigint', DB::getQueryGrammar()->wrapTable($table), DB::getQueryGrammar()->wrap($name)));
@@ -64,7 +64,7 @@ return new class extends Migration
             }
             Schema::table($table, function (Blueprint $blueprint) use ($names, $nullable) {
                 foreach ($names as $name) {
-                    $blueprint->unsignedBigInteger($name)->nullable($nullable[$name]['nullable'])->change();
+                    $blueprint->unsignedBigInteger($name)->nullable($nullable[$name])->change();
                 }
             });
         }
