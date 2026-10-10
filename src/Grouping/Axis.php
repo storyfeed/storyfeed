@@ -244,6 +244,18 @@ class Axis
     }
 
     /**
+     * The burst key for one axis's logical grouping key: the row in the
+     * bursts table that publishing, replay and sources all read and write,
+     * so all three must derive it here.
+     *
+     * @internal
+     */
+    public static function burstKey(string $axis, string $logical): string
+    {
+        return hash('sha256', $axis."\x1f".$logical);
+    }
+
+    /**
      * The headline tokens this axis can honestly serve: the universal
      * aggregate tokens plus every role whose identity PAIR is in the field
      * mask — homogeneity by construction, not by hand-maintained list.

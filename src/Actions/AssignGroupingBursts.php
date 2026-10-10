@@ -3,6 +3,7 @@
 namespace Storyfeed\Actions;
 
 use Illuminate\Support\Carbon;
+use Storyfeed\Grouping\Axis;
 use Storyfeed\Models\Activity;
 use Storyfeed\StoryfeedManager;
 use Storyfeed\Support\Chronology;
@@ -30,7 +31,7 @@ final class AssignGroupingBursts
             if (! $manager->axis($axis)?->usesBursts()) {
                 continue;
             }
-            $key = hash('sha256', $axis."\x1f".$logical);
+            $key = Axis::burstKey($axis, $logical);
             $prefix = 'b1:'.$key.':';
             // A refresh (including repoints with an unchanged logical key)
             // preserves the assignment, even after the window/config closes.

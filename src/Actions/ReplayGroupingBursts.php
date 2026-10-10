@@ -4,6 +4,7 @@ namespace Storyfeed\Actions;
 
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
+use Storyfeed\Grouping\Axis;
 use Storyfeed\Grouping\MultiAxisStrategy;
 use Storyfeed\Models\Activity;
 use Storyfeed\Models\Grouping;
@@ -42,7 +43,7 @@ final class ReplayGroupingBursts
             $recipes[$activity->getKey()] = $hashes;
             foreach ($hashes as $axis => $logical) {
                 if ($manager->axis($axis)?->usesBursts()) {
-                    $keys[hash('sha256', $axis."\x1f".$logical)] = true;
+                    $keys[Axis::burstKey($axis, $logical)] = true;
                 }
             }
         }
@@ -72,7 +73,7 @@ final class ReplayGroupingBursts
                         continue;
                     }
                     $hasBurst = true;
-                    $key = hash('sha256', $axis."\x1f".$logical);
+                    $key = Axis::burstKey($axis, $logical);
                     $state = $states[$key] ?? null;
                     $opened = isset($state['opened_at']) ? self::micros($state['opened_at']) : null;
                     $last = isset($state['last_activity_at']) ? self::micros($state['last_activity_at']) : null;
