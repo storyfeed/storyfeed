@@ -52,6 +52,7 @@ class Doctor
         Checks\RemovalVerbs::class,
         Checks\Hydration::class,
         Checks\Body::class,
+        Checks\MediaSlots::class,
         Checks\Parties::class,
         Checks\Participants::class,
         Checks\Ancestors::class,

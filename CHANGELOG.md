@@ -5,6 +5,7 @@
 ### Added
 
 - Read a group's members past its `children` (#94): `Storyfeed::feed()->members($node['id'])` returns the group's members as activity nodes, newest first, in a `CursorPaginator` like `cursorPaginate()`, with the same `$perPage`, `$cursorName` and `$cursor` arguments as Laravel's. Members are read through the feed's own scope and publish gate, so a reader never sees a member the feed would not show, and a tombstoned member is still listed. Core ships no route: an app wires one, as it does for paging the feed. A source-backed feed refuses it.
+- doctor's `media` check (#107): a body that shows one of its model's `feedMedia()` pictures by slot (`Image::make($this->feedMediaIcon())`, a custom `slots.<name>`) on a model whose `feedMedia()` never sets that slot is an Error, `media.unset_slot`, because the block draws its text and no picture. It reads the newest snapshot bodies and probes the type's `feedMedia()` with them under every registered feed; a slot set for some rows and not others is not reported.
 
 ### Changed
 
