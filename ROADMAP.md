@@ -92,6 +92,11 @@ work leads to is a demonstration of a working package, not a launch event, so
       database, with nightly benchmark gates at 1M and 3M. A group's members can
       be read past its first page, group ids became `Anchor` values, and closed
       burst windows are swept.
+- [x] **v0.20 — Composed feeds** *(tagged `v0.20.0`)*. `Storyfeed::compose()`
+      builds a feed by hand from data an app already has, such as a project
+      showcase, a list of talks or a record's status progression, as `Entry`
+      items: dated or dateless, newest first or in the order given, with inline
+      headlines. Nothing is stored, and the kits draw it like any other feed.
 
 ## The countdown to 1.0
 
@@ -100,7 +105,7 @@ titles start with the version they target, such as `[0.17]`. Milestones show
 the current plan: items may be reordered, moved to a later version or dropped as
 the work teaches us, and a dropped item is closed as not planned with its reason.
 
-- [ ] **[v0.20 — Payload and schema freeze](https://github.com/storyfeed/storyfeed/milestone/4).**
+- [ ] **[v0.21 — Payload and schema freeze](https://github.com/storyfeed/storyfeed/milestone/4).**
       The open points in the payload contract and the schema are settled,
       `location` and `generator` join the recorded roles, and Payload v1 is
       declared stable.
