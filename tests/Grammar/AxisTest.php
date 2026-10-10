@@ -97,3 +97,11 @@ it('refuses to guess a role KIND for closure and row-backed axes', function () {
     expect($weekly->pinsType('actor'))->toBeFalse()
         ->and(Axis::make('composite')->rowBacked()->pins(':actor')->pinsType('actor'))->toBeFalse();
 });
+
+it('derives the burst key that publishing, replay and sources share', function () {
+    // Pinned literal: existing feed_grouping_bursts rows were written under
+    // this key, so the derivation may never drift.
+    expect(Axis::burstKey('object', 'user:7:revise:delivery:42:2026-08-12'))
+        ->toBe('c21bf02530b45dd764008abc7dda35fa8e90a2f4f50d22c56f8ab3244a1119bc')
+        ->and(Axis::burstKey('object', 'a'))->not->toBe(Axis::burstKey('objec', 'ta'));
+});

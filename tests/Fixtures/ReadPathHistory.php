@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Schema;
 use Storyfeed\Actions\SnapshotEntity;
 use Storyfeed\Actions\SyncParticipants;
 use Storyfeed\Facades\Storyfeed;
+use Storyfeed\Grouping\Axis;
 use Storyfeed\Grouping\MultiAxisStrategy;
 use Storyfeed\Models\Activity;
 use Workbench\App\Models\Customer;
@@ -96,7 +97,7 @@ final class ReadPathHistory
                         if (! Storyfeed::axis($axis)?->usesBursts()) {
                             continue;
                         }
-                        $key = hash('sha256', $axis."\x1f".$logical);
+                        $key = Axis::burstKey($axis, $logical);
                         $atSeconds = strtotime($at);
                         $state = $burstState[$key] ?? null;
                         if ($state === null || $atSeconds - $state['last'] >= 900 || $atSeconds - $state['first'] >= 14400) {

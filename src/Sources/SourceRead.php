@@ -9,6 +9,7 @@ use Illuminate\Support\Collection;
 use InvalidArgumentException;
 use Storyfeed\Contracts\FeedSource;
 use Storyfeed\FeedCandidate;
+use Storyfeed\Grouping\Axis;
 use Storyfeed\Grouping\MultiAxisStrategy;
 use Storyfeed\Models\Activity;
 use Storyfeed\Payload\GroupSlice;
@@ -242,7 +243,7 @@ final class SourceRead
      */
     protected function burst(array &$bursts, string $axis, string $logical, Activity $activity, StoryfeedManager $manager): string
     {
-        $key = hash('sha256', $axis."\x1f".$logical);
+        $key = Axis::burstKey($axis, $logical);
         [$within, $ceiling] = $manager->burstWindow($activity->object_type, (string) $activity->verb);
         $at = $activity->published_at ?? now();
         $state = $bursts[$key] ?? null;
