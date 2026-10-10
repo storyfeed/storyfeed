@@ -89,6 +89,18 @@ it('still warns, with a stub, for a pair a registered feed can actually read', f
         ->and($report->has('aggregates.reachability_unknown'))->toBeFalse();
 });
 
+it('promises nothing about how the singular fallback reads', function () {
+    objectCluster();
+
+    // "safe for the axis" read as "will read correctly", and a broken plural
+    // sentence stayed on a dashboard because the finding called it safe.
+    $message = Storyfeed::doctor(['aggregates'])->withCode('aggregates.missing')->first()->message;
+
+    expect($message)->not->toContain('safe')
+        ->and($message)->toContain('a sentence written for one')
+        ->and($message)->toContain('Only a group headline is guaranteed to read correctly');
+});
+
 it('does not call a pair latent on the strength of a verb a live feed does read', function () {
     // `repeat` IS live-readable, so this is the control: the mode filter must
     // narrow by axis, not blanket-excuse a live app.

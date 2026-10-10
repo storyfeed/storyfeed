@@ -153,9 +153,11 @@ class AggregateCoverage extends Check
 
             yield Finding::error(
                 'aggregates.missing',
-                "No group headline resolves for `{$key}` — those group nodes fall back "
-                .'to the singular headline only when its tokens are safe for the axis, and otherwise render '
-                .'with NO headline at all. Register one with Story::verb()->grouped(). '
+                "No group headline resolves for `{$key}`. Where the axis pins or can pluralise its tokens, "
+                .'those group nodes fall back to the singular headline with a plural noun substituted into a '
+                .'sentence written for one, which may not read correctly; otherwise they render with NO headline '
+                .'at all. Only a group headline is guaranteed to read correctly: register one with '
+                .'Story::verb()->grouped(). '
                 .'Reachability uses declared modes and verb filters; custom query exclusions are not inspected. '
                 .'If every surface deliberately excludes this group, copy its complete subject from '
                 .'`php artisan storyfeed:doctor --only=aggregates --json` into '
