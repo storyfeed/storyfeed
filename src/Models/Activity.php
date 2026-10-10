@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
+use Storyfeed\Actions\SyncParticipants;
 use Storyfeed\Events\ActivityDeleted;
 use Storyfeed\Events\Snapshots\ActivitySnapshot;
 use Storyfeed\Models\Builders\ActivityBuilder;
@@ -142,6 +143,14 @@ class Activity extends Model
 
             if ($activity->published_at === null) {
                 $activity->published_at = now();
+            }
+        });
+
+        // involving() orders a feed by the participant rows' copy of
+        // published_at, so a rescheduled activity moves its rows with it.
+        static::updated(function (self $activity) {
+            if ($activity->wasChanged('published_at')) {
+                SyncParticipants::retime($activity);
             }
         });
 

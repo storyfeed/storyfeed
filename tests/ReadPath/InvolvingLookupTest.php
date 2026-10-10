@@ -2,12 +2,12 @@
 
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\Facades\DB;
+use Storyfeed\Actions\SyncParticipants;
 use Storyfeed\Facades\Story;
 use Storyfeed\Facades\Storyfeed;
 use Storyfeed\FeedBuilder;
 use Storyfeed\Grouping\Group;
 use Storyfeed\Models\Activity;
-use Storyfeed\Support\InvolvingLookup;
 use Storyfeed\Tests\Fixtures\Models\NestedContainer;
 use Workbench\App\Models\Customer;
 use Workbench\App\Models\Delivery;
@@ -18,27 +18,36 @@ beforeEach(function () {
     NestedContainer::install();
 });
 
-afterEach(fn () => InvolvingLookup::useThreshold(null));
-
-/** Every page of a feed, followed to the end through its cursors. */
+/** Every page of a feed, followed to the end through its cursors, cursors left out. */
 function lookupPages(FeedBuilder $feed): array
 {
     $pages = [];
     $cursor = null;
     do {
         $page = (clone $feed)->limit(3)->cursorPaginate(cursor: $cursor)->toArray();
-        unset($page['sync_token']);
-        $pages[] = $page;
         $cursor = $page['next_cursor'];
+        // Cursors differ by design: an involving() cursor records its depth.
+        unset($page['sync_token'], $page['next_cursor'], $page['prev_cursor'], $page['next_page_url'], $page['prev_page_url']);
+        $pages[] = $page;
     } while ($cursor !== null && count($pages) < 50);
 
     return $pages;
 }
 
-it('reads the same feed whether an entity is read as quiet or as busy', function (string $mode, bool $curate) {
-    config()->set('storyfeed.grouping.curate', $curate);
-    Story::verb('upload')->headline(':actor uploaded :object')->grouped(Group::on('repeat')->headline(':actor uploaded :count files'));
+/** The same feed narrowed by the activity's own columns, ordered by the activity. */
+function lookupReference(string $mode, mixed $entity, bool $deep): FeedBuilder
+{
+    $ids = DB::table(SyncParticipants::table())
+        ->where('entity_type', $entity->getMorphClass())->where('entity_id', (string) $entity->getKey())
+        ->when(! $deep, fn ($query) => $query->where('distance', 0))
+        ->pluck('activity_id')->all();
 
+    return Storyfeed::feed()->{$mode}()->query(fn ($query) => $query->whereIn('feed_activities.id', $ids));
+}
+
+function lookupHistory(): array
+{
+    Story::verb('upload')->headline(':actor uploaded :object')->grouped(Group::on('repeat')->headline(':actor uploaded :count files'));
     $client = NestedContainer::create(['name' => 'Client']);
     $project = NestedContainer::create(['name' => 'Project', 'parent_type' => 'container', 'parent_id' => $client->id]);
     $people = collect(range(1, 3))->map(fn ($i) => User::create(['name' => "Person {$i}", 'email' => "p{$i}@example.com"]));
@@ -49,7 +58,6 @@ it('reads the same feed whether an entity is read as quiet or as busy', function
         $builder = Storyfeed::activity()->actor($people[$i % 3])
             ->verb($i % 4 === 0 ? 'comment' : 'upload', Delivery::create(['tracking_number' => "f{$i}"]))
             ->publishedAt(now()->subMinutes(100 - $i * ($i % 5 === 0 ? 1 : 3)));
-        // Most activities sit in the project; some elsewhere; one at the client.
         match (true) {
             $i % 6 === 5 => $builder->context($other),
             $i === 7 => $builder->context($client),
@@ -60,55 +68,96 @@ it('reads the same feed whether an entity is read as quiet or as busy', function
     Storyfeed::activity()->actor($people[0])->verb('upload')->objects([$quiet, Delivery::create(['tracking_number' => 'pair'])])
         ->context($project)->publishedAt(now()->subMinutes(30))->publish();
 
-    foreach ([[$client, true], [$client, false], [$project, true], [$people[1], true], [$quiet, true], [$other, false]] as [$entity, $deep]) {
-        $read = fn () => lookupPages(Storyfeed::feed()->{$mode}()->involving($entity, deep: $deep));
-        InvolvingLookup::useThreshold(PHP_INT_MAX >> 1);
-        $quietly = $read();
-        InvolvingLookup::useThreshold(0);
-        $busily = $read();
+    return [$client, $project, $people, $other, $quiet];
+}
 
-        expect($busily)->toBe($quietly)
-            ->and(array_sum(array_map(fn ($page) => count($page['data']), $quietly)))->toBeGreaterThan(0);
+it('pages an entity from the participants index exactly as from the timeline', function (string $mode, bool $curate) {
+    config()->set('storyfeed.grouping.curate', $curate);
+    [$client, $project, $people, $other, $quiet] = lookupHistory();
+
+    foreach ([[$client, true], [$client, false], [$project, true], [$people[1], true], [$quiet, true], [$other, false]] as [$entity, $deep]) {
+        $involving = lookupPages(Storyfeed::feed()->{$mode}()->involving($entity, deep: $deep));
+
+        expect($involving)->toBe(lookupPages(lookupReference($mode, $entity, $deep)))
+            ->and(array_sum(array_map(fn ($page) => count($page['data']), $involving)))->toBeGreaterThan(0);
     }
 })->with(['log', 'live'])->with([true, false]);
 
-it('decides once per read how to find the entity', function () {
+it('reads a page in feed order from the entity index', function () {
     $project = Customer::create(['name' => 'Concur']);
     $user = User::create(['name' => 'Bob', 'email' => 'bob@example.com']);
-    $mine = collect(range(1, 3))->map(fn ($i) => Storyfeed::activity()->actor($user)
-        ->verb('comment', Delivery::create(['tracking_number' => "d{$i}"]))->to($project)->publish());
-    $ids = $mine->map(fn (Activity $activity) => (string) $activity->uid)->reverse()->values()->all();
+    foreach (range(1, 3) as $i) {
+        Storyfeed::activity()->actor($user)->verb('comment', Delivery::create(['tracking_number' => "d{$i}"]))->to($project)->publish();
+    }
 
     $queries = [];
     DB::listen(function ($query) use (&$queries) {
-        $queries[] = $query->sql;
+        $queries[] = $query;
     });
-    foreach ([null, 0] as $threshold) {
-        InvolvingLookup::useThreshold($threshold);
-        foreach (['live', 'log'] as $mode) {
-            $queries = [];
-            $items = Storyfeed::feed()->{$mode}()->involving($project)->get()->toArray();
-            $lookups = array_filter($queries, fn ($sql) => str_contains($sql, 'feed_participants') && ! str_contains($sql, 'feed_activities'));
-
-            expect($lookups)->toHaveCount(1)
-                ->and($items)->not->toBeEmpty();
-            if ($mode === 'log') {
-                expect(array_column($items, 'id'))->toBe($ids);
-            }
-        }
-    }
-
-    // PostgreSQL alone reads a quiet entity by its ids: its planner
-    // misjudges (entity_type, entity_id) from independent statistics.
-    InvolvingLookup::useThreshold(null);
-    $queries = [];
     Storyfeed::feed()->log()->involving($project)->get();
-    $read = collect($queries)->first(fn ($sql) => str_contains($sql, 'order by'));
-    expect(str_contains($read, 'feed_participants'))->toBe(DB::getDriverName() !== 'pgsql');
+    $read = collect($queries)->first(fn ($query) => str_contains($query->sql, 'order by'));
+    $driver = DB::getDriverName();
+    $plan = json_encode(DB::select(($driver === 'sqlite' ? 'EXPLAIN QUERY PLAN ' : 'EXPLAIN ').$read->sql, $read->bindings), JSON_THROW_ON_ERROR);
+
+    expect($read->sql)->toContain('involved_at')
+        ->and($plan)->toContain('feed_participants_entity_published_index');
+})->skip(fn () => DB::getDriverName() === 'pgsql', 'PostgreSQL may scan a three-row table; its plans are measured at scale.');
+
+it('moves an activity in an involving() feed when it is rescheduled', function (string $mode) {
+    $project = Customer::create(['name' => 'Concur']);
+    $user = User::create(['name' => 'Bob', 'email' => 'bob@example.com']);
+    $activities = collect(range(1, 3))->map(fn ($i) => Storyfeed::activity()->actor($user)
+        ->verb('comment', Delivery::create(['tracking_number' => "d{$i}"]))->to($project)
+        ->publishedAt(now()->subHours(10 - $i))->publish());
+    $order = fn () => array_column(Storyfeed::feed()->{$mode}()->involving($project)->get()->toArray(), 'id');
+
+    expect($order())->toBe($activities->reverse()->pluck('uid')->values()->all());
+
+    // The oldest moves to the front, and the newest into the future.
+    $activities[0]->update(['published_at' => now()->subMinute()]);
+    $activities[2]->published_at = now()->addHour();
+    $activities[2]->save();
+
+    expect($order())->toBe([$activities[0]->uid, $activities[1]->uid]);
+
+    // A rescheduled activity appears once its time comes.
+    $this->travel(2)->hours();
+    expect($order())->toBe([$activities[2]->uid, $activities[0]->uid, $activities[1]->uid])
+        ->and(Storyfeed::doctor(['participants'])->has('participants.drift'))->toBeFalse();
+})->with(['log', 'live']);
+
+it('publishes a scheduled activity into the involving() feed at its time', function () {
+    $project = Customer::create(['name' => 'Concur']);
+    $user = User::create(['name' => 'Bob', 'email' => 'bob@example.com']);
+    $later = Storyfeed::activity()->actor($user)->verb('comment', Delivery::create(['tracking_number' => 'later']))->to($project)
+        ->publishedAt(now()->addDay())->publish();
+
+    expect(Storyfeed::feed()->involving($project)->get()->toArray())->toBeEmpty();
+
+    $this->travel(25)->hours();
+    expect(array_column(Storyfeed::feed()->log()->involving($project)->get()->toArray(), 'id'))->toBe([$later->uid]);
 });
 
-it('reads an entity with no activities as an empty feed either way', function (int $threshold) {
-    InvolvingLookup::useThreshold($threshold);
+it('reports participant times that drifted from their activity, and repairs them', function () {
+    $project = Customer::create(['name' => 'Concur']);
+    $user = User::create(['name' => 'Bob', 'email' => 'bob@example.com']);
+    $activity = Storyfeed::activity()->actor($user)->verb('comment', Delivery::create(['tracking_number' => 'd']))->to($project)
+        ->publishedAt(now()->subHour())->publish();
+
+    // A mass update fires no model event, so nothing re-stamps the rows.
+    Activity::query()->whereKey($activity->id)->update(['published_at' => now()->addDay()]);
+    $report = Storyfeed::doctor(['participants']);
+
+    expect($report->has('participants.drift'))->toBeTrue()
+        ->and($report->withCode('participants.drift')->first()->message)->toContain('storyfeed:participants');
+
+    $this->artisan('storyfeed:participants')->assertSuccessful();
+
+    expect(Storyfeed::doctor(['participants'])->problems())->toBeEmpty()
+        ->and(Storyfeed::feed()->involving($project)->get()->toArray())->toBeEmpty();
+});
+
+it('reads an entity with no activities as an empty feed', function () {
     $user = User::create(['name' => 'Ann', 'email' => 'ann@example.com']);
     Storyfeed::activity()->actor($user)->verb('comment', Delivery::create(['tracking_number' => 'x']))->publish();
     $nobody = Customer::create(['name' => 'Nobody']);
@@ -116,4 +165,4 @@ it('reads an entity with no activities as an empty feed either way', function (i
     expect(Storyfeed::feed()->involving($nobody)->get()->toArray())->toBeEmpty()
         ->and(Storyfeed::feed()->log()->involving($nobody)->get()->toArray())->toBeEmpty()
         ->and(Activity::query()->involving($nobody)->count())->toBe(0);
-})->with([0, 100]);
+});
