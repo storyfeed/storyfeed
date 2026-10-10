@@ -9,6 +9,7 @@
 - `feedMediaIcon()`, `feedMediaPreview()` and `feedMediaImage()` on `InteractsWithFeed` are back, as shorthands for `getFeedMedia('icon' | 'preview' | 'image')`.
 - Custom media slots: `FeedMedia::slot('sparkline', FeedImage|FeedResource)` in the resolver. They are written under `media.slots.<name>` and stay out of the Activity Streams document. A body stores one as `"image": "slots.sparkline"`. `slot()` refuses the built-in names.
 - `MediaObject::image()` takes a `FeedImage` too, stored in the body as `{src, mediaType, width, height, alt}`, in `MediaObject` v5.
+- A role can be filled by an entity with no model behind it, on the write path, in the shape the array source reads: `->object(['type' => 'vote', 'label' => 'their vote'])`, optionally with `url`, `id`, `data` and `body`. Every role method, `record()`, `Storyfeed::activity()` and the verb enums take one. Its type and id go in the role's columns and the rest is stored inline with the activity, in the new `entities` column: no snapshot row, never hydrated or refreshed. It renders like any entity in the payload, the headline and the Activity Streams document. With an `id` it is in the participants index; without one, `involving()` does not find it. The trickle, `uncached()` and the doctor's `entities` and `participants` checks leave it out. Publish and run the additive `add_entities_to_feed_activities_table` migration before recording one. `Activity::inlineEntity($role)` reads it back.
 
 ### Changed
 

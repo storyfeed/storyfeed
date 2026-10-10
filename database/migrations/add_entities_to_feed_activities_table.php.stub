@@ -1,0 +1,29 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    // Publish and run this additive migration before recording a role with
+    // no model behind it (`->object(['type' => 'vote', 'label' => 'their vote'])`).
+    // Historical rows stay null.
+    public function up(): void
+    {
+        $table = config('storyfeed.tables.activities', 'feed_activities');
+
+        if (! Schema::hasColumn($table, 'entities')) {
+            Schema::table($table, fn (Blueprint $blueprint) => $blueprint->json('entities')->nullable());
+        }
+    }
+
+    public function down(): void
+    {
+        $table = config('storyfeed.tables.activities', 'feed_activities');
+
+        if (Schema::hasColumn($table, 'entities')) {
+            Schema::table($table, fn (Blueprint $blueprint) => $blueprint->dropColumn('entities'));
+        }
+    }
+};

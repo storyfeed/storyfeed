@@ -14,7 +14,9 @@ use Storyfeed\Events\ActivityDeleted;
 use Storyfeed\Events\Snapshots\ActivitySnapshot;
 use Storyfeed\Models\Builders\ActivityBuilder;
 use Storyfeed\StoryfeedManager;
+use Storyfeed\Support\ActivityRoles;
 use Storyfeed\Support\Chronology;
+use Storyfeed\Support\InlineEntity;
 use Storyfeed\Support\MorphKeyType;
 
 /**
@@ -52,6 +54,7 @@ use Storyfeed\Support\MorphKeyType;
  * @property int|string|null $instrument_id
  * @property int|null $cached_instrument_id
  * @property array<array-key, mixed>|null $data
+ * @property array<string, array<string, mixed>>|null $entities roles with no model behind them, by role (see Support\InlineEntity)
  * @property Carbon|null $published_at
  * @property Carbon|null $starts_at
  * @property Carbon|null $ends_at
@@ -95,6 +98,7 @@ class Activity extends Model
             'result_id' => MorphKeyType::class,
             'instrument_id' => MorphKeyType::class,
             'data' => 'array',
+            'entities' => 'array',
             'published_at' => 'datetime',
             'starts_at' => 'datetime',
             'ends_at' => 'datetime',
@@ -135,6 +139,43 @@ class Activity extends Model
         static::deleted(function (self $activity) {
             ActivityDeleted::dispatch(ActivitySnapshot::fromModel($activity));
         });
+    }
+
+    /**
+     * The role's entity when it has no model behind it, as stored: `type`,
+     * `id`, `label`, and `url`, `data` and `body` when given. Null when the
+     * role is a model, a party, or empty.
+     *
+     * @return array<string, mixed>|null
+     */
+    public function inlineEntity(string $role): ?array
+    {
+        $entity = $this->entities[$role] ?? null;
+
+        return is_array($entity) ? $entity : null;
+    }
+
+    /**
+     * A role with no model behind it reads as its stored snapshot, and its
+     * live model is null: nothing hydrates it, and its type names no class.
+     */
+    public function getRelationValue($key)
+    {
+        if ($this->entities !== null) {
+            if (str_starts_with($key, 'cached') && ($entity = $this->inlineEntity(lcfirst(substr($key, 6)))) !== null) {
+                if (! $this->relationLoaded($key) || $this->getRelation($key) === null) {
+                    $this->setRelation($key, InlineEntity::snapshot($entity));
+                }
+
+                return $this->getRelation($key);
+            }
+
+            if (in_array($key, ActivityRoles::STORED, true) && $this->inlineEntity($key) !== null) {
+                return null;
+            }
+        }
+
+        return parent::getRelationValue($key);
     }
 
     /**

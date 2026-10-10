@@ -38,6 +38,7 @@ use Storyfeed\Support\ActivityRoles;
 use Storyfeed\Support\BodySlot;
 use Storyfeed\Support\Chronology;
 use Storyfeed\Support\Feedables;
+use Storyfeed\Support\InlineEntity;
 use Storyfeed\Support\MorphKeyType;
 use Storyfeed\Testing\StoryfeedFake;
 use UnexpectedValueException;
@@ -104,7 +105,10 @@ class PendingActivity
      */
     public ?bool $deleteWhenMissingModels = null;
 
-    public function __construct(string|FeedVerb|BackedEnum|null $verb = null, Model|string|null $object = null)
+    /**
+     * @param  Model|string|array<string, mixed>|null  $object
+     */
+    public function __construct(string|FeedVerb|BackedEnum|null $verb = null, Model|string|array|null $object = null)
     {
         $model = config('storyfeed.models.activity', Activity::class);
 
@@ -115,7 +119,10 @@ class PendingActivity
         }
     }
 
-    public static function make(string|FeedVerb|BackedEnum|null $verb = null, Model|string|null $object = null): static
+    /**
+     * @param  Model|string|array<string, mixed>|null  $object
+     */
+    public static function make(string|FeedVerb|BackedEnum|null $verb = null, Model|string|array|null $object = null): static
     {
         return new static($verb, $object);
     }
@@ -132,7 +139,10 @@ class PendingActivity
         return static::make($verb);
     }
 
-    public function verb(string|FeedVerb|BackedEnum $verb, Model|string|null $object = null): static
+    /**
+     * @param  Model|string|array<string, mixed>|null  $object
+     */
+    public function verb(string|FeedVerb|BackedEnum $verb, Model|string|array|null $object = null): static
     {
         $this->activity->verb = $this->normalizeVerb($verb);
 
@@ -154,13 +164,18 @@ class PendingActivity
      * will be: the payload key, the column, the `verbs` registry, `FeedVerb`,
      * `AsFeedVerb`, and `FeedBuilder::verb()` on the read side. Reading is a
      * query rather than a sentence, so no alias there.
+     *
+     * @param  Model|string|array<string, mixed>|null  $object
      */
-    public function action(string|FeedVerb|BackedEnum $verb, Model|string|null $object = null): static
+    public function action(string|FeedVerb|BackedEnum $verb, Model|string|array|null $object = null): static
     {
         return $this->verb($verb, $object);
     }
 
-    public function actor(Model|string|null $model = null): static
+    /**
+     * @param  Model|string|array<string, mixed>|null  $model  a model, a party name, or an entity with no model behind it
+     */
+    public function actor(Model|string|array|null $model = null): static
     {
         if ($model === null) {
             return $this->anonymously();
@@ -177,8 +192,10 @@ class PendingActivity
      *
      * Not to be confused with `Storyfeed::actor($actor)`, which sets an AMBIENT
      * actor for everything recorded inside it. This sets it on one activity.
+     *
+     * @param  Model|string|array<string, mixed>|null  $model  a model, a party name, or an entity with no model behind it
      */
-    public function by(Model|string|null $model = null): static
+    public function by(Model|string|array|null $model = null): static
     {
         return $this->actor($model);
     }
@@ -188,6 +205,7 @@ class PendingActivity
     {
         $this->anonymous = true;
         $this->activity->withoutDefaultActor();
+        $this->forgetInline('actor');
         $this->activity->actor()->dissociate();
         $this->activity->cached_actor_id = null;
         $this->activity->unsetRelation('cachedActor');
@@ -196,7 +214,10 @@ class PendingActivity
         return $this;
     }
 
-    public function object(Model|string|null $model = null): static
+    /**
+     * @param  Model|string|array<string, mixed>|null  $model  a model, a party name, or an entity with no model behind it
+     */
+    public function object(Model|string|array|null $model = null): static
     {
         if ($model !== null && $this->objects !== []) {
             throw new InvalidArgumentException('An activity takes object() OR objects(), not both.');
@@ -228,40 +249,64 @@ class PendingActivity
         return $this;
     }
 
-    public function target(Model|string|null $model = null): static
+    /**
+     * @param  Model|string|array<string, mixed>|null  $model  a model, a party name, or an entity with no model behind it
+     */
+    public function target(Model|string|array|null $model = null): static
     {
         return $this->associate('target', $model);
     }
 
-    public function context(Model|string|null $model = null): static
+    /**
+     * @param  Model|string|array<string, mixed>|null  $model  a model, a party name, or an entity with no model behind it
+     */
+    public function context(Model|string|array|null $model = null): static
     {
         return $this->associate('context', $model);
     }
 
-    /** Source entity. Existing from() remains a target alias. Null is a no-op. */
-    public function origin(Model|string|null $model = null): static
+    /**
+     * Source entity. Existing from() remains a target alias. Null is a no-op.
+     *
+     * @param  Model|string|array<string, mixed>|null  $model  a model, a party name, or an entity with no model behind it
+     */
+    public function origin(Model|string|array|null $model = null): static
     {
         return $this->associate('origin', $model);
     }
 
-    /** Outcome entity, not a scalar change or PHP return value. Null is a no-op. */
-    public function result(Model|string|null $model = null): static
+    /**
+     * Outcome entity, not a scalar change or PHP return value. Null is a no-op.
+     *
+     * @param  Model|string|array<string, mixed>|null  $model  a model, a party name, or an entity with no model behind it
+     */
+    public function result(Model|string|array|null $model = null): static
     {
         return $this->associate('result', $model);
     }
 
-    /** Tool or service used for the act. Null is a no-op. */
-    public function instrument(Model|string|null $model = null): static
+    /**
+     * Tool or service used for the act. Null is a no-op.
+     *
+     * @param  Model|string|array<string, mixed>|null  $model  a model, a party name, or an entity with no model behind it
+     */
+    public function instrument(Model|string|array|null $model = null): static
     {
         return $this->associate('instrument', $model);
     }
 
-    public function using(Model|string|null $model = null): static
+    /**
+     * @param  Model|string|array<string, mixed>|null  $model  a model, a party name, or an entity with no model behind it
+     */
+    public function using(Model|string|array|null $model = null): static
     {
         return $this->instrument($model);
     }
 
-    public function resulting(Model|string|null $model = null): static
+    /**
+     * @param  Model|string|array<string, mixed>|null  $model  a model, a party name, or an entity with no model behind it
+     */
+    public function resulting(Model|string|array|null $model = null): static
     {
         return $this->result($model);
     }
@@ -275,47 +320,64 @@ class PendingActivity
      *
      * Note that `in()` and `from()` predate the `context` role and read as
      * though they might set it. They do not — see `context()`.
+     *
+     * @param  Model|string|array<string, mixed>|null  $model  a model, a party name, or an entity with no model behind it
      */
-    public function in(Model|string|null $model = null): static
+    public function in(Model|string|array|null $model = null): static
     {
         return $this->target($model);
     }
 
-    public function to(Model|string|null $model = null): static
+    /**
+     * @param  Model|string|array<string, mixed>|null  $model  a model, a party name, or an entity with no model behind it
+     */
+    public function to(Model|string|array|null $model = null): static
     {
         return $this->target($model);
     }
 
-    public function for(Model|string|null $model = null): static
+    /**
+     * @param  Model|string|array<string, mixed>|null  $model  a model, a party name, or an entity with no model behind it
+     */
+    public function for(Model|string|array|null $model = null): static
     {
         return $this->target($model);
     }
 
-    public function from(Model|string|null $model = null): static
+    /**
+     * @param  Model|string|array<string, mixed>|null  $model  a model, a party name, or an entity with no model behind it
+     */
+    public function from(Model|string|array|null $model = null): static
     {
         return $this->target($model);
     }
 
     /**
      * Target, for verbs of attachment: `->verb('comment', $comment)->on($document)`.
+     *
+     * @param  Model|string|array<string, mixed>|null  $model  a model, a party name, or an entity with no model behind it
      */
-    public function on(Model|string|null $model = null): static
+    public function on(Model|string|array|null $model = null): static
     {
         return $this->target($model);
     }
 
     /**
      * Target, for verbs of sharing: `->verb('share', $document)->with($teammate)`.
+     *
+     * @param  Model|string|array<string, mixed>|null  $model  a model, a party name, or an entity with no model behind it
      */
-    public function with(Model|string|null $model = null): static
+    public function with(Model|string|array|null $model = null): static
     {
         return $this->target($model);
     }
 
     /**
      * Target, for verbs of transfer: `->verb('move', $document)->into($folder)`.
+     *
+     * @param  Model|string|array<string, mixed>|null  $model  a model, a party name, or an entity with no model behind it
      */
-    public function into(Model|string|null $model = null): static
+    public function into(Model|string|array|null $model = null): static
     {
         return $this->target($model);
     }
@@ -1149,19 +1211,71 @@ class PendingActivity
         }
     }
 
-    /** A string names a Party — a participant that lives only in the feed. */
-    private function associate(string $role, Model|string|null $participant): static
+    /**
+     * A string names a Party — a participant that lives only in the feed. An
+     * array is an entity with no model behind it, stored inline.
+     *
+     * @param  Model|string|array<string, mixed>|null  $participant
+     */
+    private function associate(string $role, Model|string|array|null $participant): static
     {
+        if (is_array($participant)) {
+            return $this->associateInline($role, $participant);
+        }
+
         $model = is_string($participant)
             ? $this->party($participant)
             : $participant;
 
         if ($model instanceof Model) {
+            $this->forgetInline($role);
             $this->activity->{$role}()->associate($model);
             $this->entities[$role] = $model;
         }
 
         return $this;
+    }
+
+    /**
+     * A role with no model behind it: `['type' => 'vote', 'label' => 'their vote']`.
+     * Its type and id go in the role's columns, so the activity is filed and
+     * read under them as any role is; the rest is stored inline with the
+     * activity and never refreshed. Without an id it is in no index, so
+     * `involving()` does not find it. See {@see InlineEntity}.
+     *
+     * @param  array<array-key, mixed>  $entity
+     */
+    private function associateInline(string $role, array $entity): static
+    {
+        $stored = InlineEntity::store($role, $entity);
+
+        // Not through the MorphTo, which would build its related model from
+        // the type and there is no class behind an inline entity's type.
+        $this->activity->setRelation($role, null);
+        $this->activity->setAttribute("{$role}_type", $stored['type']);
+        $this->activity->setAttribute("{$role}_id", $stored['id']);
+        $this->activity->setAttribute("cached_{$role}_id", null);
+        $this->activity->unsetRelation('cached'.ucfirst($role));
+        $this->activity->entities = [...($this->activity->entities ?? []), $role => $stored];
+
+        unset($this->entities[$role]);
+
+        return $this;
+    }
+
+    private function forgetInline(string $role): void
+    {
+        $entities = $this->activity->entities;
+
+        if (is_array($entities) && array_key_exists($role, $entities)) {
+            unset($entities[$role]);
+
+            $this->activity->entities = $entities === [] ? null : $entities;
+            $this->activity->setAttribute("{$role}_type", null);
+            $this->activity->setAttribute("{$role}_id", null);
+            $this->activity->unsetRelation($role);
+            $this->activity->unsetRelation('cached'.ucfirst($role));
+        }
     }
 
     private function party(string $name): ?Party

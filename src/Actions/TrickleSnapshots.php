@@ -117,7 +117,8 @@ class TrickleSnapshots
                 $repointed = false;
 
                 foreach (RebuildSnapshots::ROLES as $role) {
-                    if ($activity->{"{$role}_type"} === null || $activity->{"cached_{$role}_id"} !== null) {
+                    // A role with no model behind it has nothing to snapshot.
+                    if ($activity->{"{$role}_type"} === null || $activity->{"cached_{$role}_id"} !== null || $activity->inlineEntity($role) !== null) {
                         continue;
                     }
 

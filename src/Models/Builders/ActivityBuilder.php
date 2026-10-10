@@ -10,6 +10,7 @@ use Storyfeed\Actions\SyncParticipants;
 use Storyfeed\Concerns\FiltersRoleTypes;
 use Storyfeed\Support\ActivityRoles;
 use Storyfeed\Support\Chronology;
+use Storyfeed\Support\InlineEntity;
 use Storyfeed\Support\MorphKeyType;
 use Storyfeed\Support\RoleTypes;
 
@@ -55,7 +56,8 @@ class ActivityBuilder extends Builder
         $this->where(function (self $query) {
             foreach (ActivityRoles::STORED as $role) {
                 $query->orWhere(function (self $q) use ($role): void {
-                    $q->whereNotNull("{$role}_type")->whereNull("cached_{$role}_id");
+                    // A role with no model behind it never gains a snapshot.
+                    InlineEntity::exclude($q->whereNotNull("{$role}_type")->whereNull("cached_{$role}_id"), $this->getModel(), $role);
                 });
             }
         });

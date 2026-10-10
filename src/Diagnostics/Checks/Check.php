@@ -15,6 +15,7 @@ use Storyfeed\Models\Builders\ActivityBuilder;
 use Storyfeed\Models\FeedTombstone;
 use Storyfeed\Models\Grouping;
 use Storyfeed\Support\ActivityRoles;
+use Storyfeed\Support\InlineEntity;
 use Storyfeed\Support\MorphKeyType;
 
 /**
@@ -96,15 +97,23 @@ abstract class Check implements DiagnosticCheck
      * Tombstoned objects count under their former type; the other roles keep
      * their stored aliases because only the object role is tombstoned.
      *
+     * `$models` leaves out roles with no model behind them (inline entities),
+     * whose types name no class by design.
+     *
      * @param  value-of<ActivityRoles::STORED>|null  $role
      * @return list<string>
      */
-    protected function recordedAliases(?string $role = null): array
+    protected function recordedAliases(?string $role = null, bool $models = false): array
     {
         $aliases = [];
 
         foreach ($role === null ? ActivityRoles::STORED : [$role] as $each) {
             $query = $this->activities()->distinct()->toBase();
+
+            if ($models) {
+                InlineEntity::exclude($query, $this->activities()->getModel(), $each);
+            }
+
             $type = $each === 'object' ? $this->objectTypeOf($query) : $query->getGrammar()->wrap("{$each}_type");
 
             $aliases = [

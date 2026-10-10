@@ -8,6 +8,7 @@ use Storyfeed\Contracts\Feedable;
 use Storyfeed\Diagnostics\Finding;
 use Storyfeed\StoryfeedManager;
 use Storyfeed\Support\Feedables;
+use Storyfeed\Support\InlineEntity;
 use Storyfeed\Support\MorphKeyType;
 use Storyfeed\Support\MorphResolver;
 use Throwable;
@@ -96,9 +97,9 @@ class Entities extends Check
         }
 
         foreach (SyncParticipants::ROLES as $role) {
-            foreach ($this->recordedAliases($role) as $alias) {
+            foreach ($this->recordedAliases($role, models: true) as $alias) {
                 $class = MorphResolver::classFor($alias);
-                $count = $this->activities()->where("{$role}_type", $alias)->count();
+                $count = InlineEntity::exclude($this->activities()->where("{$role}_type", $alias), $this->activities()->getModel(), $role)->count();
                 $examples = $this->examples($role, $alias);
                 $subject = ['role' => $role, 'type' => $alias, 'class' => $class, 'activities' => $count, 'examples' => $examples];
 
@@ -257,8 +258,7 @@ class Entities extends Check
      */
     protected function examples(string $role, string $alias, array $ids = []): string
     {
-        $activities = $this->activities()
-            ->where("{$role}_type", $alias)
+        $activities = InlineEntity::exclude($this->activities()->where("{$role}_type", $alias), $this->activities()->getModel(), $role)
             ->when($ids !== [], fn ($query) => $query->whereIn("{$role}_id", MorphKeyType::values($ids)))
             ->orderByDesc('published_at')
             ->limit(self::EXAMPLES)

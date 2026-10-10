@@ -19,6 +19,7 @@ use Storyfeed\Models\Snapshot;
 use Storyfeed\Support\ActivityRoles;
 use Storyfeed\Support\Chronology;
 use Storyfeed\Support\Feedables;
+use Storyfeed\Support\InlineEntity;
 use Storyfeed\Support\MorphKeyType;
 
 /**
@@ -53,7 +54,7 @@ final class SourceItem
     protected const KEYS = ['verb', 'published_at', 'starts_at', 'ends_at', 'data', 'body', 'id', ...ActivityRoles::STORED];
 
     /** The keys an entity array may carry. */
-    protected const ENTITY_KEYS = ['type', 'label', 'url', 'id', 'data', 'body'];
+    protected const ENTITY_KEYS = InlineEntity::KEYS;
 
     public readonly string $verb;
 
@@ -325,21 +326,7 @@ final class SourceItem
     /** @param  array<string, mixed>  $entity */
     protected static function assertEntity(string $role, array $entity): void
     {
-        if (($unknown = array_diff(array_keys($entity), self::ENTITY_KEYS)) !== []) {
-            throw new InvalidArgumentException(sprintf(
-                'Unknown key [%s] on the [%s] entity. Entities take: %s.', implode(', ', $unknown), $role, implode(', ', self::ENTITY_KEYS),
-            ));
-        }
-
-        foreach (['type', 'label'] as $required) {
-            if (! is_string($entity[$required] ?? null) || $entity[$required] === '') {
-                throw new InvalidArgumentException("The [{$role}] entity needs a [{$required}].");
-            }
-        }
-
-        if (isset($entity['url']) && ! is_string($entity['url'])) {
-            throw new InvalidArgumentException("The [{$role}] entity's [url] must be a string.");
-        }
+        InlineEntity::assert($role, $entity);
     }
 
     /** The key a party name is filed under, as Party::make() files it. */

@@ -54,14 +54,20 @@ trait AsFeedVerb
     /**
      * Begin this verb's activity, about this object:
      * `ActivityVerb::Upload->of($document)->by($user)->publish()`.
+     *
+     * @param  Model|string|array<string, mixed>|null  $object
      */
-    public function of(Model|string|null $object = null): PendingActivity
+    public function of(Model|string|array|null $object = null): PendingActivity
     {
         return PendingActivity::make($this, $object);
     }
 
-    /** Begin this verb's activity with an explicitly unknown actor. */
-    public function anonymous(Model|string|null $object = null): PendingActivity
+    /**
+     * Begin this verb's activity with an explicitly unknown actor.
+     *
+     * @param  Model|string|array<string, mixed>|null  $object
+     */
+    public function anonymous(Model|string|array|null $object = null): PendingActivity
     {
         return $this->of($object)->anonymously();
     }
@@ -83,17 +89,24 @@ trait AsFeedVerb
      *
      * @param  array<string, mixed>  $data
      * @param  iterable<int, Model>  $objects
+     * @param  Model|string|array<string, mixed>|null  $object
+     * @param  Model|string|array<string, mixed>|null  $actor
+     * @param  Model|string|array<string, mixed>|null  $target
+     * @param  Model|string|array<string, mixed>|null  $context
+     * @param  Model|string|array<string, mixed>|null  $origin
+     * @param  Model|string|array<string, mixed>|null  $result
+     * @param  Model|string|array<string, mixed>|null  $instrument
      */
     public function record(
-        Model|string|null $object = null,
-        Model|string|null $actor = null,
-        Model|string|null $target = null,
-        Model|string|null $context = null,
+        Model|string|array|null $object = null,
+        Model|string|array|null $actor = null,
+        Model|string|array|null $target = null,
+        Model|string|array|null $context = null,
         array $data = [],
         DateTimeInterface|string|null $publishedAt = null,
-        Model|string|null $origin = null,
-        Model|string|null $result = null,
-        Model|string|null $instrument = null,
+        Model|string|array|null $origin = null,
+        Model|string|array|null $result = null,
+        Model|string|array|null $instrument = null,
         iterable $objects = [],
         DateTimeInterface|string|null $startsAt = null,
         DateTimeInterface|string|null $endsAt = null,
@@ -122,17 +135,26 @@ trait AsFeedVerb
         return $this->of()->anonymously();
     }
 
-    public function actor(Model|string|null $model = null): PendingActivity
+    /**
+     * @param  Model|string|array<string, mixed>|null  $model  a model, a party name, or an entity with no model behind it
+     */
+    public function actor(Model|string|array|null $model = null): PendingActivity
     {
         return $this->of()->actor($model);
     }
 
-    public function by(Model|string|null $model = null): PendingActivity
+    /**
+     * @param  Model|string|array<string, mixed>|null  $model  a model, a party name, or an entity with no model behind it
+     */
+    public function by(Model|string|array|null $model = null): PendingActivity
     {
         return $this->of()->by($model);
     }
 
-    public function object(Model|string|null $model = null): PendingActivity
+    /**
+     * @param  Model|string|array<string, mixed>|null  $model  a model, a party name, or an entity with no model behind it
+     */
+    public function object(Model|string|array|null $model = null): PendingActivity
     {
         return $this->of()->object($model);
     }
@@ -147,72 +169,114 @@ trait AsFeedVerb
         return $this->of()->objects($models);
     }
 
-    public function target(Model|string|null $model = null): PendingActivity
+    /**
+     * @param  Model|string|array<string, mixed>|null  $model  a model, a party name, or an entity with no model behind it
+     */
+    public function target(Model|string|array|null $model = null): PendingActivity
     {
         return $this->of()->target($model);
     }
 
-    public function origin(Model|string|null $model = null): PendingActivity
+    /**
+     * @param  Model|string|array<string, mixed>|null  $model  a model, a party name, or an entity with no model behind it
+     */
+    public function origin(Model|string|array|null $model = null): PendingActivity
     {
         return $this->of()->origin($model);
     }
 
-    public function result(Model|string|null $model = null): PendingActivity
+    /**
+     * @param  Model|string|array<string, mixed>|null  $model  a model, a party name, or an entity with no model behind it
+     */
+    public function result(Model|string|array|null $model = null): PendingActivity
     {
         return $this->of()->result($model);
     }
 
-    public function instrument(Model|string|null $model = null): PendingActivity
+    /**
+     * @param  Model|string|array<string, mixed>|null  $model  a model, a party name, or an entity with no model behind it
+     */
+    public function instrument(Model|string|array|null $model = null): PendingActivity
     {
         return $this->of()->instrument($model);
     }
 
-    public function using(Model|string|null $model = null): PendingActivity
+    /**
+     * @param  Model|string|array<string, mixed>|null  $model  a model, a party name, or an entity with no model behind it
+     */
+    public function using(Model|string|array|null $model = null): PendingActivity
     {
         return $this->of()->using($model);
     }
 
-    public function resulting(Model|string|null $model = null): PendingActivity
+    /**
+     * @param  Model|string|array<string, mixed>|null  $model  a model, a party name, or an entity with no model behind it
+     */
+    public function resulting(Model|string|array|null $model = null): PendingActivity
     {
         return $this->of()->resulting($model);
     }
 
-    public function context(Model|string|null $model = null): PendingActivity
+    /**
+     * @param  Model|string|array<string, mixed>|null  $model  a model, a party name, or an entity with no model behind it
+     */
+    public function context(Model|string|array|null $model = null): PendingActivity
     {
         return $this->of()->context($model);
     }
 
-    public function in(Model|string|null $model = null): PendingActivity
+    /**
+     * @param  Model|string|array<string, mixed>|null  $model  a model, a party name, or an entity with no model behind it
+     */
+    public function in(Model|string|array|null $model = null): PendingActivity
     {
         return $this->of()->in($model);
     }
 
-    public function to(Model|string|null $model = null): PendingActivity
+    /**
+     * @param  Model|string|array<string, mixed>|null  $model  a model, a party name, or an entity with no model behind it
+     */
+    public function to(Model|string|array|null $model = null): PendingActivity
     {
         return $this->of()->to($model);
     }
 
-    public function for(Model|string|null $model = null): PendingActivity
+    /**
+     * @param  Model|string|array<string, mixed>|null  $model  a model, a party name, or an entity with no model behind it
+     */
+    public function for(Model|string|array|null $model = null): PendingActivity
     {
         return $this->of()->for($model);
     }
 
-    public function from(Model|string|null $model = null): PendingActivity
+    /**
+     * @param  Model|string|array<string, mixed>|null  $model  a model, a party name, or an entity with no model behind it
+     */
+    public function from(Model|string|array|null $model = null): PendingActivity
     {
         return $this->of()->from($model);
     }
 
-    public function on(Model|string|null $model = null): PendingActivity
+    /**
+     * @param  Model|string|array<string, mixed>|null  $model  a model, a party name, or an entity with no model behind it
+     */
+    public function on(Model|string|array|null $model = null): PendingActivity
     {
         return $this->of()->on($model);
     }
 
-    public function with(Model|string|null $model = null): PendingActivity
+    /**
+     * @param  Model|string|array<string, mixed>|null  $model  a model, a party name, or an entity with no model behind it
+     */
+    public function with(Model|string|array|null $model = null): PendingActivity
     {
         return $this->of()->with($model);
     }
 
-    public function into(Model|string|null $model = null): PendingActivity
+    /**
+     * @param  Model|string|array<string, mixed>|null  $model  a model, a party name, or an entity with no model behind it
+     */
+    public function into(Model|string|array|null $model = null): PendingActivity
     {
         return $this->of()->into($model);
     }
@@ -242,7 +306,10 @@ trait AsFeedVerb
 
     // ── Terminals ────────────────────────────────────────────────────────
 
-    public function publish(Model|string|null $object = null): Activity
+    /**
+     * @param  Model|string|array<string, mixed>|null  $object
+     */
+    public function publish(Model|string|array|null $object = null): Activity
     {
         return $this->of($object)->publish();
     }

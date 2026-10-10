@@ -392,7 +392,8 @@ class StoryfeedManager
     /**
      * Begin composing an activity.
      */
-    public function activity(string|FeedVerb|BackedEnum|null $verb = null, Model|string|null $object = null): PendingActivity
+    /** @param  Model|string|array<string, mixed>|null  $object */
+    public function activity(string|FeedVerb|BackedEnum|null $verb = null, Model|string|array|null $object = null): PendingActivity
     {
         return PendingActivity::make($verb, $object);
     }
@@ -505,19 +506,26 @@ class StoryfeedManager
      *
      * @param  array<string, mixed>  $data
      * @param  iterable<int, Model>  $objects
+     * @param  Model|string|array<string, mixed>|null  $object
+     * @param  Model|string|array<string, mixed>|null  $actor
+     * @param  Model|string|array<string, mixed>|null  $target
+     * @param  Model|string|array<string, mixed>|null  $context
+     * @param  Model|string|array<string, mixed>|null  $origin
+     * @param  Model|string|array<string, mixed>|null  $result
+     * @param  Model|string|array<string, mixed>|null  $instrument
      */
     public function record(
         string|FeedVerb|BackedEnum $verb,
-        Model|string|null $object = null,
-        Model|string|null $actor = null,
-        Model|string|null $target = null,
-        Model|string|null $context = null,
+        Model|string|array|null $object = null,
+        Model|string|array|null $actor = null,
+        Model|string|array|null $target = null,
+        Model|string|array|null $context = null,
         array $data = [],
         DateTimeInterface|string|null $publishedAt = null,
         iterable $objects = [],
-        Model|string|null $origin = null,
-        Model|string|null $result = null,
-        Model|string|null $instrument = null,
+        Model|string|array|null $origin = null,
+        Model|string|array|null $result = null,
+        Model|string|array|null $instrument = null,
         bool $anonymous = false,
         DateTimeInterface|string|null $startsAt = null,
         DateTimeInterface|string|null $endsAt = null,

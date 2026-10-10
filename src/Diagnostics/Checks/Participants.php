@@ -36,12 +36,13 @@ class Participants extends Check
             return; // Tables already reported it
         }
 
-        // An activity owes a participant row for every role it fills. Count
-        // the ones that fill at least one and have none.
+        // An activity owes a participant row for every role it fills with an
+        // id. Count the ones that fill at least one and have none. A role
+        // with no model and no id behind it is in no index by design.
         $unindexed = DB::table($activities)
             ->where(function ($query) {
                 foreach (SyncParticipants::ROLES as $role) {
-                    $query->orWhereNotNull("{$role}_type");
+                    $query->orWhere(fn ($q) => $q->whereNotNull("{$role}_type")->whereNotNull("{$role}_id"));
                 }
             })
             ->whereNotExists(fn ($sub) => $sub

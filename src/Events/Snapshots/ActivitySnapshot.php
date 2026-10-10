@@ -46,7 +46,7 @@ final readonly class ActivitySnapshot
         foreach (ActivityRoles::STORED as $role) {
             $type = $activity->getAttribute($role.'_type');
             $id = $activity->getAttribute($role.'_id');
-            $cached = $activity->getRelation('cached'.ucfirst($role));
+            $cached = $activity->{'cached'.ucfirst($role)};
             $roles[$role] = $type === null ? null : [
                 'type' => $type,
                 'id' => $id === null ? null : (string) $id,
