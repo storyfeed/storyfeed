@@ -241,7 +241,7 @@ it('refuses live() on a feed kept in order', function () {
     $feed = Storyfeed::compose()->add(fn (Entry $entry) => $entry->headline('x'))->inOrder();
 
     expect($feed->get())->toHaveCount(1)
-        ->and(fn () => $feed->live()->get())->toThrow(InvalidArgumentException::class, 'cannot read live()');
+        ->and(fn () => $feed->live()->get())->toThrow(InvalidArgumentException::class, 'The [compose] feed is kept in order, so it cannot read live()');
 });
 
 it('filters and limits a composed feed as it does a source', function () {
@@ -282,4 +282,38 @@ it('refuses a model role that is not Feedable, which would read with no label', 
             ['verb' => 'ship', 'published_at' => 'now', 'object' => $plain],
         ]))->get())
         ->toThrow(InvalidArgumentException::class, 'The [object] role is a');
+});
+
+it('adds an entry for each item with addMany()', function () {
+    $items = Storyfeed::compose()
+        ->addMany(collect(projects())->sortBy('position'), fn (Project $project, Entry $entry) => $entry
+            ->by('Tey Labs')
+            ->headline(':object, :tagline', ['object' => $project, 'tagline' => $project->tagline]))
+        ->inOrder()
+        ->get();
+
+    expect($items->pluck('object.label')->all())->toBe(['InvoiceJam', 'Storyfeed', 'TalkingFeed']);
+});
+
+it('composes an order\'s status progression, oldest first, in the feed file\'s wording', function () {
+    Story::for('order')->verb('place')->headline(':actor placed :object');
+    Story::for('order')->verb('confirm')->headline(':actor confirmed :object');
+    Story::for('order')->verb('collect')->headline(':actor collected :object');
+
+    $order = ['type' => 'order', 'label' => 'Order #1042', 'id' => '1042'];
+    $steps = [
+        ['place', 'Dana', now()->subHours(3)],
+        ['confirm', 'The kitchen', now()->subHours(2)],
+        ['collect', 'Dana', now()->subHour()],
+    ];
+
+    $items = Storyfeed::compose()
+        ->addMany($steps, fn (array $step, Entry $entry) => $entry->by($step[1])->action($step[0], $order)->publishedAt($step[2]))
+        ->inOrder()
+        ->get()
+        ->toArray();
+
+    expect(array_column($items, 'verb'))->toBe(['place', 'confirm', 'collect'])
+        ->and(array_column($items, 'headline_template'))->toBe([':actor placed :object', ':actor confirmed :object', ':actor collected :object'])
+        ->and($items[0]['published_at'])->toBe(now()->subHours(3)->toIso8601ZuluString('microsecond'));
 });
