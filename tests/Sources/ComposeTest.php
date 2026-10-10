@@ -1,5 +1,6 @@
 <?php
 
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\Facades\DB;
 use Storyfeed\Body\MediaObject;
@@ -7,6 +8,7 @@ use Storyfeed\ComposedFeed;
 use Storyfeed\Facades\Story;
 use Storyfeed\Facades\Storyfeed;
 use Storyfeed\FeedImage;
+use Storyfeed\Sources\ArraySource;
 use Storyfeed\Sources\Entry;
 use Storyfeed\Tests\Fixtures\Models\Project;
 use Workbench\App\Models\User;
@@ -267,4 +269,17 @@ it('reads a verbless entry solo in a live read', function () {
     }
 
     expect($feed->get()->pluck('kind')->all())->toBe(['activity', 'activity', 'activity']);
+});
+
+it('refuses a model role that is not Feedable, which would read with no label', function () {
+    $plain = new class extends Model {};
+
+    expect(fn () => Storyfeed::compose()->add(fn (Entry $entry) => $entry->headline(':object shipped', ['object' => $plain])))
+        ->toThrow(InvalidArgumentException::class, 'is not Feedable, so it would read with no label. Pass an entity array')
+        ->and(fn () => Storyfeed::compose()->add(fn (Entry $entry) => $entry->by($plain)))
+        ->toThrow(InvalidArgumentException::class, 'The [actor] role is a')
+        ->and(fn () => Storyfeed::feed()->source(new ArraySource([
+            ['verb' => 'ship', 'published_at' => 'now', 'object' => $plain],
+        ]))->get())
+        ->toThrow(InvalidArgumentException::class, 'The [object] role is a');
 });

@@ -11,6 +11,7 @@
 ### Changed
 
 - Renamed `Storyfeed\Sources\SourceItem` to `Storyfeed\Sources\Entry`. One class is the fluent form a composed feed's `add()` closure receives, `Entry::make(...)` with named arguments for a source's `items()`, and `Entry::from($array)` for the array form, whose keys are unchanged. `Entry::make()`'s verb and date are optional. An entry has no `from()` target alias, since `Entry::from()` reads arrays; use `on()`, `to()` or `target()`. Error messages say "entry" where they said "source item".
+- A model role on a composed entry or a source item must be Feedable (#131 comment). One that is not would read with a `null` label and its class as the type, so it throws, asking for an entity array or a Feedable model. Nothing is stored for an entry, so `toFeed()` is the only label it has.
 
 ## v0.19.0 - 2026-10-10
 

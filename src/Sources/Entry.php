@@ -554,6 +554,16 @@ final class Entry
             InlineEntity::assert($role, $value);
         }
 
+        // Nothing is stored for an entry, so a model is read only through
+        // its toFeed(): one that has none would draw a role with no label.
+        if ($value instanceof Model && ! app(Feedables::class)->isFeedable($value)) {
+            throw new InvalidArgumentException(sprintf(
+                'The [%s] role is a %s, which is not Feedable, so it would read with no label. '
+                .'Pass an entity array ([\'type\' => …, \'label\' => …]), or make the model Feedable.',
+                $role, $value::class,
+            ));
+        }
+
         $this->{$role} = $value;
 
         return $this;
