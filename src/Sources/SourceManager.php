@@ -108,7 +108,7 @@ class SourceManager
     /** @param  array<string, mixed>  $config */
     public function createArrayDriver(array $config): ArraySource
     {
-        return new ArraySource($config['items'] ?? []);
+        return new ArraySource($config['items'] ?? [], (bool) ($config['in_order'] ?? false));
     }
 
     /** @return array<string, mixed> */

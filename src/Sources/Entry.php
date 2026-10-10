@@ -69,7 +69,7 @@ use Stringable;
 final class Entry
 {
     /** The keys an array entry may carry; anything else is an error. */
-    protected const KEYS = ['verb', 'published_at', 'starts_at', 'ends_at', 'data', 'body', 'id', ...ActivityRoles::STORED];
+    protected const KEYS = ['verb', 'published_at', 'starts_at', 'ends_at', 'data', 'body', 'id', 'headline', ...ActivityRoles::STORED];
 
     /** The keys an entity array may carry. */
     protected const ENTITY_KEYS = InlineEntity::KEYS;
@@ -182,8 +182,9 @@ final class Entry
     }
 
     /**
-     * An entry from its array form. A missing verb or published_at, or a key
-     * this class does not know, throws.
+     * An entry from its array form. A key this class does not know throws.
+     * `verb`, `published_at` and `headline` are optional, as they are on the
+     * fluent form; a `headline` is a template whose roles are the entry's.
      *
      * @param  self|array<string, mixed>  $entry
      */
@@ -199,15 +200,13 @@ final class Entry
             ));
         }
 
-        foreach (['verb', 'published_at'] as $required) {
-            if (! isset($entry[$required])) {
-                throw new InvalidArgumentException("An entry needs [{$required}].");
-            }
+        if (isset($entry['headline']) && ! is_string($entry['headline'])) {
+            throw new InvalidArgumentException('An entry\'s [headline] must be a string.');
         }
 
-        return self::make(
-            verb: $entry['verb'],
-            publishedAt: $entry['published_at'],
+        $made = self::make(
+            verb: $entry['verb'] ?? null,
+            publishedAt: $entry['published_at'] ?? null,
             actor: $entry['actor'] ?? null,
             object: $entry['object'] ?? null,
             target: $entry['target'] ?? null,
@@ -223,6 +222,8 @@ final class Entry
             location: $entry['location'] ?? null,
             generator: $entry['generator'] ?? null,
         );
+
+        return isset($entry['headline']) ? $made->headline($entry['headline'])->validated() : $made;
     }
 
     /**

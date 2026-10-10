@@ -3,7 +3,6 @@
 namespace Storyfeed;
 
 use Closure;
-use InvalidArgumentException;
 use LogicException;
 use Storyfeed\Contracts\FeedSource;
 use Storyfeed\Sources\ArraySource;
@@ -61,7 +60,28 @@ class ComposedFeed extends FeedBuilder
         }
 
         $this->entries[] = $entry->validated();
-        $this->source = new ArraySource($this->entries);
+        $this->source = new ArraySource($this->entries, $this->ordered);
+
+        return $this;
+    }
+
+    /**
+     * Add an entry for each item, built by the closure, as `createMany()`
+     * creates a model for each:
+     *
+     *   ->addMany($projects, fn (Project $project, Entry $entry) => $entry->headline(':object', ['object' => $project]))
+     *
+     * @template TKey of array-key
+     * @template TValue
+     *
+     * @param  iterable<TKey, TValue>  $items
+     * @param  Closure(TValue, Entry, TKey): mixed  $callback
+     */
+    public function addMany(iterable $items, Closure $callback): static
+    {
+        foreach ($items as $key => $item) {
+            $this->add(fn (Entry $entry) => $callback($item, $entry, $key));
+        }
 
         return $this;
     }
@@ -75,6 +95,7 @@ class ComposedFeed extends FeedBuilder
     public function inOrder(): static
     {
         $this->ordered = true;
+        $this->source = new ArraySource($this->entries, true);
 
         return $this;
     }
@@ -88,22 +109,6 @@ class ComposedFeed extends FeedBuilder
     protected function mode(): string
     {
         return $this->mode === null ? 'log' : parent::mode();
-    }
-
-    protected function shouldGroup(): bool
-    {
-        if ($this->ordered && $this->mode() === 'live') {
-            throw new InvalidArgumentException(
-                'A composed feed kept in order cannot read live(): grouping would move entries out of the order given. Drop live() or inOrder().',
-            );
-        }
-
-        return parent::shouldGroup();
-    }
-
-    protected function keepsOrder(): bool
-    {
-        return $this->ordered;
     }
 
     protected function hidesScheduled(): bool

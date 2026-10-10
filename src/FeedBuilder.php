@@ -32,6 +32,7 @@ use Storyfeed\Models\Party;
 use Storyfeed\Payload\FeedPage;
 use Storyfeed\Payload\GroupSlice;
 use Storyfeed\Payload\NodePresenter;
+use Storyfeed\Sources\ArraySource;
 use Storyfeed\Sources\DatabaseSource;
 use Storyfeed\Sources\Entry;
 use Storyfeed\Sources\SourceManager;
@@ -971,7 +972,7 @@ class FeedBuilder
     /** Whether a source read keeps the source's order instead of sorting newest first. */
     protected function keepsOrder(): bool
     {
-        return false;
+        return $this->source instanceof ArraySource && $this->source->inOrder;
     }
 
     /** Whether a source read hides items dated in the future, as the database hides scheduled activities. */
@@ -1030,6 +1031,19 @@ class FeedBuilder
 
     protected function shouldGroup(): bool
     {
+        // Kept order never groups: a group would move items out of it. Only
+        // an explicit live() says otherwise, and that is a contradiction.
+        if ($this->keepsOrder()) {
+            if ($this->mode === 'live') {
+                throw new InvalidArgumentException(sprintf(
+                    'The [%s] feed is kept in order, so it cannot read live(): grouping would move entries out of the order given. Drop live(), or the order.',
+                    $this->sourceName,
+                ));
+            }
+
+            return false;
+        }
+
         return $this->mode() !== 'log'
             && ! is_a(config('storyfeed.grouping.strategy'), NullStrategy::class, true);
     }

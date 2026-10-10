@@ -184,8 +184,8 @@ it('refuses an item it cannot read', function (array $item, string $message) {
         ->toThrow(InvalidArgumentException::class, $message);
 })->with([
     'unknown key' => [['verb' => 'ship', 'published_at' => 'now', 'summary' => 'x'], 'Unknown entry key [summary]'],
-    'no verb' => [['published_at' => 'now'], 'An entry needs [verb].'],
-    'no time' => [['verb' => 'ship'], 'An entry needs [published_at].'],
+    'a headline that is not text' => [['headline' => ['x']], "An entry's [headline] must be a string."],
+    'a headline naming an empty role' => [['headline' => ':actor shipped'], 'names [:actor], but the entry has no actor'],
     'dotted verb' => [['verb' => 'release.ship', 'published_at' => 'now'], 'must be a non-empty verb without a dot'],
     'unknown entity key' => [['verb' => 'ship', 'published_at' => 'now', 'object' => ['type' => 'release', 'label' => 'v1', 'href' => '/']], 'Unknown key [href] on the [object] entity'],
     'entity without a label' => [['verb' => 'ship', 'published_at' => 'now', 'object' => ['type' => 'release']], 'The [object] entity needs a [label].'],
@@ -196,4 +196,23 @@ it('refuses an item it cannot read', function (array $item, string $message) {
 it('refuses an item that is neither an array nor an Entry', function () {
     expect(fn () => Storyfeed::feed()->source(new ArraySource(['ship']))->get())
         ->toThrow(InvalidArgumentException::class, 'An entry must be an array or a Storyfeed\Sources\Entry, string given.');
+});
+
+it('reads a dateless, verbless array item with its own headline', function () {
+    $items = Storyfeed::feed()->source(new ArraySource([
+        ['headline' => ':actor is hiring', 'actor' => 'Tey Labs'],
+        ['verb' => 'ship', 'actor' => 'Storyfeed', 'object' => ['type' => 'release', 'label' => 'v1'], 'published_at' => '2026-09-01'],
+    ]))->get()->toArray();
+
+    expect(array_column($items, 'published_at'))->toBe(['2026-09-01T00:00:00.000000Z', null])
+        ->and($items[1])->toMatchArray(['verb' => null, 'headline_template' => ':actor is hiring']);
+});
+
+it('keeps a named array source in order with in_order', function () {
+    config()->set('storyfeed.sources.changelog', ['driver' => 'array', 'in_order' => true, 'items' => releases()]);
+
+    $feed = Storyfeed::feed()->source('changelog');
+
+    expect($feed->get()->pluck('object.label')->all())->toBe(['v0.17.0', 'v0.18.0'])
+        ->and(fn () => $feed->live()->get())->toThrow(InvalidArgumentException::class, 'The [changelog] feed is kept in order, so it cannot read live()');
 });
