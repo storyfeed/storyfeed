@@ -142,7 +142,7 @@ it('keeps all seven direct roles including a role that also lies on a parent cha
         ->and(Activity::query()->involving($client, deep: false)->count())->toBe(1)
         ->and(Activity::query()->involvingDirectly($client)->count())->toBe(1)
         ->and(Storyfeed::feed()->involvingDirectly($client)->get()->items())->toHaveCount(1);
-})->with(['actor', 'object', 'target', 'context', 'origin', 'result', 'instrument']);
+})->with(['actor', 'object', 'target', 'context', 'origin', 'result', 'instrument', 'location', 'generator']);
 
 it('keeps parentless entity reads identical in both modes', function (string $mode) {
     $entity = directContainer('Standalone');

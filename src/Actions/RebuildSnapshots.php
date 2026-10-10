@@ -27,7 +27,7 @@ use Storyfeed\Support\MorphResolver;
  *
  * So a deploy compiles them, the way a deploy compiles assets. The bound is a
  * count of the most recent ACTIVITIES, because "recompile recent entities" is a
- * distinct-across-seven-roles query ordered by recency and is neither cheap nor
+ * distinct-across-nine-roles query ordered by recency and is neither cheap nor
  * predictable, while "the last thousand activities" costs what the operator
  * chose. A thousand might yield three hundred entities; ten thousand might
  * yield four hundred.

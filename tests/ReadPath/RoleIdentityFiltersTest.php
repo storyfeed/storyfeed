@@ -66,7 +66,7 @@ it('ANDs new identities with types other roles participation verbs and callback 
         $builder->{$type}(Delivery::class);
         expect($builder instanceof FeedBuilder ? $builder->get()->items() : $builder->get()->all())->toBeEmpty();
     }
-})->with(['origin', 'result', 'instrument'])->with([true, false]);
+})->with(['origin', 'result', 'instrument', 'location', 'generator'])->with([true, false]);
 
 class RoleIdentitySubjectFeed extends Feed
 {
@@ -88,7 +88,7 @@ it('locks new Feed-class identities and types together while allowing other role
         ->and(fn () => $feed->{$role.'Type'}(Party::class))->toThrow(FeedMisconfigured::class, 'cannot be rebound');
     expect(array_column($feed->actor('Operator')->log()->get()->items(), 'id'))->toBe([$wanted->uid])
         ->and($feed->boundRoles())->toBe([$role, 'actor']);
-})->with(['origin', 'result', 'instrument'])->with([true, false]);
+})->with(['origin', 'result', 'instrument', 'location', 'generator'])->with([true, false]);
 
 it('recounts Live groups and aggregates and pages matching children through named feeds', function (string $role, bool $curate) {
     config(['storyfeed.grouping.curate' => $curate, 'storyfeed.grouping.children_limit' => 2]);
@@ -122,7 +122,7 @@ it('recounts Live groups and aggregates and pages matching children through name
             ->and($node['distinct']['actors'])->toBe(1)->and($node['sample']['actors'])->toHaveCount(1)
             ->and(array_column($node['children'], 'id'))->each->toBeIn($expectedIds);
     }
-})->with(['origin', 'result', 'instrument'])->with([true, false]);
+})->with(['origin', 'result', 'instrument', 'location', 'generator'])->with([true, false]);
 
 it('pages only matching identities in Log and Live including imported solos', function (string $role, string $mode, bool $imported) {
     $party = Storyfeed::party('Connected App');
@@ -146,7 +146,7 @@ it('pages only matching identities in Log and Live including imported solos', fu
     } while ($cursor !== null);
     request()->query->remove('cursor');
     expect($seen)->toBe(array_reverse($ids));
-})->with(['origin', 'result', 'instrument'])->with(['log', 'live'])->with([true, false]);
+})->with(['origin', 'result', 'instrument', 'location', 'generator'])->with(['log', 'live'])->with([true, false]);
 
 it('uses existing morph-pair indexes for new identity predicates on every engine', function () {
     $rows = [];

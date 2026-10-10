@@ -23,7 +23,7 @@ class Reader
 
     /**
      * @param  array<string, mixed>  $document
-     * @return array{uid: string|null, verb: string|null, type: string|null, published_at: Carbon|null, starts_at: Carbon|null, ends_at: Carbon|null, actor: array<string, mixed>|null, object: array<string, mixed>|null, target: array<string, mixed>|null, context: array<string, mixed>|null, origin: array<string, mixed>|null, result: array<string, mixed>|null, instrument: array<string, mixed>|null}
+     * @return array{uid: string|null, verb: string|null, type: string|null, published_at: Carbon|null, starts_at: Carbon|null, ends_at: Carbon|null, actor: array<string, mixed>|null, object: array<string, mixed>|null, target: array<string, mixed>|null, context: array<string, mixed>|null, origin: array<string, mixed>|null, result: array<string, mixed>|null, instrument: array<string, mixed>|null, location: array<string, mixed>|null, generator: array<string, mixed>|null}
      */
     public function activity(array $document): array
     {

@@ -490,6 +490,8 @@ class NodePresenter
         'origin' => ['origins', 'cachedOrigin'],
         'result' => ['results', 'cachedResult'],
         'instrument' => ['instruments', 'cachedInstrument'],
+        'location' => ['locations', 'cachedLocation'],
+        'generator' => ['generators', 'cachedGenerator'],
     ];
 
     /** @return array<string, mixed> */

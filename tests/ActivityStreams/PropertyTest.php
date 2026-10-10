@@ -5,7 +5,7 @@ use Storyfeed\ActivityStreams\VocabularyTerm;
 
 it('models only the AS2 properties currently emitted by the activity serializer', function () {
     expect(array_column(Property::cases(), 'value'))->toBe([
-        'actor', 'object', 'target', 'context', 'origin', 'result', 'instrument', 'published',
+        'actor', 'object', 'target', 'context', 'origin', 'result', 'instrument', 'location', 'generator', 'published',
         'startTime', 'endTime', 'duration',
         'totalItems', 'orderedItems', 'replies', 'summary', 'name', 'url',
         'icon', 'image', 'preview', 'href', 'mediaType', 'width', 'height', 'attachment',
@@ -40,5 +40,5 @@ it('leaves unknown properties for callers to preserve', function (string $value)
     '', '   ', 'unknown', 'as:unknown',
     'https://www.w3.org/ns/activitystreams#unknown',
     'sf:verb', 'ext:actor', 'https://example.com/#actor',
-    'id', 'type', '@context', 'hreflang', 'rel', 'location',
+    'id', 'type', '@context', 'hreflang', 'rel', 'audience',
 ]);

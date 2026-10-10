@@ -257,7 +257,7 @@ class Axis
      * true. Singular tokens remain pinned-only (the anti-lie rule).
      */
     protected const UNIVERSAL_TOKENS = [
-        ':actors', ':objects', ':targets', ':contexts', ':origins', ':results', ':instruments', ':count', ':others',
+        ':actors', ':objects', ':targets', ':contexts', ':origins', ':results', ':instruments', ':locations', ':generators', ':count', ':others',
     ];
 
     /** @return list<string> */
@@ -308,6 +308,8 @@ class Axis
             'origin' => Field::OriginType,
             'result' => Field::ResultType,
             'instrument' => Field::InstrumentType,
+            'location' => Field::LocationType,
+            'generator' => Field::GeneratorType,
             default => null,
         };
 

@@ -32,7 +32,7 @@ it('stores snapshots and scopes participation for each AS2 role', function (stri
     $document = serialize_one($activity);
     expect($document[$role]['name'])->toBe($entity->name)
         ->and(app(Reader::class)->activity(json_decode(json_encode($document), true))[$role])->toBe($document[$role]);
-})->with(['origin', 'result', 'instrument']);
+})->with(['origin', 'result', 'instrument', 'location', 'generator']);
 
 it('mints a Party and keeps explicit null a no-op in each helper', function (string $method, string $role) {
     $activity = Storyfeed::activity('confirm')->{$method}('Tablet')->{$method}(null)->publish()->fresh();
@@ -81,7 +81,7 @@ it('repairs snapshots and reports unresolved new roles without pruning', functio
     expect((new TrickleSnapshots)(prune: false)['unresolved'])->toBe(1)
         ->and($activity->fresh()->deleted_at)->toBeNull();
     expect(serialize_one($activity)[$role])->toHaveKey('type');
-})->with(['origin', 'result', 'instrument']);
+})->with(['origin', 'result', 'instrument', 'location', 'generator']);
 
 it('freezes new facts in activity and batch events across serialization and later deletion', function () {
     $actor = User::create(['name' => 'Operator', 'email' => 'operator@example.com']);
@@ -134,9 +134,9 @@ it('keeps automatic composite parents free of inferred provenance and preserves 
 });
 
 it('keeps separate stored payload and groupable selections after promotion', function () {
-    expect(ActivityRoles::STORED)->toBe(['actor', 'object', 'target', 'context', 'origin', 'result', 'instrument'])
-        ->and(ActivityRoles::PAYLOAD)->toBe(['actor', 'object', 'target', 'context', 'origin', 'result', 'instrument'])
-        ->and(ActivityRoles::GROUPABLE)->toBe(['actor', 'object', 'target', 'context', 'origin', 'result', 'instrument']);
+    expect(ActivityRoles::STORED)->toBe(['actor', 'object', 'target', 'context', 'origin', 'result', 'instrument', 'location', 'generator'])
+        ->and(ActivityRoles::PAYLOAD)->toBe(['actor', 'object', 'target', 'context', 'origin', 'result', 'instrument', 'location', 'generator'])
+        ->and(ActivityRoles::GROUPABLE)->toBe(['actor', 'object', 'target', 'context', 'origin', 'result', 'instrument', 'location', 'generator']);
 });
 
 it('eager loads cached entities for every stored role through the public helper', function () {
@@ -164,7 +164,8 @@ it('eager loads cached entities for every stored role through the public helper'
 
 it('freezes every role id as a string before and after reloading', function () {
     $activity = Storyfeed::activity('confirm')->actor('Operator')->object('Object')
-        ->target('Target')->context('Context')->origin('Source')->using('Tool')->resulting('Output')->publish();
+        ->target('Target')->context('Context')->origin('Source')->using('Tool')->resulting('Output')
+        ->at('Venue')->generator('App')->publish();
     $fresh = ActivitySnapshot::fromModel($activity);
     $reloaded = ActivitySnapshot::fromModel($activity->fresh());
     foreach (ActivityRoles::STORED as $role) {

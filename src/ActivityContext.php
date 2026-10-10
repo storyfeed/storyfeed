@@ -41,6 +41,8 @@ final readonly class ActivityContext
         private ?FeedContext $result = null,
         private ?FeedContext $instrument = null,
         private array $casts = [],
+        private ?FeedContext $location = null,
+        private ?FeedContext $generator = null,
     ) {}
 
     /**
@@ -155,5 +157,17 @@ final readonly class ActivityContext
     public function instrument(): ?FeedContext
     {
         return $this->instrument;
+    }
+
+    /** The location's cached entity, or null when the role is empty. */
+    public function location(): ?FeedContext
+    {
+        return $this->location;
+    }
+
+    /** The generator's cached entity, or null when the role is empty. */
+    public function generator(): ?FeedContext
+    {
+        return $this->generator;
     }
 }

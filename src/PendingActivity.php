@@ -296,6 +296,37 @@ class PendingActivity
     }
 
     /**
+     * Where the act happened: a venue, an event, a place. Null is a no-op.
+     *
+     * @param  Model|string|array<string, mixed>|null  $model  a model, a party name, or an entity with no model behind it
+     */
+    public function location(Model|string|array|null $model = null): static
+    {
+        return $this->associate('location', $model);
+    }
+
+    /**
+     * Location, as a place: `->verb('unveil', $storyfeed)->at($talk)`.
+     *
+     * @param  Model|string|array<string, mixed>|null  $model  a model, a party name, or an entity with no model behind it
+     */
+    public function at(Model|string|array|null $model = null): static
+    {
+        return $this->location($model);
+    }
+
+    /**
+     * The app, client or agent that produced the activity: "posted from the
+     * iOS app". Null is a no-op.
+     *
+     * @param  Model|string|array<string, mixed>|null  $model  a model, a party name, or an entity with no model behind it
+     */
+    public function generator(Model|string|array|null $model = null): static
+    {
+        return $this->associate('generator', $model);
+    }
+
+    /**
      * @param  Model|string|array<string, mixed>|null  $model  a model, a party name, or an entity with no model behind it
      */
     public function using(Model|string|array|null $model = null): static

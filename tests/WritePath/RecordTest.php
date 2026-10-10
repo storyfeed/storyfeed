@@ -77,7 +77,7 @@ it('has a record parameter for every public builder role and setter', function (
         '__construct', 'make', 'of', 'inline', // Construction, not setters.
         'publish', // The terminal.
         'verb', 'action', // The required verb argument starts the builder.
-        'by', 'using', 'resulting', 'in', 'to', 'for', 'from', 'on', 'with', 'into', // Role aliases.
+        'by', 'using', 'resulting', 'at', 'in', 'to', 'for', 'from', 'on', 'with', 'into', // Role aliases.
         'when', 'unless', // Conditional composition, not activity fields.
         'hasActor', 'isAnonymous', 'has', // What story middleware reads, not setters.
         // record() stays synchronous (ruled 2026-09-24): queueing is the

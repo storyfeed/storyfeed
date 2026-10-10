@@ -38,8 +38,8 @@ use Storyfeed\Support\MorphKeyType;
  *       'id' => 'release-0.18.0',
  *   ]
  *
- * A role (actor, object, target, context, origin, result, instrument) is a
- * model, a party name, or an entity with no model behind it: an array with a
+ * A role (actor, object, target, context, origin, result, instrument,
+ * location, generator) is a model, a party name, or an entity with no model behind it: an array with a
  * `type` and a `label`, and optionally a `url`, an `id`, `data` and a
  * `body`. An entity's `id` defaults to its label.
  *
@@ -74,6 +74,8 @@ final class SourceItem
      * @param  Model|string|array<string, mixed>|null  $origin
      * @param  Model|string|array<string, mixed>|null  $result
      * @param  Model|string|array<string, mixed>|null  $instrument
+     * @param  Model|string|array<string, mixed>|null  $location
+     * @param  Model|string|array<string, mixed>|null  $generator
      */
     public function __construct(
         string|FeedVerb|BackedEnum $verb,
@@ -90,6 +92,8 @@ final class SourceItem
         public readonly ?string $id = null,
         DateTimeInterface|string|null $startsAt = null,
         DateTimeInterface|string|null $endsAt = null,
+        public readonly Model|string|array|null $location = null,
+        public readonly Model|string|array|null $generator = null,
     ) {
         $verb = match (true) {
             $verb instanceof FeedVerb => $verb->verb(),
@@ -131,6 +135,8 @@ final class SourceItem
      * @param  Model|string|array<string, mixed>|null  $instrument
      * @param  array<string, mixed>  $data
      * @param  string|FeedBody|iterable<mixed>|null  $body
+     * @param  Model|string|array<string, mixed>|null  $location
+     * @param  Model|string|array<string, mixed>|null  $generator
      */
     public static function make(
         string|FeedVerb|BackedEnum $verb,
@@ -147,8 +153,10 @@ final class SourceItem
         ?string $id = null,
         DateTimeInterface|string|null $startsAt = null,
         DateTimeInterface|string|null $endsAt = null,
+        Model|string|array|null $location = null,
+        Model|string|array|null $generator = null,
     ): self {
-        return new self($verb, $publishedAt, $actor, $object, $target, $context, $origin, $result, $instrument, $data, $body, $id, $startsAt, $endsAt);
+        return new self($verb, $publishedAt, $actor, $object, $target, $context, $origin, $result, $instrument, $data, $body, $id, $startsAt, $endsAt, $location, $generator);
     }
 
     /**
@@ -190,6 +198,8 @@ final class SourceItem
             id: isset($item['id']) ? (string) $item['id'] : null,
             startsAt: $item['starts_at'] ?? null,
             endsAt: $item['ends_at'] ?? null,
+            location: $item['location'] ?? null,
+            generator: $item['generator'] ?? null,
         );
     }
 
@@ -236,6 +246,12 @@ final class SourceItem
         $roles = [];
 
         foreach (ActivityRoles::STORED as $role) {
+            // A role added since ids were first derived joins only when
+            // filled, so an item that never names it keeps the id it had.
+            if (in_array($role, ['location', 'generator'], true) && $this->{$role} === null) {
+                continue;
+            }
+
             $roles[$role] = $this->roleIdentity($this->{$role});
         }
 

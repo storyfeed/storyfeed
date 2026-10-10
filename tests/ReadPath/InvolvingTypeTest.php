@@ -24,7 +24,7 @@ it('matches a type in every direct role on both builders', function (string $rol
     Storyfeed::activity()->anonymously()->action('inspect')->{$role}('Other')->publish();
     expect(Activity::query()->involvingType(Delivery::class, deep: $deep)->pluck('uid')->all())->toBe([$wanted->uid])
         ->and(array_column(Storyfeed::feed()->involvingType('delivery', deep: $deep)->log()->get()->items(), 'id'))->toBe([$wanted->uid]);
-})->with(['actor', 'object', 'target', 'context', 'origin', 'result', 'instrument'])->with([true, false]);
+})->with(['actor', 'object', 'target', 'context', 'origin', 'result', 'instrument', 'location', 'generator'])->with([true, false]);
 
 it('resolves classes instances aliases and lists to stored participant types', function (string $form) {
     $file = Delivery::create(['tracking_number' => 'invoice']);

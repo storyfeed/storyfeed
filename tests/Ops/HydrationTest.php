@@ -213,4 +213,4 @@ it('counts hydration on a page whose model appears solely in a promoted role', f
     expect($finding->severity)->toBe(Severity::Info)
         ->and($finding->subject['queries'])->toBe(1)
         ->and($finding->subject['aliases'])->toBe('customer');
-})->with(['origin', 'result', 'instrument']);
+})->with(['origin', 'result', 'instrument', 'location', 'generator']);

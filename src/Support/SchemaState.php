@@ -29,6 +29,7 @@ class SchemaState
      * @var array<string, list<string>>
      */
     public const array EXPECTED = [
+        'activities' => ['location_type', 'location_id', 'cached_location_id', 'generator_type', 'generator_id', 'cached_generator_id'],
         'snapshots' => ['shape', 'body', 'meta'],
         'groupings' => ['winner'],
         'participants' => ['distance'],
@@ -43,7 +44,7 @@ class SchemaState
      * @var array<string, list<string>>
      */
     public const array REFERENCES = [
-        'activities' => ['actor_id', 'object_id', 'target_id', 'context_id', 'origin_id', 'result_id', 'instrument_id'],
+        'activities' => ['actor_id', 'object_id', 'target_id', 'context_id', 'origin_id', 'result_id', 'instrument_id', 'location_id', 'generator_id'],
         'snapshots' => ['model_id'],
         'batches' => ['actor_id'],
         'batch_locks' => ['actor_id'],

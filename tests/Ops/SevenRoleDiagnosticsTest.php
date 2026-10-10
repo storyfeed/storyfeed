@@ -17,7 +17,7 @@ it('counts a party used solely in a promoted role as used', function (string $ro
         ->and($finding->severity)->toBe(Severity::Info)
         ->and($finding->subject['name'])->toBe('Role-only party')
         ->and($finding->subject['activities'])->toBe(1);
-})->with(['origin', 'result', 'instrument']);
+})->with(['origin', 'result', 'instrument', 'location', 'generator']);
 
 it('errors when a singular template names a promoted role never carried', function (string $role) {
     Storyfeed::activity('confirm')->publish();
@@ -33,7 +33,7 @@ it('errors when a singular template names a promoted role never carried', functi
             'activities' => 1,
             'pairs' => '(no object).confirm',
         ]);
-})->with(['origin', 'result', 'instrument']);
+})->with(['origin', 'result', 'instrument', 'location', 'generator']);
 
 it('stays quiet when a singular template sometimes carries its promoted role', function (string $role) {
     Storyfeed::activity('confirm')->publish();
@@ -41,7 +41,7 @@ it('stays quiet when a singular template sometimes carries its promoted role', f
     Story::verb('confirm')->headline(':'.$role);
 
     expect(Storyfeed::doctor(['roles'])->all())->toBeEmpty();
-})->with(['origin', 'result', 'instrument']);
+})->with(['origin', 'result', 'instrument', 'location', 'generator']);
 
 it('suggests all payload roles when singular grammar is missing', function () {
     Storyfeed::activity('confirm')->publish();
@@ -49,7 +49,7 @@ it('suggests all payload roles when singular grammar is missing', function () {
     $finding = Storyfeed::doctor(['grammar'])->withCode('grammar.missing')->sole();
 
     expect($finding->fix->tokens)->toBe([
-        ':actor', ':object', ':target', ':context', ':origin', ':result', ':instrument',
+        ':actor', ':object', ':target', ':context', ':origin', ':result', ':instrument', ':location', ':generator',
     ]);
 });
 
@@ -70,4 +70,4 @@ it('discovers aliases recorded solely in promoted roles', function (string $role
     };
 
     expect($check->run(app(StoryfeedManager::class)))->toBe([(new Party)->getMorphClass()]);
-})->with(['origin', 'result', 'instrument']);
+})->with(['origin', 'result', 'instrument', 'location', 'generator']);

@@ -513,6 +513,8 @@ class StoryfeedManager
      * @param  Model|string|array<string, mixed>|null  $origin
      * @param  Model|string|array<string, mixed>|null  $result
      * @param  Model|string|array<string, mixed>|null  $instrument
+     * @param  Model|string|array<string, mixed>|null  $location
+     * @param  Model|string|array<string, mixed>|null  $generator
      */
     public function record(
         string|FeedVerb|BackedEnum $verb,
@@ -529,6 +531,8 @@ class StoryfeedManager
         bool $anonymous = false,
         DateTimeInterface|string|null $startsAt = null,
         DateTimeInterface|string|null $endsAt = null,
+        Model|string|array|null $location = null,
+        Model|string|array|null $generator = null,
     ): Activity {
         if ($actor !== null && $anonymous) {
             throw new LogicException('record() was given an actor and anonymous: true; an anonymous activity has no actor.');
@@ -542,6 +546,8 @@ class StoryfeedManager
             ->origin($origin)
             ->result($result)
             ->instrument($instrument)
+            ->location($location)
+            ->generator($generator)
             ->when($data !== [], fn (PendingActivity $a) => $a->data($data))
             ->when($publishedAt !== null, fn (PendingActivity $a) => $a->publishedAt($publishedAt))
             ->when($startsAt !== null, fn (PendingActivity $a) => $a->startsAt($startsAt))

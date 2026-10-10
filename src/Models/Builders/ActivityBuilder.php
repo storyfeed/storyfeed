@@ -108,6 +108,16 @@ class ActivityBuilder extends Builder
         return $this->whereMorphRole('instrument', $model);
     }
 
+    public function location(Model $model): static
+    {
+        return $this->whereMorphRole('location', $model);
+    }
+
+    public function generator(Model $model): static
+    {
+        return $this->whereMorphRole('generator', $model);
+    }
+
     /**
      * Activities involving the model in any direct role or through distant
      * relations. Pass `deep: false` to match direct participation only.

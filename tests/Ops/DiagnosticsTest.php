@@ -129,7 +129,7 @@ it('prints a line commented beneath its reason where doctor cannot know the valu
 
     $this->artisan('storyfeed:doctor --stubs')
         ->expectsOutputToContain(
-            "// delivery.ship: doctor cannot spell 'ship' in the past tense for certain. Safe tokens: :actor :object :target :context :origin :result :instrument"
+            "// delivery.ship: doctor cannot spell 'ship' in the past tense for certain. Safe tokens: :actor :object :target :context :origin :result :instrument :location :generator"
             .PHP_EOL."// Story::for(Delivery::class)->verb('ship')->headline('…');"
         )
         ->doesntExpectOutputToContain('TODO')

@@ -68,7 +68,7 @@ it('generates subject scopes for every new identity role', function (string $rol
 
     expect(file_get_contents(feedPath('ConnectedFeed')))
         ->toContain('$feed->'.$role.'($this->delivery);');
-})->with(['origin', 'result', 'instrument']);
+})->with(['origin', 'result', 'instrument', 'location', 'generator']);
 
 it('tells you to register it, because that is what doctor needs', function () {
     $this->artisan('make:feed', ['name' => 'Customer'])

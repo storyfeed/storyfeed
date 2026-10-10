@@ -32,7 +32,8 @@ use Throwable;
  * `published` at whole-second precision, and `starts_at` / `ends_at` from
  * `startTime` / `endTime` the same way (`duration` is derived from the two, so
  * it is not read back). Serialized `actor`, `object`,
- * `target`, `context`, `origin`, `result` and `instrument` pass through
+ * `target`, `context`, `origin`, `result`, `instrument`, `location` and
+ * `generator` pass through
  * unchanged, with absent roles returned as null. Top-level `summary` and
  * `replies` are dropped; this is not whole-document or storage reconstruction.
  *

@@ -43,7 +43,7 @@ it('filters every role by stored morph class on both builders', function (string
         ->and(array_column(Storyfeed::feed()->{$method}($input)->log()->get()->items(), 'id'))
         ->toBe(array_reverse(array_column($expected, 'uid')))
         ->and($activities[0]->getAttribute($role.'_type'))->toBe('delivery');
-})->with(['actor', 'object', 'target', 'context', 'origin', 'result', 'instrument'])
+})->with(['actor', 'object', 'target', 'context', 'origin', 'result', 'instrument', 'location', 'generator'])
     ->with(['class', 'instance', 'alias', 'list']);
 
 it('rejects unknown types and empty lists before querying', function (string $role, string $builder) {
@@ -54,7 +54,7 @@ it('rejects unknown types and empty lists before querying', function (string $ro
     }
     expect(fn () => $query->{$method}([]))->toThrow(InvalidArgumentException::class, "{$method}() was given an empty list")
         ->and(fn () => $query->{$method}([Delivery::class, 'missing-alias']))->toThrow(InvalidArgumentException::class, 'missing-alias');
-})->with(['actor', 'object', 'target', 'context', 'origin', 'result', 'instrument'])->with(['feed', 'activity']);
+})->with(['actor', 'object', 'target', 'context', 'origin', 'result', 'instrument', 'location', 'generator'])->with(['feed', 'activity']);
 
 it('resolves package aliases independently of an enforced application morph map', function () {
     Relation::enforceMorphMap(['delivery' => Delivery::class], merge: false);

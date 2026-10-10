@@ -64,6 +64,7 @@ class StoryfeedServiceProvider extends PackageServiceProvider
                 'add_time_range_to_feed_activities_table',
                 'add_entities_to_feed_activities_table',
                 'change_feed_references_to_strings',
+                'add_location_and_generator_to_feed_activities_table',
             ])
             ->hasCommands([
                 Console\CacheSnapshotsCommand::class,

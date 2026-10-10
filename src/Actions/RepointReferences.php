@@ -11,7 +11,7 @@ use Storyfeed\Support\MorphKeyType;
 
 /**
  * Move every reference to one entity onto another: the role columns of all
- * seven roles, their `cached_*_id` snapshot pointers, and the participant
+ * nine roles, their `cached_*_id` snapshot pointers, and the participant
  * rows `involving()` reads. What a delete does to point the feed at a
  * tombstone, and what a restore does to point it back.
  *

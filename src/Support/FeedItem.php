@@ -168,6 +168,16 @@ final class FeedItem implements Arrayable, ArrayAccess, JsonSerializable
         return $this->entity('instrument');
     }
 
+    public function location(): ?Entity
+    {
+        return $this->entity('location');
+    }
+
+    public function generator(): ?Entity
+    {
+        return $this->entity('generator');
+    }
+
     /**
      * The entity in one role. On a group it is set only when the group's
      * axis pins the role; otherwise read the plural (`actors()`).
@@ -220,6 +230,18 @@ final class FeedItem implements Arrayable, ArrayAccess, JsonSerializable
     public function instruments(): Collection
     {
         return $this->entities('instrument');
+    }
+
+    /** @return Collection<int, Entity> */
+    public function locations(): Collection
+    {
+        return $this->entities('location');
+    }
+
+    /** @return Collection<int, Entity> */
+    public function generators(): Collection
+    {
+        return $this->entities('generator');
     }
 
     /**

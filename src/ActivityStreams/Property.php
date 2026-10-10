@@ -25,6 +25,8 @@ enum Property: string implements VocabularyTerm
     case Origin = 'origin';
     case Result = 'result';
     case Instrument = 'instrument';
+    case Location = 'location';
+    case Generator = 'generator';
     case Published = 'published';
 
     // An activity's time range (docs/payload.md, time ranges). `duration` is

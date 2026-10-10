@@ -18,7 +18,7 @@ use Storyfeed\Support\MorphKeyType;
  * keyed by its morph alias and key.
  *
  * When a Feedable model is deleted, every activity that named it, in any of
- * the seven roles, is repointed here, and the model's own snapshot is
+ * the nine roles, is repointed here, and the model's own snapshot is
  * dropped. The stories survive, and no trace of the model's key or label is
  * left on them. A restore repoints them back and discards the tombstone; a
  * hard delete leaves the tombstone as the permanent reference.

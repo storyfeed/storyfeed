@@ -44,4 +44,4 @@ it('hydrates each promoted role through the ordinary entity presenter and preser
 
     expect(Customer::$lastContext?->feed())->toBe('kitchen')
         ->and($item['object']['link']['href'])->toBe("/kitchen/customers/{$next->id}");
-})->with(['origin', 'result', 'instrument']);
+})->with(['origin', 'result', 'instrument', 'location', 'generator']);

@@ -24,7 +24,7 @@ it('adds only nullable role keys to baseline payload and event bytes without cha
     ];
     foreach (['node', 'event'] as $kind) {
         $payload = json_decode($observed[$kind], true, flags: JSON_THROW_ON_ERROR);
-        foreach (['origin', 'result', 'instrument'] as $role) {
+        foreach (['origin', 'result', 'instrument', 'location', 'generator'] as $role) {
             expect($payload)->toHaveKey($role, null);
             unset($payload[$role]);
         }
@@ -64,7 +64,7 @@ it('exposes filled roles without changing existing grouping hashes', function ()
     $before = json_encode($presenter->activityNode($activity->fresh()), JSON_THROW_ON_ERROR);
     $hashes = app(config('storyfeed.grouping.strategy'))->hashes($activity);
     $party = Storyfeed::party('Source tool or outcome');
-    foreach (['origin', 'result', 'instrument'] as $role) {
+    foreach (['origin', 'result', 'instrument', 'location', 'generator'] as $role) {
         $activity->{$role}()->associate($party);
     }
     $activity->save();
@@ -75,7 +75,7 @@ it('exposes filled roles without changing existing grouping hashes', function ()
 it('still reads event snapshots queued before the role extension', function () {
     $snapshot = unserialize(require __DIR__.'/../Fixtures/As2RolesLegacyEvent.php');
     $payload = $snapshot->toPayload();
-    foreach (['origin', 'result', 'instrument'] as $role) {
+    foreach (['origin', 'result', 'instrument', 'location', 'generator'] as $role) {
         expect($payload)->toHaveKey($role, null);
         unset($payload[$role]);
     }

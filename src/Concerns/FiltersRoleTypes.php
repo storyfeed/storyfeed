@@ -55,5 +55,17 @@ trait FiltersRoleTypes
     }
 
     /** @param  Model|string|list<Model|string>  $types */
+    public function locationType(Model|string|array $types): static
+    {
+        return $this->whereRoleTypes('location', $types);
+    }
+
+    /** @param  Model|string|list<Model|string>  $types */
+    public function generatorType(Model|string|array $types): static
+    {
+        return $this->whereRoleTypes('generator', $types);
+    }
+
+    /** @param  Model|string|list<Model|string>  $types */
     abstract protected function whereRoleTypes(string $role, Model|string|array $types): static;
 }

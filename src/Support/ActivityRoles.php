@@ -31,11 +31,11 @@ namespace Storyfeed\Support;
  */
 final class ActivityRoles
 {
-    public const STORED = ['actor', 'object', 'target', 'context', 'origin', 'result', 'instrument'];
+    public const STORED = ['actor', 'object', 'target', 'context', 'origin', 'result', 'instrument', 'location', 'generator'];
 
-    public const PAYLOAD = ['actor', 'object', 'target', 'context', 'origin', 'result', 'instrument'];
+    public const PAYLOAD = ['actor', 'object', 'target', 'context', 'origin', 'result', 'instrument', 'location', 'generator'];
 
-    public const GROUPABLE = ['actor', 'object', 'target', 'context', 'origin', 'result', 'instrument'];
+    public const GROUPABLE = ['actor', 'object', 'target', 'context', 'origin', 'result', 'instrument', 'location', 'generator'];
 
     /**
      * Supported eager-loading names for the cached entities of all STORED roles.

@@ -53,6 +53,12 @@ use Storyfeed\Support\MorphKeyType;
  * @property string|null $instrument_type
  * @property int|string|null $instrument_id
  * @property int|null $cached_instrument_id
+ * @property string|null $location_type
+ * @property int|string|null $location_id
+ * @property int|null $cached_location_id
+ * @property string|null $generator_type
+ * @property int|string|null $generator_id
+ * @property int|null $cached_generator_id
  * @property array<array-key, mixed>|null $data
  * @property array<string, array<string, mixed>>|null $entities roles with no model behind them, by role (see Support\InlineEntity)
  * @property Carbon|null $published_at
@@ -97,6 +103,8 @@ class Activity extends Model
             'origin_id' => MorphKeyType::class,
             'result_id' => MorphKeyType::class,
             'instrument_id' => MorphKeyType::class,
+            'location_id' => MorphKeyType::class,
+            'generator_id' => MorphKeyType::class,
             'data' => 'array',
             'entities' => 'array',
             'published_at' => 'datetime',
@@ -269,6 +277,30 @@ class Activity extends Model
     public function cachedInstrument(): BelongsTo
     {
         return $this->belongsTo($this->snapshotModel(), 'cached_instrument_id');
+    }
+
+    /** @return MorphTo<Model, $this> */
+    public function location(): MorphTo
+    {
+        return $this->morphTo();
+    }
+
+    /** @return BelongsTo<Snapshot, $this> */
+    public function cachedLocation(): BelongsTo
+    {
+        return $this->belongsTo($this->snapshotModel(), 'cached_location_id');
+    }
+
+    /** @return MorphTo<Model, $this> */
+    public function generator(): MorphTo
+    {
+        return $this->morphTo();
+    }
+
+    /** @return BelongsTo<Snapshot, $this> */
+    public function cachedGenerator(): BelongsTo
+    {
+        return $this->belongsTo($this->snapshotModel(), 'cached_generator_id');
     }
 
     /**

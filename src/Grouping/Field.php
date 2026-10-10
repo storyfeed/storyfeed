@@ -17,7 +17,7 @@ use Storyfeed\StoryfeedManager;
  * deployed feed_groupings rows contain keys assembled in exactly this
  * order (see AxisHashStabilityTest).
  *
- * 64-bit ints, 16 bits used — ample headroom for future dimensions.
+ * 64-bit ints, 20 bits used — ample headroom for future dimensions.
  */
 enum Field: int
 {
@@ -38,6 +38,10 @@ enum Field: int
     case ResultId = 1 << 13;
     case InstrumentType = 1 << 14;
     case InstrumentId = 1 << 15;
+    case LocationType = 1 << 16;
+    case LocationId = 1 << 17;
+    case GeneratorType = 1 << 18;
+    case GeneratorId = 1 << 19;
 
     public const CANONICAL_ORDER = [
         self::ActorType, self::ActorId,
@@ -48,6 +52,8 @@ enum Field: int
         self::OriginType, self::OriginId,
         self::ResultType, self::ResultId,
         self::InstrumentType, self::InstrumentId,
+        self::LocationType, self::LocationId,
+        self::GeneratorType, self::GeneratorId,
         self::Day,
     ];
 
@@ -68,6 +74,10 @@ enum Field: int
         'rid' => self::ResultId,
         'ia' => self::InstrumentType,
         'iid' => self::InstrumentId,
+        'la' => self::LocationType,
+        'lid' => self::LocationId,
+        'ga' => self::GeneratorType,
+        'gid' => self::GeneratorId,
         'd' => self::Day,
     ];
 
@@ -98,6 +108,8 @@ enum Field: int
         ':origin' => self::OriginType->value | self::OriginId->value,
         ':result' => self::ResultType->value | self::ResultId->value,
         ':instrument' => self::InstrumentType->value | self::InstrumentId->value,
+        ':location' => self::LocationType->value | self::LocationId->value,
+        ':generator' => self::GeneratorType->value | self::GeneratorId->value,
         ':verb' => self::Verb->value,
     ];
 
@@ -150,6 +162,10 @@ enum Field: int
             self::ResultId => $activity->result_id,
             self::InstrumentType => $activity->instrument_type,
             self::InstrumentId => $activity->instrument_id,
+            self::LocationType => $activity->location_type,
+            self::LocationId => $activity->location_id,
+            self::GeneratorType => $activity->generator_type,
+            self::GeneratorId => $activity->generator_id,
             self::Day => self::period($activity)->valueFor($activity->published_at ?? now()),
         };
 

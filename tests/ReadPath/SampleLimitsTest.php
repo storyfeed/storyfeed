@@ -10,7 +10,7 @@ function sampleLimitSlice(): GroupSlice
 {
     $members = collect(range(1, 8))->map(function ($i) {
         $activity = new Activity(['verb' => 'inspect', 'published_at' => now()]);
-        foreach (['actor', 'object', 'target', 'context', 'origin', 'result', 'instrument'] as $role) {
+        foreach (['actor', 'object', 'target', 'context', 'origin', 'result', 'instrument', 'location', 'generator'] as $role) {
             // Seven distinct identities, with a duplicate at the end.
             $activity->setAttribute($role.'_type', 'user');
             $activity->setAttribute($role.'_id', min($i, 7));
@@ -20,7 +20,7 @@ function sampleLimitSlice(): GroupSlice
     });
 
     return GroupSlice::group('repeat', 'limits', 12, $members, array_fill_keys([
-        'actor', 'object', 'target', 'context', 'origin', 'result', 'instrument',
+        'actor', 'object', 'target', 'context', 'origin', 'result', 'instrument', 'location', 'generator',
     ], 10));
 }
 
@@ -48,7 +48,7 @@ it('changes only the configured role while preserving children totals and order'
     }
     unset($node['sample'], $default['sample']);
     expect($node)->toBe($default);
-})->with(['actor', 'object', 'target', 'context', 'origin', 'result', 'instrument']);
+})->with(['actor', 'object', 'target', 'context', 'origin', 'result', 'instrument', 'location', 'generator']);
 
 it('falls back to three for a missing or invalid role limit', function ($limit) {
     config(['storyfeed.grouping.sample_limits' => ['object' => $limit]]);

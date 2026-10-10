@@ -270,9 +270,30 @@ class FeedBuilder
         return $this;
     }
 
+    public function location(Model|string $model): static
+    {
+        $this->assertUnlocked('location');
+
+        $this->boundRoles[] = 'location';
+        $this->roles['location'] = $this->named($model);
+
+        return $this;
+    }
+
+    public function generator(Model|string $model): static
+    {
+        $this->assertUnlocked('generator');
+
+        $this->boundRoles[] = 'generator';
+        $this->roles['generator'] = $this->named($model);
+
+        return $this;
+    }
+
     /**
      * An entity's own feed: every activity that mentions it, in any role —
-     * actor, object, target, context, origin, result or instrument. Distant
+     * actor, object, target, context, origin, result, instrument, location or
+     * generator. Distant
      * relations are included; `deep: false` keeps only direct participation.
      *
      * This is what a project page or a client page wants. `context()` answers
@@ -1328,7 +1349,7 @@ class FeedBuilder
         //  - COUNT(*) inside the window undercounts a group whose older
         //    members lie below the floor, so a windowed page recounts its
         //    selected groups in one bounded query — the same shape
-        //    countDistinctRoles() already runs seven times a page.
+        //    countDistinctRoles() already runs once per role a page.
         //
         // Measured on MySQL 8.4.11, a 50k-activity fixture, page size 30:
         // see docs/journal for the W114 numbers.

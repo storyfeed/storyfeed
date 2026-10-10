@@ -246,6 +246,8 @@ return [
             'origin' => 3,
             'result' => 3,
             'instrument' => 3,
+            'location' => 3,
+            'generator' => 3,
         ],
 
         /*

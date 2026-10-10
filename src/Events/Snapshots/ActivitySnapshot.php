@@ -19,6 +19,8 @@ final readonly class ActivitySnapshot
      * @param  array<string, mixed>|null  $origin
      * @param  array<string, mixed>|null  $result
      * @param  array<string, mixed>|null  $instrument
+     * @param  array<string, mixed>|null  $location
+     * @param  array<string, mixed>|null  $generator
      * @param  array<array-key, mixed>  $data
      */
     private function __construct(
@@ -36,6 +38,8 @@ final readonly class ActivitySnapshot
         public ?array $origin = null,
         public ?array $result = null,
         public ?array $instrument = null,
+        public ?array $location = null,
+        public ?array $generator = null,
     ) {}
 
     public static function fromModel(Activity $activity): self
@@ -68,13 +72,15 @@ final readonly class ActivitySnapshot
             $roles['origin'],
             $roles['result'],
             $roles['instrument'],
+            $roles['location'],
+            $roles['generator'],
         );
     }
 
     /** @return array<string, mixed> */
     public function toPayload(): array
     {
-        // All seven roles are now public payload facts, including explicit nulls.
+        // All nine roles are now public payload facts, including explicit nulls.
         // Promoted constructor defaults do not initialize properties on unserialize.
         $payload = get_object_vars($this) + array_fill_keys(ActivityRoles::PAYLOAD, null);
 

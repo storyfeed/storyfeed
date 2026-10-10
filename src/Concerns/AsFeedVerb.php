@@ -96,6 +96,8 @@ trait AsFeedVerb
      * @param  Model|string|array<string, mixed>|null  $origin
      * @param  Model|string|array<string, mixed>|null  $result
      * @param  Model|string|array<string, mixed>|null  $instrument
+     * @param  Model|string|array<string, mixed>|null  $location
+     * @param  Model|string|array<string, mixed>|null  $generator
      */
     public function record(
         Model|string|array|null $object = null,
@@ -110,6 +112,8 @@ trait AsFeedVerb
         iterable $objects = [],
         DateTimeInterface|string|null $startsAt = null,
         DateTimeInterface|string|null $endsAt = null,
+        Model|string|array|null $location = null,
+        Model|string|array|null $generator = null,
     ): Activity {
         return storyfeed()->record(
             verb: $this,
@@ -125,6 +129,8 @@ trait AsFeedVerb
             objects: $objects,
             startsAt: $startsAt,
             endsAt: $endsAt,
+            location: $location,
+            generator: $generator,
         );
     }
 
@@ -199,6 +205,30 @@ trait AsFeedVerb
     public function instrument(Model|string|array|null $model = null): PendingActivity
     {
         return $this->of()->instrument($model);
+    }
+
+    /**
+     * @param  Model|string|array<string, mixed>|null  $model  a model, a party name, or an entity with no model behind it
+     */
+    public function location(Model|string|array|null $model = null): PendingActivity
+    {
+        return $this->of()->location($model);
+    }
+
+    /**
+     * @param  Model|string|array<string, mixed>|null  $model  a model, a party name, or an entity with no model behind it
+     */
+    public function at(Model|string|array|null $model = null): PendingActivity
+    {
+        return $this->of()->at($model);
+    }
+
+    /**
+     * @param  Model|string|array<string, mixed>|null  $model  a model, a party name, or an entity with no model behind it
+     */
+    public function generator(Model|string|array|null $model = null): PendingActivity
+    {
+        return $this->of()->generator($model);
     }
 
     /**
