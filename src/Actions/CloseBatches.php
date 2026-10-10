@@ -16,6 +16,8 @@ use Storyfeed\Models\Batch;
  * so digest listeners hear about their batch promptly rather than at the
  * actor's next visit. Schedule storyfeed:close-batches if that matters to
  * the app; skip it otherwise.
+ *
+ * @internal
  */
 class CloseBatches
 {

@@ -45,6 +45,8 @@ use Storyfeed\Models\Builders\ActivityBuilder;
  * to members, so the release reads them before the forget deletes them.
  * Feeds erased before then are brought into line by
  * `storyfeed:curate --release`.
+ *
+ * @internal
  */
 class ForceDeleteFromFeed
 {

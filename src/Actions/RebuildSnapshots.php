@@ -37,6 +37,8 @@ use Storyfeed\Support\MorphResolver;
  * back; the trickle then continues from where this stopped, the same way. There
  * is no good reason for the other order: on a feed with ten years of stories in
  * it, oldest-first repairs 2016 while today stays wrong.
+ *
+ * @internal
  */
 class RebuildSnapshots
 {

@@ -10,7 +10,11 @@ use Storyfeed\Models\Grouping;
 use Storyfeed\StoryfeedManager;
 use Storyfeed\Support\Chronology;
 
-/** Offline replay only: the rebuild owns the database while publishers are paused. */
+/**
+ * Offline replay only: the rebuild owns the database while publishers are paused.
+ *
+ * @internal
+ */
 final class ReplayGroupingBursts
 {
     /**

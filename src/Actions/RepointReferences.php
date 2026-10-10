@@ -32,6 +32,8 @@ use Storyfeed\Support\MorphKeyType;
  * groupings together, so a failure never leaves one without the others. A
  * moved row no longer matches, so the loop converges without an exclusion
  * list.
+ *
+ * @internal
  */
 class RepointReferences
 {

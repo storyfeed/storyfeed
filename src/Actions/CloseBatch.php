@@ -7,6 +7,7 @@ use Storyfeed\Events\BatchClosed;
 use Storyfeed\Events\Snapshots\BatchSnapshot;
 use Storyfeed\Models\Batch;
 
+/** @internal */
 class CloseBatch
 {
     /** Return whether this caller transitioned the batch from open to closed. */

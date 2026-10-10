@@ -17,7 +17,11 @@ use Storyfeed\Support\BurstRebuildLock;
 use Storyfeed\Support\Chronology;
 use Storyfeed\Support\SyncToken;
 
-/** Offline history migration. Keep readers and ALL publishers paused until completion. */
+/**
+ * Offline history migration. Keep readers and ALL publishers paused until completion.
+ *
+ * @internal
+ */
 final class RebuildGroupingBursts
 {
     private const STATE = 'rebuild:bursts:cursor';

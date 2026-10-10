@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Changed
+
+- Every class in `Storyfeed\Actions` is marked `@internal`. They are how the package does its work, not API it promises: call the facade, the builder, the models and the Artisan commands instead.
+
 ### Removed
 
 - `removedBy` on a payload entity's `tombstone`. It was reserved for redaction and always `null`; nothing set it, and Activity Streams has no term for it. A tombstone carries `formerType`, `deleted` and `approximate`.

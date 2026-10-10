@@ -282,10 +282,10 @@ return [
         /*
         | Batches: bursts of activity by one actor, inferred by a sliding
         | quiet window — recorded automatically, invisible to the recording
-        | code. Infrastructure only: batches are queryable and BatchClosed
-        | is the digest hook, but they do not (yet) participate in feed
-        | grouping — see docs/grouping.md, "the composite-activity open
-        | problem". Stale batches close lazily at the actor's next publish;
+        | code. Batches are queryable and BatchClosed is the digest hook.
+        | They reach the feed through composites: when a batch closes, its
+        | runs of Bundleable objects become one story (see 'composite'
+        | below). Stale batches close lazily at the actor's next publish;
         | schedule storyfeed:close-batches for prompt BatchClosed delivery.
         |
         | Batching is the `batch` story middleware, in the `default` group.

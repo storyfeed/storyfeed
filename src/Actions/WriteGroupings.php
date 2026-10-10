@@ -12,6 +12,8 @@ use Storyfeed\StoryfeedManager;
  * Write one candidate grouping hash per axis for an activity. Called at
  * publish time, and by the trickle for legacy/imported rows so ungrouped
  * activities converge into the grouped read path.
+ *
+ * @internal
  */
 class WriteGroupings
 {

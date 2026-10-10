@@ -20,6 +20,8 @@ use Storyfeed\Support\SyncToken;
  *
  * Activities the old cascade soft-deleted before tombstones existed stay
  * deleted: a restore only reverses what a tombstone recorded.
+ *
+ * @internal
  */
 class RestoreToFeed
 {

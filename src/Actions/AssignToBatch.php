@@ -47,6 +47,8 @@ use Storyfeed\Models\Grouping;
  * The lock is taken here, at the batch decision. Like any row lock it is
  * held until the enclosing transaction commits, which is what makes the
  * second publish see the first one's batch.
+ *
+ * @internal
  */
 class AssignToBatch
 {

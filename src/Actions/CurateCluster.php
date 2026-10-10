@@ -41,6 +41,8 @@ use Storyfeed\StoryfeedManager;
  * the O(cluster) resettle sweep runs only when a threshold is actually
  * crossed — after which every member is already stamped and the sweep finds
  * nothing to do.
+ *
+ * @internal
  */
 class CurateCluster
 {

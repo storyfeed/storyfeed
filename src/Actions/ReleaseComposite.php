@@ -31,6 +31,8 @@ use Storyfeed\Support\SyncToken;
  * it, and the three erasure paths disagreed about what a gone parent means.
  * `storyfeed:curate --release` hands those members back, and the doctor's
  * `claims` check counts what is left.
+ *
+ * @internal
  */
 class ReleaseComposite
 {

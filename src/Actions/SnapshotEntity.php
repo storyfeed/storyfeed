@@ -18,6 +18,8 @@ use Storyfeed\Support\ShapeSignature;
  * the entity's SHAPE signature, so a later change to toFeed()'s structure
  * (wherever it originates — including DTOs feeding `data`) makes older
  * rows detectably stale; the trickle converges them (docs/grouping.md).
+ *
+ * @internal
  */
 class SnapshotEntity
 {

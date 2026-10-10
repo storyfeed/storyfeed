@@ -36,6 +36,8 @@ use Throwable;
  * deleted them outright. The stories now survive the deletion, told about "a
  * removed order". Deleting the activities themselves is still available on
  * purpose: `deleteFromFeed()` and `forceDeleteFromFeed()`.
+ *
+ * @internal
  */
 class TombstoneEntity
 {

@@ -7,7 +7,11 @@ use Storyfeed\Models\Activity;
 use Storyfeed\StoryfeedManager;
 use Storyfeed\Support\Chronology;
 
-/** Persisted, event-time windows. Call inside the grouping write transaction. */
+/**
+ * Persisted, event-time windows. Call inside the grouping write transaction.
+ *
+ * @internal
+ */
 final class AssignGroupingBursts
 {
     /**

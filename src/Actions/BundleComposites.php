@@ -32,6 +32,8 @@ use Storyfeed\StoryfeedManager;
  * Claiming members removes them from inference (their axis rows are
  * deleted; affected clusters re-decided), which is the non-monotone event
  * class deletions already are. Idempotent: claimed members are skipped.
+ *
+ * @internal
  */
 class BundleComposites
 {

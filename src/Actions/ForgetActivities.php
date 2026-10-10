@@ -26,6 +26,8 @@ use Storyfeed\Models\Grouping;
  *
  * Snapshots are untouched on purpose: they are per-entity, not per-activity.
  * The trickle does not delete orphaned snapshots either.
+ *
+ * @internal
  */
 class ForgetActivities
 {

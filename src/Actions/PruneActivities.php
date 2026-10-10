@@ -41,6 +41,8 @@ use Storyfeed\Support\MorphKeyType;
  * something could later tell a deliberate removal from an expiry, and
  * nothing in this package ever asked. An app that needs to know keeps its
  * own record, where it also knows why.
+ *
+ * @internal
  */
 class PruneActivities
 {

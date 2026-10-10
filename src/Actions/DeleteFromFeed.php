@@ -20,6 +20,8 @@ use Storyfeed\Models\Builders\ActivityBuilder;
  * go. That evidence is gone: it answered a question the package never
  * asked, for a healer whose contract says it "never infers missing
  * stories", and an app that needs it can keep its own record.
+ *
+ * @internal
  */
 class DeleteFromFeed
 {

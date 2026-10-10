@@ -9,7 +9,11 @@ use Storyfeed\Models\Meta;
 use Storyfeed\Support\BurstRebuildLock;
 use Storyfeed\Support\SyncToken;
 
-/** Offline, chunk-atomic rewrite or gaps-only backfill from current parents. */
+/**
+ * Offline, chunk-atomic rewrite or gaps-only backfill from current parents.
+ *
+ * @internal
+ */
 final class RebuildAncestors
 {
     public const STATE = 'rebuild:ancestors:cursor';

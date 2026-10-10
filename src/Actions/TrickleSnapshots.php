@@ -63,6 +63,8 @@ use Storyfeed\Support\ShapeSignature;
  * The budget is spent on work, not on rediscovering the same broken rows, and
  * the ceiling stops a table that is entirely orphans from turning one run into
  * a full scan.
+ *
+ * @internal
  */
 class TrickleSnapshots
 {

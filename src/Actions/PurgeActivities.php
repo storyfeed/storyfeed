@@ -48,6 +48,8 @@ use Storyfeed\Support\SyncToken;
  * activities table itself (soft-deleted rows included: a restore can bring
  * one back). Checked against participants, a superseded soft-deleted row has
  * none, and an entity it still names would read as orphaned.
+ *
+ * @internal
  */
 class PurgeActivities
 {

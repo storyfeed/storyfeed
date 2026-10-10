@@ -23,6 +23,8 @@ use Storyfeed\Support\Chronology;
  * one index without touching the activities table.
  *
  * Idempotent: safe from publish, from the backfill command, and from a repair.
+ *
+ * @internal
  */
 class SyncParticipants
 {

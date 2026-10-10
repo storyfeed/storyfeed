@@ -11,7 +11,11 @@ use Storyfeed\Support\Feedables;
 use Storyfeed\Support\MorphKeyType;
 use Storyfeed\Support\MorphResolver;
 
-/** Fill never-recorded role paths; existing participant rows are immutable. */
+/**
+ * Fill never-recorded role paths; existing participant rows are immutable.
+ *
+ * @internal
+ */
 final class BackfillAncestors
 {
     /** @return list<string> */
