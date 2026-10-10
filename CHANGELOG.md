@@ -2,9 +2,14 @@
 
 ## Unreleased
 
+### Added
+
+- Read a group's members past its `children` (#94): `Storyfeed::feed()->members($node['id'])` returns the group's members as activity nodes, newest first, in a `CursorPaginator` like `cursorPaginate()`, with the same `$perPage`, `$cursorName` and `$cursor` arguments as Laravel's. Members are read through the feed's own scope and publish gate, so a reader never sees a member the feed would not show, and a tombstoned member is still listed. Core ships no route: an app wires one, as it does for paging the feed. A source-backed feed refuses it.
+
 ### Changed
 
 - Every class in `Storyfeed\Actions` is marked `@internal`. They are how the package does its work, not API it promises: call the facade, the builder, the models and the Artisan commands instead.
+- A group node's `id` is reversible, so `members()` can read the group back from it: `grp_` and the base64url of its axis and grouping hash, replacing a SHA-1 of them. Every group `id` changes once; it stays opaque, and stable from here.
 
 ### Removed
 

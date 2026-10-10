@@ -11,6 +11,7 @@ use Storyfeed\Models\Snapshot;
 use Storyfeed\Payload\GroupSlice;
 use Storyfeed\Payload\NodePresenter;
 use Storyfeed\Support\ActivityRoles;
+use Storyfeed\Support\GroupId;
 use Storyfeed\Support\LinkResolver;
 use Storyfeed\Support\ModelHydrator;
 use Storyfeed\Support\TombstoneRules;
@@ -201,7 +202,7 @@ final class ReadPathPresenterOracle extends NodePresenter
             // Namespaced and versioned: the digest must not collide across
             // axes once a group can win on more than `repeat`. A digest row
             // hashes its bucket (`summary.week`), so periods never collide.
-            'id' => 'grp_'.sha1("v1\x1f{$slice->axis}\x1f{$slice->hash}"),
+            'id' => GroupId::encode((string) $slice->axis, (string) $slice->hash),
             'axis' => $slice->axis,
             'count' => $slice->count,
             'verb' => $verb,

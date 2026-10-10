@@ -19,6 +19,7 @@ use Storyfeed\Support\ActivityContextFactory;
 use Storyfeed\Support\ActivityRoles;
 use Storyfeed\Support\Avatar;
 use Storyfeed\Support\Chronology;
+use Storyfeed\Support\GroupId;
 use Storyfeed\Support\LinkResolver;
 use Storyfeed\Support\ModelHydrator;
 use Storyfeed\Support\TombstoneRules;
@@ -552,8 +553,9 @@ class NodePresenter
 
         $node = [
             'kind' => 'group',
-            // Namespaced and versioned across axes and persisted burst hashes.
-            'id' => 'grp_'.sha1("v1\x1f{$slice->axis}\x1f{$slice->hash}"),
+            // Namespaced and versioned across axes and persisted burst hashes,
+            // and reversible: FeedBuilder::members() reads the group back from it.
+            'id' => GroupId::encode((string) $slice->axis, (string) $slice->hash),
             'axis' => $slice->axis,
             'count' => $slice->count,
             'verb' => $verb,

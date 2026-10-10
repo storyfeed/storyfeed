@@ -33,6 +33,8 @@ use Storyfeed\Sources\SourceManager;
 use Storyfeed\Sources\SourceRead;
 use Storyfeed\Support\ActivityRoles;
 use Storyfeed\Support\Chronology;
+use Storyfeed\Support\FeedCursor;
+use Storyfeed\Support\GroupId;
 use Storyfeed\Support\MorphKeyType;
 use Storyfeed\Support\RoleTypes;
 use Storyfeed\Support\SnapshotCompiler;
@@ -746,6 +748,56 @@ class FeedBuilder
     }
 
     /**
+     * A group's members past its `children`, newest first, as activity nodes:
+     * `members($node['id'])` pages a group node the way `cursorPaginate()`
+     * pages the feed. Members are read through this feed's scope and publish
+     * gate, so a reader never sees one the feed would not show. A group with
+     * no member left in that scope reads as an empty page.
+     */
+    public function members(string $group, ?int $perPage = null, string $cursorName = 'cursor', Cursor|string|null $cursor = null): FeedPaginator
+    {
+        $perPage ??= $this->limit;
+
+        if ($perPage < 1) {
+            throw new InvalidArgumentException('The number of group members per page must be at least 1.');
+        }
+
+        if ($this->source !== null) {
+            throw FeedMisconfigured::membersBySource((string) $this->sourceName);
+        }
+
+        $id = GroupId::decode($group)
+            ?? throw new InvalidArgumentException("[{$group}] is not a group id. Pass the `id` of a group node.");
+
+        $cursor = match (true) {
+            $cursor instanceof Cursor => $cursor,
+            is_string($cursor) => FeedCursor::fromEncoded($cursor),
+            default => FeedPaginator::resolveCurrentCursor($cursorName),
+        };
+
+        app(SnapshotCompiler::class)->compileIfChanged();
+
+        $page = (clone $this)->limit($perPage)->cursor($cursor?->encode())->memberPage(Carbon::now(), $id['axis'], $id['hash']);
+
+        return new FeedPaginator($page, $perPage, $cursor, $cursorName);
+    }
+
+    /**
+     * One keyset page of a group's members: the same membership a group
+     * node's `children` are drawn from, uncapped.
+     */
+    protected function memberPage(Carbon $now, string $axis, string $hash): FeedPage
+    {
+        $activities = $this->activityModel()->getTable();
+
+        $rows = $this->selectedGroupMembers($now, Collection::make([FeedCandidate::group('', $axis, $hash, 0)]))
+            ->select("{$activities}.*")
+            ->tap(fn (ActivityBuilder $q) => $this->keysetPage($q, $activities, $this->logCursorState($activities)));
+
+        return $this->activityPage($rows->get(), $activities);
+    }
+
+    /**
      * One page of the feed. An empty `items` means the end of the feed: a
      * read whose activities were all deleted mid-read follows its own cursor
      * and reads again, up to five times. Only a pruning burst that empties
@@ -1052,6 +1104,21 @@ class FeedBuilder
                 ->whereColumn("{$groupings}.activity_id", "{$activities}.id")
                 ->where("{$groupings}.bucket", 'composite')
                 ->whereColumn("{$groupings}.hash", "{$activities}.uid"))
+            ->tap(fn (ActivityBuilder $q) => $this->keysetPage($q, $activities, $cursor));
+
+        return $this->activityPage($rows->get(), $activities);
+    }
+
+    /**
+     * Newest first, after the cursor's (published_at, id), one row past the
+     * page so its end is known.
+     *
+     * @param  ActivityBuilder<Activity>  $query
+     * @param  array{published_at: string, id: int|string}|null  $cursor
+     */
+    protected function keysetPage(ActivityBuilder $query, string $activities, ?array $cursor): void
+    {
+        $query
             ->when($cursor !== null, fn (ActivityBuilder $q) => $q->where(fn (ActivityBuilder $after) => $after
                 ->where("{$activities}.published_at", '<', $cursor['published_at'])
                 ->orWhere(fn (ActivityBuilder $tie) => $tie
@@ -1060,9 +1127,16 @@ class FeedBuilder
             ->with(ActivityRoles::cachedRelations())
             ->orderBy("{$activities}.published_at", 'desc')
             ->orderBy("{$activities}.id", 'desc')
-            ->limit($this->limit + 1)
-            ->get();
+            ->limit($this->limit + 1);
+    }
 
+    /**
+     * A keyset page of activity nodes, its cursor minted from the last row.
+     *
+     * @param  EloquentCollection<int, Activity>  $rows
+     */
+    protected function activityPage(EloquentCollection $rows, string $activities): FeedPage
+    {
         $more = $rows->count() > $this->limit;
         $page = $rows->take($this->limit);
 

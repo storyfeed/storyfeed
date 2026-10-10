@@ -101,4 +101,13 @@ class FeedMisconfigured extends InvalidArgumentException
             .'the database.'
         );
     }
+
+    /** members() on a source: its groups are formed in memory and leave nothing to page. */
+    public static function membersBySource(string $source): self
+    {
+        return new self(
+            "The [{$source}] source cannot read a group's members: only the database source stores "
+            .'its groups. Read the database, or page the source in log() mode.'
+        );
+    }
 }
