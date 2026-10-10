@@ -16,11 +16,11 @@ use Storyfeed\Contracts\FeedSource;
  *
  *   Storyfeed::feed()->source(new ArraySource($items))->log()->get();
  *
- * Each item is an array or a SourceItem; see SourceItem for the keys.
+ * Each item is an array or a Entry; see Entry for the keys.
  */
 final class ArraySource implements FeedSource
 {
-    /** @param  iterable<SourceItem|array<string, mixed>>  $items */
+    /** @param  iterable<Entry|array<string, mixed>>  $items */
     public function __construct(
         protected iterable $items = [],
     ) {}

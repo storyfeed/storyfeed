@@ -9,7 +9,7 @@ use Storyfeed\Facades\Storyfeed;
 use Storyfeed\Models\Snapshot;
 use Storyfeed\Sources\ArraySource;
 use Storyfeed\Sources\DatabaseSource;
-use Storyfeed\Sources\SourceItem;
+use Storyfeed\Sources\Entry;
 use Storyfeed\Sources\SourceManager;
 use Workbench\App\Models\Delivery;
 use Workbench\App\Models\User;
@@ -82,7 +82,7 @@ it('registers drivers with extend(), as Storage does', function () {
 
             public function items(): iterable
             {
-                yield SourceItem::make('close', '2026-09-09 12:00', actor: 'GitHub', object: ['type' => 'issue', 'label' => '#50', 'url' => "https://github.com/{$this->config['repo']}/issues/50"]);
+                yield Entry::make('close', '2026-09-09 12:00', actor: 'GitHub', object: ['type' => 'issue', 'label' => '#50', 'url' => "https://github.com/{$this->config['repo']}/issues/50"]);
             }
         };
     });
@@ -146,7 +146,7 @@ it('takes models, party names and entities as roles', function () {
     $snapshots = Snapshot::query()->count();
 
     $items = Storyfeed::feed()->source(new ArraySource([
-        SourceItem::make('dispatch', now()->subMinute(), actor: $sally, object: $delivery, target: 'Courier Bot', body: [Prose::make('Left the depot.')]),
+        Entry::make('dispatch', now()->subMinute(), actor: $sally, object: $delivery, target: 'Courier Bot', body: [Prose::make('Left the depot.')]),
     ]))->get()->toArray();
 
     expect($items[0]['actor'])->toMatchArray(['type' => $sally->getMorphClass(), 'id' => (string) $sally->getKey(), 'label' => 'Sally'])
@@ -168,7 +168,7 @@ it('keeps each item\'s id from one read to the next', function () {
 });
 
 it('pages a source with cursorPaginate()', function () {
-    $items = collect(range(1, 5))->map(fn ($i) => SourceItem::make('ship', now()->subDays($i), object: ['type' => 'release', 'label' => "v0.{$i}.0"]))->all();
+    $items = collect(range(1, 5))->map(fn ($i) => Entry::make('ship', now()->subDays($i), object: ['type' => 'release', 'label' => "v0.{$i}.0"]))->all();
     $feed = Storyfeed::feed()->source(new ArraySource($items))->log();
 
     $first = $feed->cursorPaginate(2);
@@ -183,17 +183,17 @@ it('refuses an item it cannot read', function (array $item, string $message) {
     expect(fn () => Storyfeed::feed()->source(new ArraySource([$item]))->get())
         ->toThrow(InvalidArgumentException::class, $message);
 })->with([
-    'unknown key' => [['verb' => 'ship', 'published_at' => 'now', 'summary' => 'x'], 'Unknown source item key [summary]'],
-    'no verb' => [['published_at' => 'now'], 'A source item needs [verb].'],
-    'no time' => [['verb' => 'ship'], 'A source item needs [published_at].'],
+    'unknown key' => [['verb' => 'ship', 'published_at' => 'now', 'summary' => 'x'], 'Unknown entry key [summary]'],
+    'no verb' => [['published_at' => 'now'], 'An entry needs [verb].'],
+    'no time' => [['verb' => 'ship'], 'An entry needs [published_at].'],
     'dotted verb' => [['verb' => 'release.ship', 'published_at' => 'now'], 'must be a non-empty verb without a dot'],
     'unknown entity key' => [['verb' => 'ship', 'published_at' => 'now', 'object' => ['type' => 'release', 'label' => 'v1', 'href' => '/']], 'Unknown key [href] on the [object] entity'],
     'entity without a label' => [['verb' => 'ship', 'published_at' => 'now', 'object' => ['type' => 'release']], 'The [object] entity needs a [label].'],
     'range ending before it starts' => [['verb' => 'ship', 'published_at' => 'now', 'starts_at' => '2026-09-02', 'ends_at' => '2026-09-01'], 'An activity cannot end'],
-    'body without an object' => [['verb' => 'ship', 'published_at' => 'now', 'body' => 'x'], 'A source item with a body needs an object'],
+    'body without an object' => [['verb' => 'ship', 'published_at' => 'now', 'body' => 'x'], 'An entry with a body needs an object'],
 ]);
 
-it('refuses an item that is neither an array nor a SourceItem', function () {
+it('refuses an item that is neither an array nor an Entry', function () {
     expect(fn () => Storyfeed::feed()->source(new ArraySource(['ship']))->get())
-        ->toThrow(InvalidArgumentException::class, 'A source item must be an array or a Storyfeed\Sources\SourceItem, string given.');
+        ->toThrow(InvalidArgumentException::class, 'An entry must be an array or a Storyfeed\Sources\Entry, string given.');
 });

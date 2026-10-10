@@ -974,6 +974,20 @@ class StoryfeedManager
     }
 
     /**
+     * Compose a feed by hand, from data the app already has, as opposed to
+     * reading one that was recorded. Nothing is stored.
+     *
+     *   Storyfeed::compose()
+     *       ->add(fn (Entry $entry) => $entry->headline(':object, :tagline', ['object' => $project, 'tagline' => $project->tagline]))
+     *       ->inOrder()
+     *       ->get();
+     */
+    public function compose(): ComposedFeed
+    {
+        return new ComposedFeed;
+    }
+
+    /**
      * A named source from `storyfeed.sources` — where a feed's activities
      * come from, the way `Storage::disk()` names a disk. The default is the
      * database.

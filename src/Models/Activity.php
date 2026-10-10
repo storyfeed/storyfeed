@@ -32,7 +32,7 @@ use Storyfeed\Support\MorphKeyType;
  *
  * @property int $id
  * @property string $uid
- * @property string $verb
+ * @property string|null $verb null only on an entry composed with no verb, read in memory; a stored activity always has one
  * @property string|null $actor_type
  * @property int|string|null $actor_id
  * @property string|null $object_type

@@ -33,7 +33,7 @@ use Storyfeed\Payload\FeedPage;
 use Storyfeed\Payload\GroupSlice;
 use Storyfeed\Payload\NodePresenter;
 use Storyfeed\Sources\DatabaseSource;
-use Storyfeed\Sources\SourceItem;
+use Storyfeed\Sources\Entry;
 use Storyfeed\Sources\SourceManager;
 use Storyfeed\Sources\SourceRead;
 use Storyfeed\Support\ActivityRoles;
@@ -925,7 +925,7 @@ class FeedBuilder
         };
 
         [$slices, $next] = (new SourceRead(
-            $source, $this->admitsActivity($now), $this->shouldGroup(), $this->limit, $this->cursor, $this->childrenLimit(), $this->offset,
+            $source, $this->admitsActivity($now), $this->shouldGroup(), $this->limit, $this->cursor, $this->childrenLimit(), $this->offset, $this->keepsOrder(),
         ))->page();
 
         return new FeedPage($slices, $next, $this->presenter());
@@ -940,8 +940,11 @@ class FeedBuilder
     {
         $now = Chronology::stamp($now);
 
-        return function (Activity $activity) use ($now): bool {
-            if ($activity->published_at === null || Chronology::stamp($activity->published_at) > $now) {
+        $scheduled = $this->hidesScheduled();
+
+        return function (Activity $activity) use ($now, $scheduled): bool {
+            // A dateless source item is always admitted: it is true now.
+            if ($scheduled && $activity->published_at !== null && Chronology::stamp($activity->published_at) > $now) {
                 return false;
             }
 
@@ -965,6 +968,18 @@ class FeedBuilder
         };
     }
 
+    /** Whether a source read keeps the source's order instead of sorting newest first. */
+    protected function keepsOrder(): bool
+    {
+        return false;
+    }
+
+    /** Whether a source read hides items dated in the future, as the database hides scheduled activities. */
+    protected function hidesScheduled(): bool
+    {
+        return true;
+    }
+
     /** Whether the model, or the party a string names, plays this role in the activity. */
     protected function plays(Activity $activity, string $role, Model|string $value): bool
     {
@@ -972,7 +987,7 @@ class FeedBuilder
         $id = (string) $activity->{"{$role}_id"};
 
         if (is_string($value)) {
-            return $type === SourceItem::partyAlias() && in_array($id, [$value, SourceItem::partyKey($value)], true);
+            return $type === Entry::partyAlias() && in_array($id, [$value, Entry::partyKey($value)], true);
         }
 
         if ($type !== $value->getMorphClass()) {

@@ -8,7 +8,7 @@ use Storyfeed\Facades\Story;
 use Storyfeed\Facades\Storyfeed;
 use Storyfeed\Models\Activity;
 use Storyfeed\Sources\ArraySource;
-use Storyfeed\Sources\SourceItem;
+use Storyfeed\Sources\Entry;
 use Workbench\App\Models\Customer;
 use Workbench\App\Models\User;
 
@@ -76,7 +76,7 @@ it('reads as the array source reads the same entity', function () {
     $stored = Storyfeed::activity('change')->actor($this->attendee)->object($entity)->target($this->poll)->publish();
 
     $sourced = Storyfeed::feed()->log()->source(new ArraySource([
-        SourceItem::make('change', $stored->published_at, actor: $this->attendee, object: $entity, target: $this->poll, id: $stored->uid),
+        Entry::make('change', $stored->published_at, actor: $this->attendee, object: $entity, target: $this->poll, id: $stored->uid),
     ]))->get()->toArray()[0];
 
     $read = Storyfeed::feed()->log()->get()->toArray()[0];
