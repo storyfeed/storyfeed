@@ -62,7 +62,13 @@ Write it while it's fresh; never reconstruct after the fact. See
 
 ## Workflow
 
-- Trunk-based: commit to `main`, tags are releases, no develop branch.
+- `main` is the trunk and tags are releases; no develop branch. Changes reach
+  `main` through pull requests, stacked with GitHub's `gh stack`
+  (github/gh-stack) when one change builds on another. CI runs on every PR,
+  including storyfeed/ui's core-main cells, before anything merges; the lead
+  merges a green stack with `gh stack merge <n> --squash --yes` (atomic, and
+  it can merge just the bottom PR). Lanes open PRs and never merge them.
+  Adopted 2026-10-10 after direct pushes broke ui and core main in one night.
   Short-lived `rnd/*` branches for curator experiments
   (experiment in workbench/, throw away freely).
 - Checks before commit: `vendor/bin/pest`, `vendor/bin/phpstan analyse`,
