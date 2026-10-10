@@ -38,8 +38,7 @@ jobs:
     # cleanup. Allow setup, the full suite and cleanup eight minutes there.
     # Real-engine cells recreate the schema per test: MySQL measured 15m15s
     # locally with four isolated workers. SQLite retains its five-minute cap.
-    # MySQL now runs past 40 minutes and gets 60 until #112 makes it fast again.
-    timeout-minutes: ${{ matrix.database == 'mysql' && 60 || matrix.database != 'sqlite' && 40 || matrix.os == 'windows-latest' && 8 || 5 }}
+    timeout-minutes: ${{ matrix.database != 'sqlite' && 40 || matrix.os == 'windows-latest' && 8 || 5 }}
     strategy:
       fail-fast: true
       matrix:
@@ -122,7 +121,10 @@ jobs:
         if: matrix.database == 'mysql'
         shell: bash
         run: |
-          docker run -d --name storyfeed-db -e MYSQL_ALLOW_EMPTY_PASSWORD=1 -e MYSQL_DATABASE=storyfeed_test -p 33306:3306 mysql:8
+          # Every test drops and recreates the schema, and MySQL 8 syncs each
+          # DDL statement to disk. On the runner's disk that took the cell past
+          # 40 minutes (#112); a data directory in memory removes the syncs.
+          docker run -d --name storyfeed-db --tmpfs /var/lib/mysql -e MYSQL_ALLOW_EMPTY_PASSWORD=1 -e MYSQL_DATABASE=storyfeed_test -p 33306:3306 mysql:8
           # Init uses a temporary socket-only server; wait for the final TCP server.
           for attempt in {1..60}; do
             if docker exec storyfeed-db mysql --protocol=TCP -h 127.0.0.1 -uroot -e 'SELECT 1' >/dev/null 2>&1; then
