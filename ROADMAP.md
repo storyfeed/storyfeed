@@ -80,6 +80,12 @@ work leads to is a demonstration of a working package, not a launch event, so
       time ranges, and a body's own `$meta` for rendering concerns. The array
       source for static content arrived early.
 
+- [x] **v0.18 — Feed sources** *(tagged `v0.18.0`)*. A role can be filled by
+      something with no model behind it, an `Image` can carry its own picture,
+      bodies can show any `feedMedia()` slot, every entity has an avatar, and
+      `STORYFEED_SNAPSHOTS=sync` shows `toFeed()` changes on reload. Tables from
+      before 0.13 can be upgraded in place.
+
 ## The countdown to 1.0
 
 Each version below is a GitHub milestone holding its concrete issues. Issue
@@ -87,10 +93,6 @@ titles start with the version they target, such as `[0.17]`. Milestones show
 the current plan: items may be reordered, moved to a later version or dropped as
 the work teaches us, and a dropped item is closed as not planned with its reason.
 
-- [ ] **[v0.18 — Feed sources](https://github.com/storyfeed/storyfeed/milestone/22).**
-      The database becomes one source among several, driver-style, so a feed can
-      come from static content or an API and still render through the same
-      payload. The roadmap on storyfeed.dev becomes its first feed.
 - [ ] **[v0.19 — Read path at scale](https://github.com/storyfeed/storyfeed/milestone/3).**
       Scoped feeds stay fast at a million activities on every supported database,
       with nightly benchmark gates.
