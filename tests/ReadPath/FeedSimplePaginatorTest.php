@@ -5,7 +5,7 @@ use Illuminate\Http\Request;
 use Storyfeed\Facades\Storyfeed;
 use Storyfeed\FeedSimplePaginator;
 use Storyfeed\Sources\ArraySource;
-use Storyfeed\Sources\SourceItem;
+use Storyfeed\Sources\Entry;
 use Storyfeed\Support\FeedItem;
 use Workbench\App\Models\Delivery;
 use Workbench\App\Models\User;
@@ -85,7 +85,7 @@ it('honours the page name and rejects nonpositive page sizes', function () {
 });
 
 it('pages a source by number as it pages the database', function () {
-    $items = collect(range(1, 5))->map(fn ($i) => SourceItem::make('ship', now()->subDays($i), object: ['type' => 'release', 'label' => "v0.{$i}.0"]))->all();
+    $items = collect(range(1, 5))->map(fn ($i) => Entry::make('ship', now()->subDays($i), object: ['type' => 'release', 'label' => "v0.{$i}.0"]))->all();
     $page = Storyfeed::feed()->source(new ArraySource($items))->log()->simplePaginate(2, page: 2);
 
     expect($page->getCollection()->pluck('object.label')->all())->toBe(['v0.3.0', 'v0.4.0'])

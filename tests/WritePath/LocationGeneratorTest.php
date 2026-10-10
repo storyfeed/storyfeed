@@ -6,7 +6,7 @@ use Illuminate\Support\Facades\Schema;
 use Storyfeed\Facades\Story;
 use Storyfeed\Facades\Storyfeed;
 use Storyfeed\Payload\NodePresenter;
-use Storyfeed\Sources\SourceItem;
+use Storyfeed\Sources\Entry;
 use Storyfeed\Support\Chronology;
 use Workbench\App\Enums\ActivityVerb;
 use Workbench\App\Models\Customer;
@@ -93,7 +93,7 @@ it('takes location and generator through record() and enum verbs', function () {
 });
 
 it('keeps the derived id of a source item that names neither new role', function () {
-    $item = SourceItem::make('release', '2026-10-09 12:00:00', actor: 'Storyfeed', object: ['type' => 'release', 'label' => 'v0.20.0']);
+    $item = Entry::make('release', '2026-10-09 12:00:00', actor: 'Storyfeed', object: ['type' => 'release', 'label' => 'v0.20.0']);
 
     // The id as it was derived before location and generator existed.
     $roles = array_fill_keys(['actor', 'object', 'target', 'context', 'origin', 'result', 'instrument'], null);
@@ -102,6 +102,6 @@ it('keeps the derived id of a source item that names neither new role', function
     $before = substr(hash('sha256', json_encode(['release', Chronology::stamp($item->publishedAt), $roles, []], JSON_THROW_ON_ERROR)), 0, 26);
 
     expect($item->identity())->toBe($before)
-        ->and(SourceItem::make('release', '2026-10-09 12:00:00', actor: 'Storyfeed', object: ['type' => 'release', 'label' => 'v0.20.0'], location: 'Waterloo')->identity())
+        ->and(Entry::make('release', '2026-10-09 12:00:00', actor: 'Storyfeed', object: ['type' => 'release', 'label' => 'v0.20.0'], location: 'Waterloo')->identity())
         ->not->toBe($before);
 });

@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+### Added
+
+- Composed feeds (#127): `Storyfeed::compose()` builds a feed by hand from data the app already has (a project showcase, talks, a record's status progression) and reads it into the same payload as any feed, ready for a kit. `->add(fn (Entry $entry) => ...)` adds an entry with the recording vocabulary (`by()`, `action()`, `on()`, `at()` and the other role methods, `data()`, `body()`, `startsAt()`, `endsAt()`) plus `publishedAt()`, which is optional: an entry without one is dateless. `->inOrder()` keeps the order the entries were added in, and its cursor pages by position; without it, entries read newest first and dateless ones follow, in the order given. `get()`, `cursorPaginate()` and `simplePaginate()`, role filters, `only()`/`except()` and limits work as on a source. A composed feed reads as Log unless it asks for `live()`, whatever `grouping.default` says, so an entry's own headline is never folded into a group's. `live()` on a feed kept in order throws, since grouping would reorder it, and a dateless or verbless entry never groups. Entries dated in the future are shown. A composed feed needs no tables, migrations, snapshots, trickle, cache or queue: model roles are read through `toFeed()` as the feed is read, and the read runs no query.
+- An entry's own headline: `->headline(':actor shipped :object', ['actor' => $team, 'object' => $release])`, with replacements as `__()` takes them. A key that names a role sets that role; any other key is replaced in the text when the entry is added (`:key`, `:Key`, `:KEY`), so only role tokens reach the payload. A model or an entity under a key that is not a role throws, and so does a headline that names a role the entry leaves empty outside an optional `[ ]` segment. The verb is optional: an entry with a headline alone has no verb, glyph or feed-file wording. The entry's headline wins over the feed file's; an entry with a verb and no headline of its own reads the feed file's wording for it, as a source item always has.
+- The payload allows `published_at: null` on a dateless entry and `verb: null` on a verbless one, both only on nodes from a composed feed or a source; stored activities always have both. A source's items may be dateless or verbless too, through `Entry::make()`.
+
+### Changed
+
+- Renamed `Storyfeed\Sources\SourceItem` to `Storyfeed\Sources\Entry`. One class is the fluent form a composed feed's `add()` closure receives, `Entry::make(...)` with named arguments for a source's `items()`, and `Entry::from($array)` for the array form, whose keys are unchanged. `Entry::make()`'s verb and date are optional. An entry has no `from()` target alias, since `Entry::from()` reads arrays; use `on()`, `to()` or `target()`. Error messages say "entry" where they said "source item".
+
 ## v0.19.0 - 2026-10-10
 
 ### Added

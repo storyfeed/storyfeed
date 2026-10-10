@@ -3,7 +3,7 @@
 use Storyfeed\Facades\Storyfeed;
 use Storyfeed\Models\Activity;
 use Storyfeed\Sources\ArraySource;
-use Storyfeed\Sources\SourceItem;
+use Storyfeed\Sources\Entry;
 use Workbench\App\Models\Customer;
 use Workbench\App\Models\Delivery;
 use Workbench\App\Models\User;
@@ -63,7 +63,7 @@ beforeEach(function () {
     // The same rows as items, under the stored ids, so every derived hash
     // and group id has to match too.
     $this->items = Activity::query()->with(['actor', 'object', 'target'])->orderBy('id')->get()
-        ->map(fn (Activity $activity) => SourceItem::make(
+        ->map(fn (Activity $activity) => Entry::make(
             verb: $activity->verb,
             publishedAt: $activity->published_at,
             actor: $activity->actor_type === 'storyfeed.party' ? 'Courier Bot' : $activity->actor,
@@ -157,7 +157,7 @@ it('groups with curation off the same way as the database', function () {
 
 it('hides what is not yet published, as the database does', function () {
     Storyfeed::activity()->actor(User::first())->verb('schedule', Delivery::first())->publishedAt(now()->addDay())->publish();
-    $items = [...$this->items, SourceItem::make('schedule', now()->addDay(), actor: User::first(), object: Delivery::first())];
+    $items = [...$this->items, Entry::make('schedule', now()->addDay(), actor: User::first(), object: Delivery::first())];
 
     expect(Storyfeed::feed()->source(new ArraySource($items))->log()->get()->toArray())
         ->toHaveCount(count(Storyfeed::feed()->log()->get()->toArray()));

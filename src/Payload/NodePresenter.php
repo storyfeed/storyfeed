@@ -14,7 +14,7 @@ use Storyfeed\Grouping\Anchor;
 use Storyfeed\Models\Activity;
 use Storyfeed\Models\FeedTombstone;
 use Storyfeed\Models\Snapshot;
-use Storyfeed\Sources\SourceItem;
+use Storyfeed\Sources\Entry;
 use Storyfeed\StoryfeedManager;
 use Storyfeed\Support\ActivityContextFactory;
 use Storyfeed\Support\ActivityRoles;
@@ -152,7 +152,7 @@ class NodePresenter
         [$template, $headline] = $this->headline($activity);
         [$tombstoned, $redundant] = $this->tombstoneFact($activity);
         $type = $this->objectType($activity);
-        [$missingTemplate, $missingHeadline] = $redundant
+        [$missingTemplate, $missingHeadline] = $redundant && $activity->verb !== null
             ? $this->render($this->storyfeed->missingTemplate($type, $activity->verb), $activity, $type)
             : [null, null];
 
@@ -173,7 +173,8 @@ class NodePresenter
             // token, not Activity Streams' `icon` — which is an image and lives at
             // `entity.media.icon`. One word must not mean two things in one
             // document. See docs/payload.md, `glyph`.
-            'glyph' => $this->storyfeed->icon($type, $activity->verb),
+            // A verbless item (composed with a headline alone) has no glyph.
+            'glyph' => $activity->verb === null ? null : $this->storyfeed->icon($type, $activity->verb),
             // Additive (2026-09-09): the glyph's INTENT — an app-owned word
             // (`success`, `danger`, whatever the renderer's palette speaks)
             // resolved on the same ladder as the token but from its own
@@ -183,7 +184,7 @@ class NodePresenter
             // in. Core names no intents and no colours; the AS2 document has
             // no term for it and never carries it. See docs/payload.md,
             // `glyph_intent`.
-            'glyph_intent' => $this->storyfeed->glyphIntent($type, $activity->verb),
+            'glyph_intent' => $activity->verb === null ? null : $this->storyfeed->glyphIntent($type, $activity->verb),
             ...$this->activityEntities($activity),
             // Additive (2026-10-09, #76): the role whose entity the row draws
             // as its body. `object` unless the activity or its verb said
@@ -227,6 +228,15 @@ class NodePresenter
      */
     protected function headline(Activity $activity): array
     {
+        // A composed or source item's own headline wins over the feed file.
+        if (is_string($own = $activity->getAttributes()[Entry::HEADLINE] ?? null)) {
+            return $this->render($own, $activity);
+        }
+
+        if ($activity->verb === null) {
+            return [null, null];
+        }
+
         // Inspect recorded identity, not the relation: an unresolved/deleted
         // participant is not a genuinely absent actor. Party identities stay normal.
         $type = $this->objectType($activity);
@@ -794,7 +804,7 @@ class NodePresenter
             // too, not the row id the database gave it.
             'media' => Avatar::fill(
                 $media?->media(), $type,
-                $type === SourceItem::partyAlias() && is_string($data['key'] ?? null) ? $data['key'] : $id,
+                $type === Entry::partyAlias() && is_string($data['key'] ?? null) ? $data['key'] : $id,
                 $label, tombstone: $type === FeedTombstone::MORPH_ALIAS,
             ),
             // Omit only absent body fields: old snapshots keep their shape,

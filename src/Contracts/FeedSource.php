@@ -3,7 +3,7 @@
 namespace Storyfeed\Contracts;
 
 use Storyfeed\Models\Activity;
-use Storyfeed\Sources\SourceItem;
+use Storyfeed\Sources\Entry;
 
 /**
  * Where a feed's activities come from — the driver behind a named source in
@@ -27,7 +27,7 @@ interface FeedSource
     /**
      * Every item in the source, in any order.
      *
-     * @return iterable<SourceItem|array<string, mixed>|Activity>
+     * @return iterable<Entry|array<string, mixed>|Activity>
      */
     public function items(): iterable;
 }

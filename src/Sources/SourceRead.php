@@ -29,6 +29,11 @@ use Storyfeed\Support\Chronology;
  * read's filters then narrow the members. Pages are ordered and tiebroken as
  * FeedBuilder::selectItems() orders them.
  *
+ * An ordered read keeps the items in the order the source gave them, groups
+ * nothing, and pages by position. A dateless or verbless item never
+ * groups; in a read that is not ordered, dateless items follow every dated
+ * one, in the order given.
+ *
  * @internal
  */
 final class SourceRead
@@ -48,6 +53,7 @@ final class SourceRead
         protected ?string $cursor,
         protected int $childrenLimit,
         protected int $offset = 0,
+        protected bool $ordered = false,
     ) {}
 
     /**
@@ -70,7 +76,7 @@ final class SourceRead
                 continue;
             }
 
-            $item = SourceItem::from($item);
+            $item = Entry::from($item);
             $uid = $item->identity();
 
             // Two identical items are two activities, and keep two ids.
@@ -86,13 +92,13 @@ final class SourceRead
      * What a source handed over, checked: a source is app code, and its
      * items() only promises in a docblock.
      *
-     * @return SourceItem|Activity|array<string, mixed>
+     * @return Entry|Activity|array<string, mixed>
      */
-    protected static function item(mixed $item): SourceItem|Activity|array
+    protected static function item(mixed $item): Entry|Activity|array
     {
-        if (! is_array($item) && ! $item instanceof SourceItem && ! $item instanceof Activity) {
+        if (! is_array($item) && ! $item instanceof Entry && ! $item instanceof Activity) {
             throw new InvalidArgumentException(sprintf(
-                'A source item must be an array or a %s, %s given.', SourceItem::class, get_debug_type($item),
+                'An entry must be an array or a %s, %s given.', Entry::class, get_debug_type($item),
             ));
         }
 
@@ -103,7 +109,10 @@ final class SourceRead
     public function page(): array
     {
         $activities = self::activities($this->source);
-        $winners = $this->group ? $this->curate($activities) : [];
+        $winners = $this->group && ! $this->ordered
+            // Grouping is by verb and time, so a verbless or dateless entry reads solo.
+            ? $this->curate($activities->filter(fn (Activity $activity) => $activity->published_at !== null && $activity->verb !== null))
+            : [];
         $admitted = $activities->filter($this->admits)->values();
 
         $candidates = $this->candidates($admitted, $winners)
@@ -112,6 +121,8 @@ final class SourceRead
 
         if (($after = $this->decodedCursor()) !== null) {
             $candidates = $candidates->filter(fn (array $candidate) => $this->compareToCursor($candidate[0], $after) > 0)->values();
+        } elseif ($this->ordered && ($position = $this->decodedPosition()) !== null) {
+            $candidates = $candidates->filter(fn (array $candidate) => $candidate[0]->activity?->getKey() > $position)->values();
         }
 
         $more = $candidates->count() > $this->offset + $this->limit;
@@ -333,9 +344,17 @@ final class SourceRead
         return $entities;
     }
 
-    /** Newest first; groups before solos at one instant; then each stream's own tiebreak. */
+    /**
+     * As given when ordered. Otherwise newest first, dateless last in the
+     * order given; groups before solos at one instant; then each stream's
+     * own tiebreak.
+     */
     protected function compare(FeedCandidate $a, FeedCandidate $b): int
     {
+        if ($this->ordered || ($a->latest === '' && $b->latest === '')) {
+            return $a->activity?->getKey() <=> $b->activity?->getKey();
+        }
+
         return strcmp($b->latest, $a->latest)
             ?: (self::rank($a) <=> self::rank($b))
             ?: ($a->isGroup()
@@ -346,6 +365,10 @@ final class SourceRead
     /** @param  array{latest: string, rank: int, axis: string|null, hash: string|null, id: int|string|null}  $cursor */
     protected function compareToCursor(FeedCandidate $candidate, array $cursor): int
     {
+        if ($cursor['latest'] === '' && $candidate->latest === '') {
+            return $candidate->activity?->getKey() <=> $cursor['id'];
+        }
+
         return strcmp($cursor['latest'], $candidate->latest)
             ?: (self::rank($candidate) <=> $cursor['rank'])
             ?: ($candidate->isGroup()
@@ -361,6 +384,10 @@ final class SourceRead
     /** @return array{latest: string, rank: int, axis: string|null, hash: string|null, id: int|string|null}|null */
     protected function decodedCursor(): ?array
     {
+        if ($this->ordered) {
+            return null;
+        }
+
         $parameters = $this->cursor === null ? null : Cursor::fromEncoded($this->cursor)?->toArray();
 
         if (! isset($parameters['latest'], $parameters['rank'])) {
@@ -368,7 +395,7 @@ final class SourceRead
         }
 
         return [
-            'latest' => Chronology::stamp((string) $parameters['latest']),
+            'latest' => $parameters['latest'] === '' ? '' : Chronology::stamp((string) $parameters['latest']),
             'rank' => (int) $parameters['rank'],
             'axis' => $parameters['axis'] ?? null,
             'hash' => $parameters['hash'] ?? null,
@@ -376,8 +403,20 @@ final class SourceRead
         ];
     }
 
+    /** Where an ordered read's cursor left off: the last item's position. */
+    protected function decodedPosition(): ?int
+    {
+        $parameters = $this->cursor === null ? null : Cursor::fromEncoded($this->cursor)?->toArray();
+
+        return isset($parameters['position']) && is_int($parameters['position']) ? $parameters['position'] : null;
+    }
+
     protected function encodeCursor(FeedCandidate $candidate): string
     {
+        if ($this->ordered) {
+            return (new Cursor(['position' => $candidate->activity?->getKey()]))->encode();
+        }
+
         return (new Cursor([
             'latest' => $candidate->latest,
             'rank' => self::rank($candidate),
@@ -387,8 +426,9 @@ final class SourceRead
         ]))->encode();
     }
 
+    /** The activity's sort stamp; empty for a dateless one, which sorts last. */
     protected static function stamp(Activity $activity): string
     {
-        return Chronology::stamp($activity->published_at);
+        return $activity->published_at === null ? '' : Chronology::stamp($activity->published_at);
     }
 }
