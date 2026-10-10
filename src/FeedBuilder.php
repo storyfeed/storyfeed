@@ -35,6 +35,7 @@ use Storyfeed\Support\ActivityRoles;
 use Storyfeed\Support\Chronology;
 use Storyfeed\Support\FeedCursor;
 use Storyfeed\Support\GroupId;
+use Storyfeed\Support\InvolvingLookup;
 use Storyfeed\Support\MorphKeyType;
 use Storyfeed\Support\RoleTypes;
 use Storyfeed\Support\SnapshotCompiler;
@@ -98,6 +99,9 @@ class FeedBuilder
     protected Model|string|null $involving = null;
 
     protected bool $involvingDeep = true;
+
+    /** Decided once per get(), so every query of a page reads the same way. */
+    protected ?InvolvingLookup $involvingLookup = null;
 
     /** @var list<array{types: list<string>, deep: bool}> */
     protected array $involvingTypes = [];
@@ -789,6 +793,7 @@ class FeedBuilder
     protected function memberPage(Carbon $now, string $axis, string $hash): FeedPage
     {
         $activities = $this->activityModel()->getTable();
+        $this->involvingLookup = null;
 
         $rows = $this->selectedGroupMembers($now, Collection::make([FeedCandidate::group('', $axis, $hash, 0)]))
             ->select("{$activities}.*")
@@ -809,6 +814,7 @@ class FeedBuilder
         // Captured once: the published() gate must not shift between the
         // group-selection query and the member fetch.
         $now = Carbon::now();
+        $this->involvingLookup = null;
 
         if ($this->source !== null) {
             return $this->sourcePage($now, $this->source);
@@ -1415,9 +1421,11 @@ class FeedBuilder
             ->select(["{$activities}.id as fa_id", "{$activities}.published_at as fa_published"]);
 
         $query = $this->groupingModel()->newQuery();
-        if ($floor !== null && $this->groupingModel()->getConnection()->getDriverName() === 'sqlite') {
-            // SQLite preserves CROSS JOIN order. Start with recent activities,
-            // even when its generic range estimate prefers an entire bucket.
+        if ($this->groupingModel()->getConnection()->getDriverName() === 'sqlite') {
+            // SQLite preserves CROSS JOIN order. Start with the eligible
+            // activities, even when its generic range estimate prefers an
+            // entire bucket: unwindowed, that walked every winner in history
+            // to find a quiet entity's five activities (2.4s at one million).
             $query->fromSub($filtered, 'fa')->crossJoin($groupings)
                 ->whereColumn("{$groupings}.activity_id", 'fa.fa_id');
         } else {
@@ -1743,7 +1751,7 @@ class FeedBuilder
         // Rank narrow identities, not wide activity/JSON rows. In MariaDB
         // the latter forces disk temporary tables for a dense Summary day.
         // Hydrate only capped members afterwards, retaining the ranked order.
-        $activitiesById = $this->filteredActivities($now)->whereKey($rows->pluck('member_id')->all())
+        $activitiesById = $this->filteredActivities($now, bounded: true)->whereKey($rows->pluck('member_id')->all())
             ->select("{$activities}.*")
             ->with(ActivityRoles::cachedRelations())->get()->keyBy(fn (Activity $activity) => (string) $activity->getKey());
         $members = $this->activityModel()->newCollection();
@@ -1837,7 +1845,7 @@ class FeedBuilder
         // SQLite. Materializing wide grouping rows fixes that but spills
         // MariaDB's temporary tables at dense-day scale. These disjoint,
         // bucket-specific predicates can use the full hash indexes directly.
-        return $this->filteredActivities($now)
+        return $this->filteredActivities($now, bounded: true)
             ->join($groupings, fn (JoinClause $join) => $join
                 ->on("{$groupings}.activity_id", '=', "{$activities}.id"))
             ->where(function ($query) use ($groups, $groupings) {
@@ -1862,7 +1870,7 @@ class FeedBuilder
         $activities = $this->activityModel()->getTable();
         $groupings = $this->groupingModel()->getTable();
 
-        return $this->filteredActivities($now)
+        return $this->filteredActivities($now, bounded: true)
             ->join($groupings, fn (JoinClause $join) => $join
                 ->on("{$groupings}.activity_id", '=', "{$activities}.id"))
             ->where($this->winning());
@@ -1878,8 +1886,12 @@ class FeedBuilder
         return (int) config('storyfeed.grouping.children_limit', 25);
     }
 
-    /** @return ActivityBuilder<Activity> */
-    protected function filteredActivities(Carbon $now): ActivityBuilder
+    /**
+     * @param  bool  $bounded  something else (group hashes, ids) already
+     *                         narrows the query to a few rows
+     * @return ActivityBuilder<Activity>
+     */
+    protected function filteredActivities(Carbon $now, bool $bounded = false): ActivityBuilder
     {
         $query = $this->activityModel()->newQuery()->published($now);
 
@@ -1896,7 +1908,8 @@ class FeedBuilder
         }
 
         if ($this->involving !== null) {
-            $query->involving($this->resolve($this->involving), deep: $this->involvingDeep);
+            $this->involvingLookup ??= InvolvingLookup::for($query, $this->resolve($this->involving), $this->involvingDeep);
+            $this->involvingLookup->apply($query, $bounded);
         }
 
         return $query

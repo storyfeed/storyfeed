@@ -222,7 +222,7 @@ it('carries direct scope through class and named feeds and shares the existing r
         ->and(Storyfeed::feed()->involvingDirectly($client)->involving($project)->get()->items())->toHaveCount(3);
 });
 
-it('retains the entity index for both participant lookup modes', function () {
+it('reads a quiet entity from the entity index in both participant lookup modes', function () {
     $rows = [];
     foreach (range(1, 2000) as $id) {
         $rows[] = ['activity_id' => $id, 'role' => $id % 2 ? 'object' : 'ancestor', 'entity_type' => 'container',
@@ -238,9 +238,19 @@ it('retains the entity index for both participant lookup modes', function () {
         DB::statement('analyze table feed_participants');
     }
     $entity = new NestedContainer(['id' => 1]);
+    // A quiet entity's activity ids are read up front: that lookup is the
+    // query the entity index serves.
+    $lookups = [];
+    DB::listen(function ($query) use (&$lookups) {
+        if (str_contains($query->sql, 'feed_participants') && ! str_contains($query->sql, 'feed_activities')) {
+            $lookups[] = $query;
+        }
+    });
     foreach ([true, false] as $deep) {
-        $query = Activity::query()->involving($entity, deep: $deep);
-        $plan = json_encode(DB::select(($driver === 'sqlite' ? 'EXPLAIN QUERY PLAN ' : 'EXPLAIN ').$query->toSql(), $query->getBindings()), JSON_THROW_ON_ERROR);
+        $lookups = [];
+        Activity::query()->involving($entity, deep: $deep);
+        expect($lookups)->toHaveCount(1);
+        $plan = json_encode(DB::select(($driver === 'sqlite' ? 'EXPLAIN QUERY PLAN ' : 'EXPLAIN ').$lookups[0]->sql, $lookups[0]->bindings), JSON_THROW_ON_ERROR);
         expect($plan)->toContain('feed_participants_entity_published_index');
     }
 });

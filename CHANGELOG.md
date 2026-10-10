@@ -10,6 +10,7 @@
 
 - Every class in `Storyfeed\Actions` is marked `@internal`. They are how the package does its work, not API it promises: call the facade, the builder, the models and the Artisan commands instead.
 - A group node's `id` is reversible, so `members()` can read the group back from it: `grp_` and the base64url of its axis and grouping hash, replacing a SHA-1 of them. Every group `id` changes once; it stays opaque, and stable from here.
+- `involving()` reads a busy entity from the timeline and a quiet one from the participants index, decided once per read by counting up to a threshold that grows with the table (#52). On SQLite at one million activities, a project in 11% of them read in Live went from 615ms to 49ms, and a five-activity entity from 2.6s to 10ms. A read makes one extra query, for that count. No schema change.
 
 ### Removed
 
