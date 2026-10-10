@@ -39,7 +39,7 @@ final class Finding
      */
     public static function error(string $code, string $message, array $subject = [], ?Fix $fix = null): self
     {
-        return new self($code, Severity::Error, $message, $subject, $fix);
+        return new self($code, Severity::Error, self::guarded($message, $fix), $subject, $fix);
     }
 
     /**
@@ -47,7 +47,7 @@ final class Finding
      */
     public static function warning(string $code, string $message, array $subject = [], ?Fix $fix = null): self
     {
-        return new self($code, Severity::Warning, $message, $subject, $fix);
+        return new self($code, Severity::Warning, self::guarded($message, $fix), $subject, $fix);
     }
 
     /**
@@ -55,7 +55,21 @@ final class Finding
      */
     public static function info(string $code, string $message, array $subject = [], ?Fix $fix = null): self
     {
-        return new self($code, Severity::Info, $message, $subject, $fix);
+        return new self($code, Severity::Info, self::guarded($message, $fix), $subject, $fix);
+    }
+
+    /**
+     * Two apps had findings in production that nobody acted on, and nothing
+     * in them pointed at the test that would have kept them out. Where an
+     * assertion guards the finding, the message ends by naming it.
+     */
+    private static function guarded(string $message, ?Fix $fix): string
+    {
+        if ($fix?->guard === null) {
+            return $message;
+        }
+
+        return rtrim($message).' Guard it in a test with `'.class_basename($fix->guard).'`.';
     }
 
     /** The check that produced this, derived from the code's first segment. */

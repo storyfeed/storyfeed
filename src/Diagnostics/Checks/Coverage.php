@@ -7,6 +7,7 @@ use Storyfeed\Diagnostics\Finding;
 use Storyfeed\Diagnostics\Fix;
 use Storyfeed\StoryfeedManager;
 use Storyfeed\Support\ActivityRoles;
+use Storyfeed\Testing\HeadlineCoverage;
 
 /**
  * Singular grammar and icon coverage over the (object_type, verb) pairs the
@@ -52,7 +53,7 @@ class Coverage extends Check
                     'grammar.missing',
                     "No headline resolves for `{$label}` — headlines will be null.",
                     $subject,
-                    Fix::make('grammar', $key, array_map(fn (string $role) => ":{$role}", ActivityRoles::PAYLOAD)),
+                    Fix::make('grammar', $key, array_map(fn (string $role) => ":{$role}", ActivityRoles::PAYLOAD), guard: HeadlineCoverage::class.'::assertCoversRecorded()'),
                 );
             }
 
@@ -61,7 +62,7 @@ class Coverage extends Check
                     'grammar.icon_missing',
                     "No icon resolves for `{$label}`.",
                     $subject,
-                    Fix::make('icons', $key),
+                    Fix::make('icons', $key, guard: HeadlineCoverage::class.'::assertCoversRecorded()'),
                 );
             }
 

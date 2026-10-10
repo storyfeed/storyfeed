@@ -6,6 +6,7 @@ use Storyfeed\Diagnostics\Finding;
 use Storyfeed\Diagnostics\Fix;
 use Storyfeed\Diagnostics\Reachability;
 use Storyfeed\StoryfeedManager;
+use Storyfeed\Testing\HeadlineCoverage;
 
 /**
  * A group on an aggregate axis without aggregate grammar renders the singular
@@ -188,6 +189,7 @@ class AggregateCoverage extends Check
                     'aggregateGrammar',
                     $key,
                     $storyfeed->aggregateTokens($axis) ?? [],
+                    guard: HeadlineCoverage::class.'::assertCoversGroups()',
                 ),
             );
         }

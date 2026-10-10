@@ -2,6 +2,7 @@
 
 namespace Storyfeed\Console;
 
+use Composer\InstalledVersions;
 use Illuminate\Console\Command;
 use Storyfeed\Diagnostics\Finding;
 use Storyfeed\Diagnostics\Report;
@@ -71,6 +72,12 @@ class DoctorCommand extends Command
             $this->line("Snapshots compile: {$mode} (STORYFEED_SNAPSHOTS)");
         }
 
+        foreach ($this->installed() as $package => $install) {
+            $commit = $install['reference'] === null ? '' : '@'.substr($install['reference'], 0, 7);
+
+            $this->line("Installed: {$package} {$install['version']}{$commit}");
+        }
+
         foreach ($report->all() as $finding) {
             if ($finding->acknowledgment !== null) {
                 $this->line("Acknowledged [{$finding->severity->value}]: {$finding->message} Reason: {$finding->acknowledgment}");
@@ -93,20 +100,61 @@ class DoctorCommand extends Command
 
         if ($report->isHealthy()) {
             $this->info($acknowledged > 0 ? 'No unacknowledged problems.' : 'Storyfeed looks healthy.');
+        } else {
+            $this->warn("{$report->count()} finding(s) — see above.");
 
-            return;
+            if ($report->fixes()->isNotEmpty()) {
+                $this->line('Run with --stubs to print the registrations these imply.');
+            }
         }
 
-        $this->warn("{$report->count()} finding(s) — see above.");
+        $this->footer();
+    }
 
-        if ($report->fixes()->isNotEmpty()) {
-            $this->line('Run with --stubs to print the registrations these imply.');
+    /**
+     * The doctor's own flags, on a healthy run too. Two apps had findings in
+     * production that nobody acted on, and nothing in the report said how to
+     * gate on them in CI.
+     */
+    protected function footer(): void
+    {
+        $this->newLine();
+        $this->line('  --fail-on=error   exit non-zero when an error is present (`warning` gates on warnings too)');
+        $this->line('  --only=<check>    report one check at a time; --list names them');
+        $this->line('  --json            the same report, machine-readable');
+    }
+
+    /**
+     * Every installed `storyfeed/*` package, so a pasted report says which
+     * code produced it. The root package's reference is the commit Composer
+     * last installed from, not HEAD, so it gets none rather than a wrong one.
+     *
+     * @return array<string, array{version: string|null, reference: string|null}>
+     */
+    protected function installed(): array
+    {
+        $root = InstalledVersions::getRootPackage()['name'];
+        $installed = [];
+
+        foreach (InstalledVersions::getInstalledPackages() as $package) {
+            if (! str_starts_with($package, 'storyfeed/')) {
+                continue;
+            }
+
+            $installed[$package] = [
+                'version' => InstalledVersions::getPrettyVersion($package),
+                'reference' => $package === $root ? null : InstalledVersions::getReference($package),
+            ];
         }
+
+        ksort($installed);
+
+        return $installed;
     }
 
     protected function renderJson(Report $report): void
     {
-        $this->line((string) json_encode($report->toArray(), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+        $this->line((string) json_encode([...$report->toArray(), 'installed' => $this->installed()], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
     }
 
     /**

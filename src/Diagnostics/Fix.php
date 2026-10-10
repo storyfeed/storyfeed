@@ -36,20 +36,22 @@ final class Fix
      * @param  string  $key  the registry key, e.g. 'targets.approve'
      * @param  list<string>  $tokens  tokens that are SAFE here, derived from the axis recipe
      * @param  string|null  $snippet  paste-ready PHP; built from the above when omitted
+     * @param  string|null  $guard  the test assertion that fails while this finding stands, e.g. `Storyfeed\Testing\HeadlineCoverage::assertCoversRecorded()`
      */
     public function __construct(
         public readonly string $registry,
         public readonly string $key,
         public readonly array $tokens = [],
         public readonly ?string $snippet = null,
+        public readonly ?string $guard = null,
     ) {}
 
     /**
      * @param  list<string>  $tokens
      */
-    public static function make(string $registry, string $key, array $tokens = [], ?string $snippet = null): self
+    public static function make(string $registry, string $key, array $tokens = [], ?string $snippet = null, ?string $guard = null): self
     {
-        return new self($registry, $key, $tokens, $snippet);
+        return new self($registry, $key, $tokens, $snippet, $guard);
     }
 
     /**
@@ -237,6 +239,7 @@ final class Fix
             'tokens' => $this->tokens,
             'snippet' => $this->snippet(),
             'definition' => $this->definition()['code'] ?? null,
+            'guard' => $this->guard,
         ];
     }
 }
