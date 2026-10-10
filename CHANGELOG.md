@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## v0.19.0 - 2026-10-10
+
 ### Added
 
 - An activity can feature a role other than its object (#76): the role whose entity the row draws as its body. `featuringActor()`, `featuringTarget()`, `featuringOrigin()`, `featuringResult()`, `featuringInstrument()`, `featuringLocation()` and `featuringGenerator()` on the activity builder and verb enums; `featuringObject()` is the default and undoes an earlier call; `withoutFeature()` draws no entity body, while the activity's own body and meta line still render. A verb sets a default with the same methods (`Story::verb('unveil')->featuringLocation()`), and an activity overrides it. Featuring an empty role throws `IncompleteActivity` when the activity is recorded; at read time a missing featured entity draws no body, and the row is never hidden. Activity nodes carry `featured`: the role, or `null`. Stored in a new `featured` column on `feed_activities` (`object` by default, so existing rows feature their object): publish and run the additive `add_featured_to_feed_activities_table` migration. Until it runs, only an activity that names a featured role fails to record.
