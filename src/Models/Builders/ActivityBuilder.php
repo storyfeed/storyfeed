@@ -11,7 +11,6 @@ use Storyfeed\Concerns\FiltersRoleTypes;
 use Storyfeed\Support\ActivityRoles;
 use Storyfeed\Support\Chronology;
 use Storyfeed\Support\InlineEntity;
-use Storyfeed\Support\InvolvingLookup;
 use Storyfeed\Support\MorphKeyType;
 use Storyfeed\Support\RoleTypes;
 
@@ -122,27 +121,58 @@ class ActivityBuilder extends Builder
      * Activities involving the model in any direct role or through distant
      * relations. Pass `deep: false` to match direct participation only.
      *
-     * Read through feed_participants, never as an OR across the role morph
-     * pairs, which is the shape every earlier generation of this feed used.
-     * Each branch of that OR is indexed, but the union cannot satisfy the
-     * newest-first ordering without sorting every match, and MySQL's
-     * index_merge is reluctant across four branches.
+     * A semi-join against feed_participants, driven FROM the participants
+     * index — the direction matters more than the join does.
      *
-     * Which way the lookup runs, from participants or from the timeline,
-     * depends on how many activities involve the model: see InvolvingLookup.
-     * The direction matters more than the join does. A correlated probe
-     * driven from the timeline is what a busy project wants and what a quiet
-     * one cannot afford: it pages through the whole table to find two rows.
+     * The first cut of this was a correlated EXISTS. That reads naturally and
+     * is 100-2000x slower — not because the index goes unused, but because it
+     * cannot DRIVE. Correlating on activity_id makes feed_activities the outer
+     * loop, walked in published_at order, and demotes the participants index
+     * to a per-row probe that answers "is this one a match?" rather than
+     * "which ones are?". Cost then scales with how DEEP the scan must go,
+     * which is worst for the entity with the FEWEST activities — a quiet
+     * project pages through the whole table. At 400k rows that was 141ms for a
+     * two-activity entity against 0.05ms here.
      *
-     * The candidate set stays whole, never limited or ordered here, so verb
-     * filters, date ranges and curation still see everything that qualifies.
+     * (Which participants index serves the probe is planner discretion and
+     * irrelevant: this schema picked the activity_id unique, a smaller dataset
+     * picked the entity index. Both are probes. An earlier draft of this note
+     * claimed the entity index "cannot be used at all" — false, and caught by
+     * the consumer reading their own EXPLAIN against this same commit.)
+     *
+     * Binding entity_type and entity_id instead lets the index narrow AND
+     * order, which is what it was added for. SQLite measurements; the driving
+     * direction is structural, the ratios are not.
+     *
+     * Not an OR across the four morph pairs, which is the shape every earlier
+     * generation of this feed used. Each branch IS individually indexed, so
+     * the OR is not unindexable — measured, it is fine on SQLite, which
+     * resolves it as a multi-index OR plus a sort. It is avoided because that
+     * plan is a planner favour rather than a guarantee: MySQL's index_merge
+     * is famously reluctant across four branches, and the union still cannot
+     * satisfy the newest-first ordering without a temp sort of every match.
+     * One index that already carries the order beats four that don't.
      *
      * SyncParticipants maintains the rows; `storyfeed:participants` backfills
      * an install that predates the table.
      */
     public function involving(Model $model, bool $deep = true): static
     {
-        InvolvingLookup::for($this, $model, $deep)->apply($this);
+        $participants = SyncParticipants::table();
+        $activities = $this->getModel()->getTable();
+        $alias = $model->getMorphClass();
+        $key = (string) $model->getKey();
+
+        // Deliberately NOT limited/ordered inside: the candidate set has to stay
+        // whole so verb filters, date ranges and curation still see everything
+        // that qualifies. Ordering happens on the outer query.
+        $this->whereIn("{$activities}.id", function (QueryBuilder $query) use ($participants, $alias, $key, $deep) {
+            $query->from($participants)
+                ->select('activity_id')
+                ->where('entity_type', $alias)
+                ->where('entity_id', $key)
+                ->when(! $deep, fn (QueryBuilder $query) => $query->where('distance', 0));
+        });
 
         return $this;
     }

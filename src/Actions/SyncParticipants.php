@@ -146,6 +146,17 @@ class SyncParticipants
         }
     }
 
+    /**
+     * Copy an activity's published_at onto its rows after it was
+     * rescheduled. involving() orders, pages and gates on that copy.
+     */
+    public static function retime(Activity $activity): void
+    {
+        DB::table(self::table())->where('activity_id', $activity->getKey())->update([
+            'published_at' => $activity->published_at === null ? null : Chronology::stamp($activity->published_at),
+        ]);
+    }
+
     /** Remove an activity's rows — cascade for prune and orphan-delete. */
     public static function forget(int|string ...$activityIds): void
     {

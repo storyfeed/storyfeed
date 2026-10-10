@@ -103,9 +103,6 @@ class FeedBuilder
 
     protected bool $involvingDeep = true;
 
-    /** Decided once per get(), so every query of a page reads the same way. */
-    protected ?InvolvingLookup $involvingLookup = null;
-
     /** @var list<array{types: list<string>, deep: bool}> */
     protected array $involvingTypes = [];
 
@@ -865,7 +862,6 @@ class FeedBuilder
     protected function memberPage(Carbon $now, string $axis, string $hash): FeedPage
     {
         $activities = $this->activityModel()->getTable();
-        $this->involvingLookup = null;
 
         $rows = $this->selectedGroupMembers($now, Collection::make([FeedCandidate::group('', $axis, $hash, 0)]))
             ->select("{$activities}.*")
@@ -898,7 +894,6 @@ class FeedBuilder
         // Captured once: the published() gate must not shift between the
         // group-selection query and the member fetch.
         $now = Carbon::now();
-        $this->involvingLookup = null;
 
         if ($this->source !== null) {
             return $this->sourcePage($now, $this->source);
@@ -1212,7 +1207,7 @@ class FeedBuilder
             ->limit(1);
         $rows = $this->filteredActivities($now)
             ->whereRaw('('.$parent->toSql().') is null', $parent->getBindings())
-            ->tap(fn (ActivityBuilder $q) => $this->keysetPage($q, $activities, $cursor));
+            ->tap(fn (ActivityBuilder $q) => $this->keysetPage($q, $activities, $cursor, $this->timeline()));
 
         return $this->activityPage($rows->get(), $activities);
     }
@@ -1223,18 +1218,21 @@ class FeedBuilder
      *
      * @param  ActivityBuilder<Activity>  $query
      * @param  array{published_at: string, id: int|string}|null  $cursor
+     * @param  array{string, string}|null  $timeline  the (published_at, id) columns; the activity's own by default
      */
-    protected function keysetPage(ActivityBuilder $query, string $activities, ?array $cursor): void
+    protected function keysetPage(ActivityBuilder $query, string $activities, ?array $cursor, ?array $timeline = null): void
     {
+        [$publishedAt, $id] = $timeline ?? ["{$activities}.published_at", "{$activities}.id"];
+
         $query
             ->when($cursor !== null, fn (ActivityBuilder $q) => $q->where(fn (ActivityBuilder $after) => $after
-                ->where("{$activities}.published_at", '<', $cursor['published_at'])
+                ->where($publishedAt, '<', $cursor['published_at'])
                 ->orWhere(fn (ActivityBuilder $tie) => $tie
-                    ->where("{$activities}.published_at", '=', $cursor['published_at'])
-                    ->where("{$activities}.id", '<', $cursor['id']))))
+                    ->where($publishedAt, '=', $cursor['published_at'])
+                    ->where($id, '<', $cursor['id']))))
             ->with(ActivityRoles::cachedRelations())
-            ->orderBy("{$activities}.published_at", 'desc')
-            ->orderBy("{$activities}.id", 'desc')
+            ->orderBy($publishedAt, 'desc')
+            ->orderBy($id, 'desc')
             ->when($this->offset > 0, fn (ActivityBuilder $q) => $q->offset($this->offset))
             ->limit($this->limit + 1);
     }
@@ -1485,15 +1483,17 @@ class FeedBuilder
     protected function windowFloor(Carbon $now, ?string $ceiling, int $depth): ?string
     {
         $activities = $this->activityModel()->getTable();
+        [$publishedAt, $id] = $this->timeline();
 
         $value = $this->filteredActivities($now)
-            ->when($ceiling !== null, fn (ActivityBuilder $q) => $q->where("{$activities}.published_at", '<=', $ceiling))
-            ->orderBy("{$activities}.published_at", 'desc')
-            ->orderBy("{$activities}.id", 'desc')
+            ->when($ceiling !== null, fn (ActivityBuilder $q) => $q->where($publishedAt, '<=', $ceiling))
+            ->orderBy($publishedAt, 'desc')
+            ->orderBy($id, 'desc')
             ->offset($depth - 1)
             ->limit(1)
             ->toBase()
-            ->value("{$activities}.published_at");
+            ->select($publishedAt)
+            ->value($publishedAt);
 
         return $value === null ? null : $this->normalizeTimestamp($value);
     }
@@ -1511,6 +1511,7 @@ class FeedBuilder
     protected function groupAggregate(Carbon $now, ?array $cursor, ?string $floor, ?string $ceiling): Collection
     {
         $activities = $this->activityModel()->getTable();
+        [$publishedAt, $id] = $this->timeline();
         $groupings = $this->groupingModel()->getTable();
 
         $grammar = $this->groupingModel()->getConnection()->getQueryGrammar();
@@ -1519,8 +1520,8 @@ class FeedBuilder
         $latest = 'max(fa.fa_published)';
 
         $filtered = $this->filteredActivities($now)
-            ->when($floor !== null, fn (ActivityBuilder $q) => $q->where("{$activities}.published_at", '>=', $floor))
-            ->when($ceiling !== null, fn (ActivityBuilder $q) => $q->where("{$activities}.published_at", '<=', $ceiling))
+            ->when($floor !== null, fn (ActivityBuilder $q) => $q->where($publishedAt, '>=', $floor))
+            ->when($ceiling !== null, fn (ActivityBuilder $q) => $q->where($publishedAt, '<=', $ceiling))
             ->select(["{$activities}.id as fa_id", "{$activities}.published_at as fa_published"]);
 
         $query = $this->groupingModel()->newQuery();
@@ -1747,10 +1748,11 @@ class FeedBuilder
     protected function soloStream(Carbon $now, ?array $cursor, ?string $floor = null): Collection
     {
         $activities = $this->activityModel()->getTable();
+        [$publishedAt, $id] = $this->timeline();
         $groupings = $this->groupingModel()->getTable();
 
         $query = $this->filteredActivities($now)
-            ->when($floor !== null, fn (ActivityBuilder $q) => $q->where("{$activities}.published_at", '>=', $floor));
+            ->when($floor !== null, fn (ActivityBuilder $q) => $q->where($publishedAt, '>=', $floor));
 
         // "Has no winning grouping row", SPLIT INTO ONE ANTIJOIN PER DISJUNCT
         // rather than one antijoin over `winning()`. See notSolo() for why the
@@ -1785,19 +1787,19 @@ class FeedBuilder
             // told by its cluster node, the members by their composite.
             ->whereRaw('('.$composites->toSql().') is null', $composites->getBindings())
             ->with(ActivityRoles::cachedRelations())
-            ->orderBy("{$activities}.published_at", 'desc')
-            ->orderBy("{$activities}.id", 'desc')
+            ->orderBy($publishedAt, 'desc')
+            ->orderBy($id, 'desc')
             ->limit($this->limit + 1);
 
         if ($cursor !== null && $cursor['rank'] === self::RANK_SOLO) {
             $query->where(fn (ActivityBuilder $q) => $q
-                ->where("{$activities}.published_at", '<', $cursor['latest'])
+                ->where($publishedAt, '<', $cursor['latest'])
                 ->orWhere(fn (ActivityBuilder $tie) => $tie
-                    ->where("{$activities}.published_at", '=', $cursor['latest'])
-                    ->where("{$activities}.id", '<', $cursor['id'])));
+                    ->where($publishedAt, '=', $cursor['latest'])
+                    ->where($id, '<', $cursor['id'])));
         } elseif ($cursor !== null) {
             // Every group at this timestamp is spent; solos in the tie remain.
-            $query->where("{$activities}.published_at", '<=', $cursor['latest']);
+            $query->where($publishedAt, '<=', $cursor['latest']);
         }
 
         return $query->get()->map(fn (Activity $activity) => FeedCandidate::solo(
@@ -2041,6 +2043,22 @@ class FeedBuilder
     }
 
     /**
+     * The (published_at, id) columns a timeline query orders, pages and
+     * gates on: the participant row's copy when the read is involving()
+     * scoped, so the entity index supplies the order (see InvolvingLookup).
+     *
+     * @return array{string, string}
+     */
+    protected function timeline(): array
+    {
+        $activities = $this->activityModel()->getTable();
+
+        return $this->involving !== null
+            ? InvolvingLookup::timeline()
+            : ["{$activities}.published_at", "{$activities}.id"];
+    }
+
+    /**
      * @param  bool  $bounded  something else (group hashes, ids) already
      *                         narrows the query to a few rows
      * @return ActivityBuilder<Activity>
@@ -2050,9 +2068,14 @@ class FeedBuilder
         $query = $this->activityModel()->newQuery()->published($now);
 
         // Filtering by a name nobody has used must match nothing — not
-        // silently drop the filter and return the whole feed.
+        // silently drop the filter and return the whole feed. Still joined
+        // when the read orders on participants, so the timeline columns exist.
         foreach (array_keys($this->names) as $name) {
             if ($this->resolve($name) === null) {
+                if ($this->involving !== null) {
+                    (new InvolvingLookup('', '', true))->apply($query, Chronology::stamp($now), $bounded);
+                }
+
                 return $query->whereRaw('1 = 0');
             }
         }
@@ -2062,8 +2085,8 @@ class FeedBuilder
         }
 
         if ($this->involving !== null) {
-            $this->involvingLookup ??= InvolvingLookup::for($query, $this->resolve($this->involving), $this->involvingDeep);
-            $this->involvingLookup->apply($query, $bounded);
+            InvolvingLookup::for($this->resolve($this->involving), $this->involvingDeep)
+                ->apply($query, Chronology::stamp($now), $bounded);
         }
 
         return $query
