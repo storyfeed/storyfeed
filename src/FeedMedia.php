@@ -53,6 +53,18 @@ use Throwable;
  * do; lists append (`files()`, `body()`). The properties are
  * `private(set)`, so a presenter can read every slot and change none.
  *
+ * ## Custom slots
+ *
+ *     FeedMedia::make()->slot('sparkline', FeedImage::make()
+ *         ->src('data:image/svg+xml;base64,…')->width(120)->height(24)->alt('Orders this week'))
+ *
+ * A picture or file the three AS2 slots do not name, which a body shows
+ * with `$this->getFeedMedia('sparkline')`. Custom slots sit under
+ * `media.slots`, so one never collides with a slot core adds later, and
+ * they stay out of the Activity Streams document, which has no word for
+ * them. A runtime SVG travels as a `data:` image, which `<img>` cannot run
+ * scripts from, never as inline markup.
+ *
  * ## An avatar without a picture
  *
  * The icon is the avatar a model shows whenever it is the actor. A model
@@ -90,6 +102,9 @@ final class FeedMedia
 
     /** @var list<FeedResource> */
     public private(set) array $files = [];
+
+    /** @var array<string, FeedImage|FeedResource> */
+    public private(set) array $slots = [];
 
     /**
      * Bodies resolved at read time, or closures that would build them.
@@ -324,6 +339,25 @@ final class FeedMedia
     }
 
     /**
+     * A custom slot: a picture or file the built-in slots do not name, shown
+     * by a body through `$this->getFeedMedia($name)`. Setting a name again
+     * replaces it. The built-in names (`icon`, `preview`, `image`) have
+     * their own methods and are refused here.
+     *
+     * @throws InvalidArgumentException when the name is built in or malformed
+     */
+    public function slot(string $name, FeedImage|FeedResource $media): self
+    {
+        if (MediaSlot::tryFrom($name) !== null) {
+            throw new InvalidArgumentException(sprintf('`%1$s` is a built-in slot: set it with %1$s(), not slot().', $name));
+        }
+
+        $this->slots[DeferredMedia::name($name)] = $media;
+
+        return $this;
+    }
+
+    /**
      * Add a body resolved at read time. Each call APPENDS; a closure is held
      * unbuilt and called only when the body is read.
      *
@@ -358,10 +392,11 @@ final class FeedMedia
      * have media at all" is one check, the same one `link: null` answers for
      * linkability. When it is an object every key is present — the three
      * image slots as an image object or null, `initials` and `color` as a
-     * string or null, `files` as a list that may be empty — so a renderer
-     * that wants one slot reads it without first asking which slots exist.
+     * string or null, `files` as a list that may be empty, `slots` as a map of
+     * custom slots that may be empty — so a renderer that wants one slot reads
+     * it without first asking which slots exist.
      *
-     * @return array{icon: array<string, mixed>|null, initials: string|null, color: string|null, image: array<string, mixed>|null, preview: array<string, mixed>|null, files: list<array<string, mixed>>}|null
+     * @return array{icon: array<string, mixed>|null, initials: string|null, color: string|null, image: array<string, mixed>|null, preview: array<string, mixed>|null, files: list<array<string, mixed>>, slots: array<string, array<string, mixed>>}|null
      */
     public function media(): ?array
     {
@@ -371,7 +406,7 @@ final class FeedMedia
             'preview' => $this->preview,
         ];
 
-        if (array_filter($images) === [] && $this->files === [] && $this->initials === null && $this->color === null) {
+        if (array_filter($images) === [] && $this->files === [] && $this->slots === [] && $this->initials === null && $this->color === null) {
             return null;
         }
 
@@ -380,6 +415,7 @@ final class FeedMedia
             'initials' => $this->initials,
             'color' => $this->color,
             'files' => array_map(fn (FeedResource $resource) => $resource->toArray(), $this->files),
+            'slots' => array_map(fn (FeedImage|FeedResource $media) => $media->toArray(), $this->slots),
         ];
     }
 }

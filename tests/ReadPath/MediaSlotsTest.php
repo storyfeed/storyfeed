@@ -152,6 +152,7 @@ it('emits entity.link with its suggestion and the full picture as the image slot
             'initials' => null,
             'color' => null,
             'files' => [],
+            'slots' => [],
         ]);
 });
 

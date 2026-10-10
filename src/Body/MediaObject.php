@@ -6,7 +6,9 @@ use Storyfeed\Body\Concerns\HasContent;
 use Storyfeed\Body\Concerns\HasFiles;
 use Storyfeed\Body\Concerns\HasFootnote;
 use Storyfeed\Body\Concerns\HasImageSlot;
+use Storyfeed\DeferredMedia;
 use Storyfeed\FeedBody;
+use Storyfeed\FeedImage;
 use Storyfeed\FeedLink;
 use Storyfeed\FeedResource;
 use Storyfeed\MediaSlot;
@@ -14,7 +16,7 @@ use Storyfeed\MediaSlot;
 /**
  * The shape of a post: a title line, some prose, one picture, the files it
  * names, and a line of small print. Every field is optional, and the picture
- * is a reference rather than an image.
+ * is usually one of the entity's `feedMedia()` pictures rather than a stored image.
  *
  *     public function toFeed(): FeedEntity
  *     {
@@ -23,40 +25,42 @@ use Storyfeed\MediaSlot;
  *             ->body(MediaObject::make()
  *                 ->subject($this->name)
  *                 ->content($this->summary)
- *                 ->withIcon());
+ *                 ->image($this->feedMediaIcon()));
  *     }
  *
  * Stored:
  *
- *     {"$body": "Storyfeed/Body/MediaObject", "$v": 3,
+ *     {"$body": "Storyfeed/Body/MediaObject", "$v": 5,
  *      "subject": "Bronze Figure",
  *      "content": "Restoration is complete.",
  *      "image": "icon", "footnote": "Restored by Ana"}
  *
  * …and with a subject that leads to its entity, and a file it names itself:
  *
- *     {"$body": "Storyfeed/Body/MediaObject", "$v": 3,
+ *     {"$body": "Storyfeed/Body/MediaObject", "$v": 5,
  *      "subject": {"label": "Bronze Figure", "href": null},
  *      "content": "Restoration is complete.",
  *      "image": "icon",
  *      "files": [{"type": "Document", "href": "https://…/restoration-v4.pdf",
  *                 "mediaType": "application/pdf", "name": "restoration-v4.pdf"}]}
  *
- * ## It stores no media, it names a slot
+ * ## The picture is usually the entity's, and may be its own
  *
- * `FeedImage` is what `feedMedia()` RETURNS and not what `toFeed()` stores:
- * a src ages, so the location is resolved at read time. A body is
- * stored, so a `MediaObject` holding a `FeedImage` would store exactly the
- * URL that rule forbids. It holds a slot name instead — `image: "icon"` —
- * and no src, no mediaType, no width, no height, no alt. The `FeedImage`
- * that `feedMedia()` resolves carries all of those; a copy here would be a
- * second copy that ages exactly as the URL would. At read time the renderer
- * takes `entity.media.icon`, already resolved, already beside this block in
- * the payload, and draws it with a live aspect box and live alt.
+ *     ->image($this->feedMediaIcon())                 // "image": "icon"
+ *     ->image($this->getFeedMedia('sparkline'))       // "image": "slots.sparkline"
+ *     ->image(FeedImage::make()->src($url)->alt('…'))  // "image": {"src": …, "alt": …}
  *
- * The consequence worth having: changing a thumbnail conversion does not
+ * A `feedMedia()` picture stores the slot's name and no src, no mediaType,
+ * no width, no height, no alt. At read time the renderer takes
+ * `entity.media.icon`, already resolved, already beside this block in the
+ * payload, and draws it with a live aspect box and live alt. The
+ * consequence worth having: changing a thumbnail conversion does not
  * rewrite history. Raise a THUMB_SIZE and every historical row draws the
  * new one, because none of them stored a size.
+ *
+ * A `FeedImage` is stored in the block as it is given: cacheable and needing
+ * no `feedMedia()`, and its src ages exactly as a stored file's href does.
+ * It is for a picture the entity's resolver does not know.
  *
  * ## `files` names its own files, and that costs something
  *
@@ -133,7 +137,7 @@ use Storyfeed\MediaSlot;
  * labels the sculpture in a catalogue — rather than as a photograph under a
  * reply.
  *
- *     MediaObject::make(subject: $note->title, content: $note->body)->withIcon()
+ *     MediaObject::make(subject: $note->title, content: $note->body)->image($note->feedMediaIcon())
  *
  * **`image` — what the thing looks like.** The photo row. "Ben added a
  * photo of Bronze Figure" is about the picture. The sculpture is a non-image
@@ -142,7 +146,7 @@ use Storyfeed\MediaSlot;
  * stopping on, at the size the feed gives a picture. Same rows, same
  * photograph, and only this one stays a photograph.
  *
- *     MediaObject::make(subject: $dish->name, content: $photo->caption)->withImage()
+ *     MediaObject::make(subject: $dish->name, content: $photo->caption)->image($dish->feedMediaImage())
  *
  * **`preview` — a stand-in that previews the thing without depicting it.**
  * A link card. An app stores a URL, scrapes its og:title, og:description
@@ -155,7 +159,7 @@ use Storyfeed\MediaSlot;
  * the thing itself). Every reader has seen this card in a chat app, so the
  * case is recognised rather than taught.
  *
- *     MediaObject::make(subject: $link->og_title, content: $link->og_description)->withPreview()
+ *     MediaObject::make(subject: $link->og_title, content: $link->og_description)->image($link->feedMediaPreview())
  *
  * THE PACKAGE FETCHES NOTHING. The app scraped and cached those values
  * before it recorded the row; the resolver turns the cached og:image into a URL
@@ -201,21 +205,14 @@ use Storyfeed\MediaSlot;
  * make every title written before it clickable — an available target is not
  * an instruction, the same rule the picture slots answer to.
  *
- * ## At most one slot, and a second one throws
+ * ## One picture
  *
- * A block naming two slots is a block asking to be drawn twice. `make()`
- * takes one `image`; the fluent `withIcon()` / `withPreview()` /
- * `withImage()` set the same field and throw a `LogicException` if it is
- * already set, rather than replacing it. Last-wins would turn an authoring
- * mistake into a silent layout, at the one moment — record time — where
- * the author is present to hear about it. Unknown methods are errors here,
- * not features; a second slot is the same kind of thing.
+ * A block has one `image`, and `image()` sets it outright. Fluent and named
+ * forms produce byte-identical rows — the fluent form is sugar, never a
+ * second body type:
  *
- * Fluent and named forms produce byte-identical rows — the fluent form is
- * sugar, never a second body type:
- *
- *     MediaObject::make(subject: $name)->withIcon()->withFiles($pdf)
- *     MediaObject::make(subject: $name, image: MediaSlot::Icon, files: [$pdf])
+ *     MediaObject::make(subject: $name)->image($this->feedMediaIcon())->withFiles($pdf)
+ *     MediaObject::make(subject: $name, image: $this->feedMediaIcon(), files: [$pdf])
  *
  * ## A block naming an empty slot draws nothing
  *
@@ -279,14 +276,14 @@ class MediaObject extends FeedBody
      *
      * @param  string|FeedLink|null  $subject  a title line — only when the headline does not already say it; a {@see FeedLink} makes it the row's way in
      * @param  string|null  $content  prose, as plain text
-     * @param  MediaSlot|null  $image  which of the entity's media slots is this block's picture
+     * @param  FeedImage|DeferredMedia|MediaSlot|null  $image  one of the entity's pictures, from `$this->getFeedMedia()` and its shorthands, or a {@see FeedImage} it stores
      * @param  array<array-key, mixed>  $files  the files this block names, as {@see FeedResource} values
      * @param  string|FeedLink|null  $footnote  small print under the content — a credit, an approval; never a second paragraph
      */
     protected function __construct(
         string|FeedLink|null $subject = null,
         ?string $content = null,
-        ?MediaSlot $image = null,
+        FeedImage|DeferredMedia|MediaSlot|null $image = null,
         array $files = [],
         string|FeedLink|null $footnote = null,
     ) {
@@ -329,11 +326,12 @@ class MediaObject extends FeedBody
 
     /**
      * 3 since 2026-10-09: a field is written only when it is set. 4 since
-     * 2026-10-09: a link carries `modal` and `attributes` (#79).
+     * 2026-10-09: a link carries `modal` and `attributes` (#79). 5 since
+     * 2026-10-09: `image` may be a stored picture or a custom slot (#88).
      */
     public static function version(): int
     {
-        return 4;
+        return 5;
     }
 
     public static function upgrade(array $payload, int $from): array
@@ -342,7 +340,8 @@ class MediaObject extends FeedBody
         // still has to render. A slot name it does not know — a case a later
         // version added, or `url`, which is never a slot — is null, so the
         // text draws and the picture does not, rather than a renderer being
-        // asked for a slot this vocabulary never issued.
+        // asked for a slot this vocabulary never issued. A stored picture
+        // without a src is null for the same reason.
         $image = $payload['image'] ?? null;
 
         // A SUBJECT IS TEXT OR A LINK, and the two are not interchangeable.
@@ -367,7 +366,7 @@ class MediaObject extends FeedBody
         return [
             'subject' => is_string($subject) ? $subject : self::storedLabelledLink($subject),
             'content' => is_string($payload['content'] ?? null) ? $payload['content'] : null,
-            'image' => is_string($image) ? MediaSlot::tryFrom($image)?->value : null,
+            'image' => is_array($image) ? self::storedImage($image) : DeferredMedia::tryFromPayload($image)?->value,
             'files' => array_values(array_filter(
                 array_map(self::resource(...), is_array($files) ? $files : []),
                 is_array(...),
@@ -381,7 +380,7 @@ class MediaObject extends FeedBody
         return [
             'subject' => $this->subject instanceof FeedLink ? self::labelledLink($this->subject) : $this->subject,
             'content' => $this->content,
-            'image' => $this->image?->value,
+            'image' => $this->image instanceof FeedImage ? $this->image->toArray() : $this->image?->value,
             'files' => array_map(fn (FeedResource $file): array => $file->toPayload(), $this->files),
             'footnote' => $this->footnote instanceof FeedLink ? self::labelledLink($this->footnote) : $this->footnote,
         ];
@@ -428,6 +427,26 @@ class MediaObject extends FeedBody
             name: self::text($value['name'] ?? null),
             type: is_string($type) && $type !== '' ? $type : 'Document',
         )->toPayload();
+    }
+
+    /**
+     * Rehydrate a stored picture, or null if it has no src, through
+     * {@see FeedImage} so it carries the shape {@see FeedImage::toArray()} writes.
+     *
+     * @param  array<array-key, mixed>  $value
+     * @return array{src: string, mediaType: string|null, width: int|null, height: int|null, alt: string|null}|null
+     */
+    private static function storedImage(array $value): ?array
+    {
+        $src = self::text($value['src'] ?? null);
+
+        return $src === null ? null : FeedImage::make(
+            src: $src,
+            mediaType: self::text($value['mediaType'] ?? null),
+            width: is_int($value['width'] ?? null) ? $value['width'] : null,
+            height: is_int($value['height'] ?? null) ? $value['height'] : null,
+            alt: is_string($value['alt'] ?? null) ? $value['alt'] : null,
+        )->toArray();
     }
 
     private static function text(mixed $value): ?string

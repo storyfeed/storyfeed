@@ -20,6 +20,7 @@ it('accepts typed resource files through every construction path', function () {
                 'icon' => null, 'image' => null, 'preview' => null,
                 'initials' => null, 'color' => null,
                 'files' => [$payload],
+                'slots' => [],
             ]);
     }
 
@@ -54,6 +55,7 @@ it('always carries the files key on a media object, empty when the media is only
         'preview' => ['src' => '/thumb.png', 'mediaType' => null, 'width' => null, 'height' => null, 'alt' => null],
         'initials' => null, 'color' => null,
         'files' => [],
+        'slots' => [],
     ]);
 });
 

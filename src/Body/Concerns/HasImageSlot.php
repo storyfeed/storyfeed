@@ -2,70 +2,39 @@
 
 namespace Storyfeed\Body\Concerns;
 
-use LogicException;
+use Storyfeed\DeferredMedia;
+use Storyfeed\FeedImage;
 use Storyfeed\MediaSlot;
 
 /**
- * Which of the entity's media slots is this body's picture. The body stores
- * the slot's name, never a URL; the renderer takes the resolved image from
- * the entity's media at read time.
+ * This body's picture: its own, or one of the entity's `feedMedia()` pictures.
  *
- * `image()` sets the slot outright. `withIcon()`, `withPreview()` and
- * `withImage()` refuse a second slot rather than replacing the first: a body
- * naming two slots is a body asking to be drawn twice, and last-wins would
- * turn that mistake into a silent layout.
+ *     ->image(FeedImage::make()->src($url)->alt('Cabinets installed'))   // stored in the body
+ *     ->image($this->feedMediaIcon())                                    // resolved at read time
+ *
+ * The trade-off, stated plainly: a stored picture is cacheable and needs no
+ * `feedMedia()`, and its src ages (disks move, signed links expire). A
+ * `feedMedia()` picture is the body naming a slot, so it always shows the
+ * current picture and stores no URL.
  */
 trait HasImageSlot
 {
-    protected ?MediaSlot $image = null;
+    protected FeedImage|DeferredMedia|null $image = null;
 
     /**
-     * Which of the entity's media slots is this body's picture. Sets it
-     * outright; {@see withIcon()} and its siblings refuse a second slot.
+     * This body's picture: a {@see FeedImage} it stores, or one of the
+     * entity's pictures from `$this->getFeedMedia()` or its shorthands. A
+     * {@see MediaSlot} case names a built-in slot. Sets it outright.
      */
-    public function image(?MediaSlot $image): static
+    public function image(FeedImage|DeferredMedia|MediaSlot|null $image): static
     {
-        $this->image = $image;
+        $this->image = $image instanceof MediaSlot ? DeferredMedia::slot($image) : $image;
 
         return $this;
     }
 
-    /** The picture is the entity's `icon` — which thing this is. */
-    public function withIcon(): static
-    {
-        return $this->namingSlot(MediaSlot::Icon);
-    }
-
-    /** The picture is the entity's `preview` — a stand-in that previews the thing without depicting it. */
-    public function withPreview(): static
-    {
-        return $this->namingSlot(MediaSlot::Preview);
-    }
-
-    /** The picture is the entity's `image` — what the thing looks like. */
-    public function withImage(): static
-    {
-        return $this->namingSlot(MediaSlot::Image);
-    }
-
-    public function getImage(): ?MediaSlot
+    public function getImage(): FeedImage|DeferredMedia|null
     {
         return $this->image;
-    }
-
-    private function namingSlot(MediaSlot $slot): static
-    {
-        if ($this->image !== null) {
-            throw new LogicException(sprintf(
-                'A %s names at most one image slot; this one already names `%s` and cannot also name `%s`.',
-                class_basename(static::class),
-                $this->image->value,
-                $slot->value,
-            ));
-        }
-
-        $this->image = $slot;
-
-        return $this;
     }
 }

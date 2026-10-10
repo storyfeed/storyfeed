@@ -40,7 +40,7 @@ dataset('rows the previous version wrote', fn () => [
         1, ['caption' => null, 'alt' => null, 'width' => null, 'height' => null, 'image' => 'preview'],
     ],
     'Image' => [
-        fn () => Image::make('USS Butterscotch', 'A boat', 640, 480)->withIcon(),
+        fn () => Image::make(MediaSlot::Icon, 'USS Butterscotch', 'A boat', 640, 480),
         1, ['caption' => 'USS Butterscotch', 'alt' => 'A boat', 'width' => 640, 'height' => 480, 'image' => 'icon'],
     ],
     'Component, no props' => [
@@ -110,11 +110,11 @@ it('renders a slim row exactly as the full row the previous version wrote', func
 it('writes nothing but the envelope and the data for a body left at its defaults', function () {
     expect(Excerpt::make('A')->toPayload())->toBe(['$body' => Excerpt::bodyType(), '$v' => 2, 'text' => 'A'])
         ->and(FileAttachment::make()->toPayload())->toBe(['$body' => FileAttachment::bodyType(), '$v' => 2])
-        ->and(Image::make()->toPayload())->toBe(['$body' => Image::bodyType(), '$v' => 2])
+        ->and(Image::make()->toPayload())->toBe(['$body' => Image::bodyType(), '$v' => 3, 'image' => 'preview'])
         ->and(Component::make('Card')->toPayload())->toBe(['$body' => Component::bodyType(), '$v' => 2, 'name' => 'Card'])
         ->and(ItemList::make(['a'])->toPayload())->toBe(['$body' => ItemList::bodyType(), '$v' => 3, 'items' => ['a']])
         ->and(KeyValue::make(['A' => 1])->toPayload())->toBe(['$body' => KeyValue::bodyType(), '$v' => 3, 'items' => [['key' => 'A', 'value' => 1]]])
-        ->and(MediaObject::make()->toPayload())->toBe(['$body' => MediaObject::bodyType(), '$v' => 4])
+        ->and(MediaObject::make()->toPayload())->toBe(['$body' => MediaObject::bodyType(), '$v' => 5])
         ->and(Prose::make('A')->toPayload())->toBe(['$body' => Prose::bodyType(), '$v' => 2, 'content' => 'A']);
 });
 

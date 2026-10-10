@@ -14,6 +14,7 @@ use Storyfeed\Body\Table;
 use Storyfeed\Contracts\FeedBody as FeedBodyContract;
 use Storyfeed\Exceptions\IncompleteFeedValue;
 use Storyfeed\FeedBody;
+use Storyfeed\MediaSlot;
 
 class ShipmentBody extends FeedBody
 {
@@ -119,7 +120,7 @@ it('supports tap(), when() and unless()', function () {
 it('reads shared fields back through their getters', function () {
     expect(KeyValue::make(title: 'Order')->getTitle())->toBe('Order')
         ->and(Prose::make('Text')->getContent())->toBe('Text')
-        ->and(MediaObject::make(footnote: 'Approved')->withIcon()->getImage()?->value)->toBe('icon')
+        ->and(MediaObject::make(footnote: 'Approved')->image(MediaSlot::Icon)->getImage()?->value)->toBe('icon')
         ->and(MediaObject::make(footnote: 'Approved')->getFootnote())->toBe('Approved')
         ->and(MediaObject::make()->getFiles())->toBe([]);
 });

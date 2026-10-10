@@ -19,6 +19,7 @@ it('declares a text avatar through every construction path', function () {
                 'icon' => null, 'image' => null, 'preview' => null,
                 'initials' => 'AC', 'color' => '#438d98',
                 'files' => [],
+                'slots' => [],
             ]);
     }
 });

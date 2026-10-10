@@ -3,8 +3,10 @@
 namespace Storyfeed;
 
 /**
- * Internal vocabulary for the three picture slots in FeedMedia.
- * Bodies name these slots through withIcon(), withPreview(), or withImage().
+ * The three built-in picture slots in FeedMedia. A body shows one through
+ * the Feedable helpers — `$this->feedMediaIcon()`, `feedMediaPreview()`,
+ * `feedMediaImage()`, or `getFeedMedia()` for any slot — which return a
+ * {@see DeferredMedia}; a case is accepted wherever that is.
  * The entity URL is a link destination, never a picture slot.
  */
 enum MediaSlot: string

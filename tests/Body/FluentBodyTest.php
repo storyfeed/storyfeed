@@ -106,12 +106,12 @@ it('gives rows the default missing word unless they say their own', function () 
     expect(array_column($rows, 'placeholder'))->toBe(['unknown', 'not seated']);
 });
 
-it('keeps withIcon() and its siblings, which now change the object too', function () {
+it('sets the picture outright, and appends files with withFiles()', function () {
     $media = MediaObject::make();
 
-    expect($media->withPreview())->toBe($media)
-        ->and($media->toPayload()['image'])->toBe('preview')
-        ->and(fn () => $media->withIcon())->toThrow(LogicException::class)
+    expect($media->image(MediaSlot::Preview))->toBe($media)
+        ->and($media->image(MediaSlot::Icon)->toPayload()['image'])->toBe('icon')
+        ->and(method_exists($media, 'withIcon'))->toBeFalse()
         ->and(MediaObject::make()->files(FeedResource::make('/a'))->withFiles(FeedResource::make('/b'))->toPayload()['files'])
         ->toBe([FeedResource::make('/b')->toPayload()]);
 });

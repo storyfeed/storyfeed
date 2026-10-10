@@ -2,6 +2,8 @@
 
 use Storyfeed\Body\MediaObject;
 use Storyfeed\Contracts\FeedBody;
+use Storyfeed\DeferredMedia;
+use Storyfeed\FeedImage;
 use Storyfeed\FeedLink;
 use Storyfeed\FeedResource;
 use Storyfeed\MediaSlot;
@@ -15,7 +17,7 @@ it('stores a slot name and no image, because the resolver mints the picture at r
 
     $expected = [
         '$body' => 'Storyfeed/Body/MediaObject',
-        '$v' => 4,
+        '$v' => 5,
         'subject' => 'N201 Saffron Butter Rice',
         'content' => 'Basmati replaces Jasmine.',
         'image' => 'icon',
@@ -50,7 +52,7 @@ it('is all-optional, so a block with only files is a file list and no second for
     $pdf = FeedResource::make('https://example.test/n201-v4.pdf', 'application/pdf', 'n201-v4.pdf');
 
     expect(MediaObject::make()->toPayload())
-        ->toBe(['$body' => MediaObject::bodyType(), '$v' => 4])
+        ->toBe(['$body' => MediaObject::bodyType(), '$v' => 5])
         ->and(MediaObject::make(files: [$pdf])->toPayload()['files'])
         ->toBe([['type' => 'Document', 'href' => 'https://example.test/n201-v4.pdf', 'mediaType' => 'application/pdf', 'name' => 'n201-v4.pdf']])
         ->and(rendered(MediaObject::make(subject: 'Minutes', content: 'Two items carried.'))['image'])->toBeNull();
@@ -82,12 +84,12 @@ it('names the files it draws rather than deferring to whatever the entity holds'
 it('produces a byte-identical row from the fluent form, which is sugar and not a second form', function () {
     $pdf = FeedResource::make('https://example.test/n201-v4.pdf', 'application/pdf', 'n201-v4.pdf');
 
-    $fluent = MediaObject::make(subject: 'N201', content: 'Basmati.')->withIcon()->withFiles($pdf);
+    $fluent = MediaObject::make(subject: 'N201', content: 'Basmati.')->image(MediaSlot::Icon)->withFiles($pdf);
     $named = MediaObject::make(subject: 'N201', content: 'Basmati.', image: MediaSlot::Icon, files: [$pdf]);
 
     expect(json_encode($fluent->toArray()))->toBe(json_encode($named->toArray()))
-        ->and(MediaObject::make()->withPreview()->toPayload()['image'])->toBe('preview')
-        ->and(MediaObject::make()->withImage()->toPayload()['image'])->toBe('image');
+        ->and(MediaObject::make()->image(MediaSlot::Preview)->toPayload()['image'])->toBe('preview')
+        ->and(MediaObject::make()->image(MediaSlot::Image)->toPayload()['image'])->toBe('image');
 
     /*
      * The fluent form needs at least one file, so that retiring the bool lands
@@ -98,18 +100,21 @@ it('produces a byte-identical row from the fluent form, which is sugar and not a
     expect(fn () => MediaObject::make()->withFiles())->toThrow(ArgumentCountError::class);
 });
 
-it('names at most one slot, and a second one throws rather than replacing the first', function () {
-    // A block naming two slots is a block asking to be drawn twice. Last-wins
-    // would turn the mistake into a silent layout at the one moment the
-    // author is present to hear about it.
-    expect(fn () => MediaObject::make(image: MediaSlot::Icon)->withImage())
-        ->toThrow(LogicException::class, 'already names `icon`')
-        ->and(fn () => MediaObject::make()->withPreview()->withPreview())
-        ->toThrow(LogicException::class);
+it('stores a picture of its own, or a custom slot', function () {
+    $own = MediaObject::make(subject: 'N201')->image(FeedImage::make('https://cdn.example.test/n201.jpg', 'image/jpeg', 1200, 800, 'Plated'));
 
-    // Files are not a slot; adding them after a slot is fine.
-    $pdf = FeedResource::make('https://example.test/n201-v4.pdf');
-    expect(MediaObject::make()->withIcon()->withFiles($pdf)->toPayload()['image'])->toBe('icon');
+    expect($own->toPayload()['image'])->toBe(['src' => 'https://cdn.example.test/n201.jpg', 'mediaType' => 'image/jpeg', 'width' => 1200, 'height' => 800, 'alt' => 'Plated'])
+        ->and(rendered($own)['image'])->toBe($own->toPayload()['image'])
+        ->and(MediaObject::make()->image(DeferredMedia::slot('sparkline'))->toPayload()['image'])->toBe('slots.sparkline')
+        ->and(MediaObject::upgrade(['image' => ['alt' => 'no src']], 5)['image'])->toBeNull()
+        ->and(MediaObject::upgrade(['image' => 'slots.bad.name'], 5)['image'])->toBeNull()
+        ->and(MediaObject::upgrade(['image' => 'slots.sparkline'], 5)['image'])->toBe('slots.sparkline');
+});
+
+it('has no withIcon(), withPreview() or withImage(): the Feedable helpers replace them', function () {
+    foreach (['withIcon', 'withPreview', 'withImage'] as $method) {
+        expect(method_exists(MediaObject::class, $method))->toBeFalse();
+    }
 });
 
 it('normalizes malformed and unknown-version payloads without throwing', function () {

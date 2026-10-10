@@ -2,6 +2,25 @@
 
 ## Unreleased
 
+### Added
+
+- `Image` can carry its own picture: `Image::make('https://cdn…/day-3.jpg')->alt('…')->width(1200)->height(800)`, or `Image::make(FeedImage::make()->src(…))`. The src is stored in the body: cacheable, needing no `feedMedia()`, and it ages. Stored as `src` (with `mediaType`, `width`, `height`, `alt` and `caption`) in `Image` v3.
+- `getFeedMedia($slot)` on `InteractsWithFeed`: one of the model's `feedMedia()` pictures for a body to show, delivered when the feed is rendered. `Image::make($this->getFeedMedia('sparkline'))`, `MediaObject::make()->image($order->getFeedMedia('preview'))`. It returns a `Storyfeed\DeferredMedia`, never a string, so passing it to `FeedImage::src()` is a type error.
+- `feedMediaIcon()`, `feedMediaPreview()` and `feedMediaImage()` on `InteractsWithFeed` are back, as shorthands for `getFeedMedia('icon' | 'preview' | 'image')`.
+- Custom media slots: `FeedMedia::slot('sparkline', FeedImage|FeedResource)` in the resolver. They are written under `media.slots.<name>` and stay out of the Activity Streams document. A body stores one as `"image": "slots.sparkline"`. `slot()` refuses the built-in names.
+- `MediaObject::image()` takes a `FeedImage` too, stored in the body as `{src, mediaType, width, height, alt}`, in `MediaObject` v5.
+
+### Changed
+
+- `Image::make()`'s first argument is the picture: a URL, a `FeedImage`, `getFeedMedia()` or a `MediaSlot`. `caption`, `alt`, `width` and `height` follow it; named arguments are unchanged. With none, it shows the `preview` slot as before.
+- `Image` v3 writes `image` whenever the body shows a slot, including `preview`. Stored v2 rows upgrade unchanged: an absent `image` is `preview`.
+- Entity `media` carries `slots`, a map of custom slots that is empty when there are none.
+- `HasImageSlot::image()` takes a `FeedImage`, `DeferredMedia` or `MediaSlot`, and `getImage()` returns a `FeedImage` or `DeferredMedia`.
+
+### Removed
+
+- `withIcon()`, `withPreview()` and `withImage()` on `Image` and `MediaObject` (and `HasImageSlot`). Use `->image($this->feedMediaIcon())` on `MediaObject` and `Image::make($this->feedMediaIcon())`, or `feedMediaPreview()` and `feedMediaImage()`.
+
 ## v0.17.0 - 2026-10-09
 
 ### Added

@@ -8,10 +8,12 @@ use Storyfeed\Actions\ForceDeleteFromFeed;
 use Storyfeed\Actions\RestoreToFeed;
 use Storyfeed\Actions\SnapshotEntity;
 use Storyfeed\Actions\TombstoneEntity;
+use Storyfeed\DeferredMedia;
 use Storyfeed\FeedBuilder;
 use Storyfeed\FeedContext;
 use Storyfeed\FeedEntity;
 use Storyfeed\FeedMedia;
+use Storyfeed\MediaSlot;
 use Storyfeed\StoryfeedManager;
 use Storyfeed\Support\Feedables;
 
@@ -241,6 +243,45 @@ trait InteractsWithFeed
     protected static function feedMediaUsing(Closure $resolver): void
     {
         app(Feedables::class)->useMediaResolver(static::class, $resolver);
+    }
+
+    /**
+     * One of this model's `feedMedia()` pictures, for a body to show: the
+     * value, delivered when the feed is rendered.
+     *
+     *     Image::make($this->getFeedMedia('sparkline'))
+     *     MediaObject::make(subject: $this->title)->image($this->getFeedMedia('preview'))
+     *
+     * The built-in slots are `icon`, `preview` and `image`, each with a
+     * shorthand ({@see feedMediaIcon()}); a custom slot is the name given to
+     * `FeedMedia::slot()` in the resolver. Nothing is resolved here: the body
+     * stores the slot's name, and the picture is the one `feedMedia()`
+     * returns for the entity each time the feed is read.
+     */
+    public function getFeedMedia(string|MediaSlot $slot): DeferredMedia
+    {
+        return DeferredMedia::slot($slot);
+    }
+
+    /**
+     * This model's `feedMedia()` icon, for a body to show:
+     * `Image::make($this->feedMediaIcon())`. The same as `getFeedMedia('icon')`.
+     */
+    public function feedMediaIcon(): DeferredMedia
+    {
+        return $this->getFeedMedia(MediaSlot::Icon);
+    }
+
+    /** This model's `feedMedia()` preview. The same as `getFeedMedia('preview')`. */
+    public function feedMediaPreview(): DeferredMedia
+    {
+        return $this->getFeedMedia(MediaSlot::Preview);
+    }
+
+    /** This model's `feedMedia()` image. The same as `getFeedMedia('image')`. */
+    public function feedMediaImage(): DeferredMedia
+    {
+        return $this->getFeedMedia(MediaSlot::Image);
     }
 
     /**
