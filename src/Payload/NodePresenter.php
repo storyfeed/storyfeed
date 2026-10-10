@@ -10,6 +10,7 @@ use Storyfeed\FeedContext;
 use Storyfeed\FeedHeadline;
 use Storyfeed\FeedLink;
 use Storyfeed\FeedNoun;
+use Storyfeed\Grouping\Anchor;
 use Storyfeed\Models\Activity;
 use Storyfeed\Models\FeedTombstone;
 use Storyfeed\Models\Snapshot;
@@ -19,7 +20,6 @@ use Storyfeed\Support\ActivityContextFactory;
 use Storyfeed\Support\ActivityRoles;
 use Storyfeed\Support\Avatar;
 use Storyfeed\Support\Chronology;
-use Storyfeed\Support\GroupId;
 use Storyfeed\Support\LinkResolver;
 use Storyfeed\Support\ModelHydrator;
 use Storyfeed\Support\TombstoneRules;
@@ -570,7 +570,7 @@ class NodePresenter
             'kind' => 'group',
             // Namespaced and versioned across axes and persisted burst hashes,
             // and reversible: FeedBuilder::members() reads the group back from it.
-            'id' => GroupId::encode((string) $slice->axis, (string) $slice->hash),
+            'id' => (new Anchor((string) $slice->axis, (string) $slice->hash))->encode(),
             'axis' => $slice->axis,
             'count' => $slice->count,
             'verb' => $verb,

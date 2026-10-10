@@ -47,7 +47,11 @@ class Axis
      */
     protected array $eligibility = [];
 
-    /** Keys longer than this are digested — silent truncation over-groups. */
+    /**
+     * Recipe keys longer than this are digested — silent truncation
+     * over-groups. A closure's key is always digested: it is the app's own
+     * value (an email, say), and a group's public id carries the key.
+     */
     protected const DIGEST_THRESHOLD = 200;
 
     final protected function __construct(public readonly string $name) {}
@@ -223,8 +227,8 @@ class Axis
 
     /**
      * The activity's key on this axis, or null when the axis does not
-     * apply (a required field is missing). Long keys are digested —
-     * fixed-width, still derived, still recomputable.
+     * apply (a required field is missing). Long keys, and every closure
+     * key, are digested — fixed-width, still derived, still recomputable.
      */
     public function hashFor(Activity $activity): ?string
     {
@@ -240,7 +244,7 @@ class Axis
             return null;
         }
 
-        return strlen($key) > self::DIGEST_THRESHOLD ? sha1($key) : $key;
+        return $this->custom !== null || strlen($key) > self::DIGEST_THRESHOLD ? sha1($key) : $key;
     }
 
     /**
