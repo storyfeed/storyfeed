@@ -7,6 +7,8 @@ use Carbon\CarbonInterface;
 use Closure;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Database\Query\JoinClause;
 use Illuminate\Pagination\Cursor;
@@ -620,9 +622,9 @@ class FeedBuilder
      * a callback `$this`, and this hands over a different, inner builder.
      *
      * Runs once per BRANCH of the read, not once per page: measured at once for
-     * a log page, and twelve times for a live page carrying one group — the
+     * a log page, and seven times for a live page carrying one group — the
      * group stream and its window probe, the solo stream, member ranking and
-     * hydration, and one distinct count per role; a page that fits in a history window also
+     * hydration, and the distinct counts' two branches; a page that fits in a history window also
      * recounts its groups once, plus once more when
      * the page has rows that might share a crowd. Keep it free of side effects.
      *
@@ -1094,6 +1096,9 @@ class FeedBuilder
         $members = $this->fetchMembers($now, $groups);
         ['distinct' => $distinct, 'tombstoned' => $tombstoned, 'featured' => $featured] = $this->countDistinctRoles($now, $groups);
 
+        // Only the chosen page's solos, not every solo the window read.
+        $this->loadSnapshots($candidates->pluck('activity')->filter()->concat($members->flatten(1)));
+
         $slices = $candidates->map(function (FeedCandidate $candidate) use ($members, $distinct, $tombstoned, $featured): GroupSlice {
             if ($candidate->activity !== null) {
                 return GroupSlice::solo($candidate->activity);
@@ -1231,11 +1236,49 @@ class FeedBuilder
                 ->orWhere(fn (ActivityBuilder $tie) => $tie
                     ->where($publishedAt, '=', $cursor['published_at'])
                     ->where($id, '<', $cursor['id']))))
-            ->with(ActivityRoles::cachedRelations())
             ->orderBy($publishedAt, 'desc')
             ->orderBy($id, 'desc')
             ->when($this->offset > 0, fn (ActivityBuilder $q) => $q->offset($this->offset))
             ->limit($this->limit + 1);
+    }
+
+    /**
+     * Every role's cached snapshot for these activities in one query, where
+     * eager loading the cached relations runs one per filled role (#121).
+     * Each relation ends up loaded, null when its column is.
+     *
+     * @param  iterable<int, Activity>  $activities
+     */
+    protected function loadSnapshots(iterable $activities): void
+    {
+        $activities = Collection::make($activities);
+
+        if (! ($first = $activities->first()) instanceof Activity) {
+            return;
+        }
+
+        /** @var array<string, BelongsTo<Model, Activity>> $relations */
+        $relations = Relation::noConstraints(fn () => array_combine(
+            ActivityRoles::cachedRelations(),
+            array_map(fn (string $name) => $first->{$name}(), ActivityRoles::cachedRelations()),
+        ));
+        $query = reset($relations)->getQuery();
+
+        $ids = $activities->flatMap(fn (Activity $activity) => array_map(
+            fn (BelongsTo $relation) => $activity->getAttribute($relation->getForeignKeyName()),
+            array_values($relations),
+        ))->filter(fn (mixed $id) => $id !== null)->unique()->values();
+
+        $snapshots = $ids->isEmpty()
+            ? Collection::make()
+            : $query->whereKey($ids->all())->get()->keyBy(fn (Model $snapshot) => (string) $snapshot->getKey());
+
+        foreach ($activities as $activity) {
+            foreach ($relations as $name => $relation) {
+                $id = $activity->getAttribute($relation->getForeignKeyName());
+                $activity->setRelation($name, $id === null ? null : $snapshots->get((string) $id));
+            }
+        }
     }
 
     /**
@@ -1247,6 +1290,7 @@ class FeedBuilder
     {
         $more = $rows->count() > $this->limit;
         $page = $rows->take($this->limit);
+        $this->loadSnapshots($page);
 
         $slices = $page->map(fn (Activity $activity) => GroupSlice::solo($activity));
 
@@ -1430,7 +1474,7 @@ class FeedBuilder
         //  - COUNT(*) inside the window undercounts a group whose older
         //    members lie below the floor, so a windowed page recounts its
         //    selected groups in one bounded query — the same shape
-        //    countDistinctRoles() already runs once per role a page.
+        //    countDistinctRoles() runs for the page's distinct counts.
         //
         // Measured on MySQL 8.4.11, a 50k-activity fixture, page size 30:
         // see docs/journal for the W114 numbers.
@@ -1787,7 +1831,6 @@ class FeedBuilder
             // Composite parents and members are never solo: the parent is
             // told by its cluster node, the members by their composite.
             ->whereRaw('('.$composites->toSql().') is null', $composites->getBindings())
-            ->with(ActivityRoles::cachedRelations())
             ->orderBy($publishedAt, 'desc')
             ->orderBy($id, 'desc')
             ->limit($this->limit + 1);
@@ -1859,7 +1902,7 @@ class FeedBuilder
         // Hydrate only capped members afterwards, retaining the ranked order.
         $activitiesById = $this->filteredActivities($now, bounded: true)->whereKey($rows->pluck('member_id')->all())
             ->select("{$activities}.*")
-            ->with(ActivityRoles::cachedRelations())->get()->keyBy(fn (Activity $activity) => (string) $activity->getKey());
+            ->get()->keyBy(fn (Activity $activity) => (string) $activity->getKey());
         $members = $this->activityModel()->newCollection();
         foreach ($rows as $row) {
             if ($activity = $activitiesById->get($row->member_id)) {
@@ -1880,18 +1923,21 @@ class FeedBuilder
      * TRUE distinct counts per role per selected group — the source of the
      * payload's `distinct` block. They cannot be derived from `children`,
      * which is capped: a 200-actor group would otherwise report "and 22
-     * more". One aggregate query per role (9/page — acceptable; the Step 3
-     * read model absorbs this someday), each a subquery of distinct
-     * (group, role) rows because multi-column COUNT(DISTINCT …) is not
-     * portable.
+     * more".
      *
-     * The same rows count the tombstones among them (the payload's
-     * `distinct_tombstoned`): a distinct entity is tombstoned when its type
-     * is the tombstone alias, so it costs a SUM, not another query.
+     * One aggregate query for the whole page (#121). Its first branch
+     * unpivots each member into one row per role with a cross join to the
+     * role names, and keeps the distinct (group, role, entity) rows, because
+     * multi-column COUNT(DISTINCT …) is not portable. The same rows count the
+     * tombstones among them (the payload's `distinct_tombstoned`): a distinct
+     * entity is tombstoned when its type is the tombstone alias, so it costs
+     * a SUM, not another query.
      *
-     * One more query counts, per featured role, the members whose featured
+     * Its second branch counts, per featured role, the members whose featured
      * entity is filled (the payload's `distinct.featured`, and whether every
      * member features the same role), and how many of those are tombstones.
+     * One query per role was measured at 30–40 ms of a 100 ms MySQL page at
+     * 1M activities; see docs/journal/performance-timeline.md.
      *
      * @param  Collection<int, FeedCandidate>  $groups
      * @return array{distinct: array<string, array<string, int>>, tombstoned: array<string, array<string, int>>, featured: array<string, array<string, array{count: int, tombstoned: int}>>} groupKey => role => count
@@ -1904,85 +1950,78 @@ class FeedBuilder
 
         $activities = $this->activityModel()->getTable();
         $groupings = $this->groupingModel()->getTable();
+        $connection = $this->activityModel()->getConnection();
+        $grammar = $connection->getQueryGrammar();
 
-        $counts = [];
-        $tombstoned = [];
+        // Role names are package constants, inlined as literals: a bound
+        // parameter in a FROM-less union has no type on PostgreSQL.
+        $names = implode(' union all ', array_map(
+            fn (string $role) => "select '{$role}' as role_name",
+            ActivityRoles::GROUPABLE,
+        ));
 
-        foreach (ActivityRoles::GROUPABLE as $role) {
-            $distinct = $this->selectedGroupMembers($now, $groups)
-                ->whereNotNull("{$activities}.{$role}_type")
-                ->select([
-                    "{$groupings}.bucket as group_bucket",
-                    "{$groupings}.hash as group_hash",
-                    "{$activities}.{$role}_type",
-                    "{$activities}.{$role}_id",
-                ])
-                ->distinct()
-                ->toBase();
-
-            $rows = $this->activityModel()->getConnection()->query()
-                ->fromSub($distinct, 'd')
-                ->groupBy('group_bucket', 'group_hash')
-                ->select(['group_bucket', 'group_hash'])
-                ->selectRaw('count(*) as total')
-                ->selectRaw("sum(case when {$role}_type = ? then 1 else 0 end) as tombstoned", [FeedTombstone::MORPH_ALIAS])
-                ->get();
-
-            foreach ($rows as $row) {
-                $key = $row->group_bucket."\x1f".$row->group_hash;
-                $counts[$key][$role] = (int) $row->total;
-                $tombstoned[$key][$role] = (int) $row->tombstoned;
+        // The member's entity in the joined role, as type and id columns.
+        $column = function (array $roles, string $switch, string $suffix) use ($grammar, $activities): string {
+            $case = 'case '.$switch;
+            foreach ($roles as $role) {
+                $case .= " when '{$role}' then ".$grammar->wrap("{$activities}.{$role}_{$suffix}");
             }
-        }
 
-        return ['distinct' => $counts, 'tombstoned' => $tombstoned, 'featured' => $this->countFeatured($now, $groups)];
-    }
+            return $case.' end';
+        };
 
-    /**
-     * @param  Collection<int, FeedCandidate>  $groups
-     * @return array<string, array<string, array{count: int, tombstoned: int}>> groupKey => featured role => counts
-     */
-    protected function countFeatured(Carbon $now, Collection $groups): array
-    {
-        $activities = $this->activityModel()->getTable();
-        $groupings = $this->groupingModel()->getTable();
-        $grammar = $this->activityModel()->getConnection()->getQueryGrammar();
+        $distinct = $this->selectedGroupMembers($now, $groups)
+            ->crossJoinSub($names, 'roles')
+            ->select([
+                "{$groupings}.bucket as group_bucket",
+                "{$groupings}.hash as group_hash",
+            ])
+            ->selectRaw("'distinct' as count_kind")
+            ->selectRaw($grammar->wrap('roles.role_name').' as role_name')
+            ->selectRaw($column(ActivityRoles::GROUPABLE, $grammar->wrap('roles.role_name'), 'type').' as entity_type')
+            ->selectRaw($column(ActivityRoles::GROUPABLE, $grammar->wrap('roles.role_name'), 'id').' as entity_id')
+            ->distinct()
+            ->toBase();
 
         // The featured entity's type, read from whichever role the row features.
-        $type = 'case '.$grammar->wrap("{$activities}.featured");
-        foreach (ActivityRoles::PAYLOAD as $role) {
-            $type .= " when '{$role}' then ".$grammar->wrap("{$activities}.{$role}_type");
-        }
-        $type .= ' end';
-
         $featured = $this->selectedGroupMembers($now, $groups)
             ->whereNotNull("{$activities}.featured")
             ->select([
                 "{$groupings}.bucket as group_bucket",
                 "{$groupings}.hash as group_hash",
-                "{$activities}.featured as featured_role",
             ])
-            ->selectRaw("{$type} as featured_type")
+            ->selectRaw("'featured' as count_kind")
+            ->selectRaw($grammar->wrap("{$activities}.featured").' as role_name')
+            ->selectRaw($column(ActivityRoles::PAYLOAD, $grammar->wrap("{$activities}.featured"), 'type').' as entity_type')
+            ->selectRaw('null as entity_id')
             ->toBase();
 
-        $rows = $this->activityModel()->getConnection()->query()
-            ->fromSub($featured, 'f')
-            ->whereNotNull('featured_type')
-            ->groupBy('group_bucket', 'group_hash', 'featured_role')
-            ->select(['group_bucket', 'group_hash', 'featured_role'])
+        $rows = $connection->query()
+            ->fromSub($distinct->unionAll($featured), 'd')
+            ->whereNotNull('entity_type')
+            ->groupBy('group_bucket', 'group_hash', 'count_kind', 'role_name')
+            ->select(['group_bucket', 'group_hash', 'count_kind', 'role_name'])
             ->selectRaw('count(*) as total')
-            ->selectRaw('sum(case when featured_type = ? then 1 else 0 end) as tombstoned', [FeedTombstone::MORPH_ALIAS])
+            ->selectRaw('sum(case when entity_type = ? then 1 else 0 end) as tombstoned', [FeedTombstone::MORPH_ALIAS])
             ->get();
 
         $counts = [];
+        $tombstoned = [];
+        $featuredCounts = [];
+
         foreach ($rows as $row) {
-            $counts[$row->group_bucket."\x1f".$row->group_hash][(string) $row->featured_role] = [
-                'count' => (int) $row->total,
-                'tombstoned' => (int) $row->tombstoned,
-            ];
+            $key = $row->group_bucket."\x1f".$row->group_hash;
+            $role = (string) $row->role_name;
+
+            if ($row->count_kind === 'featured') {
+                $featuredCounts[$key][$role] = ['count' => (int) $row->total, 'tombstoned' => (int) $row->tombstoned];
+            } else {
+                $counts[$key][$role] = (int) $row->total;
+                $tombstoned[$key][$role] = (int) $row->tombstoned;
+            }
         }
 
-        return $counts;
+        return ['distinct' => $counts, 'tombstoned' => $tombstoned, 'featured' => $featuredCounts];
     }
 
     /**

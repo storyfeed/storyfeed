@@ -184,7 +184,7 @@ it('runs the callback once per branch of the read, with no side effects assumed'
 
     // The Live branches include the window probe, aggregate, solo stream,
     // member hydration, and distinct-role counts for this single-group page.
-    expect($log)->toBe(1)->and($grouped)->toBe(15);
+    expect($log)->toBe(1)->and($grouped)->toBe(7);
 });
 
 /**
