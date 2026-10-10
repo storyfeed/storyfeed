@@ -28,7 +28,8 @@ function installFrom012(): void
     foreach ([
         'add_ancestors_to_feed_participants_table', 'add_read_path_indexes_to_feed_groupings_table',
         'create_feed_grouping_bursts_table', 'add_time_range_to_feed_activities_table',
-        'add_entities_to_feed_activities_table',
+        'add_entities_to_feed_activities_table', 'add_location_and_generator_to_feed_activities_table',
+        'add_featured_to_feed_activities_table',
     ] as $name) {
         (include __DIR__."/../../database/migrations/{$name}.php.stub")->up();
     }
