@@ -20,6 +20,7 @@ use Storyfeed\Concerns\FiltersRoleTypes;
 use Storyfeed\Contracts\FeedSource;
 use Storyfeed\Contracts\FeedVerb;
 use Storyfeed\Exceptions\FeedMisconfigured;
+use Storyfeed\Grouping\Anchor;
 use Storyfeed\Grouping\NullStrategy;
 use Storyfeed\Models\Activity;
 use Storyfeed\Models\Builders\ActivityBuilder;
@@ -37,7 +38,6 @@ use Storyfeed\Support\ActivityRoles;
 use Storyfeed\Support\Chronology;
 use Storyfeed\Support\FeedCursor;
 use Storyfeed\Support\FeedItem;
-use Storyfeed\Support\GroupId;
 use Storyfeed\Support\InvolvingLookup;
 use Storyfeed\Support\MorphKeyType;
 use Storyfeed\Support\RoleTypes;
@@ -827,11 +827,12 @@ class FeedBuilder
     /**
      * A group's members past its `children`, newest first, as activity nodes:
      * `members($node['id'])` pages a group node the way `cursorPaginate()`
-     * pages the feed. Members are read through this feed's scope and publish
+     * pages the feed. It takes the node's `id` or its `Anchor`, as
+     * `cursorPaginate()` takes a cursor or its encoded string. Members are read through this feed's scope and publish
      * gate, so a reader never sees one the feed would not show. A group with
      * no member left in that scope reads as an empty page.
      */
-    public function members(string $group, ?int $perPage = null, string $cursorName = 'cursor', Cursor|string|null $cursor = null): FeedPaginator
+    public function members(Anchor|string $group, ?int $perPage = null, string $cursorName = 'cursor', Cursor|string|null $cursor = null): FeedPaginator
     {
         $perPage ??= $this->limit;
 
@@ -843,14 +844,14 @@ class FeedBuilder
             throw FeedMisconfigured::membersBySource((string) $this->sourceName);
         }
 
-        $id = GroupId::decode($group)
+        $anchor = $group instanceof Anchor ? $group : Anchor::fromEncoded($group)
             ?? throw new InvalidArgumentException("[{$group}] is not a group id. Pass the `id` of a group node.");
 
         $cursor = $this->paginationCursor($cursor, $cursorName);
 
         app(SnapshotCompiler::class)->compileIfChanged();
 
-        $page = (clone $this)->limit($perPage)->cursor($cursor?->encode())->memberPage(Carbon::now(), $id['axis'], $id['hash']);
+        $page = (clone $this)->limit($perPage)->cursor($cursor?->encode())->memberPage(Carbon::now(), ...$anchor->parameters(['axis', 'hash']));
 
         return new FeedPaginator($page, $perPage, $cursor, $cursorName);
     }

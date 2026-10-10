@@ -64,7 +64,7 @@ it('supports closure recipes with manually declared pins', function () {
         ->key(fn (Activity $a) => "{$a->verb}:".$a->published_at->format('o-W'))
         ->pins(':actor');
 
-    expect($axis->hashFor(axisActivity()))->toBe('revise:2026-33')
+    expect($axis->hashFor(axisActivity()))->toBe(sha1('revise:2026-33'))
         ->and($axis->pinnedTokens())->toBe([':actor', ':actors', ':objects', ':targets', ':contexts', ':origins', ':results', ':instruments', ':locations', ':generators', ':count', ':others']);
 });
 
