@@ -65,7 +65,7 @@ it('fills distant history after a model first declares parent for each walking r
     expect(DB::table(SyncParticipants::table())->where('activity_id', $activity->id)->where('role', 'ancestor')->orderBy('distance')->pluck('distance', 'entity_id')->all())
         ->toBe([$two->id => 1, $one->id => 2, $root->id => 3])
         ->and(array_intersect_key(backfillRows($activity), $before))->toEqual($before)
-        ->and(Storyfeed::feed()->involving($root)->get()->items())->toHaveCount(1);
+        ->and(Storyfeed::feed()->involving($root)->get()->toArray())->toHaveCount(1);
     $filled = backfillRows($activity);
     $new = backfillContainer('New root');
     DB::table('nested_containers')->where('id', $child->id)->update(['parent_id' => $new->id]);

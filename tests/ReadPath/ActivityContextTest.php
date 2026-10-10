@@ -115,7 +115,7 @@ it('passes a context through every headline registration path', function (string
     if ($missing) {
         $delivery->delete();
     }
-    $node = Storyfeed::feed()->get()->toArray()['items'][0];
+    $node = Storyfeed::feed()->get()->toArray()[0];
     expect($node[$missing ? 'missing_headline' : 'headline'])->toBe('Rushed');
 })->with(['headline', 'anonymous', 'missing', 'type headline', 'type anonymous']);
 

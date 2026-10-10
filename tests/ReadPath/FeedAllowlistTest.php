@@ -39,7 +39,7 @@ it('restricts a feed to an allowlist of verbs', function () {
 
     $page = $this->project->storyfeed()->only(['order_placed', 'order_delivered'])->log()->get();
 
-    expect(verbsOf($page->items()))->toBe(['order_delivered', 'order_placed']);
+    expect(verbsOf($page->toArray()))->toBe(['order_delivered', 'order_placed']);
 });
 
 it('excludes a denylist of verbs', function () {
@@ -51,7 +51,7 @@ it('excludes a denylist of verbs', function () {
 
     $page = $this->project->storyfeed()->except(['order_margin_note'])->log()->get();
 
-    expect(verbsOf($page->items()))->toBe(['order_placed']);
+    expect(verbsOf($page->toArray()))->toBe(['order_placed']);
 });
 
 it('takes verb strings, FeedVerb cases and wildcards in one list', function () {
@@ -66,7 +66,7 @@ it('takes verb strings, FeedVerb cases and wildcards in one list', function () {
         ->log()
         ->get();
 
-    expect(verbsOf($page->items()))->toBe(['confirm', 'order_paid', 'order_placed']);
+    expect(verbsOf($page->toArray()))->toBe(['confirm', 'order_paid', 'order_placed']);
 });
 
 it('never throws on a verb that exists nowhere in the registry', function () {
@@ -77,7 +77,7 @@ it('never throws on a verb that exists nowhere in the registry', function () {
 
     $page = $this->project->storyfeed()->only(['a.verb.that.never.was'])->log()->get();
 
-    expect($page->items())->toBeEmpty();
+    expect($page->toArray())->toBeEmpty();
 });
 
 it('treats a wildcard prefix literally, not as a LIKE pattern', function () {
@@ -89,7 +89,7 @@ it('treats a wildcard prefix literally, not as a LIKE pattern', function () {
 
     $page = $this->project->storyfeed()->only(['a%b_*'])->log()->get();
 
-    expect(verbsOf($page->items()))->toBe(['a%b_leak']);
+    expect(verbsOf($page->toArray()))->toBe(['a%b_leak']);
 });
 
 it('refuses an empty allowlist rather than rendering an empty feed', function () {
@@ -101,9 +101,9 @@ it('keeps special characters literal in wildcard allowlists and denylists', func
         Storyfeed::activity()->actor($this->ines)->verb($verb, $this->project)->publish();
     }
 
-    expect(verbsOf($this->project->storyfeed()->only($prefix.'*')->log()->get()->items()))
+    expect(verbsOf($this->project->storyfeed()->only($prefix.'*')->log()->get()->toArray()))
         ->toBe([$prefix.'match'])
-        ->and(verbsOf($this->project->storyfeed()->except($prefix.'*')->log()->get()->items()))
+        ->and(verbsOf($this->project->storyfeed()->except($prefix.'*')->log()->get()->toArray()))
         ->toBe([$other.'match']);
 })->with([
     'percent' => ['a%b', 'axb'],
@@ -125,7 +125,7 @@ it('narrows on repeat calls instead of widening', function () {
         ->get();
 
     // Union would give both; intersection is what makes a preset unwidenable.
-    expect(verbsOf($page->items()))->toBe(['order_paid']);
+    expect(verbsOf($page->toArray()))->toBe(['order_paid']);
 });
 
 it('recomputes group counts inside the allowlist', function () {
@@ -144,7 +144,7 @@ it('recomputes group counts inside the allowlist', function () {
         ['tracking_number' => 'internal_jpg'],
     ))->to($this->project)->publish();
 
-    $unfiltered = $this->project->storyfeed()->live()->get()->items()[0];
+    $unfiltered = $this->project->storyfeed()->live()->get()->toArray()[0];
 
     // Exclude by object, inside a feed already narrowed by verb, so the group
     // spans the allowlist boundary in both dimensions.
@@ -153,7 +153,7 @@ it('recomputes group counts inside the allowlist', function () {
         ->query(fn (ActivityBuilder $q) => $q->whereNot('object_id', 4))
         ->live()
         ->get()
-        ->items()[0];
+        ->toArray()[0];
 
     expect($unfiltered['count'])->toBe(4)
         ->and($filtered['kind'])->toBe('group')
@@ -176,7 +176,7 @@ it('leaks no excluded actor into the distinct-role counts', function () {
     Storyfeed::activity()->actor($priya)->verb('order_confirmed', $file)->to($this->project)->publish();
     Storyfeed::activity()->actor($priya)->verb('order_margin_note', $file)->to($this->project)->publish();
 
-    $unfiltered = $this->project->storyfeed()->get()->items()[0];
+    $unfiltered = $this->project->storyfeed()->get()->toArray()[0];
 
     expect($unfiltered['distinct']['actors'])->toBe(3);
 
@@ -187,7 +187,7 @@ it('leaks no excluded actor into the distinct-role counts', function () {
         ->except(['order_margin_note'])
         ->query(fn (ActivityBuilder $q) => $q->whereNot('actor_id', $priya->getKey()))
         ->get()
-        ->items()[0];
+        ->toArray()[0];
 
     expect($filtered['distinct']['actors'])->toBe(2);
 });
@@ -203,7 +203,7 @@ it('drops a group whose members are all excluded rather than emitting an empty n
 
     $page = $this->project->storyfeed()->only(['order_placed'])->live()->get();
 
-    expect(verbsOf($page->items()))->toBe(['order_placed']);
+    expect(verbsOf($page->toArray()))->toBe(['order_placed']);
 });
 
 it('cannot be widened by a query() callback using a top-level orWhere', function () {
@@ -222,7 +222,7 @@ it('cannot be widened by a query() callback using a top-level orWhere', function
         ->log()
         ->get();
 
-    expect(verbsOf($page->items()))->toBe(['order_placed']);
+    expect(verbsOf($page->toArray()))->toBe(['order_placed']);
 });
 
 it('still refuses a limit set inside a callback when a filter is active', function () {
@@ -245,7 +245,7 @@ it('changes nothing for a feed that declares no filter', function () {
 
     $page = $this->project->storyfeed()->log()->get();
 
-    expect(verbsOf($page->items()))->toBe(['order_margin_note', 'order_placed']);
+    expect(verbsOf($page->toArray()))->toBe(['order_margin_note', 'order_placed']);
 });
 
 /* --- the registry ---------------------------------------------------- */
@@ -264,8 +264,8 @@ it('enters a registered preset by name from the facade and from a model', functi
     $viaFacade = Storyfeed::feed('customer')->involving($this->project)->get();
     $viaModel = $this->project->storyfeed('customer')->get();
 
-    expect(verbsOf($viaFacade->items()))->toBe(['order_placed'])
-        ->and(verbsOf($viaModel->items()))->toBe(['order_placed']);
+    expect(verbsOf($viaFacade->toArray()))->toBe(['order_placed'])
+        ->and(verbsOf($viaModel->toArray()))->toBe(['order_placed']);
 });
 
 it('accepts a preset closure that mutates without returning', function () {
@@ -278,7 +278,7 @@ it('accepts a preset closure that mutates without returning', function () {
     Storyfeed::activity()->actor($this->ines)->verb('internal_note', $this->project)->publish();
     Storyfeed::activity()->actor($this->ines)->verb('order_placed', $this->project)->publish();
 
-    expect(verbsOf(Storyfeed::feed('customer')->get()->items()))->toBe(['order_placed']);
+    expect(verbsOf(Storyfeed::feed('customer')->get()->toArray()))->toBe(['order_placed']);
 });
 
 it('refuses a preset closure that returns something other than a builder', function () {
@@ -304,7 +304,7 @@ it('cannot be widened by a call site adding only() on top of a preset', function
 
     $page = Storyfeed::feed('customer')->only(['order_placed', 'order_margin_note'])->get();
 
-    expect(verbsOf($page->items()))->toBe(['order_placed']);
+    expect(verbsOf($page->toArray()))->toBe(['order_placed']);
 });
 
 it('lets a call site override the preset mode but not the allowlist', function () {
@@ -325,9 +325,9 @@ it('lets a call site override the preset mode but not the allowlist', function (
     $log = Storyfeed::feed('customer')->involving($this->project)->get();
     $live = Storyfeed::feed('customer')->involving($this->project)->live()->get();
 
-    expect($log->items())->toHaveCount(3)
-        ->and($live->items()[0]['kind'])->toBe('group')
-        ->and($live->items()[0]['count'])->toBe(3);
+    expect($log->toArray())->toHaveCount(3)
+        ->and($live->toArray()[0]['kind'])->toBe('group')
+        ->and($live->toArray()[0]['count'])->toBe(3);
 });
 
 it('merges registrations by default and replaces when asked', function () {
@@ -355,8 +355,8 @@ it('composes a preset with involving(), context() and a cursor', function () {
     Storyfeed::activity()->actor($this->ines)->verb('order_placed', $other)->publish();
     Storyfeed::activity()->actor($this->ines)->verb('internal_note', $this->project)->publish();
 
-    $first = $this->project->storyfeed('customer')->get();
-    $second = $this->project->storyfeed('customer')->cursor($first->toArray()['next_cursor'])->get();
+    $first = $this->project->storyfeed('customer')->cursorPaginate();
+    $second = $this->project->storyfeed('customer')->cursorPaginate(cursor: $first->nextCursor());
 
     $ids = collect($first->items())->concat($second->items())->pluck('id');
 

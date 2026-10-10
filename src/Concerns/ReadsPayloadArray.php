@@ -6,8 +6,8 @@ use LogicException;
 
 /**
  * Read-only array access over a slice of the payload, so a reader object
- * answers `$item['verb']` exactly as the array it wraps did. Writes throw,
- * as they do on FeedPage: a reader never changes the JSON.
+ * answers `$item['verb']` exactly as the array it wraps did. Writes throw:
+ * a reader never changes the JSON.
  *
  * @internal
  */

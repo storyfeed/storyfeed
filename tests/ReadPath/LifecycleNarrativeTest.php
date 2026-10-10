@@ -31,7 +31,7 @@ it('destroys the timeline when one verb keeps the latest', function () use ($sta
             ->publish();
     }
 
-    $items = $order->storyfeed()->log()->get()->items();
+    $items = $order->storyfeed()->log()->get()->toArray();
 
     // Six transitions were recorded. One survives.
     expect($items)->toHaveCount(1)
@@ -52,7 +52,7 @@ it('keeps the timeline when the same one verb keeps every row', function () use 
             ->publish();
     }
 
-    expect($order->storyfeed()->log()->get()->items())->toHaveCount(6);
+    expect($order->storyfeed()->log()->get()->toArray())->toHaveCount(6);
 });
 
 it('keeps the timeline with a verb per transition, keeping the latest or not', function () use ($states) {
@@ -68,7 +68,7 @@ it('keeps the timeline with a verb per transition, keeping the latest or not', f
         Storyfeed::activity($to, $order)->publish();
     }
 
-    expect($order->storyfeed()->log()->get()->items())->toHaveCount(6);
+    expect($order->storyfeed()->log()->get()->toArray())->toHaveCount(6);
 });
 
 it('collapses a re-fired transition without touching its neighbours', function () {
@@ -83,7 +83,7 @@ it('collapses a re-fired transition without touching its neighbours', function (
     Storyfeed::activity('cooking', $order)->publish(); // double-click, retried job
     Storyfeed::activity('ready', $order)->publish();
 
-    expect($order->storyfeed()->log()->get()->items())->toHaveCount(3);
+    expect($order->storyfeed()->log()->get()->toArray())->toHaveCount(3);
 });
 
 /**
@@ -102,8 +102,8 @@ it('reads an order timeline with no authenticated user', function () {
     Auth::logout();
 
     expect(Auth::check())->toBeFalse()
-        ->and(Storyfeed::feed()->context($order)->log()->get()->items())->toHaveCount(2)
-        ->and($order->storyfeed()->log()->get()->items())->toHaveCount(2);
+        ->and(Storyfeed::feed()->context($order)->log()->get()->toArray())->toHaveCount(2)
+        ->and($order->storyfeed()->log()->get()->toArray())->toHaveCount(2);
 });
 
 it('misses the placement activity when context() is scoped but never set', function () {
@@ -115,8 +115,8 @@ it('misses the placement activity when context() is scoped but never set', funct
     Storyfeed::activity()->actor($customer)->verb('placed', $order)->publish();
     Storyfeed::activity()->verb('cooking', $order)->context($order)->publish();
 
-    expect(Storyfeed::feed()->context($order)->log()->get()->items())->toHaveCount(1)
-        ->and($order->storyfeed()->log()->get()->items())->toHaveCount(2);
+    expect(Storyfeed::feed()->context($order)->log()->get()->toArray())->toHaveCount(1)
+        ->and($order->storyfeed()->log()->get()->toArray())->toHaveCount(2);
 });
 
 /**
@@ -134,7 +134,7 @@ it('restricts a customer timeline to an allowlist of verbs', function () {
 
     $items = $order->storyfeed()
         ->query(fn ($q) => $q->whereIn('verb', $public))
-        ->log()->get()->items();
+        ->log()->get()->toArray();
 
     expect($items)->toHaveCount(2);
 });

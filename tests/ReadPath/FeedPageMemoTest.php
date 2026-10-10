@@ -17,19 +17,10 @@ it('presents each node once across repeated page readers', function () {
     $page = new FeedPage(collect([$slice]), 'opaque-cursor', $presenter, 'opaque-sync');
 
     expect($calls)->toBe(0);
-    $items = $page['items'];
-    expect($page['next_cursor'])->toBe('opaque-cursor')
-        ->and(isset($page['items']))->toBeTrue()
-        ->and(isset($page['missing']))->toBeFalse()
-        ->and($page['missing'])->toBeNull()
-        ->and($page->toArray())->toBe([
-            'payload_version' => 1,
-            'items' => $items,
-            'next_cursor' => 'opaque-cursor',
-            'sync_token' => 'opaque-sync',
-        ])
+    $items = $page->items();
+    expect($page->nextCursor())->toBe('opaque-cursor')
+        ->and($page->syncToken())->toBe('opaque-sync')
         ->and($page->items())->toBe($items)
-        ->and($page->jsonSerialize()['items'])->toBe($items)
         ->and($page->collect()->first()->toArray())->toBe($items[0])
         ->and($calls)->toBe(1);
 

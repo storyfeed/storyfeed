@@ -17,7 +17,7 @@ use Workbench\App\Models\User;
 /** The feed's nodes whose verb is the one given. */
 function missingHeadlineNodes(string $verb): array
 {
-    return array_values(array_filter(Storyfeed::feed()->get()->toArray()['items'], fn (array $node) => $node['verb'] === $verb));
+    return array_values(array_filter(Storyfeed::feed()->get()->toArray(), fn (array $node) => $node['verb'] === $verb));
 }
 
 beforeEach(function () {

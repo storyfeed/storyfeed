@@ -218,7 +218,7 @@ it('guides exact acknowledgment of a custom-query exclusion without excusing oth
         ->and($finding->subject)->toBe($subject)
         ->and($finding->message)->toContain('custom query', 'storyfeed.doctor.acknowledgments', '--only=aggregates --json');
     $this->artisan('storyfeed:doctor --only=aggregates --fail-on=error')->assertFailed();
-    expect(Storyfeed::feed('portal')->get()->toArray()['items'])->toBeEmpty();
+    expect(Storyfeed::feed('portal')->get()->toArray())->toBeEmpty();
 
     config(['storyfeed.doctor.acknowledgments' => [acknowledgeGap('aggregates.missing', $subject)]]);
     $accepted = Storyfeed::doctor(['aggregates']);

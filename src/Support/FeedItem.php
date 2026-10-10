@@ -16,8 +16,8 @@ use Storyfeed\Concerns\ReadsPayloadArray;
 use Storyfeed\StoryfeedManager;
 
 /**
- * One item of a feed page, an activity or a group, read fluently. Iterating
- * a FeedPage yields them, so a Blade loop over the page reads
+ * One item of a feed page, an activity or a group, read fluently. `get()`
+ * and the paginators yield them, so a Blade loop over the page reads
  * `{{ $item->headline() }}` and `$item->actor()->label()`.
  *
  * The Laravel analogue is `Illuminate\Support\Uri`: it wraps one value,

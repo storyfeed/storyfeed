@@ -70,7 +70,7 @@ it('reports a resolver that throws for a whole class once per page, not once per
 
     Exceptions::fake();
 
-    $items = Storyfeed::feed()->log()->get()->toArray()['items'];
+    $items = Storyfeed::feed()->log()->get()->toArray();
 
     expect($items)->toHaveCount(3);
     Exceptions::assertReported(RuntimeException::class);
@@ -98,7 +98,7 @@ it('reports a second broken class on the same page — dedupe is per class, not 
 
     Exceptions::fake();
 
-    expect(Storyfeed::feed()->log()->get()->toArray()['items'])->toHaveCount(5);
+    expect(Storyfeed::feed()->log()->get()->toArray())->toHaveCount(5);
 
     Exceptions::assertReported(RuntimeException::class);
     Exceptions::assertReported(LogicException::class);
@@ -112,7 +112,7 @@ it('still renders every row, still degrades the link to null', function () {
 
     Exceptions::fake();
 
-    $items = Storyfeed::feed()->log()->get()->toArray()['items'];
+    $items = Storyfeed::feed()->log()->get()->toArray();
 
     expect($items)->toHaveCount(3)
         ->and(array_column(array_column($items, 'object'), 'link'))->toBe([null, null, null])

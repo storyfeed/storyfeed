@@ -123,7 +123,7 @@ function walkPages(callable $feed): array
     $cursor = null;
 
     do {
-        $payload = $feed()->cursor($cursor)->get()->toArray();
+        $payload = $feed()->cursorPaginate(cursor: $cursor)->toArray();
 
         $pages[] = [
             'cursor' => $payload['next_cursor'] ?? null,
@@ -135,7 +135,7 @@ function walkPages(callable $feed): array
                 'count' => $item['count'] ?? null,
                 'children' => array_map(fn ($child) => $child['id'], $item['children'] ?? []),
                 'distinct' => $item['distinct'] ?? null,
-            ], $payload['items']),
+            ], $payload['data']),
         ];
 
         $cursor = $payload['next_cursor'] ?? null;
@@ -243,7 +243,7 @@ it('reports true member counts, not the windowed ones', function () {
     WindowedFeedBuilder::$depths = [2, null];
     WindowedFeedBuilder::$attempts = [];
 
-    $items = (new WindowedFeedBuilder)->live()->limit(1)->get()->toArray()['items'];
+    $items = (new WindowedFeedBuilder)->live()->limit(1)->get()->toArray();
 
     expect($items)->toHaveCount(1)
         ->and($items[0]['kind'])->toBe('group')

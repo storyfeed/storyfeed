@@ -63,7 +63,7 @@ it('reads a feed back when dates are immutable', function () {
 
     // Curation collapses the burst, so the assertion is that the read path
     // survives immutable dates at all — cursors, windows and comparisons.
-    $items = Storyfeed::feed()->limit(10)->get()->items();
+    $items = Storyfeed::feed()->limit(10)->get()->toArray();
 
     expect($items)->toHaveCount(1)
         ->and($items[0]['count'])->toBe(3);
@@ -96,7 +96,7 @@ it('reads a tombstoned row back when dates are immutable', function () {
     Storyfeed::activity()->actor($sally)->verb('confirm', $delivery)->publish();
     $delivery->delete();
 
-    $node = Storyfeed::feed()->get()->toArray()['items'][0];
+    $node = Storyfeed::feed()->get()->toArray()[0];
 
     expect($node['object']['type'])->toBe(FeedTombstone::MORPH_ALIAS)
         ->and($node['object']['tombstone']['deleted'])->toBe(FeedTombstone::sole()->deleted_at?->toISOString())

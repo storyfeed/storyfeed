@@ -172,7 +172,7 @@ it('still releases a composite\'s members when the parent is force-deleted insid
 
     expect(Grouping::query()->where('bucket', 'composite')->count())->toBe(0);
 
-    $items = Storyfeed::feed()->get()->toArray()['items'];
+    $items = Storyfeed::feed()->get()->toArray();
 
     expect($items)->toHaveCount(1)
         ->and($items[0]['axis'])->toBe('repeat')
@@ -193,5 +193,5 @@ it('still drops a force-deleted activity\'s candidate hashes when the delete is 
 
     expect(Grouping::query()->where('activity_id', $ann->getKey())->count())->toBe(0)
         ->and(Grouping::query()->where('bucket', 'actors')->where('winner', true)->count())->toBe(0)
-        ->and(Storyfeed::feed()->get()->toArray()['items'])->toHaveCount(2);
+        ->and(Storyfeed::feed()->get()->toArray())->toHaveCount(2);
 });

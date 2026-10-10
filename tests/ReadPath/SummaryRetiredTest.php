@@ -27,11 +27,11 @@ it('writes no Summary partition axes', function () {
 it('serializes count-one grammar and excludes the retired payload fields', function () {
     Story::verb('comment')->headline(':actor commented :count times');
     Storyfeed::activity()->actor('Ada')->verb('comment')->publish();
-    $item = Storyfeed::feed()->live()->get()->items()[0];
+    $item = Storyfeed::feed()->live()->get()->toArray()[0];
     expect($item['headline_template'])->toBe(':actor commented :count time')
         ->and($item)->not->toHaveKeys(['period', 'phrases', 'phrases_truncated']);
     Storyfeed::activity()->actor('Ada')->verb('comment')->publish();
-    expect(Storyfeed::feed()->live()->get()->items()[0])->not->toHaveKeys(['period', 'phrases', 'phrases_truncated']);
+    expect(Storyfeed::feed()->live()->get()->toArray()[0])->not->toHaveKeys(['period', 'phrases', 'phrases_truncated']);
 });
 
 it('renders count-one grammar with Laravel singular inflection', function (string $template, string $expected) {

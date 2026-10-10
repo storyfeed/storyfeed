@@ -76,5 +76,5 @@ it('never gates production', function () {
     $activity = Storyfeed::activity('confirm', Delivery::create(['tracking_number' => 'TN-1']))->publish();
 
     expect($activity->exists)->toBeTrue()
-        ->and(Storyfeed::feed()->get()->toArray()['items'][0]['headline_template'])->toBeNull();
+        ->and(Storyfeed::feed()->get()->toArray()[0]['headline_template'])->toBeNull();
 });

@@ -116,8 +116,8 @@ it('returns the live model to a resolver, batched: one query per class however m
 
     $items = $page();
 
-    expect($items['items'][0]['object']['link']['href'])->toBe('/deliveries/'.$items['items'][0]['object']['id'])
-        ->and($items['items'][0]['target']['link']['href'])->toBe('/customers/'.$items['items'][0]['target']['id']);
+    expect($items[0]['object']['link']['href'])->toBe('/deliveries/'.$items[0]['object']['id'])
+        ->and($items[0]['target']['link']['href'])->toBe('/customers/'.$items[0]['target']['id']);
 });
 
 it('serves one instance per entity for the whole build — the identity map, not a fresh row each time', function () {
@@ -154,7 +154,7 @@ it('loads relations named in with: on the same batch, so nested access costs not
     expect($nested)->toBe($baseline + 1 + 12)
         ->and($eager)->toBe($baseline + 2);
 
-    $item = collect($page()['items'])->firstWhere('verb', 'confirm');
+    $item = collect($page())->firstWhere('verb', 'confirm');
 
     expect($item['object']['link']['attributes']['data-customer'])->toStartWith('Customer ');
 });
@@ -170,7 +170,7 @@ it('answers null for a row that is gone, and the activity still renders with its
 
     Customer::$hydrates = true;
 
-    $item = Storyfeed::feed()->log()->get()->toArray()['items'][0];
+    $item = Storyfeed::feed()->log()->get()->toArray()[0];
 
     expect(Customer::$hydrated)->toBe([null])
         ->and($item['object']['label'])->toBe('Acme')
@@ -186,7 +186,7 @@ it('hides a soft-deleted row by default and hands it over with withTrashed: true
 
     Customer::$hydrates = true;
 
-    $item = Storyfeed::feed()->log()->get()->toArray()['items'][0];
+    $item = Storyfeed::feed()->log()->get()->toArray()[0];
 
     expect(Customer::$hydrated)->toBe([null])
         ->and($item['object']['link'])->toBeNull();
@@ -194,7 +194,7 @@ it('hides a soft-deleted row by default and hands it over with withTrashed: true
     Customer::$hydrated = [];
     Customer::$hydratesTrashed = true;
 
-    $item = Storyfeed::feed()->log()->get()->toArray()['items'][0];
+    $item = Storyfeed::feed()->log()->get()->toArray()[0];
 
     expect(Customer::$hydrated[0])->toBeInstanceOf(Customer::class)
         ->and(Customer::$hydrated[0]->trashed())->toBeTrue()
@@ -263,7 +263,7 @@ it('does nothing when hydration is switched off: no query, no exception, null', 
     expect(queries_during($page))->toBe($baseline)
         ->and(Customer::$hydrated)->toBe([null]);
 
-    $item = $page()['items'][0];
+    $item = $page()[0];
 
     expect($item['object']['label'])->toBe('Acme')
         ->and($item['object']['link'])->toBeNull();
@@ -278,13 +278,13 @@ it('starts a fresh identity map for every build, even through a singleton-bound 
 
     Customer::$hydrates = true;
 
-    $first = Storyfeed::feed()->log()->get()->toArray()['items'][0];
+    $first = Storyfeed::feed()->log()->get()->toArray()[0];
 
     // Behind the map's back: no model events, so the snapshot keeps 'Before'
     // and only a fresh load can see 'After'.
     DB::table('customers')->where('id', $customer->id)->update(['name' => 'After']);
 
-    $second = Storyfeed::feed()->log()->get()->toArray()['items'][0];
+    $second = Storyfeed::feed()->log()->get()->toArray()[0];
 
     expect($first['object']['label'])->toBe('Before')
         ->and($second['object']['label'])->toBe('After')
@@ -328,11 +328,11 @@ it('lets a hydrating resolver override the stale snapshot label from the live ro
 
     DB::table('customers')->where('id', $customer->id)->update(['name' => 'New Name']);
 
-    $stale = Storyfeed::feed()->log()->get()->toArray()['items'][0];
+    $stale = Storyfeed::feed()->log()->get()->toArray()[0];
 
     Customer::$hydrates = true;
 
-    $fresh = Storyfeed::feed()->log()->get()->toArray()['items'][0];
+    $fresh = Storyfeed::feed()->log()->get()->toArray()[0];
 
     // The known consequence, and its remedy: without the model the label is
     // the snapshot's; a resolver that has paid for the model can return the

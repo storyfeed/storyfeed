@@ -175,7 +175,7 @@ it('agrees with the SQL the read path runs, pattern for pattern', function () {
     foreach ($presets as $index => $preset) {
         Storyfeed::feeds(['probe' => $preset], merge: false);
 
-        $rendered = collect(Storyfeed::feed('probe')->log()->limit(50)->get()->items())
+        $rendered = collect(Storyfeed::feed('probe')->log()->limit(50)->get()->toArray())
             ->pluck('verb')->sort()->values()->all();
 
         $predicted = collect($verbs)

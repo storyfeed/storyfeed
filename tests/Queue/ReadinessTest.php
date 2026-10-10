@@ -165,7 +165,7 @@ it('renders feedMedia in the queued consumer without authenticating an HTTP requ
     queueReadinessRun();
     expect(Auth::user())->toBeNull()
         ->and(Delivery::$feedMediaCalls)->toBeGreaterThan($calls)
-        ->and(PublishListener::$rendered['items'][0]['object']['link']['href'])->toBe('/deliveries/'.$delivery->id);
+        ->and(PublishListener::$rendered[0]['object']['link']['href'])->toBe('/deliveries/'.$delivery->id);
 });
 
 it('keeps explicit actors and anonymity ahead of transported identity and fallback', function (bool $anonymous) {

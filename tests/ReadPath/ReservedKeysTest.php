@@ -21,7 +21,7 @@ it('passes an unknown $-prefixed key through to node.data untouched', function (
         '$acme' => ['tenant' => 42, 'tags' => ['a', 'b']],
     ]);
 
-    $node = Storyfeed::feed()->get()->toArray()['items'][0];
+    $node = Storyfeed::feed()->get()->toArray()[0];
 
     // Same keys and strict values; native JSON storage may reorder object keys.
     expect(jsonObjectKeys($node['data']))->toBe(jsonObjectKeys([
@@ -38,7 +38,7 @@ it('carries a detail — $body and $v inside the app\'s own key — to the rende
 
     recordWithReservedKeys(['change' => $body]);
 
-    $node = Storyfeed::feed()->get()->toArray()['items'][0];
+    $node = Storyfeed::feed()->get()->toArray()[0];
 
     expect(jsonObjectKeys($node['data']))->toBe(jsonObjectKeys(['change' => $body]))
         ->and($node['data']['change']['$v'])->toBe(2);
@@ -55,7 +55,7 @@ it('passes an unknown $-key through on a row written directly to the column', fu
         'ip' => '1.2.3.4',
     ]])->save();
 
-    $node = Storyfeed::feed()->get()->toArray()['items'][0];
+    $node = Storyfeed::feed()->get()->toArray()[0];
 
     expect($node['data'])->toBe($activity->fresh()->data)
         ->and($node)->not->toHaveKey('thread');
@@ -71,7 +71,7 @@ it('passes a stored $change through to node.data as written', function () {
     $activity = recordWithReservedKeys(['placeholder' => true], 'TN-CHG');
     $activity->forceFill(['data' => ['$change' => $change, 'ip' => '1.2.3.4']])->save();
 
-    $node = Storyfeed::feed()->get()->toArray()['items'][0];
+    $node = Storyfeed::feed()->get()->toArray()[0];
 
     expect(jsonObjectKeys($node['data']))->toBe(jsonObjectKeys(['$change' => $change, 'ip' => '1.2.3.4']))
         ->and($node)->not->toHaveKey('change');
@@ -82,7 +82,7 @@ it('preserves historical thread data without upgrading or emitting replies', fun
     $activity = recordWithReservedKeys(['placeholder' => true]);
     $activity->forceFill(['data' => $data])->save();
 
-    $node = Storyfeed::feed()->get()->toArray()['items'][0];
+    $node = Storyfeed::feed()->get()->toArray()[0];
     $document = app(ActivitySerializer::class)->activity($activity->fresh());
 
     expect(jsonObjectKeys($node['data']))->toBe(jsonObjectKeys($data))

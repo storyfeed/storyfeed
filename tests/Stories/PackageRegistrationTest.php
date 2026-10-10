@@ -248,7 +248,7 @@ final class PackageRegistrationTest extends TestCase
         $delivery = Delivery::create(['tracking_number' => 'TN-'.bin2hex(random_bytes(3))]);
         $activity = Storyfeed::activity('ship', $delivery)->publish();
         expect($activity->actor->name)->toBe('Stripe');
-        $items = Storyfeed::feed()->log()->get()->toArray()['items'];
+        $items = Storyfeed::feed()->log()->get()->toArray();
         expect(collect($items)->firstWhere('verb', 'ship')['headline_template'])->toBe(':actor sent :object');
 
         $user = User::create(['name' => 'Sally', 'email' => bin2hex(random_bytes(3)).'@example.com']);

@@ -60,7 +60,7 @@ it('renders a tombstoned row with its former type\'s headline', function () {
 
     $this->delivery->delete();
 
-    $node = Storyfeed::feed()->get()->toArray()['items'][0];
+    $node = Storyfeed::feed()->get()->toArray()[0];
 
     // A string entry ships as the template for the renderer to fill; the
     // tombstone fills `:object` with no label, as it does on every surface.

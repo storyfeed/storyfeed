@@ -26,7 +26,7 @@ function lookupPages(FeedBuilder $feed): array
     $pages = [];
     $cursor = null;
     do {
-        $page = (clone $feed)->limit(3)->cursor($cursor)->get()->toArray();
+        $page = (clone $feed)->limit(3)->cursorPaginate(cursor: $cursor)->toArray();
         unset($page['sync_token']);
         $pages[] = $page;
         $cursor = $page['next_cursor'];
@@ -68,7 +68,7 @@ it('reads the same feed whether an entity is read as quiet or as busy', function
         $busily = $read();
 
         expect($busily)->toBe($quietly)
-            ->and(array_sum(array_map(fn ($page) => count($page['items']), $quietly)))->toBeGreaterThan(0);
+            ->and(array_sum(array_map(fn ($page) => count($page['data']), $quietly)))->toBeGreaterThan(0);
     }
 })->with(['log', 'live'])->with([true, false]);
 
@@ -87,7 +87,7 @@ it('decides once per read how to find the entity', function () {
         InvolvingLookup::useThreshold($threshold);
         foreach (['live', 'log'] as $mode) {
             $queries = [];
-            $items = Storyfeed::feed()->{$mode}()->involving($project)->get()->items();
+            $items = Storyfeed::feed()->{$mode}()->involving($project)->get()->toArray();
             $lookups = array_filter($queries, fn ($sql) => str_contains($sql, 'feed_participants') && ! str_contains($sql, 'feed_activities'));
 
             expect($lookups)->toHaveCount(1)
@@ -113,7 +113,7 @@ it('reads an entity with no activities as an empty feed either way', function (i
     Storyfeed::activity()->actor($user)->verb('comment', Delivery::create(['tracking_number' => 'x']))->publish();
     $nobody = Customer::create(['name' => 'Nobody']);
 
-    expect(Storyfeed::feed()->involving($nobody)->get()->items())->toBeEmpty()
-        ->and(Storyfeed::feed()->log()->involving($nobody)->get()->items())->toBeEmpty()
+    expect(Storyfeed::feed()->involving($nobody)->get()->toArray())->toBeEmpty()
+        ->and(Storyfeed::feed()->log()->involving($nobody)->get()->toArray())->toBeEmpty()
         ->and(Activity::query()->involving($nobody)->count())->toBe(0);
 })->with([0, 100]);

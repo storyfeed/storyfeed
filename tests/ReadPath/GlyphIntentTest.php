@@ -25,7 +25,7 @@ function publishConfirm(): array
 
     Storyfeed::activity('confirm', Delivery::create(['tracking_number' => 'TN-1']))->actor($user)->publish();
 
-    return Storyfeed::feed()->get()->toArray()['items'][0];
+    return Storyfeed::feed()->get()->toArray()[0];
 }
 
 it('emits null for an app that registers bare string icons and nothing else', function () {
@@ -85,7 +85,7 @@ it('emits the intent on a group node from the same pair as its glyph', function 
             ->publish();
     }
 
-    $item = Storyfeed::feed()->get()->toArray()['items'][0];
+    $item = Storyfeed::feed()->get()->toArray()[0];
 
     expect($item['kind'])->toBe('group')
         ->and($item['glyph'])->toBe('bi-cloud-arrow-up')

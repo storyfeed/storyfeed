@@ -40,7 +40,7 @@ it('filters every role by stored morph class on both builders', function (string
     $method = $role.'Type';
     expect(Activity::query()->{$method}($input)->orderBy('id')->pluck('uid')->all())
         ->toBe(array_column($expected, 'uid'))
-        ->and(array_column(Storyfeed::feed()->{$method}($input)->log()->get()->items(), 'id'))
+        ->and(array_column(Storyfeed::feed()->{$method}($input)->log()->get()->toArray(), 'id'))
         ->toBe(array_reverse(array_column($expected, 'uid')))
         ->and($activities[0]->getAttribute($role.'_type'))->toBe('delivery');
 })->with(['actor', 'object', 'target', 'context', 'origin', 'result', 'instrument', 'location', 'generator'])
@@ -61,7 +61,7 @@ it('resolves package aliases independently of an enforced application morph map'
     $party = Storyfeed::party('Stripe');
     $activity = Storyfeed::activity()->actor($party)->action('inspect', $party)->publish();
     expect(Activity::query()->objectType('storyfeed.party')->value('uid'))->toBe($activity->uid)
-        ->and(Storyfeed::feed()->objectType(Party::class)->log()->get()->items()[0]['id'])->toBe($activity->uid)
+        ->and(Storyfeed::feed()->objectType(Party::class)->log()->get()->toArray()[0]['id'])->toBe($activity->uid)
         ->and(Activity::query()->resultType(FeedTombstone::MORPH_ALIAS)->getBindings())->toContain(FeedTombstone::MORPH_ALIAS)
         ->and(Activity::query()->resultType(FeedTombstone::class)->getBindings())->toContain(FeedTombstone::MORPH_ALIAS);
 });
@@ -73,7 +73,7 @@ it('supports unmapped model classes when the application permits them', function
     $activity = Storyfeed::activity()->anonymously()->action('inspect', $model)->publish();
     expect($activity->object_type)->toBe(Delivery::class)
         ->and(Activity::query()->objectType(Delivery::class)->value('uid'))->toBe($activity->uid)
-        ->and(Storyfeed::feed()->objectType($model)->log()->get()->items()[0]['id'])->toBe($activity->uid);
+        ->and(Storyfeed::feed()->objectType($model)->log()->get()->toArray()[0]['id'])->toBe($activity->uid);
 });
 
 it('ANDs types with record filters in either order without changing party-name semantics', function (bool $typeFirst) {
@@ -84,9 +84,9 @@ it('ANDs types with record filters in either order without changing party-name s
     foreach ([Storyfeed::feed()->log(), Activity::query()] as $builder) {
         $record = $builder instanceof FeedBuilder ? 'Stripe' : $party;
         $query = $typeFirst ? $builder->objectType(Party::class)->object($record) : $builder->object($record)->objectType(Party::class);
-        expect($query instanceof FeedBuilder ? array_column($query->get()->items(), 'id') : $query->pluck('uid')->all())->toBe([$wanted->uid]);
+        expect($query instanceof FeedBuilder ? array_column($query->get()->toArray(), 'id') : $query->pluck('uid')->all())->toBe([$wanted->uid]);
         $query->objectType(Delivery::class);
-        expect($query instanceof FeedBuilder ? $query->get()->items() : $query->get()->all())->toBeEmpty();
+        expect($query instanceof FeedBuilder ? $query->get()->toArray() : $query->get()->all())->toBeEmpty();
     }
 })->with([true, false]);
 
@@ -104,7 +104,7 @@ it('ANDs repeated types with participation verbs other roles and callback ORs', 
         if ($builder instanceof FeedBuilder) {
             $builder->query(fn (ActivityBuilder $query) => $query->where('verb', 'inspect')->orWhere('verb', 'ignore'));
         }
-        expect($builder instanceof FeedBuilder ? array_column($builder->get()->items(), 'id') : $builder->pluck('uid')->all())->toBe([$wanted->uid]);
+        expect($builder instanceof FeedBuilder ? array_column($builder->get()->toArray(), 'id') : $builder->pluck('uid')->all())->toBe([$wanted->uid]);
     }
 });
 
@@ -142,15 +142,15 @@ it('recounts mixed-type Live groups and pages only matching children', function 
         Storyfeed::activity()->actor('Excluded')->action($verb, $customer)->origin($customer)->publish();
     }
     $token = SyncToken::current();
-    $unfiltered = Storyfeed::feed()->live()->get()->items();
+    $unfiltered = Storyfeed::feed()->live()->get()->toArray();
     expect($unfiltered)->toHaveCount(3)->and(array_column($unfiltered, 'count'))->toBe([4, 4, 4]);
     $builder = Storyfeed::feed()->objectType(Delivery::class)->originType('delivery')->live();
-    $expected = $builder->get()->items();
+    $expected = $builder->get()->toArray();
     $seen = [];
     $cursor = null;
     do {
-        $page = (clone $builder)->limit(1)->cursor($cursor)->get();
-        array_push($seen, ...$page->items());
+        $page = (clone $builder)->limit(1)->cursorPaginate(cursor: $cursor);
+        array_push($seen, ...$page->toArray()['data']);
         $cursor = $page->nextCursor();
         expect(count($seen))->toBeLessThanOrEqual(3)->and($page->toArray()['sync_token'])->toBe($token);
     } while ($cursor !== null);
@@ -175,12 +175,12 @@ it('pages filtered log and live solos including imported rows and composites', f
         Grouping::query()->delete();
     }
     $builder = Storyfeed::feed()->objectType('delivery')->{$mode}();
-    $expected = $builder->get()->items();
+    $expected = $builder->get()->toArray();
     $seen = [];
     $cursor = null;
     do {
-        $page = (clone $builder)->limit(1)->cursor($cursor)->get();
-        array_push($seen, ...$page->items());
+        $page = (clone $builder)->limit(1)->cursorPaginate(cursor: $cursor);
+        array_push($seen, ...$page->toArray()['data']);
         $cursor = $page->nextCursor();
         expect(count($seen))->toBeLessThanOrEqual(4);
     } while ($cursor !== null);

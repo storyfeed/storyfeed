@@ -71,10 +71,10 @@ it('records where an act happened with at(), and what produced it with generator
         ->and(serialize_one($activity)['summary'])->toBe('Jasper unveiled Storyfeed at GPUG Waterloo from Claude')
         ->and(serialize_one($activity)['location']['name'])->toBe('GPUG Waterloo')
         ->and(serialize_one($activity)['generator']['name'])->toBe('Claude')
-        ->and(Storyfeed::feed()->location($talk)->log()->get()->items())->toHaveCount(1)
-        ->and(Storyfeed::feed()->generator('Claude')->log()->get()->items())->toHaveCount(1)
-        ->and(Storyfeed::feed()->locationType(Customer::class)->log()->get()->items())->toHaveCount(1)
-        ->and(Storyfeed::feed()->involving($talk)->log()->get()->items())->toHaveCount(1);
+        ->and(Storyfeed::feed()->location($talk)->log()->get()->toArray())->toHaveCount(1)
+        ->and(Storyfeed::feed()->generator('Claude')->log()->get()->toArray())->toHaveCount(1)
+        ->and(Storyfeed::feed()->locationType(Customer::class)->log()->get()->toArray())->toHaveCount(1)
+        ->and(Storyfeed::feed()->involving($talk)->log()->get()->toArray())->toHaveCount(1);
 });
 
 it('takes location and generator through record() and enum verbs', function () {

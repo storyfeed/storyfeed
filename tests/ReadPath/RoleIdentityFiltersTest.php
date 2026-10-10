@@ -29,7 +29,7 @@ it('filters each identity by morph alias on both builders', function (string $ro
 
     expect($wanted->getAttribute($role.'_type'))->toBe('delivery')
         ->and(Activity::query()->{$role}($model)->pluck('uid')->all())->toBe([$wanted->uid])
-        ->and(array_column(Storyfeed::feed()->{$role}($model)->log()->get()->items(), 'id'))->toBe([$wanted->uid]);
+        ->and(array_column(Storyfeed::feed()->{$role}($model)->log()->get()->toArray(), 'id'))->toBe([$wanted->uid]);
 })->with(ActivityRoles::STORED);
 
 it('looks up party names without creating rows and keeps unresolved reads empty', function (string $role, string $mode) {
@@ -38,10 +38,10 @@ it('looks up party names without creating rows and keeps unresolved reads empty'
     Storyfeed::activity()->anonymously()->action('inspect')->{$role}('Other App')->publish();
     $count = Party::query()->count();
 
-    expect(array_column(Storyfeed::feed()->{$role}('Connected App')->{$mode}()->get()->items(), 'id'))->toBe([$wanted->uid])
+    expect(array_column(Storyfeed::feed()->{$role}('Connected App')->{$mode}()->get()->toArray(), 'id'))->toBe([$wanted->uid])
         ->and(Activity::query()->{$role}($party)->pluck('uid')->all())->toBe([$wanted->uid])
-        ->and(Storyfeed::feed()->{$role}('Never Used')->{$mode}()->get()->items())->toBeEmpty()
-        ->and(Storyfeed::feed()->{$role}('Never Used')->{$role}($party)->{$mode}()->get()->items())->toBeEmpty()
+        ->and(Storyfeed::feed()->{$role}('Never Used')->{$mode}()->get()->toArray())->toBeEmpty()
+        ->and(Storyfeed::feed()->{$role}('Never Used')->{$role}($party)->{$mode}()->get()->toArray())->toBeEmpty()
         ->and(Party::query()->count())->toBe($count);
 })->with(ActivityRoles::STORED)->with(['log', 'live']);
 
@@ -62,9 +62,9 @@ it('ANDs new identities with types other roles participation verbs and callback 
         if ($builder instanceof FeedBuilder) {
             $builder->query(fn (ActivityBuilder $query) => $query->where('verb', 'inspect')->orWhere('verb', 'ignore'));
         }
-        expect($builder instanceof FeedBuilder ? array_column($builder->get()->items(), 'id') : $builder->pluck('uid')->all())->toBe([$wanted->uid]);
+        expect($builder instanceof FeedBuilder ? array_column($builder->get()->toArray(), 'id') : $builder->pluck('uid')->all())->toBe([$wanted->uid]);
         $builder->{$type}(Delivery::class);
-        expect($builder instanceof FeedBuilder ? $builder->get()->items() : $builder->get()->all())->toBeEmpty();
+        expect($builder instanceof FeedBuilder ? $builder->get()->toArray() : $builder->get()->all())->toBeEmpty();
     }
 })->with(['origin', 'result', 'instrument', 'location', 'generator'])->with([true, false]);
 
@@ -86,7 +86,7 @@ it('locks new Feed-class identities and types together while allowing other role
     expect($feed->boundRoles())->toBe([$role])
         ->and(fn () => $feed->{$role}($subject))->toThrow(FeedMisconfigured::class, 'cannot be rebound')
         ->and(fn () => $feed->{$role.'Type'}(Party::class))->toThrow(FeedMisconfigured::class, 'cannot be rebound');
-    expect(array_column($feed->actor('Operator')->log()->get()->items(), 'id'))->toBe([$wanted->uid])
+    expect(array_column($feed->actor('Operator')->log()->get()->toArray(), 'id'))->toBe([$wanted->uid])
         ->and($feed->boundRoles())->toBe([$role, 'actor']);
 })->with(['origin', 'result', 'instrument', 'location', 'generator'])->with([true, false]);
 
@@ -103,15 +103,15 @@ it('recounts Live groups and aggregates and pages matching children through name
         }
         Storyfeed::activity()->actor('Excluded')->action($verb, Delivery::create(['tracking_number' => $verb.'excluded']))->{$role}('Other App')->publish();
     }
-    expect(array_column(Storyfeed::feed()->live()->get()->items(), 'count'))->toBe([4, 4, 4]);
+    expect(array_column(Storyfeed::feed()->live()->get()->toArray(), 'count'))->toBe([4, 4, 4]);
     Storyfeed::feeds(['connected' => fn (FeedBuilder $feed) => $feed->{$role}('Connected App')->live()]);
     $builder = Storyfeed::feed('connected');
-    $expected = $builder->get()->items();
+    $expected = $builder->get()->toArray();
     $seen = [];
     $cursor = null;
     do {
-        $page = (clone $builder)->limit(1)->cursor($cursor)->get();
-        array_push($seen, ...$page->items());
+        $page = (clone $builder)->limit(1)->cursorPaginate(cursor: $cursor);
+        array_push($seen, ...$page->toArray()['data']);
         $cursor = $page->nextCursor();
         expect(count($seen))->toBeLessThanOrEqual(3);
     } while ($cursor !== null);

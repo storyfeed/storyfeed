@@ -10,12 +10,12 @@ use Workbench\App\Models\User;
 it('is null until the first settled-history rewrite, then surfaces in every mode', function () {
     Storyfeed::activity()->verb('ping')->publish();
 
-    expect(Storyfeed::feed()->get()->toArray()['sync_token'])->toBeNull();
+    expect(Storyfeed::feed()->cursorPaginate()->toArray()['sync_token'])->toBeNull();
 
     $token = SyncToken::bump();
 
     foreach ([Storyfeed::feed(), Storyfeed::feed()->live(), Storyfeed::feed()->log()] as $feed) {
-        expect($feed->get()->toArray()['sync_token'])->toBe($token);
+        expect($feed->cursorPaginate()->toArray()['sync_token'])->toBe($token);
     }
 
     expect(SyncToken::bump())->not->toBe($token);
@@ -57,7 +57,7 @@ it('does not bump on live automatic minting — head-page rules cover that', fun
     $this->travel(11)->minutes();
     (new CloseBatches)(); // auto-mints a composite
 
-    expect(Storyfeed::feed()->get()->toArray()['items'][0]['axis'])->toBe('composite')
+    expect(Storyfeed::feed()->get()->toArray()[0]['axis'])->toBe('composite')
         ->and(SyncToken::current())->toBeNull();
 });
 
@@ -80,8 +80,8 @@ it('degrades to null when the meta table is missing — the feed never breaks', 
 
     Schema::drop(config('storyfeed.tables.meta'));
 
-    $payload = Storyfeed::feed()->get()->toArray();
+    $payload = Storyfeed::feed()->cursorPaginate()->toArray();
 
-    expect($payload['items'])->toHaveCount(1)
+    expect($payload['data'])->toHaveCount(1)
         ->and($payload['sync_token'])->toBeNull();
 });

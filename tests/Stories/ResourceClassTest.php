@@ -311,7 +311,7 @@ it('registers compiles caches lists and resolves a reserved word resource method
     $delivery = Delivery::create(['tracking_number' => 'T1']);
     $activity = story($key, $delivery)->by($user)->publish();
     expect($activity->verb)->toBe($verb)
-        ->and(Storyfeed::feed()->get()->collect()->first()->headline()->toString())
+        ->and(Storyfeed::feed()->get()->first()->headline()->toString())
         ->toBe(str_replace([':actor', ':object'], ['Dana', 'Delivery #T1'], $headline));
 })->with([
     'default' => ['default', ':actor defaulted on :object'],

@@ -31,7 +31,7 @@ function confirmNode(bool $actor = true, bool $target = true): array
 
     $pending->publish();
 
-    return Storyfeed::feed()->get()->toArray()['items'][0];
+    return Storyfeed::feed()->get()->toArray()[0];
 }
 
 it('resolves optional segments against the roles the activity holds', function (bool $actor, bool $target, string $expected) {
@@ -88,7 +88,7 @@ it('reads a closure result with a role token as a template', function () {
         ->data(['rush' => true])
         ->publish();
 
-    $node = Storyfeed::feed()->get()->toArray()['items'][0];
+    $node = Storyfeed::feed()->get()->toArray()[0];
 
     expect($node['headline_template'])->toBe(':actor rushed :object')
         ->and($node['headline'])->toBeNull();
@@ -120,10 +120,10 @@ it('translates FeedHeadline::trans() in the reader\'s locale, not the boot local
     confirmNode();
 
     app()->setLocale('fr');
-    $french = Storyfeed::feed()->get()->toArray()['items'][0];
+    $french = Storyfeed::feed()->get()->toArray()[0];
 
     app()->setLocale('en');
-    $english = Storyfeed::feed()->get()->toArray()['items'][0];
+    $english = Storyfeed::feed()->get()->toArray()[0];
 
     expect($french['headline_template'])->toBe(':actor a confirmé :object')
         ->and($english['headline_template'])->toBe(':actor confirmed :object');
@@ -174,7 +174,7 @@ it('unserialises a cached closure headline only when its verb renders', function
 
     expect($unserialised('confirm'))->toBeFalse()
         ->and($unserialised('ship'))->toBeFalse()
-        ->and(Storyfeed::feed()->get()->toArray()['items'][0])->toBe($uncached)
+        ->and(Storyfeed::feed()->get()->toArray()[0])->toBe($uncached)
         ->and($unserialised('confirm'))->toBeTrue()
         ->and($unserialised('ship'))->toBeFalse();
 });

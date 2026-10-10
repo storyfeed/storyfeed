@@ -50,7 +50,7 @@ it('persists an authored note and emits its body without a thread or an inferred
         ->and($snapshot->attributed_to)->toBe('https://example.test/authors/original')
         ->and($snapshot->data)->toBe(['content' => 'app-owned', '$content' => 'also app-owned']);
 
-    $item = Storyfeed::feed()->get()->toArray()['items'][0];
+    $item = Storyfeed::feed()->get()->toArray()[0];
     $wire = serialize_one($activity);
     foreach ([$item['object'], $wire['object']] as $object) {
         expect($object['content'])->toBe($note->name)
@@ -63,7 +63,7 @@ it('persists an authored note and emits its body without a thread or an inferred
         ->and($wire['object']['type'])->toBe('Note');
 
     $note->update(['name' => 'cleared']);
-    $item = Storyfeed::feed()->get()->toArray()['items'][0];
+    $item = Storyfeed::feed()->get()->toArray()[0];
     expect($snapshot->fresh()->content)->toBeNull()
         ->and($snapshot->fresh()->media_type)->toBeNull()
         ->and($snapshot->fresh()->attributed_to)->toBeNull()
@@ -88,7 +88,7 @@ it('preserves empty content and omits unspecified body metadata on both read pat
     $snapshot = Snapshot::where('model_type', 'customer')->where('model_id', $customer->id)->firstOrFail();
     $snapshot->update(['content' => '']);
 
-    foreach ([Storyfeed::feed()->get()->toArray()['items'][0]['object'], serialize_one($activity)['object']] as $object) {
+    foreach ([Storyfeed::feed()->get()->toArray()[0]['object'], serialize_one($activity)['object']] as $object) {
         expect($object['content'])->toBe('')
             ->and($object)->not->toHaveKeys(['mediaType', 'attributedTo']);
     }

@@ -251,8 +251,8 @@ function talk_read(string $mode, Customer $talk): array
     $pages = 0;
 
     do {
-        $page = Storyfeed::feed()->involving($talk)->limit(100)->cursor($cursor)->{$mode}()->get();
-        $items = [...$items, ...$page->items()];
+        $page = Storyfeed::feed()->involving($talk)->{$mode}()->cursorPaginate(100, cursor: $cursor);
+        $items = [...$items, ...$page->toArray()['data']];
         $cursor = $page->nextCursor();
         $pages++;
     } while ($cursor !== null && $pages < 20);

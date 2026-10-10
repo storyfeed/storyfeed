@@ -112,7 +112,7 @@ it('leaves no trace of the deleted model\'s label, and renders the tombstone wit
     $this->delivery->forceDelete();
 
     expect(Snapshot::query()->where('label', 'like', '%TN-1%')->exists())->toBeFalse()
-        ->and(Storyfeed::feed()->get()->toArray()['items'][0]['object']['label'])->toBeNull();
+        ->and(Storyfeed::feed()->get()->toArray()[0]['object']['label'])->toBeNull();
 });
 
 it('leaves a permanent tombstone for a model without soft deletes', function () {
@@ -137,13 +137,13 @@ it('stops finding a deleted model\'s history with involving(), and finds it agai
 
     $this->delivery->delete();
 
-    expect(Storyfeed::feed()->involving($this->delivery)->get()->items())->toBeEmpty()
-        ->and(Storyfeed::feed()->involving(FeedTombstone::sole())->get()->items())->not->toBeEmpty();
+    expect(Storyfeed::feed()->involving($this->delivery)->get()->toArray())->toBeEmpty()
+        ->and(Storyfeed::feed()->involving(FeedTombstone::sole())->get()->toArray())->not->toBeEmpty();
 
     $this->delivery->restore();
 
     expect(Activity::query()->involving($this->delivery)->count())->toBe(2)
-        ->and(Storyfeed::feed()->involving($this->delivery)->get()->items())->not->toBeEmpty();
+        ->and(Storyfeed::feed()->involving($this->delivery)->get()->toArray())->not->toBeEmpty();
 });
 
 it('bumps the sync token on a delete and a restore that move activities, and not otherwise', function () {

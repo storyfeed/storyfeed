@@ -240,13 +240,13 @@ describe('what a pruned group reads as', function () {
             aged('view', '1 hour', Delivery::create(['tracking_number' => "New-{$i}"]));
         }
 
-        expect(Storyfeed::feed()->get()->toArray()['items'][0]['count'])->toBe(12);
+        expect(Storyfeed::feed()->get()->toArray()[0]['count'])->toBe(12);
 
         $token = SyncToken::current();
 
         $this->artisan('storyfeed:prune')->assertSuccessful();
 
-        $items = Storyfeed::feed()->get()->toArray()['items'];
+        $items = Storyfeed::feed()->get()->toArray();
 
         expect($items)->toHaveCount(1)
             ->and($items[0]['kind'])->toBe('group')
@@ -267,7 +267,7 @@ describe('what a pruned group reads as', function () {
 
         $this->artisan('storyfeed:prune')->assertSuccessful();
 
-        $items = Storyfeed::feed()->get()->toArray()['items'];
+        $items = Storyfeed::feed()->get()->toArray();
 
         expect($items)->toHaveCount(1)
             ->and($items[0]['kind'])->toBe('activity')
@@ -285,7 +285,7 @@ describe('what a pruned group reads as', function () {
 
         $this->artisan('storyfeed:prune')->assertSuccessful();
 
-        $items = Storyfeed::feed()->get()->toArray()['items'];
+        $items = Storyfeed::feed()->get()->toArray();
 
         expect($items)->toHaveCount(1)
             ->and($items[0]['verb'])->toBe('ping')
@@ -318,7 +318,7 @@ describe('what a pruned group reads as', function () {
 
         $this->artisan('storyfeed:prune')->assertSuccessful();
 
-        $items = Storyfeed::feed()->get()->toArray()['items'];
+        $items = Storyfeed::feed()->get()->toArray();
 
         expect(Activity::query()->find($parent->id))->toBeNull()
             ->and(Activity::query()->count())->toBe(2)

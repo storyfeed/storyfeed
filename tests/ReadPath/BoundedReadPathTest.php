@@ -28,8 +28,8 @@ it('keeps complete payloads and cursors identical to the previous queries', func
         $cursor = null;
         $pages = 0;
         do {
-            $expected = $configure((new ReadPathOracle)->{$mode}()->limit(7))->cursor($cursor)->get()->toArray();
-            $actual = $configure((new FeedBuilder)->{$mode}()->limit(7))->cursor($cursor)->get()->toArray();
+            $expected = $configure((new ReadPathOracle)->{$mode}()->limit(7))->cursorPaginate(cursor: $cursor)->toArray();
+            $actual = $configure((new FeedBuilder)->{$mode}()->limit(7))->cursorPaginate(cursor: $cursor)->toArray();
             expect(jsonObjectKeys($actual))->toBe(jsonObjectKeys($expected));
             $cursor = $actual['next_cursor'];
             $pages++;
@@ -65,8 +65,8 @@ it('keeps independent row aliases for duplicate memberships and joined scopes', 
                 $configure = fn ($feed) => $joined
                     ? $feed->query(fn ($query) => $query->whereNotNull('object_type')->select('verb')->crossJoinSub(DB::query()->selectRaw('1 as id')->unionAll(DB::query()->selectRaw('2 as id')), 'copies'))
                     : $feed;
-                $expected = $configure((new ReadPathOracle)->{$mode}()->limit(7))->get()->toArray();
-                $actual = $configure((new FeedBuilder)->{$mode}()->limit(7))->get()->toArray();
+                $expected = $configure((new ReadPathOracle)->{$mode}()->limit(7))->cursorPaginate()->toArray();
+                $actual = $configure((new FeedBuilder)->{$mode}()->limit(7))->cursorPaginate()->toArray();
                 expect(jsonObjectKeys($actual))->toBe(jsonObjectKeys($expected));
             }
         }

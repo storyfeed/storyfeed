@@ -41,7 +41,7 @@ it('keeps the activity, its link and its other bodies when a deferred body throw
 
     Exceptions::fake();
 
-    $items = Storyfeed::feed()->log()->get()->toArray()['items'];
+    $items = Storyfeed::feed()->log()->get()->toArray();
 
     expect($items)->toHaveCount(1)
         ->and($items[0]['object']['label'])->toBe('Ada')
@@ -62,7 +62,7 @@ it('reports a throwing body once per class per page, and again on the next page'
 
     Exceptions::fake();
 
-    expect(Storyfeed::feed()->log()->get()->toArray()['items'])->toHaveCount(3);
+    expect(Storyfeed::feed()->log()->get()->toArray())->toHaveCount(3);
 
     Exceptions::assertReportedCount(1);
 

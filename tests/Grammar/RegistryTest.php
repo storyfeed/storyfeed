@@ -103,7 +103,7 @@ it('emits headline templates and glyph tokens in the payload', function () {
 
     Storyfeed::activity('confirm', Delivery::create(['tracking_number' => 'TN-1']))->publish();
 
-    $item = Storyfeed::feed()->get()->toArray()['items'][0];
+    $item = Storyfeed::feed()->get()->toArray()[0];
 
     expect($item['headline_template'])->toBe(':actor confirmed :object')
         ->and($item['headline'])->toBeNull()
@@ -116,7 +116,7 @@ it('pre-renders closure grammar as headline with a null template', function () {
     $delivery = Delivery::create(['tracking_number' => 'TN-1']);
     Storyfeed::activity('confirm', $delivery)->publish();
 
-    $item = Storyfeed::feed()->get()->toArray()['items'][0];
+    $item = Storyfeed::feed()->get()->toArray()[0];
 
     expect($item['headline_template'])->toBeNull()
         ->and($item['headline'])->toBe("Delivery {$delivery->id} confirmed");
@@ -129,7 +129,7 @@ it('resolves grammar for group nodes too', function () {
         Storyfeed::activity('upload', Delivery::create(['tracking_number' => "TN-{$i}"]))->publish();
     }
 
-    $item = Storyfeed::feed()->get()->toArray()['items'][0];
+    $item = Storyfeed::feed()->get()->toArray()[0];
 
     expect($item['kind'])->toBe('group')
         ->and($item['headline_template'])->toBe(':actor uploaded deliveries');

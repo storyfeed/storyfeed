@@ -23,7 +23,7 @@ it('matches a type in every direct role on both builders', function (string $rol
     $wanted = Storyfeed::activity()->anonymously()->action('inspect')->{$role}($file)->publish();
     Storyfeed::activity()->anonymously()->action('inspect')->{$role}('Other')->publish();
     expect(Activity::query()->involvingType(Delivery::class, deep: $deep)->pluck('uid')->all())->toBe([$wanted->uid])
-        ->and(array_column(Storyfeed::feed()->involvingType('delivery', deep: $deep)->log()->get()->items(), 'id'))->toBe([$wanted->uid]);
+        ->and(array_column(Storyfeed::feed()->involvingType('delivery', deep: $deep)->log()->get()->toArray(), 'id'))->toBe([$wanted->uid]);
 })->with(['actor', 'object', 'target', 'context', 'origin', 'result', 'instrument', 'location', 'generator'])->with([true, false]);
 
 it('resolves classes instances aliases and lists to stored participant types', function (string $form) {
@@ -40,7 +40,7 @@ it('resolves classes instances aliases and lists to stored participant types', f
     };
     $expected = $form === 'list' ? [$first->uid, $second->uid] : [$first->uid];
     expect(Activity::query()->involvingType($input)->orderBy('id')->pluck('uid')->all())->toBe($expected)
-        ->and(array_column(Storyfeed::feed()->involvingType($input)->log()->get()->items(), 'id'))->toBe(array_reverse($expected));
+        ->and(array_column(Storyfeed::feed()->involvingType($input)->log()->get()->toArray(), 'id'))->toBe(array_reverse($expected));
 })->with(['class', 'instance', 'alias', 'list']);
 
 it('rejects unknown types and empty lists on both builders', function (string $builder) {
@@ -55,7 +55,7 @@ it('resolves package participant aliases without the application morph map', fun
     Relation::enforceMorphMap(['delivery' => Delivery::class], merge: false);
     $activity = Storyfeed::activity()->actor('Operator')->action('inspect')->publish();
     expect(Activity::query()->involvingType('storyfeed.party')->value('uid'))->toBe($activity->uid)
-        ->and(Storyfeed::feed()->involvingType(Party::class)->log()->get()->items()[0]['id'])->toBe($activity->uid);
+        ->and(Storyfeed::feed()->involvingType(Party::class)->log()->get()->toArray()[0]['id'])->toBe($activity->uid);
 });
 
 function involvingTypeHistory(): array
@@ -76,8 +76,8 @@ it('reads recorded ancestor types and excludes ancestor-only matches in direct m
     $token = SyncToken::current();
     expect(Activity::query()->involvingType(Customer::class)->orderBy('id')->pluck('uid')->all())->toBe([$nested->uid, $direct->uid])
         ->and(Activity::query()->involvingType(Customer::class, deep: false)->pluck('uid')->all())->toBe([$direct->uid])
-        ->and(array_column(Storyfeed::feed()->{$mode}()->involvingType('customer')->get()->items(), 'id'))->toBe([$direct->uid, $nested->uid])
-        ->and(array_column(Storyfeed::feed()->{$mode}()->involvingType($parent, deep: false)->get()->items(), 'id'))->toBe([$direct->uid])
+        ->and(array_column(Storyfeed::feed()->{$mode}()->involvingType('customer')->get()->toArray(), 'id'))->toBe([$direct->uid, $nested->uid])
+        ->and(array_column(Storyfeed::feed()->{$mode}()->involvingType($parent, deep: false)->get()->toArray(), 'id'))->toBe([$direct->uid])
         ->and(SyncToken::current())->toBe($token);
 })->with(['log', 'live']);
 
@@ -90,7 +90,7 @@ it('ANDs participation types with identity verbs role types and other type calls
         if ($builder instanceof FeedBuilder) {
             $builder->query(fn (ActivityBuilder $q) => $q->where('verb', 'inspect')->orWhere('verb', 'ignore'));
         }
-        expect($builder instanceof FeedBuilder ? array_column($builder->get()->items(), 'id') : $builder->pluck('uid')->all())->toBe([$nested->uid]);
+        expect($builder instanceof FeedBuilder ? array_column($builder->get()->toArray(), 'id') : $builder->pluck('uid')->all())->toBe([$nested->uid]);
     }
 });
 
@@ -102,29 +102,29 @@ it('recounts Live group members and distinct roles within participant types', fu
         $file = Delivery::create(['tracking_number' => 'invoice'.$n]);
         Storyfeed::activity()->actor('Operator')->action('inspect', $file)->origin($n === 4 ? 'Excluded' : $customer)->publish();
     }
-    expect(Storyfeed::feed()->live()->get()->items()[0]['count'])->toBe(4);
-    $node = Storyfeed::feed()->live()->involvingType(Customer::class)->get()->items()[0];
+    expect(Storyfeed::feed()->live()->get()->toArray()[0]['count'])->toBe(4);
+    $node = Storyfeed::feed()->live()->involvingType(Customer::class)->get()->toArray()[0];
     expect($node['kind'])->toBe('group')->and($node['count'])->toBe(3)
         ->and($node['children'])->toHaveCount(2)->and($node['distinct']['objects'])->toBe(3)
-        ->and(Storyfeed::feed()->live()->involvingType('courier')->get()->items())->toBeEmpty();
+        ->and(Storyfeed::feed()->live()->involvingType('courier')->get()->toArray())->toBeEmpty();
 })->with([true, false]);
 
 it('pages both modes and binds participation-type depth independently of identity depth', function (string $mode, bool $deep) {
     [$parent] = involvingTypeHistory();
     Storyfeed::activity()->actor('Operator')->action('another', $parent)->publish();
     $builder = Storyfeed::feed()->{$mode}()->involvingType(Customer::class, deep: $deep)->involving($parent);
-    $expected = $builder->get()->items();
-    $page = (clone $builder)->limit(1)->get();
+    $expected = $builder->get()->toArray();
+    $page = (clone $builder)->limit(1)->cursorPaginate();
     $cursor = $page->nextCursor();
     expect($cursor)->not->toBeNull()
-        ->and(fn () => Storyfeed::feed()->{$mode}()->involvingType(Customer::class, deep: ! $deep)->involving($parent)->cursor($cursor)->get())
+        ->and(fn () => Storyfeed::feed()->{$mode}()->involvingType(Customer::class, deep: ! $deep)->involving($parent)->cursorPaginate(cursor: $cursor))
         ->toThrow(InvalidArgumentException::class, 'different involvingType depth')
-        ->and(fn () => (clone $builder)->involving($parent, deep: false)->cursor($cursor)->get())
+        ->and(fn () => (clone $builder)->involving($parent, deep: false)->cursorPaginate(cursor: $cursor))
         ->toThrow(InvalidArgumentException::class, 'different involving depth');
-    $seen = $page->items();
+    $seen = $page->toArray()['data'];
     do {
-        $page = (clone $builder)->limit(1)->cursor($cursor)->get();
-        array_push($seen, ...$page->items());
+        $page = (clone $builder)->limit(1)->cursorPaginate(cursor: $cursor);
+        array_push($seen, ...$page->toArray()['data']);
         $cursor = $page->nextCursor();
         expect(count($seen))->toBeLessThanOrEqual(count($expected));
     } while ($cursor !== null);
@@ -145,11 +145,11 @@ it('keeps repeated participation-type depths in the cursor', function (string $m
     [$parent] = involvingTypeHistory();
     Storyfeed::activity()->actor('Operator')->action('another', $parent)->publish();
     $builder = Storyfeed::feed()->{$mode}()->involvingType(Customer::class, deep: false)->involvingType(Party::class);
-    $cursor = (clone $builder)->limit(1)->get()->nextCursor();
+    $cursor = (clone $builder)->limit(1)->cursorPaginate()->nextCursor();
     expect($cursor)->not->toBeNull()
-        ->and((clone $builder)->cursor($cursor)->get()->items())->toHaveCount(1)
+        ->and((clone $builder)->cursorPaginate(cursor: $cursor)->items())->toHaveCount(1)
         ->and(fn () => Storyfeed::feed()->{$mode}()->involvingType(Customer::class, deep: false)
-            ->involvingType(Party::class, deep: false)->cursor($cursor)->get())
+            ->involvingType(Party::class, deep: false)->cursorPaginate(cursor: $cursor))
         ->toThrow(InvalidArgumentException::class, 'different involvingType depth');
 })->with(['log', 'live']);
 

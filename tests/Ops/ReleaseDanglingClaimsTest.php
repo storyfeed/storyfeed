@@ -48,7 +48,7 @@ function eraseParentWithoutRelease(Activity $parent): void
 /** How many activities the feed shows, counting through groups. */
 function shown(): int
 {
-    return collect(Storyfeed::feed()->limit(50)->get()->toArray()['items'])->sum(fn (array $item) => $item['count'] ?? 1);
+    return collect(Storyfeed::feed()->limit(50)->get()->toArray())->sum(fn (array $item) => $item['count'] ?? 1);
 }
 
 /** @return list<array<string, mixed>> */
@@ -63,7 +63,7 @@ describe('ForceDeleteFromFeed', function () {
 
         (new ForceDeleteFromFeed)->activities(fn () => Activity::query()->withTrashed()->whereKey($parent->id));
 
-        $items = Storyfeed::feed()->get()->toArray()['items'];
+        $items = Storyfeed::feed()->get()->toArray();
 
         expect(Activity::query()->find($parent->id))->toBeNull()
             ->and(Grouping::query()->where('bucket', 'composite')->count())->toBe(0)
@@ -77,7 +77,7 @@ describe('ForceDeleteFromFeed', function () {
 
         (new ForceDeleteFromFeed)->activities(fn () => Activity::query()->withTrashed()->whereKey([$parent->id, $members[0]]));
 
-        $items = Storyfeed::feed()->get()->toArray()['items'];
+        $items = Storyfeed::feed()->get()->toArray();
 
         expect($items)->toHaveCount(1)
             ->and($items[0]['kind'])->toBe('activity')
@@ -101,7 +101,7 @@ describe('storyfeed:curate --release', function () {
         eraseParentWithoutRelease($parent);
 
         // Not hidden: the story renders from its members' claims.
-        expect(Storyfeed::feed()->get()->toArray()['items'][0]['axis'])->toBe('composite')
+        expect(Storyfeed::feed()->get()->toArray()[0]['axis'])->toBe('composite')
             ->and(shown())->toBe(3);
 
         $finding = Storyfeed::doctor(['claims'])->all()[0];
@@ -116,7 +116,7 @@ describe('storyfeed:curate --release', function () {
             ->expectsOutputToContain('Released 3 composite members whose parent no longer exists.')
             ->assertSuccessful();
 
-        expect(Storyfeed::feed()->get()->toArray()['items'][0]['axis'])->toBe('repeat')
+        expect(Storyfeed::feed()->get()->toArray()[0]['axis'])->toBe('repeat')
             ->and(shown())->toBe(3)
             ->and(Grouping::query()->where('bucket', 'composite')->count())->toBe(0)
             ->and(Storyfeed::doctor(['claims'])->all())->toBeEmpty()
@@ -132,7 +132,7 @@ describe('storyfeed:curate --release', function () {
 
         $this->artisan('storyfeed:curate --release')->assertSuccessful();
 
-        $items = Storyfeed::feed()->get()->toArray()['items'];
+        $items = Storyfeed::feed()->get()->toArray();
 
         expect($items)->toHaveCount(1)
             ->and($items[0]['kind'])->toBe('activity');

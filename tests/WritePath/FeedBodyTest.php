@@ -39,7 +39,7 @@ it('records a payload-only detail author and preserves renderer metadata', funct
     $stored = $activity->fresh()->data;
     expect(jsonObjectKeys($stored['shipment']))->toBe(jsonObjectKeys($body->toPayload()));
 
-    $node = Storyfeed::feed()->get()->toArray()['items'][0];
+    $node = Storyfeed::feed()->get()->toArray()[0];
     expect(jsonObjectKeys($node['data']))->toBe(jsonObjectKeys([
         'shipment' => ['$body' => 'acme/shipment', '$v' => 2, 'status' => 'shipped'],
         '$acme' => ['keep' => true],

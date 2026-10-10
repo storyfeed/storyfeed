@@ -19,13 +19,13 @@ use Workbench\App\Models\User;
 /** The first node of the feed, as a renderer receives it. */
 function tombstonedFeedNode(): array
 {
-    return Storyfeed::feed()->get()->toArray()['items'][0];
+    return Storyfeed::feed()->get()->toArray()[0];
 }
 
 /** Every node of the feed whose verb is the one given. */
 function tombstonedFeedNodes(string $verb): array
 {
-    return array_values(array_filter(Storyfeed::feed()->get()->toArray()['items'], fn (array $node) => $node['verb'] === $verb));
+    return array_values(array_filter(Storyfeed::feed()->get()->toArray(), fn (array $node) => $node['verb'] === $verb));
 }
 
 beforeEach(function () {

@@ -42,7 +42,7 @@ function allMembers($feed, string $group, int $perPage): array
 it('pages a group of 60 across three pages, newest first, past its children', function () {
     pingGroup($this->sally, 60);
 
-    $node = Storyfeed::feed()->get()->toArray()['items'][0];
+    $node = Storyfeed::feed()->get()->toArray()[0];
 
     expect($node['kind'])->toBe('group')
         ->and($node['count'])->toBe(60)
@@ -50,7 +50,7 @@ it('pages a group of 60 across three pages, newest first, past its children', fu
 
     [$ids, $pages] = allMembers(Storyfeed::feed(), $node['id'], 25);
 
-    $expected = Storyfeed::feed()->log()->limit(100)->get()->collect()->pluck('id')->all();
+    $expected = Storyfeed::feed()->log()->limit(100)->get()->pluck('id')->all();
 
     expect($pages)->toBe(3)
         ->and($ids)->toBe($expected)
@@ -59,7 +59,7 @@ it('pages a group of 60 across three pages, newest first, past its children', fu
 
 it('returns a Laravel cursor paginator of activity nodes', function () {
     pingGroup($this->sally, 5);
-    $group = Storyfeed::feed()->get()->toArray()['items'][0]['id'];
+    $group = Storyfeed::feed()->get()->toArray()[0]['id'];
 
     $this->app->instance('request', Request::create('https://example.test/groups'));
     $page = Storyfeed::feed()->members($group, 2);
@@ -67,7 +67,11 @@ it('returns a Laravel cursor paginator of activity nodes', function () {
     expect($page)->toBeInstanceOf(CursorPaginator::class)
         ->and($page->perPage())->toBe(2)
         ->and($page->hasMorePages())->toBeTrue()
-        ->and($page->toArray()['items'])->each->toHaveKey('kind', 'activity');
+        ->and($page->toArray()['data'])->each->toHaveKey('kind', 'activity')
+        ->and(array_keys($page->toArray()))->toBe([
+            'data', 'path', 'per_page', 'next_cursor', 'next_page_url', 'prev_cursor', 'prev_page_url',
+            'payload_version', 'sync_token',
+        ]);
 
     $this->app->instance('request', Request::create($page->nextPageUrl()));
     $second = Storyfeed::feed()->members($group, 2);
@@ -87,12 +91,12 @@ it('reads members through the feed scope', function () {
     }
 
     $feed = Storyfeed::feed()->context($acme);
-    $node = $feed->get()->toArray()['items'][0];
+    $node = $feed->get()->toArray()[0];
 
     [$ids] = allMembers($feed, $node['id'], 7);
 
     expect($ids)->toHaveCount($node['count'])
-        ->and($ids)->toBe($feed->log()->limit(100)->get()->collect()->pluck('id')->all())
+        ->and($ids)->toBe($feed->log()->limit(100)->get()->pluck('id')->all())
         ->and(collect($feed->members($node['id'], 100)->items())->pluck('context.id')->unique()->all())
         ->toBe([(string) $acme->id]);
 });
@@ -101,7 +105,7 @@ it('leaves out members published in the future, as the feed does', function () {
     pingGroup($this->sally, 30);
     Storyfeed::activity()->actor($this->sally)->verb('ping')->publishedAt(now()->addMinutes(5))->publish();
 
-    $node = Storyfeed::feed()->get()->toArray()['items'][0];
+    $node = Storyfeed::feed()->get()->toArray()[0];
     [$ids] = allMembers(Storyfeed::feed(), $node['id'], 10);
 
     expect($node['count'])->toBe(30)->and($ids)->toHaveCount(30);
@@ -119,12 +123,12 @@ it('still lists a member whose instrument was tombstoned', function () {
             ->publishedAt(now()->subSeconds(31 - $i))->publish();
     }
 
-    $before = Storyfeed::feed()->get()->toArray()['items'][0];
+    $before = Storyfeed::feed()->get()->toArray()[0];
     [$ids] = allMembers(Storyfeed::feed(), $before['id'], 10);
 
     $customers->first()->delete();
 
-    $node = Storyfeed::feed()->get()->toArray()['items'][0];
+    $node = Storyfeed::feed()->get()->toArray()[0];
     $members = collect(Storyfeed::feed()->members($node['id'], 100)->items());
 
     expect($node['id'])->toBe($before['id'])
@@ -135,7 +139,7 @@ it('still lists a member whose instrument was tombstoned', function () {
 
 it('reads an empty page for a group the feed cannot see', function () {
     pingGroup($this->sally, 5);
-    $group = Storyfeed::feed()->get()->toArray()['items'][0]['id'];
+    $group = Storyfeed::feed()->get()->toArray()[0]['id'];
     $bob = User::create(['name' => 'Bob', 'email' => 'bob@example.com']);
 
     $page = Storyfeed::feed()->actor($bob)->members($group);

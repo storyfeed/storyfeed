@@ -66,7 +66,7 @@ function itemIds(string $mode, ?string $cursor = null, int $limit = 30): array
         $feed->cursor($cursor);
     }
 
-    return array_column($feed->get()->toArray()['items'], 'id');
+    return array_column($feed->get()->toArray(), 'id');
 }
 
 /** A cursor as it would have been minted before timestamps carried microseconds. */
@@ -139,8 +139,8 @@ it('pages through one second at microsecond positions without repeating or skipp
         $cursor = null;
 
         do {
-            $page = Storyfeed::feed()->{$mode}()->limit(1)->cursor($cursor)->get()->toArray();
-            $seen = [...$seen, ...array_column($page['items'], 'id')];
+            $page = Storyfeed::feed()->{$mode}()->limit(1)->cursorPaginate(cursor: $cursor)->toArray();
+            $seen = [...$seen, ...array_column($page['data'], 'id')];
             $cursor = $page['next_cursor'];
         } while ($cursor !== null);
 
@@ -161,8 +161,8 @@ it('keeps paging correctly from a log() cursor minted before timestamps carried 
     }
     [$a, $b, $c] = $uids;
 
-    $first = Storyfeed::feed()->log()->limit(1)->get()->toArray();
-    expect($first['items'][0]['id'])->toBe($c);
+    $first = Storyfeed::feed()->log()->limit(1)->cursorPaginate()->toArray();
+    expect($first['data'][0]['id'])->toBe($c);
 
     $legacy = legacyCursor($first['next_cursor'], 'feed_activities.published_at');
 
@@ -188,8 +188,8 @@ it('keeps paging correctly from a grouped cursor minted before timestamps carrie
         $all = itemIds('live');
         expect($all)->toHaveCount(3, $stream);
 
-        $first = Storyfeed::feed()->live()->limit(1)->get()->toArray();
-        expect($first['items'][0]['id'])->toBe($all[0], $stream);
+        $first = Storyfeed::feed()->live()->limit(1)->cursorPaginate()->toArray();
+        expect($first['data'][0]['id'])->toBe($all[0], $stream);
 
         $legacy = legacyCursor($first['next_cursor'], 'latest');
 

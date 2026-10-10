@@ -5,6 +5,7 @@ use Illuminate\Http\Request;
 use Illuminate\Pagination\Cursor;
 use Illuminate\Pagination\CursorPaginator;
 use Illuminate\Pagination\Paginator;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Blade;
 use Storyfeed\Facades\Storyfeed;
 use Storyfeed\FeedPaginator;
@@ -21,7 +22,7 @@ beforeEach(function () {
 
 it('resolves request cursors and follows every page without duplicates', function (string $cursorName) {
     $builder = Storyfeed::feed()->log();
-    $all = $builder->get()->items();
+    $all = $builder->get()->toArray();
     $seen = [];
     $url = 'https://example.test/feed';
 
@@ -32,7 +33,7 @@ it('resolves request cursors and follows every page without duplicates', functio
             ->and($page->perPage())->toBe(2)
             ->and($page->previousCursor())->toBeNull()
             ->and($page->previousPageUrl())->toBeNull();
-        array_push($seen, ...$page->toArray()['items']);
+        array_push($seen, ...$page->toArray()['data']);
         $url = $page->nextPageUrl();
         if ($url !== null) {
             parse_str(parse_url($url, PHP_URL_QUERY), $query);
@@ -86,14 +87,20 @@ it('renders Laravel pagination views and honours the application default view', 
     }
 });
 
-it('keeps the feed envelope alongside Laravel JSON keys and iterates FeedItems', function () {
+it('is Laravel\'s cursor paginator JSON plus the two feed keys, and iterates FeedItems', function () {
     $builder = Storyfeed::feed()->log()->limit(2);
     $plain = $builder->get();
     $page = $builder->cursorPaginate();
     $payload = $page->toArray();
 
-    expect(array_intersect_key($payload, $plain->toArray()))->toBe($plain->toArray())
-        ->and($payload['data'])->toBe($payload['items'])
+    expect(array_keys($payload))->toBe([
+        'data', 'path', 'per_page', 'next_cursor', 'next_page_url', 'prev_cursor', 'prev_page_url',
+        'payload_version', 'sync_token',
+    ])
+        ->and($payload['data'])->toBe($plain->toArray())
+        ->and($payload['payload_version'])->toBe(1)
+        ->and($payload['sync_token'])->toBe($page->syncToken())
+        ->and($payload['next_cursor'])->toBe($page->nextCursor()->encode())
         ->and($payload['path'])->toBe($page->path())
         ->and($payload['per_page'])->toBe(2)
         ->and($payload['next_page_url'])->toBe($page->nextPageUrl())
@@ -103,21 +110,34 @@ it('keeps the feed envelope alongside Laravel JSON keys and iterates FeedItems',
         ->and(json_decode(json_encode($page), true))->toBe($payload)
         ->and(iterator_to_array($page)[0])->toBeInstanceOf(FeedItem::class)
         ->and($page->items()[0])->toBeInstanceOf(FeedItem::class)
-        ->and($page[0]->toArray())->toBe($plain->items()[0])
+        ->and($page[0]->toArray())->toBe($plain->toArray()[0])
         ->and($page)->toHaveCount(2);
 });
 
 it('keeps get independent of request pagination and does not mutate the builder', function () {
     $builder = Storyfeed::feed()->log();
     $first = $builder->limit(1)->get();
-    $this->app->instance('request', Request::create('https://example.test/feed?cursor='.urlencode($first->nextCursor())));
+    $next = $builder->cursorPaginate()->nextCursor()->encode();
+    $this->app->instance('request', Request::create('https://example.test/feed?cursor='.urlencode($next)));
     $page = $builder->cursorPaginate(2);
 
-    expect($page->cursor()->encode())->toBe($first->nextCursor())
-        ->and($page->toArray()['items'][0]['id'])->not->toBe($first->items()[0]['id'])
-        ->and($builder->get())->toBeInstanceOf(FeedPage::class)
+    expect($page->cursor()->encode())->toBe($next)
+        ->and($page->toArray()['data'][0]['id'])->not->toBe($first[0]['id'])
+        ->and($builder->get())->toBeInstanceOf(Collection::class)
         ->and($builder->get()->toArray())->toBe($first->toArray())
-        ->and(array_keys($first->toArray()))->toBe(['payload_version', 'items', 'next_cursor', 'sync_token']);
+        ->and(array_is_list($first->toArray()))->toBeTrue();
+});
+
+it('takes a cursor as an argument, or from cursor(), before the request\'s', function () {
+    $ids = Storyfeed::feed()->log()->get()->pluck('id')->all();
+    $builder = Storyfeed::feed()->log()->limit(2);
+    $next = $builder->cursorPaginate()->nextCursor();
+    $this->app->instance('request', Request::create('https://example.test/feed?cursor=ignored'));
+    $read = fn (FeedPaginator $page) => $page->getCollection()->pluck('id')->all();
+
+    expect($read($builder->cursorPaginate(cursor: $next)))->toBe(array_slice($ids, 2, 2))
+        ->and($read($builder->cursorPaginate(cursor: $next->encode())))->toBe(array_slice($ids, 2, 2))
+        ->and($read((clone $builder)->cursor($next->encode())->cursorPaginate()))->toBe(array_slice($ids, 2, 2));
 });
 
 it('defaults to thirty items and rejects nonpositive page sizes', function () {
@@ -162,12 +182,11 @@ it('paginates each feed mode with the same items as get', function (string $mode
     $builder = Storyfeed::feed()->{$mode}()->limit(2);
     $plain = $builder->get();
     $page = $builder->cursorPaginate(2);
-    expect($page->toArray()['items'])->toBe($plain->items())
-        ->and($page->nextCursor()?->encode())->toBe($plain->nextCursor());
+    expect($page->toArray()['data'])->toBe($plain->toArray());
 })->with(['log', 'live']);
 
 it('supports a feed resolver without changing Eloquent cursor resolution', function () {
-    $first = Storyfeed::feed()->log()->limit(1)->get();
+    $first = Storyfeed::feed()->log()->limit(1)->cursorPaginate();
     $this->app->instance('request', Request::create('https://example.test/feed'));
     $resolver = new ReflectionProperty(FeedPaginator::class, 'feedCursorResolver');
     $original = $resolver->getValue();
@@ -176,12 +195,12 @@ it('supports a feed resolver without changing Eloquent cursor resolution', funct
         FeedPaginator::currentCursorResolver(function (string $name) use ($first) {
             expect($name)->toBe('feed_cursor');
 
-            return FeedCursor::fromEncoded($first->nextCursor());
+            return $first->nextCursor();
         });
 
         $page = Storyfeed::feed()->log()->cursorPaginate(2, 'feed_cursor');
-        expect($page->cursor()->encode())->toBe($first->nextCursor())
-            ->and($page->toArray()['items'][0]['id'])->not->toBe($first->items()[0]['id'])
+        expect($page->cursor()->encode())->toBe($first->nextCursor()->encode())
+            ->and($page->toArray()['data'][0]['id'])->not->toBe($first->items()[0]['id'])
             ->and(CursorPaginator::resolveCurrentCursor())->toBeNull();
     } finally {
         $resolver->setValue(null, $original);

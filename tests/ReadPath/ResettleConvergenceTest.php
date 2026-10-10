@@ -68,7 +68,7 @@ it('upgrades a member from a winning lower axis when a higher-priority cluster b
 
     expect(resettleStamps($bobToP1))->toBe(['actors' => true, 'actors_target' => false, 'object' => false, 'repeat' => false, 'targets' => false]);
 
-    $items = collect(Storyfeed::feed()->get()->toArray()['items']);
+    $items = collect(Storyfeed::feed()->get()->toArray());
 
     // P1 is now an actors group of three. Bob's P2 and P3 uploads stay on
     // his targets cluster: membership is by hash, so the cluster still has

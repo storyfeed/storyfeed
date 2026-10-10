@@ -10,9 +10,8 @@ use Workbench\App\Models\Delivery;
 use Workbench\App\Models\User;
 
 /**
- * The readers over real pages: iterating a FeedPage yields FeedItems that
- * read exactly the arrays `items()` returns, and `items()`, `toArray()` and
- * the JSON are what they were.
+ * The readers over real reads: `get()` yields FeedItems that read exactly
+ * the arrays `toArray()` returns, and the JSON is those arrays.
  */
 beforeEach(function () {
     Carbon::setTestNow('2026-09-25 12:00:00');
@@ -33,24 +32,22 @@ it('iterates a page as FeedItems that read the page\'s own arrays', function () 
 
     expect($items)->toHaveCount(1)
         ->and($items[0])->toBeInstanceOf(FeedItem::class)
-        ->and($items[0]->toArray())->toBe($page->items()[0])
-        ->and($page->collect()->map->toArray()->all())->toBe($page->items())
-        ->and($items[0]->headline()->toString())->toBe('Dana confirmed '.$page->items()[0]['object']['label'])
+        ->and($items[0]->toArray())->toBe($page->toArray()[0])
+        ->and($page->map->toArray()->all())->toBe($page->toArray())
+        ->and($items[0]->headline()->toString())->toBe('Dana confirmed '.$page->toArray()[0]['object']['label'])
         ->and($items[0]->actor()->label())->toBe('Dana')
         ->and($items[0]->object()->type())->toBe('delivery');
 });
 
-it('leaves items(), toArray() and the JSON unchanged', function () {
+it('leaves toArray() and the JSON as the nodes themselves', function () {
     Storyfeed::activity('confirm', $this->delivery)->by($this->dana)->publish();
 
     $page = Storyfeed::feed()->get();
 
-    expect($page->items()[0])->toBeArray()
-        ->and($page->toArray()['items'][0])->toBeArray()
-        ->and($page['items'][0])->toBeArray()
-        // collect() on the page is the envelope still: Arrayable wins over Traversable.
-        ->and(collect($page)->keys()->all())->toBe(['payload_version', 'items', 'next_cursor', 'sync_token'])
-        ->and(json_decode(json_encode($page), true)['items'][0]['kind'])->toBe('activity');
+    expect($page->toArray()[0])->toBeArray()
+        ->and($page[0])->toBeInstanceOf(FeedItem::class)
+        ->and(json_decode(json_encode($page), true))->toBe($page->toArray())
+        ->and(json_decode($page->toJson(), true)[0]['kind'])->toBe('activity');
 });
 
 it('reads a real group and its children', function () {
@@ -61,7 +58,7 @@ it('reads a real group and its children', function () {
             ->by($this->dana)->publish();
     }
 
-    $group = Storyfeed::feed()->live()->get()->collect()->sole();
+    $group = Storyfeed::feed()->live()->get()->sole();
 
     expect($group->isGroup())->toBeTrue()
         ->and($group->count())->toBe(4)
@@ -77,7 +74,7 @@ it('reads a real tombstone', function () {
     Storyfeed::activity('confirm', $this->delivery)->by($this->dana)->publish();
     $this->delivery->delete();
 
-    $item = Storyfeed::feed()->get()->collect()->sole();
+    $item = Storyfeed::feed()->get()->sole();
 
     expect($item->object()->isTombstone())->toBeTrue()
         ->and($item->object()->formerType())->toBe('delivery')

@@ -46,7 +46,7 @@ it('carries the DTO payload through to the feed, still uninterpreted', function 
 
     Storyfeed::activity()->verb('opened', $document)->data(new LinkFetch('1.2.3.4'))->publish();
 
-    $item = Storyfeed::feed()->get()->toArray()['items'][0];
+    $item = Storyfeed::feed()->get()->toArray()[0];
     $node = $item['kind'] === 'group' ? $item['children'][0] : $item;
 
     expect($node['data'])->toBe(['ip' => '1.2.3.4', 'geo' => null, 'automated' => false]);

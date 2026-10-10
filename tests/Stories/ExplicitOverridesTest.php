@@ -190,7 +190,7 @@ it('retains package action fingerprints and request actor under a headline overr
 
     expect(Storyfeed::compiledStories()['actions']['delivery.refund'])->toBe($original)
         ->and($activity->actor->name)->toBe('Stripe')
-        ->and(Storyfeed::feed()->get()->toArray()['items'][0]['headline_template'])->toBe(':actor reimbursed :object');
+        ->and(Storyfeed::feed()->get()->toArray()[0]['headline_template'])->toBe(':actor reimbursed :object');
 });
 
 it('retains message bindings and resolved overlays through a fake swap', function () {

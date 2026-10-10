@@ -10,10 +10,12 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Database\Query\JoinClause;
 use Illuminate\Pagination\Cursor;
+use Illuminate\Pagination\Paginator;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Traits\Conditionable;
 use InvalidArgumentException;
+use LogicException;
 use Storyfeed\Concerns\FiltersRoleTypes;
 use Storyfeed\Contracts\FeedSource;
 use Storyfeed\Contracts\FeedVerb;
@@ -34,6 +36,7 @@ use Storyfeed\Sources\SourceRead;
 use Storyfeed\Support\ActivityRoles;
 use Storyfeed\Support\Chronology;
 use Storyfeed\Support\FeedCursor;
+use Storyfeed\Support\FeedItem;
 use Storyfeed\Support\GroupId;
 use Storyfeed\Support\InvolvingLookup;
 use Storyfeed\Support\MorphKeyType;
@@ -150,6 +153,9 @@ class FeedBuilder
     protected ?string $sourceName = null;
 
     protected ?string $cursor = null;
+
+    /** Items to skip before the page: simplePaginate()'s offset. */
+    protected int $offset = 0;
 
     /**
      * Every party name a filter was given, kept when the role is rebound: a
@@ -756,9 +762,11 @@ class FeedBuilder
     }
 
     /**
-     * Paginate the feed using the current request's opaque cursor.
+     * Paginate the feed by opaque cursor: the one passed, else the one given
+     * to cursor(), else the current request's. The default way to page a feed: a cursor holds its place
+     * while new activities arrive above it.
      */
-    public function cursorPaginate(?int $perPage = null, string $cursorName = 'cursor'): FeedPaginator
+    public function cursorPaginate(?int $perPage = null, string $cursorName = 'cursor', Cursor|string|null $cursor = null): FeedPaginator
     {
         $perPage ??= $this->limit;
 
@@ -766,10 +774,57 @@ class FeedBuilder
             throw new InvalidArgumentException('The number of feed items per page must be at least 1.');
         }
 
-        $cursor = FeedPaginator::resolveCurrentCursor($cursorName);
-        $page = (clone $this)->limit($perPage)->cursor($cursor?->encode())->get();
+        $cursor = $this->paginationCursor($cursor, $cursorName);
+        $page = (clone $this)->limit($perPage)->cursor($cursor?->encode())->read();
 
         return new FeedPaginator($page, $perPage, $cursor, $cursorName);
+    }
+
+    /**
+     * Paginate the feed by page number, with no total: the current
+     * request's page, unless one is passed. An offset page over a live feed
+     * shifts as new activities arrive, so a reader paging down can see an
+     * item twice; cursorPaginate() does not.
+     */
+    public function simplePaginate(?int $perPage = null, string $pageName = 'page', ?int $page = null): FeedSimplePaginator
+    {
+        $perPage ??= $this->limit;
+
+        if ($perPage < 1) {
+            throw new InvalidArgumentException('The number of feed items per page must be at least 1.');
+        }
+
+        $page ??= Paginator::resolveCurrentPage($pageName);
+        $page = max(1, $page);
+
+        $builder = (clone $this)->limit($perPage)->cursor(null);
+        $builder->offset = ($page - 1) * $perPage;
+
+        return new FeedSimplePaginator($builder->read(), $perPage, $page, $pageName);
+    }
+
+    /**
+     * Not offered: a total means counting the whole feed after grouping,
+     * which costs a full read. The way Laravel's cursor pagination has no
+     * total, a feed's pages have none.
+     */
+    public function paginate(mixed ...$arguments): never
+    {
+        throw new LogicException(
+            'A feed has no length-aware paginate(): counting a grouped feed means reading all of it. '
+            .'Use cursorPaginate(), or simplePaginate() for numbered pages.',
+        );
+    }
+
+    protected function paginationCursor(Cursor|string|null $cursor, string $cursorName): ?Cursor
+    {
+        return match (true) {
+            $cursor instanceof Cursor => $cursor,
+            is_string($cursor) => FeedCursor::fromEncoded($cursor),
+            // A cursor() on the builder is the caller's own; the request's is a default.
+            $this->cursor !== null => FeedCursor::fromEncoded($this->cursor),
+            default => FeedPaginator::resolveCurrentCursor($cursorName),
+        };
     }
 
     /**
@@ -794,11 +849,7 @@ class FeedBuilder
         $id = GroupId::decode($group)
             ?? throw new InvalidArgumentException("[{$group}] is not a group id. Pass the `id` of a group node.");
 
-        $cursor = match (true) {
-            $cursor instanceof Cursor => $cursor,
-            is_string($cursor) => FeedCursor::fromEncoded($cursor),
-            default => FeedPaginator::resolveCurrentCursor($cursorName),
-        };
+        $cursor = $this->paginationCursor($cursor, $cursorName);
 
         app(SnapshotCompiler::class)->compileIfChanged();
 
@@ -824,13 +875,25 @@ class FeedBuilder
     }
 
     /**
-     * One page of the feed. An empty `items` means the end of the feed: a
+     * The feed's first `limit` items (or the items after `cursor()`), as
+     * nodes: a collection of FeedItem readers whose JSON is a plain array.
+     * To page, use cursorPaginate().
+     *
+     * @return Collection<int, FeedItem>
+     */
+    public function get(): Collection
+    {
+        return $this->read()->collect();
+    }
+
+    /**
+     * One page of the feed. An empty page means the end of the feed: a
      * read whose activities were all deleted mid-read follows its own cursor
      * and reads again, up to five times. Only a pruning burst that empties
      * every one of those reads returns an empty page with a live
      * `next_cursor`. `next_cursor: null` is always the end.
      */
-    public function get(): FeedPage
+    protected function read(): FeedPage
     {
         // Captured once: the published() gate must not shift between the
         // group-selection query and the member fetch.
@@ -864,7 +927,7 @@ class FeedBuilder
         };
 
         [$slices, $next] = (new SourceRead(
-            $source, $this->admitsActivity($now), $this->shouldGroup(), $this->limit, $this->cursor, $this->childrenLimit(),
+            $source, $this->admitsActivity($now), $this->shouldGroup(), $this->limit, $this->cursor, $this->childrenLimit(), $this->offset,
         ))->page();
 
         return new FeedPage($slices, $next, $this->presenter());
@@ -961,7 +1024,7 @@ class FeedBuilder
     /**
      * NO EMPTY PAGE MID-FEED (2026-09-22). A read that drops every slice (see
      * groupedSlices()) follows its own cursor and reads again, so a reader
-     * never has to loop: an empty `items` means the end of the feed. The one
+     * never has to loop: an empty page means the end of the feed. The one
      * exception is the bound — MAX_EMPTY_HOPS further reads, all emptied —
      * which only a pathological pruning burst can reach; the page then comes
      * back empty with the last cursor reached, still well-formed and still
@@ -972,6 +1035,7 @@ class FeedBuilder
     protected function groupedPage(Carbon $now): FeedPage
     {
         $cursor = $this->cursor;
+        $offset = $this->offset;
 
         try {
             for ($hop = 0; ; $hop++) {
@@ -981,11 +1045,14 @@ class FeedBuilder
                     return new FeedPage($slices, $next, $this->presenter(), SyncToken::current());
                 }
 
+                // The cursor already stands past the skipped items.
                 $this->cursor = $next;
+                $this->offset = 0;
             }
         } finally {
             // The builder is reusable; hopping must not move the caller's cursor.
             $this->cursor = $cursor;
+            $this->offset = $offset;
         }
     }
 
@@ -996,10 +1063,18 @@ class FeedBuilder
      */
     protected function groupedSlices(Carbon $now): array
     {
-        $candidates = $this->selectItems($now);
+        // An offset page selects everything up to its end, then skips.
+        $limit = $this->limit;
+        $this->limit += $this->offset;
 
-        $more = $candidates->count() > $this->limit;
-        $candidates = $candidates->take($this->limit)->values();
+        try {
+            $candidates = $this->selectItems($now);
+        } finally {
+            $this->limit = $limit;
+        }
+
+        $more = $candidates->count() > $this->offset + $this->limit;
+        $candidates = $candidates->slice($this->offset, $this->limit)->values();
 
         $next = $more ? $this->encodeCursor($candidates->last()) : null;
 
@@ -1154,6 +1229,7 @@ class FeedBuilder
             ->with(ActivityRoles::cachedRelations())
             ->orderBy("{$activities}.published_at", 'desc')
             ->orderBy("{$activities}.id", 'desc')
+            ->when($this->offset > 0, fn (ActivityBuilder $q) => $q->offset($this->offset))
             ->limit($this->limit + 1);
     }
 

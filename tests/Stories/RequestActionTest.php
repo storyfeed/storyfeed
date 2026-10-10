@@ -128,7 +128,7 @@ it('keeps the compiled definition outside strict mode, and reports it once', fun
     Exceptions::assertReported(fn (StoryMisconfigured $e) => str_contains($e->getMessage(), 'different headline'));
     Exceptions::assertReportedCount(1);
 
-    expect(Storyfeed::feed()->get()->toArray()['items'][0]['headline_template'])->toBe(':actor placed :object');
+    expect(Storyfeed::feed()->get()->toArray()[0]['headline_template'])->toBe(':actor placed :object');
 });
 
 it('runs from the manifest, with nothing registered at boot', function () {

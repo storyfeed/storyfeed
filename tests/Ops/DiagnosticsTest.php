@@ -315,7 +315,7 @@ it('reports a repeat group live renders from activities curation has not reached
     // so Live falls back to repeat for every one of them.
     Grouping::query()->update(['winner' => null]);
 
-    $items = Storyfeed::feed()->get()->toArray()['items'];
+    $items = Storyfeed::feed()->get()->toArray();
     $missing = Storyfeed::doctor(['aggregates'])->withCode('aggregates.missing');
 
     expect($items)->toHaveCount(1)

@@ -89,7 +89,7 @@ it('counts promoted roles beyond capped children on an existing live group', fun
         Storyfeed::activity('confirm')->actor('Operator')->origin('Source '.$i)
             ->result('Output '.$i)->instrument('Tool '.$i)->publish();
     }
-    $items = Storyfeed::feed()->live()->get()->items();
+    $items = Storyfeed::feed()->live()->get()->toArray();
     expect($items)->toHaveCount(1);
     $group = $items[0];
     expect($group['kind'])->toBe('group')->and($group['children'])->toHaveCount(2);

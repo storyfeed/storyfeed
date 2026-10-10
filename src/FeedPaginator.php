@@ -6,32 +6,33 @@ use Closure;
 use Illuminate\Pagination\Cursor;
 use Illuminate\Pagination\CursorPaginator;
 use Illuminate\Pagination\Paginator;
+use Storyfeed\Concerns\CarriesFeedKeys;
 use Storyfeed\Payload\FeedPage;
 use Storyfeed\Support\FeedCursor;
 use Storyfeed\Support\FeedItem;
 
 /**
- * Laravel pagination over a forward-only feed.
+ * Laravel cursor pagination over a forward-only feed: the nodes in `data`,
+ * plus `payload_version` and `sync_token`.
  *
  * @extends CursorPaginator<int, FeedItem>
  */
 class FeedPaginator extends CursorPaginator
 {
-    /** @var array<string, mixed> */
-    protected array $payload;
+    use CarriesFeedKeys;
 
     protected ?FeedCursor $nextFeedCursor;
 
     // Keep feed resolution separate from Eloquent's parameter-decoding resolver.
     protected static ?Closure $feedCursorResolver = null;
 
+    /** @internal */
     public function __construct(FeedPage $page, int $perPage, ?Cursor $cursor = null, string $cursorName = 'cursor')
     {
-        $payload = $page->toArray();
-        $this->payload = $payload;
         $this->nextFeedCursor = FeedCursor::fromEncoded($page->nextCursor());
+        $this->syncToken = $page->syncToken();
 
-        parent::__construct(collect($payload['items'])->map(FeedItem::of(...)), $perPage, $cursor, [
+        parent::__construct($page->collect(), $perPage, $cursor, [
             'path' => Paginator::resolveCurrentPath(),
             'cursorName' => $cursorName,
         ]);
@@ -58,6 +59,7 @@ class FeedPaginator extends CursorPaginator
         return $this->nextFeedCursor;
     }
 
+    /** Null until backward paging exists (#96). */
     public function previousCursor(): ?Cursor
     {
         return null;
@@ -72,13 +74,5 @@ class FeedPaginator extends CursorPaginator
     {
         // Laravel's simple views use this to disable the previous-page link.
         return $this->previousCursor() === null;
-    }
-
-    /** @return array<string, mixed> */
-    public function toArray(): array
-    {
-        $pagination = parent::toArray();
-
-        return array_merge($this->payload, ['items' => $pagination['data']], $pagination);
     }
 }

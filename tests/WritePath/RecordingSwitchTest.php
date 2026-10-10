@@ -170,7 +170,7 @@ describe('config off', function () {
     it('leaves reads untouched', function () {
         Storyfeed::recording(fn () => Storyfeed::activity('ping')->publish());
 
-        expect(Storyfeed::feed()->get()->toArray()['items'])->toHaveCount(1);
+        expect(Storyfeed::feed()->get()->toArray())->toHaveCount(1);
     });
 
     it('is reported by isRecording()', function () {

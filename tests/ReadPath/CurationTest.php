@@ -34,7 +34,7 @@ it('collapses on the actors axis once enough distinct actors join', function () 
         uploadsTo($project, $name);
     }
 
-    $items = Storyfeed::feed()->get()->toArray()['items'];
+    $items = Storyfeed::feed()->get()->toArray();
 
     // "Bob, Sally and Ann uploaded files to Concur" — one node, three actors.
     expect($items)->toHaveCount(1)
@@ -56,7 +56,7 @@ it('reports true distinct counts, not just the ones nested in capped children', 
         uploadsTo($project, $name);
     }
 
-    $item = Storyfeed::feed()->get()->toArray()['items'][0];
+    $item = Storyfeed::feed()->get()->toArray()[0];
 
     expect($item['axis'])->toBe('actors')
         ->and($item['count'])->toBe(5)
@@ -74,7 +74,7 @@ it('keeps one actor repeating on the repeat axis, not targets', function () {
     // say "Sally uploaded to 1 project".
     uploadsTo($project, 'Sally', files: 3);
 
-    $items = Storyfeed::feed()->get()->toArray()['items'];
+    $items = Storyfeed::feed()->get()->toArray();
 
     expect($items)->toHaveCount(1)
         ->and($items[0]['axis'])->toBe('repeat')
@@ -98,7 +98,7 @@ it('leaves activities solo when no aggregate is eligible and the fallback declin
         ->and(Grouping::query()->where('bucket', 'repeat')->exists())->toBeFalse()
         ->and(Grouping::query()->where('winner', false)->count())->toBe(count($rows));
 
-    $items = Storyfeed::feed()->live()->get()->items();
+    $items = Storyfeed::feed()->live()->get()->toArray();
 
     expect($items)->toHaveCount(2)
         ->and(collect($items)->pluck('kind')->unique()->all())->toBe(['activity'])
@@ -125,7 +125,7 @@ it('leaves activities solo when no aggregate is eligible and the fallback declin
         uploadsTo($project, $name);
     }
 
-    $items = Storyfeed::feed()->live()->get()->items();
+    $items = Storyfeed::feed()->live()->get()->toArray();
 
     expect(Grouping::query()->where('bucket', 'actors')->where('winner', true)->count())->toBe(3)
         ->and($items)->toHaveCount(2)
@@ -146,7 +146,7 @@ it('collapses on the targets axis across distinct targets', function () {
             ->publish();
     }
 
-    $items = Storyfeed::feed()->get()->toArray()['items'];
+    $items = Storyfeed::feed()->get()->toArray();
 
     expect($items)->toHaveCount(1)
         ->and($items[0]['axis'])->toBe('targets')
@@ -198,14 +198,14 @@ it('re-decides the cluster when a delete drops it below threshold', function () 
         uploadsTo($project, $name);
     }
 
-    expect(Storyfeed::feed()->get()->toArray()['items'][0]['axis'])->toBe('actors');
+    expect(Storyfeed::feed()->get()->toArray()[0]['axis'])->toBe('actors');
 
     Activity::query()->whereHas('cachedActor', fn ($q) => $q->where('label', 'Ann'))->first()->forceDelete();
 
     // Two actors is below min_actors, so the group must fall apart rather
     // than keep claiming an axis it no longer earns. Each remaining upload
     // is a repeat cluster of one, which renders as a plain activity node.
-    $items = Storyfeed::feed()->get()->toArray()['items'];
+    $items = Storyfeed::feed()->get()->toArray();
 
     expect($items)->toHaveCount(2)
         ->and(collect($items)->pluck('kind')->unique()->values()->all())->toBe(['activity'])
@@ -223,7 +223,7 @@ it('reads uncurated rows as repeat groups, with no backfill cliff', function () 
     // An adopter's rows, migrated but never curated.
     Grouping::query()->update(['winner' => null]);
 
-    $items = Storyfeed::feed()->get()->toArray()['items'];
+    $items = Storyfeed::feed()->get()->toArray();
 
     expect($items)->toHaveCount(1)
         ->and($items[0]['axis'])->toBe('repeat')
@@ -242,7 +242,7 @@ it('backfills winners with storyfeed:curate', function () {
     $this->artisan('storyfeed:curate')->assertSuccessful();
 
     expect(Grouping::query()->where('winner', true)->where('bucket', 'actors')->count())->toBe(3)
-        ->and(Storyfeed::feed()->get()->toArray()['items'][0]['axis'])->toBe('actors');
+        ->and(Storyfeed::feed()->get()->toArray()[0]['axis'])->toBe('actors');
 });
 
 it('renders an aggregate headline for the winning axis', function () {
@@ -254,7 +254,7 @@ it('renders an aggregate headline for the winning axis', function () {
         uploadsTo($project, $name);
     }
 
-    $item = Storyfeed::feed()->get()->toArray()['items'][0];
+    $item = Storyfeed::feed()->get()->toArray()[0];
 
     expect($item['headline_template'])->toBe(':actors uploaded :count files to :target');
 });
@@ -268,7 +268,7 @@ it('suppresses a singular fallback whose tokens would lie about the group', func
         uploadsTo($project, $name);
     }
 
-    $item = Storyfeed::feed()->get()->toArray()['items'][0];
+    $item = Storyfeed::feed()->get()->toArray()[0];
 
     // Three actors, one head member: ":actor uploaded :object" would credit
     // the whole group to one person over one file — the lie class arriving
@@ -289,7 +289,7 @@ it('admits a singular fallback whose tokens are all pinned by the axis', functio
         Storyfeed::activity()->actor($bob)->verb('revise', $doc)->publish();
     }
 
-    $item = Storyfeed::feed()->get()->toArray()['items'][0];
+    $item = Storyfeed::feed()->get()->toArray()[0];
 
     // The object axis pins :actor AND :object, so the singular template is
     // homogeneous across members — an honest fallback, admitted.
@@ -307,7 +307,7 @@ it('never uses a closure singular fallback for a group', function () {
         Storyfeed::activity()->actor($bob)->verb('revise', $doc)->publish();
     }
 
-    $item = Storyfeed::feed()->get()->toArray()['items'][0];
+    $item = Storyfeed::feed()->get()->toArray()[0];
 
     // A closure pre-renders from ONE member and cannot be token-inspected;
     // even on a fully-pinned axis it is not admitted for groups.
@@ -327,7 +327,7 @@ it('returns the atomic timeline with ->log()', function () {
 
     // Groups exist (curation stamped winners) — but flat means FLAT: no
     // group nodes at all, the honest reading of the name. Log mode.
-    $items = Storyfeed::feed()->log()->limit(10)->get()->toArray()['items'];
+    $items = Storyfeed::feed()->log()->limit(10)->get()->toArray();
 
     expect($items)->toHaveCount(6)
         ->and(collect($items)->pluck('kind')->unique()->values()->all())->toBe(['activity']);
@@ -340,7 +340,7 @@ it('lets the last mode call win', function () {
         uploadsTo($project, $name);
     }
 
-    $items = Storyfeed::feed()->log()->live()->get()->toArray()['items'];
+    $items = Storyfeed::feed()->log()->live()->get()->toArray();
 
     expect($items)->toHaveCount(1)
         ->and($items[0]['axis'])->toBe('actors');
@@ -355,11 +355,11 @@ it('reads the stamped winner with ->live(), the default', function () {
 
     // Since v0.8 live is multi-axis: the curated winner, no longer repeats
     // only. The repeats-only reading is `grouping.curate => false`.
-    $items = Storyfeed::feed()->live()->get()->toArray()['items'];
+    $items = Storyfeed::feed()->live()->get()->toArray();
 
     expect($items)->toHaveCount(1)
         ->and($items[0]['axis'])->toBe('actors')
-        ->and(Storyfeed::feed()->get()->toArray()['items'])->toBe($items);
+        ->and(Storyfeed::feed()->get()->toArray())->toBe($items);
 });
 
 it('rejects unknown feed modes', function () {
@@ -399,12 +399,12 @@ it('reads repeats only once curation is disabled, even where winners were stampe
         uploadsTo($project, $name);
     }
 
-    expect(Storyfeed::feed()->live()->get()->toArray()['items'][0]['axis'])->toBe('actors');
+    expect(Storyfeed::feed()->live()->get()->toArray()[0]['axis'])->toBe('actors');
 
     config()->set('storyfeed.grouping.curate', false);
 
     // The winner stamps are still stored; live no longer reads them.
-    $items = Storyfeed::feed()->live()->get()->toArray()['items'];
+    $items = Storyfeed::feed()->live()->get()->toArray();
 
     expect(Grouping::query()->where('winner', true)->count())->toBeGreaterThan(0)
         ->and($items)->toHaveCount(3)
@@ -425,7 +425,7 @@ it('degrades to classic repeat-only grouping app-wide when curation is disabled'
     // No winners stamped anywhere, so the default feed's per-activity
     // fallback yields the pre-package behaviour: repeats collapse, nothing
     // multi-axis. The middle tier is an app-wide policy, not a view flag.
-    $items = Storyfeed::feed()->get()->toArray()['items'];
+    $items = Storyfeed::feed()->get()->toArray();
 
     // Sally's 4 uploads share one repeat hash → one group; Bob and Ann solo.
     expect(Grouping::query()->whereNotNull('winner')->count())->toBe(0)
@@ -449,7 +449,7 @@ it('keeps an activity solo with curation off when only a stale inferred winner r
 
     config()->set('storyfeed.grouping.curate', false);
 
-    $items = Storyfeed::feed()->live()->get()->toArray()['items'];
+    $items = Storyfeed::feed()->live()->get()->toArray();
 
     expect($items)->toHaveCount(3)
         ->and(collect($items)->pluck('id')->sort()->values()->all())->toBe(
@@ -467,7 +467,7 @@ it('collapses repeated acts on one object onto the object axis', function () {
         Storyfeed::activity()->actor($bob)->verb('revise', $doc)->publish();
     }
 
-    $items = Storyfeed::feed()->get()->toArray()['items'];
+    $items = Storyfeed::feed()->get()->toArray();
 
     // The screenshot's story, told truthfully: one object, pinned, nameable.
     expect($items)->toHaveCount(1)
@@ -491,7 +491,7 @@ it('fragments a mixed day into precise stories instead of one wrong one', functi
         Storyfeed::activity()->actor($bob)->verb('revise', Delivery::create(['tracking_number' => "Other-{$i}.pdf"]))->publish();
     }
 
-    $items = collect(Storyfeed::feed()->limit(10)->get()->toArray()['items']);
+    $items = collect(Storyfeed::feed()->limit(10)->get()->toArray());
 
     expect($items)->toHaveCount(2)
         ->and($items->pluck('axis')->sort()->values()->all())->toBe(['object', 'repeat'])
@@ -508,7 +508,7 @@ it('keeps distinct objects on the repeat axis', function () {
         Storyfeed::activity()->actor($sally)->verb('upload', Delivery::create(['tracking_number' => "TN-{$i}"]))->publish();
     }
 
-    $items = Storyfeed::feed()->get()->toArray()['items'];
+    $items = Storyfeed::feed()->get()->toArray();
 
     // Object clusters of one are ineligible: "Sally uploaded 3 photos"
     // stays a repeat story — no SINGULAR object, but the collapsed
@@ -533,7 +533,7 @@ it('lets actors beat object when both are eligible', function () {
 
     // Bob's pair makes the object axis eligible for his two rows, but three
     // distinct actors make the social story — priority is the tie-break.
-    $items = Storyfeed::feed()->get()->toArray()['items'];
+    $items = Storyfeed::feed()->get()->toArray();
 
     expect($items)->toHaveCount(1)
         ->and($items[0]['axis'])->toBe('actors')
@@ -552,12 +552,12 @@ it('backfills a newly added axis with storyfeed:curate --rehash', function () {
     Grouping::query()->where('bucket', 'object')->delete();
     Activity::query()->get()->each(fn ($a) => (new CurateCluster)($a));
 
-    expect(Storyfeed::feed()->get()->toArray()['items'][0]['axis'])->toBe('repeat');
+    expect(Storyfeed::feed()->get()->toArray()[0]['axis'])->toBe('repeat');
 
     $this->artisan('storyfeed:curate --rehash')->assertSuccessful();
 
     expect(Grouping::query()->where('bucket', 'object')->count())->toBe(3)
-        ->and(Storyfeed::feed()->get()->toArray()['items'][0]['axis'])->toBe('object');
+        ->and(Storyfeed::feed()->get()->toArray()[0]['axis'])->toBe('object');
 });
 
 it('names the collapsed projects on a targets-axis group — the "added 5 items" fix', function () {
@@ -573,7 +573,7 @@ it('names the collapsed projects on a targets-axis group — the "added 5 items"
             ->publish();
     }
 
-    $item = Storyfeed::feed()->get()->toArray()['items'][0];
+    $item = Storyfeed::feed()->get()->toArray()[0];
 
     // The screenshot's vagueness, fixed: the collapsed dimension is listed.
     expect($item['axis'])->toBe('targets')
@@ -595,7 +595,7 @@ it('names the collapsed tasks on a repeat-axis group — the "completed 3 tasks"
         Storyfeed::activity()->actor($sally)->verb('complete', Delivery::create(['tracking_number' => $name]))->publish();
     }
 
-    $item = Storyfeed::feed()->get()->toArray()['items'][0];
+    $item = Storyfeed::feed()->get()->toArray()[0];
 
     expect($item['axis'])->toBe('repeat')
         ->and($item['headline_template'])->toBe(':actor completed :objects')

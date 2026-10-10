@@ -22,7 +22,7 @@ it('keeps existing positional record calls unchanged', function () {
         ->and($activity->context->name)->toBe('Import')
         ->and($activity->published_at->equalTo($date))->toBeTrue();
 
-    $node = Storyfeed::feed()->get()->toArray()['items'][0];
+    $node = Storyfeed::feed()->get()->toArray()[0];
 
     expect($node['data'])->toBe(['source' => 'import']);
 });

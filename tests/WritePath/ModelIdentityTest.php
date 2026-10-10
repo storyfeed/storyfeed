@@ -136,7 +136,7 @@ describe('a model with no feed code', function () {
 
         Storyfeed::activity('plate', $plate)->publish();
 
-        $object = Storyfeed::feed()->get()->toArray()['items'][0]['object'];
+        $object = Storyfeed::feed()->get()->toArray()[0]['object'];
 
         expect(snapshotOf($plate)->label)->toBe('Carrot soup')
             ->and($object['label'])->toBe('Carrot soup')
@@ -217,7 +217,7 @@ describe('feedMediaUsing()', function () {
 
         Storyfeed::activity('plate', $dish)->publish();
 
-        expect(Storyfeed::feed()->get()->toArray()['items'][0]['object']['link']['href'])->toBe("/dishes/{$dish->id}");
+        expect(Storyfeed::feed()->get()->toArray()[0]['object']['link']['href'])->toBe("/dishes/{$dish->id}");
     });
 
     it('leaves a model that registered none unlinkable', function () {
@@ -312,7 +312,7 @@ describe('Storyfeed::feedable()', function () {
 
         Storyfeed::activity('upload', $photo)->for($customer)->publish();
 
-        $object = Storyfeed::feed()->get()->toArray()['items'][0]['object'];
+        $object = Storyfeed::feed()->get()->toArray()[0]['object'];
 
         expect($object['label'])->toBe('soup.jpg')
             ->and($object['link']['href'])->toBe("/photos/{$photo->id}");

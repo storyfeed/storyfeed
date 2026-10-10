@@ -80,7 +80,7 @@ it('carries document links through the payload and AS2 without image properties'
     $document = $model::create(['name' => 'Report']);
     $activity = Storyfeed::activity('publish', $document)->publish();
 
-    $object = Storyfeed::feed()->get()->toArray()['items'][0]['object'];
+    $object = Storyfeed::feed()->get()->toArray()[0]['object'];
     expect($object['link'])->toBeNull()
         ->and($object['media']['files'])->toBe([[
             'type' => $type, 'href' => '/files/'.$document->id, 'mediaType' => $mime, 'name' => 'Report',
@@ -120,7 +120,7 @@ it('serializes many files as one AS2 property in resolver order, and none as no 
     $snapshotBefore = Snapshot::query()->where('model_type', 'bundle')->where('model_id', $bundle->id)->firstOrFail()->getRawOriginal();
 
     $model::$files = ['minutes.pdf', 'budget.xlsx', 'photos.zip'];
-    $object = Storyfeed::feed()->get()->toArray()['items'][0]['object'];
+    $object = Storyfeed::feed()->get()->toArray()[0]['object'];
     expect(array_column($object['media']['files'], 'name'))->toBe(['minutes.pdf', 'budget.xlsx', 'photos.zip']);
 
     $wire = serialize_one($activity)['object'];
@@ -130,7 +130,7 @@ it('serializes many files as one AS2 property in resolver order, and none as no 
         ->and(array_column($wire['attachment'], 'type'))->toBe(['Document', 'Document', 'Document']);
 
     $model::$files = [];
-    expect(Storyfeed::feed()->get()->toArray()['items'][0]['object']['media']['files'])->toBe([])
+    expect(Storyfeed::feed()->get()->toArray()[0]['object']['media']['files'])->toBe([])
         ->and(serialize_one($activity)['object'])->not->toHaveKey('attachment')
         ->and(serialize_one($activity)['object']['preview']['href'])->toBe(url('/preview.png'))
         ->and(Snapshot::query()->where('model_type', 'bundle')->where('model_id', $bundle->id)->firstOrFail()->getRawOriginal())->toBe($snapshotBefore)

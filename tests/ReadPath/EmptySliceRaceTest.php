@@ -54,7 +54,7 @@ it('drops a group whose members vanish between candidate selection and hydration
 
     // Before the fix: "Attempt to read property object_type on null" from
     // safeSingularFallback(), because count > 1 routes into groupNode().
-    $items = Storyfeed::feed()->get()->toArray()['items'];
+    $items = Storyfeed::feed()->get()->toArray();
 
     expect($items)->toHaveCount(1)
         ->and($items[0]['verb'])->toBe('ping');
@@ -82,7 +82,7 @@ it('drops a collapsed single-member group whose member vanishes mid-flight', fun
 
     // Before the fix: TypeError, activityNode(): Argument #1 must be of type
     // Activity, null given.
-    expect(Storyfeed::feed()->get()->toArray()['items'])->toBe([]);
+    expect(Storyfeed::feed()->get()->toArray())->toBe([]);
 });
 
 it('follows its own cursor when every slice on a page is dropped', function (string $mode) {
@@ -101,19 +101,19 @@ it('follows its own cursor when every slice on a page is dropped', function (str
 
     deleteAfterGroupSelection(...$members);
 
-    $page = Storyfeed::feed()->{$mode}()->limit(1)->get()->toArray();
+    $page = Storyfeed::feed()->{$mode}()->limit(1)->cursorPaginate()->toArray();
 
     // The group was page 1 in its entirety. Rather than hand back an empty
     // page and make every client loop, the read follows its own cursor.
-    expect($page['items'])->toHaveCount(1)
-        ->and($page['items'][0]['verb'])->toBe('ping-1')
+    expect($page['data'])->toHaveCount(1)
+        ->and($page['data'][0]['verb'])->toBe('ping-1')
         ->and($page['next_cursor'])->not->toBeNull();
 
     // The cursor is the hopped page's, not the emptied one's.
-    $next = Storyfeed::feed()->{$mode}()->limit(1)->cursor($page['next_cursor'])->get()->toArray();
+    $next = Storyfeed::feed()->{$mode}()->limit(1)->cursorPaginate(cursor: $page['next_cursor'])->toArray();
 
-    expect($next['items'])->toHaveCount(1)
-        ->and($next['items'][0]['verb'])->toBe('ping-2');
+    expect($next['data'])->toHaveCount(1)
+        ->and($next['data'][0]['verb'])->toBe('ping-2');
 })->with(['live']);
 
 it('gives up after five further reads and still returns a resumable page', function () {
@@ -140,20 +140,20 @@ it('gives up after five further reads and still returns a resumable page', funct
         $groups->get($reads++)?->each->delete();
     });
 
-    $page = Storyfeed::feed()->limit(1)->get()->toArray();
+    $page = Storyfeed::feed()->limit(1)->cursorPaginate()->toArray();
     $armed = false;
 
     // The first read plus five hops, every one emptied.
     expect($reads)->toBe(6)
         ->and($page['payload_version'])->toBe(1)
-        ->and($page['items'])->toBe([])
+        ->and($page['data'])->toBe([])
         ->and($page['next_cursor'])->not->toBeNull();
 
     // The last cursor reached resumes where the burst stopped: group 7.
-    $next = Storyfeed::feed()->limit(1)->cursor($page['next_cursor'])->get()->toArray();
+    $next = Storyfeed::feed()->limit(1)->cursorPaginate(cursor: $page['next_cursor'])->toArray();
 
-    expect($next['items'])->toHaveCount(1)
-        ->and(collect($next['items'][0]['sample']['objects'])->pluck('label')->all())
+    expect($next['data'])->toHaveCount(1)
+        ->and(collect($next['data'][0]['sample']['objects'])->pluck('label')->all())
         ->toBe(['Delivery #TN-7-1', 'Delivery #TN-7-2'])
         ->and($next['next_cursor'])->toBeNull();
 });

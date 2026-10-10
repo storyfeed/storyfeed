@@ -35,7 +35,7 @@ it('finds an activity by every role it fills', function () {
     expect(participantRows($activity))->toBe(['actor', 'context', 'object', 'target']);
 
     foreach ([$user, $file, $client, $workspace] as $entity) {
-        expect(Storyfeed::feed()->involving($entity)->get()->items())
+        expect(Storyfeed::feed()->involving($entity)->get()->toArray())
             ->toHaveCount(1, get_class($entity).' should be found by involving()');
     }
 });
@@ -48,8 +48,8 @@ it('finds an activity whose only mention of the entity is the context', function
 
     Storyfeed::activity()->actor($user)->verb('create', $task)->context($project)->publish();
 
-    expect(Storyfeed::feed()->involving($project)->get()->items())->toHaveCount(1)
-        ->and(Storyfeed::feed()->context($project)->get()->items())->toHaveCount(1);
+    expect(Storyfeed::feed()->involving($project)->get()->toArray())->toHaveCount(1)
+        ->and(Storyfeed::feed()->context($project)->get()->toArray())->toHaveCount(1);
 });
 
 it('finds an entity own creation, which context() cannot', function () {
@@ -62,8 +62,8 @@ it('finds an entity own creation, which context() cannot', function () {
 
     Storyfeed::activity()->actor($user)->verb('create', $project)->to($client)->publish();
 
-    expect(Storyfeed::feed()->involving($project)->get()->items())->toHaveCount(1)
-        ->and(Storyfeed::feed()->context($project)->get()->items())->toBeEmpty();
+    expect(Storyfeed::feed()->involving($project)->get()->toArray())->toHaveCount(1)
+        ->and(Storyfeed::feed()->context($project)->get()->toArray())->toBeEmpty();
 });
 
 it('does not match an entity that shares a morph alias', function () {
@@ -73,7 +73,7 @@ it('does not match an entity that shares a morph alias', function () {
 
     Storyfeed::activity()->actor($user)->verb('confirm', $one)->publish();
 
-    expect(Storyfeed::feed()->involving($other)->get()->items())->toBeEmpty();
+    expect(Storyfeed::feed()->involving($other)->get()->toArray())->toBeEmpty();
 });
 
 it('finds activities involving a party', function () {
@@ -82,7 +82,7 @@ it('finds activities involving a party', function () {
 
     Storyfeed::activity()->actor($party)->verb('sync', $invoice)->publish();
 
-    expect(Storyfeed::feed()->involving($party)->get()->items())->toHaveCount(1);
+    expect(Storyfeed::feed()->involving($party)->get()->toArray())->toHaveCount(1);
 });
 
 it('keeps group counts scope-correct when involving narrows a group', function () {
@@ -104,8 +104,8 @@ it('keeps group counts scope-correct when involving narrows a group', function (
             ->publish();
     }
 
-    $all = Storyfeed::feed()->get()->toArray()['items'];
-    $scoped = Storyfeed::feed()->involving($project)->get()->toArray()['items'];
+    $all = Storyfeed::feed()->get()->toArray();
+    $scoped = Storyfeed::feed()->involving($project)->get()->toArray();
 
     expect($all)->toHaveCount(2)
         ->and(array_sum(array_column($all, 'count')))->toBe(4)
@@ -126,8 +126,8 @@ it('re-syncs when keepLatest() supersedes an earlier activity', function () {
     Storyfeed::activity()->actor($user)->verb('update', $doc)->to($second)->publish();
 
     // The superseded row is gone, and so are its participant rows.
-    expect(Storyfeed::feed()->involving($first)->get()->items())->toBeEmpty()
-        ->and(Storyfeed::feed()->involving($second)->get()->items())->toHaveCount(1)
+    expect(Storyfeed::feed()->involving($first)->get()->toArray())->toBeEmpty()
+        ->and(Storyfeed::feed()->involving($second)->get()->toArray())->toHaveCount(1)
         ->and(DB::table(SyncParticipants::table())->count())->toBe(3); // actor, object, target
 });
 
@@ -141,12 +141,12 @@ it('indexes composite parents and their members', function () {
     // log() is the atomic timeline: the three members appear, the object-less
     // parent does not (it would double the timeline). All four rows carry the
     // target, so all four are indexed — the read mode decides what surfaces.
-    expect(Storyfeed::feed()->log()->involving($files->first())->get()->items())->toHaveCount(1)
-        ->and(Storyfeed::feed()->log()->involving($project)->get()->items())->toHaveCount(3)
+    expect(Storyfeed::feed()->log()->involving($files->first())->get()->toArray())->toHaveCount(1)
+        ->and(Storyfeed::feed()->log()->involving($project)->get()->toArray())->toHaveCount(3)
         ->and(DB::table(SyncParticipants::table())->where('role', 'target')->count())->toBe(4);
 
     // In an aggregated read the parent is the story: one composite node.
-    $summary = Storyfeed::feed()->involving($project)->get()->toArray()['items'];
+    $summary = Storyfeed::feed()->involving($project)->get()->toArray();
     expect($summary)->toHaveCount(1)->and($summary[0]['axis'])->toBe('composite');
 });
 
@@ -161,7 +161,7 @@ it('backfills to exactly what publish-time sync would have written', function ()
         ->orderBy('id')->get(['activity_id', 'role', 'entity_type', 'entity_id'])->toArray();
 
     DB::table(SyncParticipants::table())->delete();
-    expect(Storyfeed::feed()->involving($project)->get()->items())->toBeEmpty();
+    expect(Storyfeed::feed()->involving($project)->get()->toArray())->toBeEmpty();
 
     $this->artisan('storyfeed:participants')->assertSuccessful();
 
@@ -169,7 +169,7 @@ it('backfills to exactly what publish-time sync would have written', function ()
         ->orderBy('id')->get(['activity_id', 'role', 'entity_type', 'entity_id'])->toArray();
 
     expect($rebuilt)->toEqual($expected)
-        ->and(Storyfeed::feed()->involving($project)->get()->items())->toHaveCount(1);
+        ->and(Storyfeed::feed()->involving($project)->get()->toArray())->toHaveCount(1);
 
     // Idempotent: a second pass changes nothing.
     $this->artisan('storyfeed:participants')->assertSuccessful();

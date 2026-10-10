@@ -30,7 +30,7 @@ it('slides on the quiet gap, crosses midnight and starts a new row at the exact 
     expect(burstHash($rows[0]))->toBe(burstHash($rows[2]))
         ->and(burstHash($rows[3]))->not->toBe(burstHash($rows[2]))
         ->and(burstHash($rows[3]))->toBe(burstHash($rows[4]));
-    $items = Storyfeed::feed()->live()->get()->items();
+    $items = Storyfeed::feed()->live()->get()->toArray();
     expect(array_column($items, 'count'))->toBe([2, 3]);
 });
 
@@ -39,7 +39,7 @@ it('closes at the hard ceiling even with no quiet gap', function () {
         ->publishedAt($this->start->copy()->addMinutes($minute))->publish());
     expect(burstHash($rows[0]))->toBe(burstHash($rows[23]))
         ->and(burstHash($rows[24]))->not->toBe(burstHash($rows[23]));
-    $items = Storyfeed::feed()->live()->get()->items();
+    $items = Storyfeed::feed()->live()->get()->toArray();
     expect($items)->toHaveCount(2)->and($items[0]['kind'])->toBe('activity')->and($items[1]['count'])->toBe(24);
 });
 
@@ -68,7 +68,7 @@ it('gives social rows on one object precedence and never mixes verbs or places',
     }
     Storyfeed::activity()->actor($this->person)->verb('approve', $this->doc)->target($project)->context($project)->publish();
     Storyfeed::activity()->actor($this->person)->verb('comment', $this->doc)->target($other)->context($other)->publish();
-    $items = Storyfeed::feed()->live()->get()->items();
+    $items = Storyfeed::feed()->live()->get()->toArray();
     $social = collect($items)->firstWhere('axis', 'actors');
     expect($social['count'])->toBe(3)->and($social['distinct']['objects'])->toBe(1);
     foreach ($items as $item) {
@@ -87,8 +87,8 @@ it('groups different objects acted on by different people on their shared target
         $actor = User::create(['name' => "Person {$i}", 'email' => "person{$i}@example.com"]);
         Storyfeed::activity()->actor($actor)->verb('comment', Delivery::create(['tracking_number' => "doc{$i}"]))->target($project)->publish();
     }
-    expect(Storyfeed::feed()->live()->get()->items())->toHaveCount(1)
-        ->and(Storyfeed::feed()->live()->get()->items()[0]['axis'])->toBe('actors_target')
+    expect(Storyfeed::feed()->live()->get()->toArray())->toHaveCount(1)
+        ->and(Storyfeed::feed()->live()->get()->toArray()[0]['axis'])->toBe('actors_target')
         ->and(Grouping::query()->where('bucket', 'actors')->where('winner', true)->count())->toBe(0);
 });
 

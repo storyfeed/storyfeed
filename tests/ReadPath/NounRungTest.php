@@ -55,7 +55,7 @@ it('pluralises an unpinned role instead of throwing the sentence away', function
 
     sallyUploads($project, ['a.docx', 'b.docx', 'c.docx']);
 
-    $item = Storyfeed::feed()->get()->toArray()['items'][0];
+    $item = Storyfeed::feed()->get()->toArray()[0];
 
     // The repeat axis pins :actor (and the object's KIND) but not the object
     // itself. "Sally uploaded files" — true of every member, no authoring.
@@ -71,7 +71,7 @@ it('leaves :actor a token so the renderer can still link it', function () {
 
     sallyUploads($project, ['a.docx', 'b.docx']);
 
-    $item = Storyfeed::feed()->get()->toArray()['items'][0];
+    $item = Storyfeed::feed()->get()->toArray()[0];
 
     // Core must not pre-render the sentence: a pinned role is a real entity
     // the renderer turns into a link, and pre-rendering destroys it. What
@@ -97,7 +97,7 @@ it('selects the plural by DISTINCT objects, and prints neither number', function
     // the payload — this is a presentation change, not a contract change.
     sallyUploads($project, ['a.docx', 'a.docx', 'a.docx', 'b.docx', 'b.docx']);
 
-    $item = Storyfeed::feed()->get()->toArray()['items'][0];
+    $item = Storyfeed::feed()->get()->toArray()[0];
 
     expect($item['axis'])->toBe('repeat')
         ->and($item['count'])->toBe(5)
@@ -113,7 +113,7 @@ it('pluralises by the objects it cannot see, not just the ones nested in childre
 
     sallyUploads($project, ['a.docx', 'b.docx', 'c.docx', 'd.docx', 'e.docx']);
 
-    $item = Storyfeed::feed()->get()->toArray()['items'][0];
+    $item = Storyfeed::feed()->get()->toArray()[0];
 
     // The in-page count is capped at ONE here, so counting loaded members
     // would say "1 distinct object" and leave `:object` alone for the
@@ -134,7 +134,7 @@ it('names a role shared by every member rather than saying "1 file"', function (
 
     sallyUploads($project, ['a.docx', 'a.docx', 'a.docx']);
 
-    $item = Storyfeed::feed()->get()->toArray()['items'][0];
+    $item = Storyfeed::feed()->get()->toArray()[0];
 
     // One distinct object across three members: the token is LEFT ALONE, so
     // the renderer resolves it from `sample` and the reader gets "Sally
@@ -151,7 +151,7 @@ it('falls to the verb label when the template names a role nothing carries', fun
 
     sallyUploads($project, ['a.docx', 'b.docx']);
 
-    $item = Storyfeed::feed()->get()->toArray()['items'][0];
+    $item = Storyfeed::feed()->get()->toArray()[0];
 
     // Zero distinct origins means the role is ABSENT, not plural. "0 items"
     // would paper over exactly what the `roles` doctor check is watching
@@ -167,7 +167,7 @@ it('refuses to pluralise a token that is not a role', function () {
 
     sallyUploads($project, ['a.docx', 'b.docx']);
 
-    $item = Storyfeed::feed()->get()->toArray()['items'][0];
+    $item = Storyfeed::feed()->get()->toArray()[0];
 
     // Nothing can be counted, so nothing is claimed — and an invented token
     // left in the string would render as itself.
@@ -181,7 +181,7 @@ it('refuses a noun that could be read back as a token', function () {
 
     sallyUploads($project, ['a.docx', 'b.docx']);
 
-    $item = Storyfeed::feed()->get()->toArray()['items'][0];
+    $item = Storyfeed::feed()->get()->toArray()[0];
 
     // The renderer tokenises the string we hand it, so a noun containing a
     // colon-word would be substituted a second time. Refuse rather than
@@ -201,7 +201,7 @@ it('renders a generic noun rather than skipping the rung', function () {
 
     sallyUploads($project, ['a.docx', 'b.docx', 'c.docx']);
 
-    $item = Storyfeed::feed()->get()->toArray()['items'][0];
+    $item = Storyfeed::feed()->get()->toArray()[0];
 
     // "Sally uploaded items" is bland, and bland is still a sentence. The
     // screen belongs to the reader; the nagging belongs on the terminal.
@@ -215,7 +215,7 @@ it('does not eat the plural token that shares a prefix', function () {
 
     sallyUploads($project, ['a.docx', 'b.docx']);
 
-    $item = Storyfeed::feed()->get()->toArray()['items'][0];
+    $item = Storyfeed::feed()->get()->toArray()[0];
 
     // `:objects` is universal — legal on every axis — so it must survive
     // the substitution of `:object` intact.
@@ -234,7 +234,7 @@ it('still picks the form by count in a locale with more than two of them', funct
 
     sallyUploads($project, ['a.docx', 'b.docx', 'c.docx', 'd.docx', 'e.docx']);
 
-    expect(Storyfeed::feed()->get()->toArray()['items'][0]['headline_template'])
+    expect(Storyfeed::feed()->get()->toArray()[0]['headline_template'])
         ->toBe(':actor wgrał klauzul');
 });
 
@@ -247,7 +247,7 @@ it('accepts a translated noun through the wrapper', function () {
 
     sallyUploads($project, ['a.docx', 'b.docx']);
 
-    expect(Storyfeed::feed()->get()->toArray()['items'][0]['headline_template'])
+    expect(Storyfeed::feed()->get()->toArray()[0]['headline_template'])
         ->toBe(':actor uploaded files');
 });
 
@@ -266,7 +266,7 @@ it('still suppresses a fallback whose role KIND the axis does not pin', function
             ->publish();
     }
 
-    $item = Storyfeed::feed()->get()->toArray()['items'][0];
+    $item = Storyfeed::feed()->get()->toArray()[0];
 
     // The actors axis pins neither the actor's identity NOR its kind — an
     // actor can be a user or a Party — so "3 people uploaded 3 files" is a

@@ -48,7 +48,7 @@ it('reads recorded descendants by default and pages only direct roles when reque
 
     foreach ([$client, $project, $list, $task] as $level => $entity) {
         $deep = Storyfeed::feed()->{$mode}()->involving($entity)->get();
-        expect($deep->items())->toHaveCount($level === 0 ? 5 : 4 - $level)
+        expect($deep)->toHaveCount($level === 0 ? 5 : 4 - $level)
             ->and(Storyfeed::feed()->{$mode}()->involving($entity, deep: true)->get()->toArray())->toBe($deep->toArray());
     }
 
@@ -61,14 +61,14 @@ it('reads recorded descendants by default and pages only direct roles when reque
         };
         $expected = $spelling === 'default' ? array_reverse($activities) : [$activities[4], $activities[0]];
         $ids = array_map(fn (Activity $activity) => (string) $activity->uid, $expected);
-        expect(array_column($builder->get()->items(), 'id'))->toBe($ids);
+        expect(array_column($builder->get()->toArray(), 'id'))->toBe($ids);
 
         $seen = [];
         $cursor = null;
         do {
-            $page = (clone $builder)->limit(1)->cursor($cursor)->get();
+            $page = (clone $builder)->limit(1)->cursorPaginate(cursor: $cursor);
             expect($page->toArray()['sync_token'])->toBe($token);
-            array_push($seen, ...array_column($page->items(), 'id'));
+            array_push($seen, ...$page->getCollection()->pluck('id'));
             $cursor = $page->nextCursor();
             expect(count($seen))->toBeLessThanOrEqual(count($ids));
         } while ($cursor !== null);
@@ -79,12 +79,12 @@ it('reads recorded descendants by default and pages only direct roles when reque
 
 it('rejects depth changes in either direction and accepts either direct spelling', function (string $mode, bool $deep) {
     [$client] = directHistory();
-    $page = Storyfeed::feed()->{$mode}()->involving($client, deep: $deep)->limit(1)->get();
+    $page = Storyfeed::feed()->{$mode}()->involving($client, deep: $deep)->limit(1)->cursorPaginate();
     expect($page->nextCursor())->not->toBeNull();
-    expect(fn () => Storyfeed::feed()->{$mode}()->involving($client, deep: ! $deep)->cursor($page->nextCursor())->get())
+    expect(fn () => Storyfeed::feed()->{$mode}()->involving($client, deep: ! $deep)->cursorPaginate(cursor: $page->nextCursor()))
         ->toThrow(InvalidArgumentException::class, 'different involving depth');
     if (! $deep) {
-        expect(Storyfeed::feed()->{$mode}()->involvingDirectly($client)->cursor($page->nextCursor())->get()->items())->toHaveCount(1);
+        expect(Storyfeed::feed()->{$mode}()->involvingDirectly($client)->cursorPaginate(cursor: $page->nextCursor())->items())->toHaveCount(1);
     }
 })->with(['log', 'live'])->with([true, false]);
 
@@ -112,12 +112,12 @@ it('pages grouped nodes with counts and children restricted to direct roles', fu
     }
     foreach ([true, false] as $deep) {
         $builder = Storyfeed::feed()->live()->involving($client, deep: $deep);
-        $expected = $builder->get()->items();
+        $expected = $builder->get()->toArray();
         $seen = [];
         $cursor = null;
         do {
-            $page = (clone $builder)->limit(1)->cursor($cursor)->get();
-            array_push($seen, ...$page->items());
+            $page = (clone $builder)->limit(1)->cursorPaginate(cursor: $cursor);
+            array_push($seen, ...$page->toArray()['data']);
             $cursor = $page->nextCursor();
             expect(count($seen))->toBeLessThanOrEqual(count($expected));
         } while ($cursor !== null);
@@ -141,7 +141,7 @@ it('keeps all seven direct roles including a role that also lies on a parent cha
     expect(DB::table(SyncParticipants::table())->where('activity_id', $activity->id)->where('entity_id', $client->id)->value('distance'))->toBe(0)
         ->and(Activity::query()->involving($client, deep: false)->count())->toBe(1)
         ->and(Activity::query()->involvingDirectly($client)->count())->toBe(1)
-        ->and(Storyfeed::feed()->involvingDirectly($client)->get()->items())->toHaveCount(1);
+        ->and(Storyfeed::feed()->involvingDirectly($client)->get()->toArray())->toHaveCount(1);
 })->with(['actor', 'object', 'target', 'context', 'origin', 'result', 'instrument', 'location', 'generator']);
 
 it('keeps parentless entity reads identical in both modes', function (string $mode) {
@@ -161,10 +161,10 @@ it('recounts grouped members and distinct roles within direct participation', fu
     foreach ([$client, $client, $task, $task] as $object) {
         Storyfeed::activity()->actor($actor)->action('revise', $object)->publish();
     }
-    $all = Storyfeed::feed()->involving($client)->get()->items();
+    $all = Storyfeed::feed()->involving($client)->get()->toArray();
     expect(array_sum(array_column($all, 'count')))->toBe(4);
     foreach ([Storyfeed::feed()->involving($client, deep: false), Storyfeed::feed()->involvingDirectly($client)] as $feed) {
-        $items = $feed->get()->items();
+        $items = $feed->get()->toArray();
         expect($items)->toHaveCount(1)
             ->and($items[0]['kind'])->toBe('group')
             ->and($items[0]['count'])->toBe(2)
@@ -179,12 +179,12 @@ it('filters composite members and imported solos in both modes', function (strin
     $client = directContainer('Client');
     $task = directContainer('Task', $client);
     Storyfeed::activity()->anonymously()->action('create')->objects([$client, $task])->publish();
-    $direct = Storyfeed::feed()->{$mode}()->involvingDirectly($client)->get()->items();
+    $direct = Storyfeed::feed()->{$mode}()->involvingDirectly($client)->get()->toArray();
     expect($direct)->toHaveCount(1)
         ->and($direct[0]['object']['id'])->toBe((string) $client->id);
     Grouping::query()->delete();
-    expect(Storyfeed::feed()->{$mode}()->involving($client)->get()->items())->toHaveCount(2)
-        ->and(Storyfeed::feed()->{$mode}()->involvingDirectly($client)->get()->items())->toHaveCount(1);
+    expect(Storyfeed::feed()->{$mode}()->involving($client)->get()->toArray())->toHaveCount(2)
+        ->and(Storyfeed::feed()->{$mode}()->involvingDirectly($client)->get()->toArray())->toHaveCount(1);
 })->with(['log', 'live']);
 
 it('resolves party names and never widens an unresolved direct filter', function () {
@@ -192,10 +192,10 @@ it('resolves party names and never widens an unresolved direct filter', function
     $task = directContainer('Task', $party);
     Storyfeed::activity()->anonymously()->action('create', $task)->publish();
     Storyfeed::activity()->by($party)->action('announce')->publish();
-    expect(Storyfeed::feed()->involving('Workspace')->get()->items())->toHaveCount(2)
-        ->and(Storyfeed::feed()->involving('Workspace', deep: false)->get()->items())->toHaveCount(1)
-        ->and(Storyfeed::feed()->involvingDirectly('Workspace')->get()->items())->toHaveCount(1)
-        ->and(Storyfeed::feed()->involvingDirectly('Unknown')->get()->items())->toBeEmpty();
+    expect(Storyfeed::feed()->involving('Workspace')->get()->toArray())->toHaveCount(2)
+        ->and(Storyfeed::feed()->involving('Workspace', deep: false)->get()->toArray())->toHaveCount(1)
+        ->and(Storyfeed::feed()->involvingDirectly('Workspace')->get()->toArray())->toHaveCount(1)
+        ->and(Storyfeed::feed()->involvingDirectly('Unknown')->get()->toArray())->toBeEmpty();
 });
 
 class DirectContainerFeed extends Feed
@@ -212,14 +212,14 @@ it('carries direct scope through class and named feeds and shares the existing r
     [$client, $project] = directHistory();
     $feed = DirectContainerFeed::make($client);
     expect($feed->boundRoles())->toBe(['involving'])
-        ->and($feed->get()->items())->toHaveCount(2);
+        ->and($feed->get()->toArray())->toHaveCount(2);
     expect(fn () => $feed->involving($project))->toThrow(FeedMisconfigured::class, 'cannot be rebound');
     expect(fn () => $feed->involvingDirectly($project))->toThrow(FeedMisconfigured::class, 'cannot be rebound');
     $deep = Storyfeed::feed()->involving($client)->lockScope('involving', 'DeepFeed');
     expect(fn () => $deep->involvingDirectly($client))->toThrow(FeedMisconfigured::class, 'cannot be rebound');
     Storyfeed::feeds(['direct-client' => fn (FeedBuilder $feed) => $feed->involvingDirectly($client)]);
-    expect(Storyfeed::feed('direct-client')->get()->items())->toHaveCount(2)
-        ->and(Storyfeed::feed()->involvingDirectly($client)->involving($project)->get()->items())->toHaveCount(3);
+    expect(Storyfeed::feed('direct-client')->get()->toArray())->toHaveCount(2)
+        ->and(Storyfeed::feed()->involvingDirectly($client)->involving($project)->get()->toArray())->toHaveCount(3);
 });
 
 it('reads a quiet entity from the entity index in both participant lookup modes', function () {

@@ -13,7 +13,7 @@ it('emits fully self-describing entities with fresh links', function () {
 
     Storyfeed::activity()->actor($user)->verb('confirm', $delivery)->for($customer)->publish();
 
-    $item = Storyfeed::feed()->get()->toArray()['items'][0];
+    $item = Storyfeed::feed()->get()->toArray()[0];
 
     expect($item['id'])->toHaveLength(26)
         ->and($item['object'])->toMatchArray([
@@ -37,7 +37,7 @@ it('degrades gracefully instead of hiding activities with missing snapshots', fu
         'published_at' => now(),
     ]);
 
-    $items = Storyfeed::feed()->get()->toArray()['items'];
+    $items = Storyfeed::feed()->get()->toArray();
 
     expect($items)->toHaveCount(1)
         ->and($items[0]['object']['label'])->toBeNull()
@@ -50,7 +50,7 @@ it('regenerates links from cached data at read time', function () {
 
     Storyfeed::activity('confirm', $delivery)->publish();
 
-    $item = Storyfeed::feed()->get()->toArray()['items'][0];
+    $item = Storyfeed::feed()->get()->toArray()[0];
 
     expect($item['object']['link']['attributes'])->toMatchArray(['data-status' => 'draft']);
 });

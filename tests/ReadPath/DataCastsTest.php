@@ -88,7 +88,7 @@ it('stores and serves exactly what data() recorded, casts or not', function () {
     castContext(['order' => new OrderSummary('A-1', 1)], ['order' => OrderSummary::class]);
 
     expect(jsonObjectKeys(Activity::sole()->data))->toBe(jsonObjectKeys(['order' => ['number' => 'A-1', 'total' => 1]]))
-        ->and(jsonObjectKeys(Storyfeed::feed()->get()->toArray()['items'][0]['data']))->toBe(jsonObjectKeys(['order' => ['number' => 'A-1', 'total' => 1]]));
+        ->and(jsonObjectKeys(Storyfeed::feed()->get()->toArray()[0]['data']))->toBe(jsonObjectKeys(['order' => ['number' => 'A-1', 'total' => 1]]));
 });
 
 it('reports a cast that cannot read an old row and answers the recorded value', function () {
@@ -166,7 +166,7 @@ it('casts feed reader data without changing its payload', function () {
     castContext(['order' => new OrderSummary('A-1', 42), 'status' => 'confirm'], [
         'order' => OrderSummary::class, 'status' => ActivityVerb::class,
     ]);
-    $payload = Storyfeed::feed()->get()->toArray()['items'][0];
+    $payload = Storyfeed::feed()->get()->toArray()[0];
     $item = new FeedItem($payload);
     $json = json_encode($item);
 

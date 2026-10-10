@@ -40,7 +40,7 @@ it('reads a named source from config', function () {
     config()->set('storyfeed.sources.changelog', ['driver' => 'array', 'items' => releases()]);
     Story::for('release')->verb('ship')->headline(':actor shipped :object');
 
-    $items = Storyfeed::feed()->source('changelog')->get()->items();
+    $items = Storyfeed::feed()->source('changelog')->get()->toArray();
 
     expect($items)->toHaveCount(2)
         ->and($items[0]['headline_template'])->toBe(':actor shipped :object')
@@ -63,10 +63,10 @@ it('reads a source without a query', function () {
 
     DB::enableQueryLog();
 
-    $page = Storyfeed::feed()->actor('Storyfeed')->source($source)->only('ship')->live()->get();
+    $page = Storyfeed::feed()->actor('Storyfeed')->source($source)->only('ship')->live()->cursorPaginate();
 
     expect($page->items())->toHaveCount(2)
-        ->and($page['sync_token'])->toBeNull()
+        ->and($page->toArray()['sync_token'])->toBeNull()
         ->and(DB::getQueryLog())->toBe([]);
 });
 
@@ -87,7 +87,7 @@ it('registers drivers with extend(), as Storage does', function () {
         };
     });
 
-    $items = Storyfeed::feed()->source('roadmap')->get()->items();
+    $items = Storyfeed::feed()->source('roadmap')->get()->toArray();
 
     expect($items)->toHaveCount(1)
         ->and($items[0]['object']['link']['href'])->toBe('https://github.com/storyfeed/storyfeed/issues/50')
@@ -100,7 +100,7 @@ it('defaults to the database', function () {
 
     expect(Storyfeed::source())->toBeInstanceOf(DatabaseSource::class)
         ->and(Storyfeed::source('database'))->toBeInstanceOf(DatabaseSource::class)
-        ->and(Storyfeed::feed()->source('database')->get()->items())->toHaveCount(1)
+        ->and(Storyfeed::feed()->source('database')->get()->toArray())->toHaveCount(1)
         ->and(iterator_to_array(Storyfeed::source()->items()))->toHaveCount(1);
 
     config()->set('storyfeed.sources', ['changelog' => ['driver' => 'array']]);
@@ -147,7 +147,7 @@ it('takes models, party names and entities as roles', function () {
 
     $items = Storyfeed::feed()->source(new ArraySource([
         SourceItem::make('dispatch', now()->subMinute(), actor: $sally, object: $delivery, target: 'Courier Bot', body: [Prose::make('Left the depot.')]),
-    ]))->get()->items();
+    ]))->get()->toArray();
 
     expect($items[0]['actor'])->toMatchArray(['type' => $sally->getMorphClass(), 'id' => (string) $sally->getKey(), 'label' => 'Sally'])
         ->and($items[0]['object'])->toMatchArray(['label' => 'Delivery #TN-1'])
@@ -160,8 +160,8 @@ it('takes models, party names and entities as roles', function () {
 it('keeps each item\'s id from one read to the next', function () {
     $items = [...releases(), releases()[0]];
 
-    $first = array_column(Storyfeed::feed()->source(new ArraySource($items))->log()->get()->items(), 'id');
-    $second = array_column(Storyfeed::feed()->source(new ArraySource($items))->log()->get()->items(), 'id');
+    $first = array_column(Storyfeed::feed()->source(new ArraySource($items))->log()->get()->toArray(), 'id');
+    $second = array_column(Storyfeed::feed()->source(new ArraySource($items))->log()->get()->toArray(), 'id');
 
     expect($first)->toBe($second)
         ->and(array_unique($first))->toHaveCount(3);
@@ -173,10 +173,10 @@ it('pages a source with cursorPaginate()', function () {
 
     $first = $feed->cursorPaginate(2);
     $labels = collect($first->items())->pluck('object.label')->all();
-    $next = $feed->cursor($first->nextCursor()->encode())->limit(2)->get();
+    $next = $feed->limit(2)->cursorPaginate(cursor: $first->nextCursor());
 
     expect($labels)->toBe(['v0.1.0', 'v0.2.0'])
-        ->and(array_column(array_column($next->items(), 'object'), 'label'))->toBe(['v0.3.0', 'v0.4.0']);
+        ->and($next->getCollection()->pluck('object.label')->all())->toBe(['v0.3.0', 'v0.4.0']);
 });
 
 it('refuses an item it cannot read', function (array $item, string $message) {

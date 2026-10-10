@@ -77,7 +77,7 @@ it('separates a bulk backdated import into event-time batches', function () {
     $winners = DB::table('feed_groupings')->where('winner', true)->pluck('bucket')->unique();
 
     expect($winners->all())->toBe(['repeat'])
-        ->and(collect(Storyfeed::feed()->get()->items())->pluck('kind')->unique()->all())->toBe(['activity']);
+        ->and(collect(Storyfeed::feed()->get()->toArray())->pluck('kind')->unique()->all())->toBe(['activity']);
 });
 
 it('paginates history that shares one timestamp without dropping or repeating a row', function () {
@@ -94,7 +94,7 @@ it('paginates history that shares one timestamp without dropping or repeating a 
     $pages = 0;
 
     do {
-        $page = Storyfeed::feed()->log()->limit(5)->cursor($cursor)->get();
+        $page = Storyfeed::feed()->log()->limit(5)->cursorPaginate(cursor: $cursor);
         $seen = array_merge($seen, collect($page->items())->pluck('id')->all());
         $cursor = $page->nextCursor();
         $pages++;
@@ -112,9 +112,9 @@ it('renders a hand-rolled timeline shape only in log() mode — the default grou
             ->publish();
     }
 
-    expect(Storyfeed::feed()->log()->get()->items())->toHaveCount(3)
-        ->and(Storyfeed::feed()->get()->items())->toHaveCount(1)
-        ->and(Storyfeed::feed()->get()->items()[0]['kind'])->toBe('group');
+    expect(Storyfeed::feed()->log()->get()->toArray())->toHaveCount(3)
+        ->and(Storyfeed::feed()->get()->toArray())->toHaveCount(1)
+        ->and(Storyfeed::feed()->get()->toArray()[0]['kind'])->toBe('group');
 });
 
 it('leaves raw-inserted rows ungrouped forever if storyfeed:rebuild runs before the trickle', function () {
@@ -139,8 +139,8 @@ it('leaves raw-inserted rows ungrouped forever if storyfeed:rebuild runs before 
     $this->artisan('storyfeed:curate --rebuild-bursts --writers-paused')->assertSuccessful();
 
     expect(DB::table('feed_groupings')->where('winner', true)->count())->toBe(4)
-        ->and(Storyfeed::feed()->get()->items())->toHaveCount(1)
-        ->and(Storyfeed::feed()->get()->items()[0]['kind'])->toBe('group');
+        ->and(Storyfeed::feed()->get()->toArray())->toHaveCount(1)
+        ->and(Storyfeed::feed()->get()->toArray()[0]['kind'])->toBe('group');
 });
 
 it('hides raw-inserted rows from involving() until storyfeed:participants runs', function () {
@@ -148,15 +148,15 @@ it('hides raw-inserted rows from involving() until storyfeed:participants runs',
 
     // The global feed looks perfectly healthy while the per-entity timeline —
     // the page a migration is usually replacing — is empty.
-    expect(Storyfeed::feed()->log()->get()->items())->toHaveCount(1)
-        ->and($this->order->storyfeed()->log()->get()->items())->toHaveCount(0);
+    expect(Storyfeed::feed()->log()->get()->toArray())->toHaveCount(1)
+        ->and($this->order->storyfeed()->log()->get()->toArray())->toHaveCount(0);
 
     expect(collect(Storyfeed::doctor(['participants'])->all())->pluck('code')->all())
         ->toContain('participants.unindexed');
 
     $this->artisan('storyfeed:participants')->assertSuccessful();
 
-    expect($this->order->storyfeed()->log()->get()->items())->toHaveCount(1);
+    expect($this->order->storyfeed()->log()->get()->toArray())->toHaveCount(1);
 });
 
 it('resolves headlines at read time, so grammar may be registered after the backfill', function () {
@@ -165,11 +165,11 @@ it('resolves headlines at read time, so grammar may be registered after the back
         ->publishedAt('2024-03-01 09:00:00')
         ->publish();
 
-    expect(Storyfeed::feed()->log()->get()->items()[0]['headline_template'])->toBeNull();
+    expect(Storyfeed::feed()->log()->get()->toArray()[0]['headline_template'])->toBeNull();
 
     Story::for('customer')->verb('placed')->headline(':actor placed :object');
 
-    $item = Storyfeed::feed()->log()->get()->items()[0];
+    $item = Storyfeed::feed()->log()->get()->toArray()[0];
 
     // String grammar hands the template to the renderer; `headline` stays null
     // by design (a closure entry is what renders server-side).

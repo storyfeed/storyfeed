@@ -46,6 +46,7 @@ final class SourceRead
         protected int $limit,
         protected ?string $cursor,
         protected int $childrenLimit,
+        protected int $offset = 0,
     ) {}
 
     /**
@@ -112,8 +113,8 @@ final class SourceRead
             $candidates = $candidates->filter(fn (array $candidate) => $this->compareToCursor($candidate[0], $after) > 0)->values();
         }
 
-        $more = $candidates->count() > $this->limit;
-        $page = $candidates->take($this->limit)->values();
+        $more = $candidates->count() > $this->offset + $this->limit;
+        $page = $candidates->slice($this->offset, $this->limit)->values();
         $next = $more ? $this->encodeCursor($page->last()[0]) : null;
 
         $slices = $page->map(fn (array $candidate): GroupSlice => $candidate[0]->isGroup()

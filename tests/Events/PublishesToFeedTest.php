@@ -34,7 +34,7 @@ it('publishes when an implementing event is dispatched', function () {
 
     DeliveryConfirmed::dispatch($delivery, $user, $customer);
 
-    $items = Storyfeed::feed()->get()->toArray()['items'];
+    $items = Storyfeed::feed()->get()->toArray();
 
     expect($items)->toHaveCount(1)
         ->and($items[0]['verb'])->toBe('confirm')
@@ -50,7 +50,7 @@ it('costs nothing for events that do not implement the contract', function () {
     // Eloquent lifecycle event.
     Event::dispatch(new class {});
 
-    expect(Storyfeed::feed()->get()->toArray()['items'])->toBeEmpty();
+    expect(Storyfeed::feed()->get()->toArray())->toBeEmpty();
 });
 
 it('treats a null return as a deliberate skip', function () {
@@ -64,7 +64,7 @@ it('treats a null return as a deliberate skip', function () {
 
     Event::dispatch($event);
 
-    expect(Storyfeed::feed()->get()->toArray()['items'])->toBeEmpty();
+    expect(Storyfeed::feed()->get()->toArray())->toBeEmpty();
 });
 
 it('supports declaring the activity inline, with no Story class', function () {
@@ -84,7 +84,7 @@ it('supports declaring the activity inline, with no Story class', function () {
 
     Event::dispatch($event);
 
-    expect(Storyfeed::feed()->get()->toArray()['items'][0]['verb'])->toBe('archive');
+    expect(Storyfeed::feed()->get()->toArray()[0]['verb'])->toBe('archive');
 });
 
 it('accepts a verb enum inline', function () {
@@ -151,7 +151,7 @@ it('does nothing when Event::fake() is active — the one silent failure', funct
 
     Event::assertDispatched(DeliveryConfirmed::class);
 
-    expect(Storyfeed::feed()->get()->toArray()['items'])->toBeEmpty();
+    expect(Storyfeed::feed()->get()->toArray())->toBeEmpty();
 });
 
 it('accepts the plain builder, so an event writes the line a listener would', function () {
@@ -174,7 +174,7 @@ it('accepts the plain builder, so an event writes the line a listener would', fu
 
     Event::dispatch($event);
 
-    $items = Storyfeed::feed()->get()->toArray()['items'];
+    $items = Storyfeed::feed()->get()->toArray();
 
     expect($items)->toHaveCount(1)
         ->and($items[0]['verb'])->toBe('confirm')

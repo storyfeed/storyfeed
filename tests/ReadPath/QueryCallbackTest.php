@@ -31,8 +31,8 @@ it('narrows the page by excluding a verb', function () {
         ->log()
         ->get();
 
-    expect($page->items())->toHaveCount(1)
-        ->and($page->items()[0]['verb'])->toBe('upload');
+    expect($page->toArray())->toHaveCount(1)
+        ->and($page->toArray()[0]['verb'])->toBe('upload');
 });
 
 it('narrows the page by a date window', function () {
@@ -48,8 +48,8 @@ it('narrows the page by a date window', function () {
         ->log()
         ->get();
 
-    expect($page->items())->toHaveCount(1)
-        ->and($page->items()[0]['verb'])->toBe('revise');
+    expect($page->toArray())->toHaveCount(1)
+        ->and($page->toArray()[0]['verb'])->toBe('revise');
 });
 
 it('composes two callbacks', function () {
@@ -65,8 +65,8 @@ it('composes two callbacks', function () {
         ->log()
         ->get();
 
-    expect($page->items())->toHaveCount(1)
-        ->and($page->items()[0]['verb'])->toBe('upload');
+    expect($page->toArray())->toHaveCount(1)
+        ->and($page->toArray()[0]['verb'])->toBe('upload');
 });
 
 it('keeps group children consistent with the constraint', function () {
@@ -81,13 +81,13 @@ it('keeps group children consistent with the constraint', function () {
         Storyfeed::activity()->actor($this->ines)->verb('upload', $file)->to($this->project)->publish();
     }
 
-    $unfiltered = $this->project->storyfeed()->live()->get()->items()[0];
+    $unfiltered = $this->project->storyfeed()->live()->get()->toArray()[0];
 
     $filtered = $this->project->storyfeed()
         ->query(fn (ActivityBuilder $q) => $q->whereNot('object_id', $dropped->getKey()))
         ->live()
         ->get()
-        ->items()[0];
+        ->toArray()[0];
 
     expect($unfiltered['kind'])->toBe('group')
         ->and($unfiltered['count'])->toBe(4)
@@ -112,12 +112,12 @@ it('keeps distinct-role counts consistent with the constraint', function () {
         Storyfeed::activity()->actor($actor)->verb('approve', $file)->to($this->project)->publish();
     }
 
-    $unfiltered = $this->project->storyfeed()->get()->items()[0];
+    $unfiltered = $this->project->storyfeed()->get()->toArray()[0];
 
     $filtered = $this->project->storyfeed()
         ->query(fn (ActivityBuilder $q) => $q->whereNot('actor_id', $priya->getKey()))
         ->get()
-        ->items()[0];
+        ->toArray()[0];
 
     expect($unfiltered['distinct']['actors'])->toBe(3)
         ->and($filtered['distinct']['actors'])->toBe(2);
@@ -153,9 +153,9 @@ it('is unharmed by a callback that adds its own ordering', function () {
 
     $constrain = fn (ActivityBuilder $q) => $q->orderBy('id');
 
-    $first = $this->project->storyfeed()->query($constrain)->log()->limit(2)->get();
+    $first = $this->project->storyfeed()->query($constrain)->log()->limit(2)->cursorPaginate();
     $second = $this->project->storyfeed()->query($constrain)->log()->limit(2)
-        ->cursor($first->toArray()['next_cursor'])->get();
+        ->cursorPaginate(cursor: $first->nextCursor());
 
     $ids = collect($first->items())->concat($second->items())->pluck('id');
 
@@ -210,7 +210,7 @@ it('cannot surface an unpublished activity through a top-level orWhere', functio
         ->log()
         ->get();
 
-    expect(collect($page->items())->pluck('verb')->all())->toBe(['upload']);
+    expect(collect($page->toArray())->pluck('verb')->all())->toBe(['upload']);
 });
 
 it('cannot escape involving() through a top-level orWhere', function () {
@@ -226,7 +226,7 @@ it('cannot escape involving() through a top-level orWhere', function () {
         ->get();
 
     // Two rows carry this verb; only one is in the requested scope.
-    expect($page->items())->toHaveCount(1);
+    expect($page->toArray())->toHaveCount(1);
 });
 
 it('nests callbacks even with no verb allowlist in play', function () {

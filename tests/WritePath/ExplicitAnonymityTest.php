@@ -24,7 +24,7 @@ it('persists explicit anonymity without consulting any resolver', function (stri
     $pending = Storyfeed::activity('confirm');
     $method === 'anonymously' ? $pending->anonymously() : $pending->{$method}(null);
     $activity = $pending->publish()->fresh();
-    $item = Storyfeed::feed()->get()->toArray()['items'][0];
+    $item = Storyfeed::feed()->get()->toArray()[0];
 
     expect($activity->actor_type)->toBeNull()
         ->and($activity->actor_id)->toBeNull()

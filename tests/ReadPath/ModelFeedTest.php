@@ -22,8 +22,7 @@ it('returns the same page as the facade form', function () {
     $shortcut = $project->storyfeed()->get();
     $facade = Storyfeed::feed()->involving($project)->get();
 
-    expect($shortcut->items())->toEqual($facade->items())
-        ->and($shortcut->toArray()['next_cursor'])->toBe($facade->toArray()['next_cursor']);
+    expect($shortcut->toArray())->toEqual($facade->toArray());
 });
 
 it('finds activities by every role the model fills', function () {
@@ -40,7 +39,7 @@ it('finds activities by every role the model fills', function () {
         ->publish();
 
     foreach ([$user, $file, $client, $workspace] as $model) {
-        expect($model->storyfeed()->get()->items())
+        expect($model->storyfeed()->get()->toArray())
             ->toHaveCount(1, $model::class.' should find the activity it took part in');
     }
 });
@@ -52,7 +51,7 @@ it('excludes activities the model had no part in', function () {
 
     Storyfeed::activity()->actor($user)->verb('upload', $mine)->publish();
 
-    expect($theirs->storyfeed()->get()->items())->toHaveCount(0);
+    expect($theirs->storyfeed()->get()->toArray())->toHaveCount(0);
 });
 
 it('composes with the rest of the builder', function () {
@@ -63,9 +62,9 @@ it('composes with the rest of the builder', function () {
     Storyfeed::activity()->actor($user)->verb('upload', $file)->to($project)->publish();
     Storyfeed::activity()->actor($user)->verb('comment', $file)->to($project)->publish();
 
-    expect($project->storyfeed()->verb('upload')->get()->items())->toHaveCount(1)
-        ->and($project->storyfeed()->log()->limit(1)->get()->items())->toHaveCount(1)
-        ->and($project->storyfeed()->get()->items())->toHaveCount(2);
+    expect($project->storyfeed()->verb('upload')->get()->toArray())->toHaveCount(1)
+        ->and($project->storyfeed()->log()->limit(1)->get()->toArray())->toHaveCount(1)
+        ->and($project->storyfeed()->get()->toArray())->toHaveCount(2);
 });
 
 it('intersects when involving() is called again', function () {
@@ -77,8 +76,8 @@ it('intersects when involving() is called again', function () {
     Storyfeed::activity()->actor($ines)->verb('upload', $file)->to($project)->publish();
     Storyfeed::activity()->actor($marcus)->verb('upload', $file)->to($project)->publish();
 
-    expect($project->storyfeed()->get()->items())->toHaveCount(2)
-        ->and($project->storyfeed()->involving($ines)->get()->items())->toHaveCount(1);
+    expect($project->storyfeed()->get()->toArray())->toHaveCount(2)
+        ->and($project->storyfeed()->involving($ines)->get()->toArray())->toHaveCount(1);
 });
 
 it('pages with a cursor like any other feed', function () {
@@ -93,8 +92,8 @@ it('pages with a cursor like any other feed', function () {
             ->publish();
     }
 
-    $first = $project->storyfeed()->log()->limit(2)->get();
-    $second = $project->storyfeed()->log()->limit(2)->cursor($first->toArray()['next_cursor'])->get();
+    $first = $project->storyfeed()->log()->limit(2)->cursorPaginate();
+    $second = $project->storyfeed()->log()->limit(2)->cursorPaginate(cursor: $first->nextCursor());
 
     $ids = collect($first->items())->concat($second->items())->pluck('id');
 

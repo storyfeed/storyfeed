@@ -20,7 +20,7 @@ it('publishes with a timestamp even when model events are muted', function () {
     );
 
     expect($activity->published_at)->not->toBeNull()
-        ->and(Storyfeed::feed()->get()->toArray()['items'])->toHaveCount(1);
+        ->and(Storyfeed::feed()->get()->toArray())->toHaveCount(1);
 });
 
 it('never calls feedMedia() for un-snapshotted entities', function () {
@@ -33,7 +33,7 @@ it('never calls feedMedia() for un-snapshotted entities', function () {
         'published_at' => now(),
     ]);
 
-    $item = Storyfeed::feed()->get()->toArray()['items'][0];
+    $item = Storyfeed::feed()->get()->toArray()[0];
 
     // The contract promises degraded entities arrive with url: null; calling
     // the app's resolver with empty data makes every naive implementation warn.
@@ -50,20 +50,20 @@ it('supports the conditionable idiom on the feed builder', function () {
         ->when(true, fn ($feed) => $feed->actor($user))
         ->unless(true, fn ($feed) => $feed->verb('nope'))
         ->get()
-        ->toArray()['items'];
+        ->toArray();
 
     expect($items)->toHaveCount(1);
 });
 
-it('reads the envelope with array access', function () {
+it('reads a page with array access, as Laravel paginators do', function () {
     Storyfeed::activity()->verb('ping')->publish();
 
-    $page = Storyfeed::feed()->get();
+    $page = Storyfeed::feed()->cursorPaginate();
 
-    expect($page['payload_version'])->toBe(1)
-        ->and($page['items'])->toHaveCount(1)
-        ->and($page['next_cursor'])->toBeNull()
-        ->and(fn () => $page['items'] = [])->toThrow(LogicException::class);
+    expect($page[0]->verb())->toBe('ping')
+        ->and($page)->toHaveCount(1)
+        ->and($page->nextCursor())->toBeNull()
+        ->and($page->toArray()['payload_version'])->toBe(1);
 });
 
 it('exposes the snapshot backlog as a builder scope', function () {

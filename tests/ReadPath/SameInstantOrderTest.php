@@ -64,7 +64,7 @@ it('puts the later row first in every read mode, when both share an instant', fu
     // The same pair, read three ways. Before the fix, log() said one thing and
     // the two grouped modes said the opposite.
     foreach (['log', 'live'] as $mode) {
-        $items = Storyfeed::feed()->{$mode}()->get()->toArray()['items'];
+        $items = Storyfeed::feed()->{$mode}()->get()->toArray();
 
         expect($items)->toHaveCount(2, "mode: {$mode}")
             ->and($items[0]['id'])->toBe((string) $second->uid, "mode: {$mode}");
@@ -76,13 +76,13 @@ it('pages a same-instant tie without repeating or skipping a row', function () {
     // comparison and a tie pages by returning the same row forever.
     [$first, $second] = twoInTheSameSecond();
 
-    $page = Storyfeed::feed()->live()->limit(1)->get()->toArray();
+    $page = Storyfeed::feed()->live()->limit(1)->cursorPaginate()->toArray();
 
-    expect($page['items'][0]['id'])->toBe((string) $second->uid)
+    expect($page['data'][0]['id'])->toBe((string) $second->uid)
         ->and($page['next_cursor'])->not->toBeNull();
 
-    $next = Storyfeed::feed()->live()->limit(1)->cursor($page['next_cursor'])->get();
+    $next = Storyfeed::feed()->live()->limit(1)->cursorPaginate(cursor: $page['next_cursor'])->toArray();
 
-    expect($next->items())->toHaveCount(1)
-        ->and($next->items()[0]['id'])->toBe((string) $first->uid);
+    expect($next['data'])->toHaveCount(1)
+        ->and($next['data'][0]['id'])->toBe((string) $first->uid);
 });

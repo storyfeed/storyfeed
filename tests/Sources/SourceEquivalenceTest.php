@@ -94,14 +94,14 @@ function comparable(array $payload): array
 }
 
 it('reads the same payload as the database', function (string $mode) {
-    $stored = Storyfeed::feed()->{$mode}()->get()->toArray();
+    $stored = Storyfeed::feed()->{$mode}()->cursorPaginate()->toArray();
 
-    $sourced = Storyfeed::feed()->source(new ArraySource($this->items))->{$mode}()->get()->toArray();
+    $sourced = Storyfeed::feed()->source(new ArraySource($this->items))->{$mode}()->cursorPaginate()->toArray();
 
     expect(comparable($sourced))->toEqual(comparable($stored));
 
     if ($mode === 'live') {
-        expect(collect($stored['items'])->where('kind', 'group')->pluck('axis')->sort()->values()->all())
+        expect(collect($stored['data'])->where('kind', 'group')->pluck('axis')->sort()->values()->all())
             ->toBe(['actors', 'object', 'repeat', 'targets']);
     }
 })->with(['live', 'log']);
@@ -112,9 +112,9 @@ it('pages the same way as the database', function (string $mode) {
         $cursor = null;
 
         do {
-            $feed = Storyfeed::feed()->{$mode}()->limit(2)->cursor($cursor);
-            $page = ($source ? $source($feed) : $feed)->get();
-            $ids = [...$ids, ...array_column($page->items(), 'id')];
+            $feed = Storyfeed::feed()->{$mode}()->limit(2);
+            $page = ($source ? $source($feed) : $feed)->cursorPaginate(cursor: $cursor);
+            $ids = [...$ids, ...$page->getCollection()->pluck('id')];
             $cursor = $page->nextCursor();
         } while ($cursor !== null);
 
@@ -128,11 +128,11 @@ it('pages the same way as the database', function (string $mode) {
 })->with(['live', 'log']);
 
 it('filters the same way as the database', function (Closure $filter) {
-    $stored = $filter(Storyfeed::feed()->live())->get()->toArray();
-    $sourced = $filter(Storyfeed::feed()->live()->source(new ArraySource($this->items)))->get()->toArray();
+    $stored = $filter(Storyfeed::feed()->live())->cursorPaginate()->toArray();
+    $sourced = $filter(Storyfeed::feed()->live()->source(new ArraySource($this->items)))->cursorPaginate()->toArray();
 
-    expect(array_column($sourced['items'], 'id'))->toBe(array_column($stored['items'], 'id'))
-        ->and(array_column($sourced['items'], 'count'))->toBe(array_column($stored['items'], 'count'));
+    expect(array_column($sourced['data'], 'id'))->toBe(array_column($stored['data'], 'id'))
+        ->and(array_column($sourced['data'], 'count'))->toBe(array_column($stored['data'], 'count'));
 })->with([
     'actor' => fn ($feed) => $feed->actor(User::firstWhere('name', 'Sally')),
     'party actor' => fn ($feed) => $feed->actor('Courier Bot'),
@@ -149,16 +149,16 @@ it('groups with curation off the same way as the database', function () {
     config()->set('storyfeed.grouping.curate', false);
 
     // Curation already stamped the stored rows; turning it off is a read-time switch.
-    $stored = Storyfeed::feed()->live()->get()->toArray();
-    $sourced = Storyfeed::feed()->live()->source(new ArraySource($this->items))->get()->toArray();
+    $stored = Storyfeed::feed()->live()->cursorPaginate()->toArray();
+    $sourced = Storyfeed::feed()->live()->source(new ArraySource($this->items))->cursorPaginate()->toArray();
 
-    expect(array_column($sourced['items'], 'id'))->toBe(array_column($stored['items'], 'id'));
+    expect(array_column($sourced['data'], 'id'))->toBe(array_column($stored['data'], 'id'));
 });
 
 it('hides what is not yet published, as the database does', function () {
     Storyfeed::activity()->actor(User::first())->verb('schedule', Delivery::first())->publishedAt(now()->addDay())->publish();
     $items = [...$this->items, SourceItem::make('schedule', now()->addDay(), actor: User::first(), object: Delivery::first())];
 
-    expect(Storyfeed::feed()->source(new ArraySource($items))->log()->get()->items())
-        ->toHaveCount(count(Storyfeed::feed()->log()->get()->items()));
+    expect(Storyfeed::feed()->source(new ArraySource($items))->log()->get()->toArray())
+        ->toHaveCount(count(Storyfeed::feed()->log()->get()->toArray()));
 });

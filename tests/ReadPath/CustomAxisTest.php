@@ -46,7 +46,7 @@ it('drives a custom axis through the whole pipeline from one registration', func
     expect(Grouping::query()->where('bucket', 'scene')->count())->toBe(2)
         ->and(Grouping::query()->where('bucket', 'scene')->where('winner', true)->count())->toBe(2);
 
-    $items = Storyfeed::feed()->get()->toArray()['items'];
+    $items = Storyfeed::feed()->get()->toArray();
 
     // The payload carries the custom axis (renderers must treat unknown
     // axes as generic groups — contract), with the aggregate headline and
@@ -82,7 +82,7 @@ it('treats registration order as curation priority', function () {
         Storyfeed::activity()->actor($user)->verb('revise', $doc)->for($project)->publish();
     }
 
-    $axes = collect(Storyfeed::feed()->limit(10)->get()->toArray()['items'])->pluck('axis');
+    $axes = collect(Storyfeed::feed()->limit(10)->get()->toArray())->pluck('axis');
 
     expect($axes)->toContain('object');
 });

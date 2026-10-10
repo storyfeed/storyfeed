@@ -54,7 +54,7 @@ it('walks six levels from the object with indexed involving and recorded depths'
     $expected = [];
     foreach (array_reverse(array_slice($chain, 0, -1)) as $i => $parent) {
         $expected[$parent->id] = $i + 1;
-        expect(Storyfeed::feed()->involving($parent)->get()->items())->toHaveCount(1);
+        expect(Storyfeed::feed()->involving($parent)->get()->toArray())->toHaveCount(1);
     }
     expect(indexedAncestors($activity))->toBe($expected);
 });
@@ -84,8 +84,8 @@ it('bounds an oversized configured cap to the stored distance range', function (
     $activity = Storyfeed::activity()->anonymously()->action('create', end($chain))->publish();
     expect(indexedAncestors($activity))->toHaveCount(255)
         ->and(max(indexedAncestors($activity)))->toBe(255)
-        ->and(Storyfeed::feed()->involving($chain[0])->get()->items())->toBeEmpty()
-        ->and(Storyfeed::feed()->involving(end($chain))->get()->items())->toHaveCount(1);
+        ->and(Storyfeed::feed()->involving($chain[0])->get()->toArray())->toBeEmpty()
+        ->and(Storyfeed::feed()->involving(end($chain))->get()->toArray())->toHaveCount(1);
 });
 
 it('never walks Sally home tenant or any other non-place role', function () {
@@ -94,21 +94,21 @@ it('never walks Sally home tenant or any other non-place role', function () {
     $acme = nestedContainer('Acme');
     $task = nestedContainer('Acme task', $acme);
     Storyfeed::activity()->by($sally)->action('complete', $task)->origin($sally)->result($sally)->instrument($sally)->publish();
-    expect(Storyfeed::feed()->involving($sally)->get()->items())->toHaveCount(1)
-        ->and(Storyfeed::feed()->involving($acme)->get()->items())->toHaveCount(1)
-        ->and(Storyfeed::feed()->involving($home)->get()->items())->toBeEmpty();
+    expect(Storyfeed::feed()->involving($sally)->get()->toArray())->toHaveCount(1)
+        ->and(Storyfeed::feed()->involving($acme)->get()->toArray())->toHaveCount(1)
+        ->and(Storyfeed::feed()->involving($home)->get()->toArray())->toBeEmpty();
 });
 
 it('walks a self-acting container only when it is also the object', function () {
     $tenant = nestedContainer('Tenant');
     $project = nestedContainer('Project', $tenant);
     Storyfeed::activity()->by($project)->action('close')->publish();
-    expect(Storyfeed::feed()->involving($tenant)->get()->items())->toBeEmpty()
+    expect(Storyfeed::feed()->involving($tenant)->get()->toArray())->toBeEmpty()
         ->and(Storyfeed::doctor(['ancestors'])->has('ancestors.actor_only'))->toBeTrue();
     $activity = Storyfeed::activity()->by($project)->action('close', $project)->publish();
     expect(indexedAncestors($activity))->toBe([$tenant->id => 1])
         ->and(DB::table(SyncParticipants::table())->where('activity_id', $activity->id)->count())->toBe(2)
-        ->and(Storyfeed::feed()->involving($tenant)->get()->items())->toHaveCount(1);
+        ->and(Storyfeed::feed()->involving($tenant)->get()->toArray())->toHaveCount(1);
 });
 
 it('keeps recorded paths after a move and rebuilds from current parents', function () {
@@ -135,7 +135,7 @@ it('bounds cycles and caps without losing the activity', function () {
     expect(indexedAncestors($activity))->toBe([$project->id => 1]);
     config()->set('storyfeed.ancestors.max_depth', 0);
     (new SyncParticipants)($activity);
-    expect(indexedAncestors($activity))->toBe([])->and(Storyfeed::feed()->involving($task)->get()->items())->toHaveCount(1);
+    expect(indexedAncestors($activity))->toBe([])->and(Storyfeed::feed()->involving($task)->get()->toArray())->toHaveCount(1);
 });
 
 it('stops at missing parents and diagnoses the broken chain', function () {
@@ -144,7 +144,7 @@ it('stops at missing parents and diagnoses the broken chain', function () {
     $activity = Storyfeed::activity()->anonymously()->action('create', $task)->publish();
     expect(indexedAncestors($activity))->toBe([$project->id => 1])
         ->and(Storyfeed::doctor(['ancestors'])->has('ancestors.unresolvable'))->toBeTrue()
-        ->and(Storyfeed::feed()->involving($task)->get()->items())->toHaveCount(1);
+        ->and(Storyfeed::feed()->involving($task)->get()->toArray())->toHaveCount(1);
 });
 
 it('fully rewrites changed roles and ancestors on edit', function () {
@@ -156,8 +156,8 @@ it('fully rewrites changed roles and ancestors on edit', function () {
     $activity->save();
     (new SyncParticipants)($activity);
     expect(indexedAncestors($activity))->toBe([])
-        ->and(Storyfeed::feed()->involving($tenant)->get()->items())->toBeEmpty()
-        ->and(Storyfeed::feed()->involving($other)->get()->items())->toHaveCount(1);
+        ->and(Storyfeed::feed()->involving($tenant)->get()->toArray())->toBeEmpty()
+        ->and(Storyfeed::feed()->involving($other)->get()->toArray())->toHaveCount(1);
 });
 
 it('indexes composite member paths for both log and live reads', function () {
@@ -165,8 +165,8 @@ it('indexes composite member paths for both log and live reads', function () {
     $one = nestedContainer('One', $tenant);
     $two = nestedContainer('Two', $tenant);
     Storyfeed::activity()->anonymously()->action('create')->objects([$one, $two])->publish();
-    expect(Storyfeed::feed()->log()->involving($tenant)->get()->items())->toHaveCount(2)
-        ->and(Storyfeed::feed()->involving($tenant)->get()->items())->toHaveCount(1);
+    expect(Storyfeed::feed()->log()->involving($tenant)->get()->toArray())->toHaveCount(2)
+        ->and(Storyfeed::feed()->involving($tenant)->get()->toArray())->toHaveCount(1);
 });
 
 it('resolves package party aliases with an enforced application map', function () {
@@ -174,7 +174,7 @@ it('resolves package party aliases with an enforced application map', function (
     $task = nestedContainer('Task', $party);
     $activity = Storyfeed::activity()->anonymously()->action('create', $task)->publish();
     expect(DB::table(SyncParticipants::table())->where('activity_id', $activity->id)->where('role', 'ancestor')->value('entity_type'))
-        ->toBe($party->getMorphClass())->and(Storyfeed::feed()->involving($party)->get()->items())->toHaveCount(1);
+        ->toBe($party->getMorphClass())->and(Storyfeed::feed()->involving($party)->get()->toArray())->toHaveCount(1);
 });
 
 it('walks registered external models', function () {
@@ -184,7 +184,7 @@ it('walks registered external models', function () {
     $child = ExternalContainer::create(['name' => 'External task', 'parent_id' => $parent->id]);
     $activity = Storyfeed::activity()->anonymously()->action('create', $child)->publish();
     expect(indexedAncestors($activity))->toBe([$parent->id => 1])
-        ->and(Storyfeed::feed()->involving($parent)->get()->items())->toHaveCount(1);
+        ->and(Storyfeed::feed()->involving($parent)->get()->toArray())->toHaveCount(1);
 });
 
 it('resumes only after the last committed chunk and cleans its cursor', function () {
@@ -256,7 +256,7 @@ it('preserves recorded ancestry through tombstones while direct roles merge', fu
     $activity = Storyfeed::activity()->by($task)->action('close', $task)->publish();
     $task->delete();
     expect(indexedAncestors($activity))->toBe([$tenant->id => 1])
-        ->and(Storyfeed::feed()->involving($tenant)->get()->items())->toHaveCount(1);
+        ->and(Storyfeed::feed()->involving($tenant)->get()->toArray())->toHaveCount(1);
 });
 
 it('restarts an interrupted rebuild and rejects changed history or policy on resume', function () {
@@ -277,5 +277,5 @@ it('walks intermediate containers whose snapshots predate parent declarations', 
     Snapshot::where('model_type', 'container')->get()->each(fn ($snapshot) => $snapshot->update(['meta' => []]));
     $activity = Storyfeed::activity()->anonymously()->action('complete', end($chain))->publish();
     expect(indexedAncestors($activity))->toHaveCount(6)
-        ->and(Storyfeed::feed()->involving($chain[0])->get()->items())->toHaveCount(1);
+        ->and(Storyfeed::feed()->involving($chain[0])->get()->toArray())->toHaveCount(1);
 });

@@ -131,7 +131,7 @@ it('emits entity.link with its suggestion and the full picture as the image slot
 
     Storyfeed::activity('publish', $photo)->publish();
 
-    $object = Storyfeed::feed()->get()->toArray()['items'][0]['object'];
+    $object = Storyfeed::feed()->get()->toArray()[0]['object'];
 
     expect($object['link'])->toBe(['href' => "/photos/{$photo->id}/full.jpg", 'modal' => true, 'attributes' => []])
         ->and($object['media'])->toBe([
@@ -163,7 +163,7 @@ it('derives an avatar for an entity whose resolver returns only a link', functio
 
     Storyfeed::activity('onboard', $customer)->publish();
 
-    $item = Storyfeed::feed()->get()->toArray()['items'][0];
+    $item = Storyfeed::feed()->get()->toArray()[0];
 
     expect($item['object']['link']['href'])->toBe("/customers/{$customer->id}")
         ->and($item['object']['media'])->toBe(Avatar::fill(null, 'customer', (string) $customer->id, 'Acme'))
@@ -181,7 +181,7 @@ it('draws ? on the neutral colour for an un-snapshotted entity, without calling 
         'published_at' => now(),
     ]);
 
-    $object = Storyfeed::feed()->get()->toArray()['items'][0]['object'];
+    $object = Storyfeed::feed()->get()->toArray()[0]['object'];
 
     expect($object['link'])->toBeNull()
         ->and($object['media'])->toMatchArray(['icon' => null, 'initials' => '?', 'color' => Avatar::NEUTRAL])
@@ -207,7 +207,7 @@ it('degrades a throwing resolver to no url and no media, reported', function () 
 
     Storyfeed::activity('publish', $broken)->publish();
 
-    $object = Storyfeed::feed()->get()->toArray()['items'][0]['object'];
+    $object = Storyfeed::feed()->get()->toArray()[0]['object'];
 
     expect($object['label'])->toBe('Burnt')
         ->and($object['link'])->toBeNull()

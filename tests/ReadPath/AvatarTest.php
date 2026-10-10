@@ -63,7 +63,7 @@ it('reaches the payload on the actor and stays out of the AS2 document', functio
     $party = Party::make('Acme Co', data: ['$media' => ['initials' => 'AC', 'color' => '#438D98']]);
     $activity = Storyfeed::activity('ping')->actor($party)->publish();
 
-    $actor = Storyfeed::feed()->get()->toArray()['items'][0]['actor'];
+    $actor = Storyfeed::feed()->get()->toArray()[0]['actor'];
 
     expect($actor['media'])->toMatchArray(['icon' => null, 'initials' => 'AC', 'color' => '#438d98'])
         ->and(serialize_one($activity)['actor'])->not->toHaveKeys(['initials', 'color', 'icon']);
@@ -99,8 +99,8 @@ it('hashes an identity onto the palette, the same on every request', function ()
     $customer = Customer::create(['name' => 'Acme Co']);
     Storyfeed::activity('onboard', $customer)->anonymously()->publish();
 
-    $first = Storyfeed::feed()->get()->toArray()['items'][0]['object']['media'];
-    $second = Storyfeed::feed()->log()->get()->toArray()['items'][0]['object']['media'];
+    $first = Storyfeed::feed()->get()->toArray()[0]['object']['media'];
+    $second = Storyfeed::feed()->log()->get()->toArray()[0]['object']['media'];
 
     expect($first)->toMatchArray(['icon' => null, 'initials' => 'AC', 'color' => Avatar::color('customer', (string) $customer->id)])
         ->and($second)->toBe($first)
@@ -121,7 +121,7 @@ it('keeps declared values, deriving only what is missing, and derives nothing be
 it('gives a party the same rule, by its key', function () {
     Storyfeed::activity('ping')->actor('Courier Bot')->publish();
 
-    expect(Storyfeed::feed()->get()->toArray()['items'][0]['actor']['media'])
+    expect(Storyfeed::feed()->get()->toArray()[0]['actor']['media'])
         ->toMatchArray(['initials' => 'CB', 'color' => Avatar::color('storyfeed.party', 'courier-bot')]);
 });
 
@@ -130,7 +130,7 @@ it('draws a tombstone on the neutral colour with its stored label', function () 
     Storyfeed::activity('ship', $delivery)->anonymously()->publish();
     $delivery->delete();
 
-    $object = fn () => Storyfeed::feed()->get()->toArray()['items'][0]['object'];
+    $object = fn () => Storyfeed::feed()->get()->toArray()[0]['object'];
 
     // No label kept: `?` on the neutral colour.
     expect($object()['tombstone'])->not->toBeNull()

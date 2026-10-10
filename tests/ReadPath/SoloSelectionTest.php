@@ -60,7 +60,7 @@ function shaped(string $name, array $rows): array
 /** The uids the read surfaces as SOLO activity nodes, ungrouped. */
 function soloUids(string $mode = 'live'): array
 {
-    return collect(Storyfeed::feed()->{$mode}()->get()->toArray()['items'])
+    return collect(Storyfeed::feed()->{$mode}()->get()->toArray())
         ->where('kind', 'activity')
         ->pluck('id')
         ->all();

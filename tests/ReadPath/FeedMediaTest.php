@@ -64,7 +64,7 @@ it('answers through Feedable::feedMedia() for every model on the contract', func
 
     Storyfeed::activity('onboard', $customer)->publish();
 
-    $item = Storyfeed::feed()->get()->toArray()['items'][0];
+    $item = Storyfeed::feed()->get()->toArray()[0];
 
     expect($item['object']['link']['href'])->toBe("/customers/{$customer->id}")
         ->and(Customer::$lastContext)->toBeInstanceOf(FeedContext::class);
@@ -119,7 +119,7 @@ it('carries the link, its attributes and the modal hint from a migrated resolver
 
     Storyfeed::activity('confirm', $delivery)->publish();
 
-    $item = Storyfeed::feed()->get()->toArray()['items'][0];
+    $item = Storyfeed::feed()->get()->toArray()[0];
 
     expect($item['object']['link']['href'])->toBe("/deliveries/{$delivery->id}")
         ->and($item['object']['link']['attributes'])->toMatchArray(['data-status' => 'draft'])
@@ -152,7 +152,7 @@ it('compiles a bare Feedable with only toFeed() written, and links nothing', fun
 
     Storyfeed::activity('onboard', $bare)->publish();
 
-    $item = Storyfeed::feed()->get()->toArray()['items'][0];
+    $item = Storyfeed::feed()->get()->toArray()[0];
 
     expect($item['object']['label'])->toBe('Bare')
         ->and($item['object']['link'])->toBeNull()
@@ -225,7 +225,7 @@ it('never calls feedMedia() for un-snapshotted entities', function () {
         'published_at' => now(),
     ]);
 
-    $item = Storyfeed::feed()->get()->toArray()['items'][0];
+    $item = Storyfeed::feed()->get()->toArray()[0];
 
     expect(Customer::$lastContext)->toBeNull()
         ->and($item['object']['link'])->toBeNull();
@@ -287,7 +287,7 @@ it('tells the resolver which named feed the page was read through', function () 
 
     Storyfeed::activity('onboard', $customer)->publish();
 
-    $item = Storyfeed::feed('kitchen')->get()->toArray()['items'][0];
+    $item = Storyfeed::feed('kitchen')->get()->toArray()[0];
 
     expect(Customer::$lastContext?->feed())->toBe('kitchen')
         ->and($item['object']['link']['href'])->toBe("/kitchen/customers/{$customer->id}");
@@ -341,7 +341,7 @@ it('reports one identity whichever door a registered class feed is entered by', 
 
     // A subject feed has one door in — its constructor — and it now reports
     // the key it was registered under, not the name of its class.
-    $item = CustomerFeed::make($customer)->get()->toArray()['items'][0];
+    $item = CustomerFeed::make($customer)->get()->toArray()[0];
 
     expect(Customer::$lastContext?->feed())->toBe('kitchen')
         ->and($item['object']['link']['href'])->toBe("/kitchen/customers/{$customer->id}")
@@ -411,7 +411,7 @@ it('reports no feed for an ad-hoc builder rather than inventing a name', functio
 
     Storyfeed::activity('onboard', $customer)->publish();
 
-    $item = Storyfeed::feed()->get()->toArray()['items'][0];
+    $item = Storyfeed::feed()->get()->toArray()[0];
 
     expect(Customer::$lastContext?->feed())->toBeNull()
         ->and($item['object']['link']['href'])->toBe("/customers/{$customer->id}");
@@ -450,7 +450,7 @@ it('carries the feed into every entity of a group node, sample and children alik
         Storyfeed::activity()->actor($ines)->verb('onboard', $customer)->publish();
     }
 
-    $item = Storyfeed::feed('kitchen')->get()->toArray()['items'][0];
+    $item = Storyfeed::feed('kitchen')->get()->toArray()[0];
 
     expect($item['kind'])->toBe('group')
         ->and($item['sample']['objects'][0]['link']['href'])->toBe("/kitchen/customers/{$customer->id}")
@@ -464,8 +464,8 @@ it('does not leak one page\'s feed into the next through a shared presenter', fu
 
     Storyfeed::activity('onboard', $customer)->publish();
 
-    $kitchen = Storyfeed::feed('kitchen')->get()->toArray()['items'][0];
-    $plain = Storyfeed::feed()->get()->toArray()['items'][0];
+    $kitchen = Storyfeed::feed('kitchen')->get()->toArray()[0];
+    $plain = Storyfeed::feed()->get()->toArray()[0];
 
     expect($kitchen['object']['link']['href'])->toBe("/kitchen/customers/{$customer->id}")
         ->and($plain['object']['link']['href'])->toBe("/customers/{$customer->id}");

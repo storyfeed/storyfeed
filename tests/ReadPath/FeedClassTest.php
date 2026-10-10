@@ -48,8 +48,8 @@ it('scopes to the subject its constructor was given', function () {
 
     $page = CustomerFeed::make($this->mine)->get();
 
-    expect($page->items())->toHaveCount(1)
-        ->and($page->items()[0]['context']['id'])->toBe((string) $this->mine->getKey());
+    expect($page->toArray())->toHaveCount(1)
+        ->and($page->toArray()[0]['context']['id'])->toBe((string) $this->mine->getKey());
 });
 
 it('applies the allowlist and the scope together', function () {
@@ -57,7 +57,7 @@ it('applies the allowlist and the scope together', function () {
     record('order_margin_note', $this->mine);
     record('order_placed', $this->theirs);
 
-    expect(classVerbsOf(CustomerFeed::make($this->mine)->get()->items()))->toBe(['order_placed']);
+    expect(classVerbsOf(CustomerFeed::make($this->mine)->get()->toArray()))->toBe(['order_placed']);
 });
 
 it('cannot be built without its subject — PHP refuses, not us', function () {
@@ -85,7 +85,7 @@ it('refuses to rebind a bound scope, rather than letting it silently win', funct
     // And the silent version of the same mistake: a role filter is a
     // single-slot assignment, so without the lock this would have replaced the
     // scope and returned the other customer's timeline.
-    expect(CustomerFeed::make($this->mine)->get()->items())->toHaveCount(1);
+    expect(CustomerFeed::make($this->mine)->get()->toArray())->toHaveCount(1);
 });
 
 it('still lets a call site NARROW a scoped feed', function () {
@@ -98,7 +98,7 @@ it('still lets a call site NARROW a scoped feed', function () {
         ->actor($this->ines)
         ->get();
 
-    expect(classVerbsOf($page->items()))->toBe(['order_placed']);
+    expect(classVerbsOf($page->toArray()))->toBe(['order_placed']);
 });
 
 it('throws when a hand-written feed takes a subject and never binds it', function () {
@@ -113,7 +113,7 @@ it('builds a global feed with no subject at all', function () {
     record('order_placed', $this->mine);
     record('order_margin_note', $this->mine);
 
-    expect(classVerbsOf(AdminFeed::make()->log()->get()->items()))->toBe(['order_placed']);
+    expect(classVerbsOf(AdminFeed::make()->log()->get()->toArray()))->toBe(['order_placed']);
 });
 
 it('has no for(), and says where the name went', function () {
@@ -175,8 +175,8 @@ it('produces the same query as the equivalent closure preset', function () {
         'closure' => fn (FeedBuilder $feed) => $feed->only(['order_placed', 'order_delivered'])->log(),
     ]);
 
-    expect(classVerbsOf(CustomerFeed::make($this->mine)->get()->items()))
-        ->toBe(classVerbsOf(Storyfeed::feed('closure')->context($this->mine)->get()->items()));
+    expect(classVerbsOf(CustomerFeed::make($this->mine)->get()->toArray()))
+        ->toBe(classVerbsOf(Storyfeed::feed('closure')->context($this->mine)->get()->toArray()));
 });
 
 it('registers class feeds by key, by bare class, and alongside closures', function () {
@@ -195,7 +195,7 @@ it('leaves plain builders unlocked — nothing changes for a feed with no class'
 
     $page = Storyfeed::feed()->context($this->mine)->context($this->theirs)->log()->get();
 
-    expect($page->items())->toHaveCount(1);
+    expect($page->toArray())->toHaveCount(1);
 });
 
 it('rejects a registered class that is not a Feed', function () {

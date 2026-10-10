@@ -154,7 +154,7 @@ it('detects unstamped repeat gaps with curation off in the actual live payload',
     Storyfeed::feeds(['newsroom' => fn (FeedBuilder $feed) => $feed->live()]);
     objectCluster();
 
-    $items = Storyfeed::feed()->live()->get()->toArray()['items'];
+    $items = Storyfeed::feed()->live()->get()->toArray();
     $report = Storyfeed::doctor(['aggregates']);
     expect($report->withCode('aggregates.missing'))->toHaveCount(1);
     $missing = $report->withCode('aggregates.missing')->sole();
@@ -183,11 +183,11 @@ it('ignores historical non-repeat winners with curation off while auditing live 
 
     $stamps = Grouping::query()->where('winner', true)->pluck('id')->all();
     expect(Grouping::query()->where('winner', true)->pluck('bucket')->unique()->all())->toBe(['object'])
-        ->and(Storyfeed::feed()->live()->get()->toArray()['items'][0]['axis'])->toBe('object');
+        ->and(Storyfeed::feed()->live()->get()->toArray()[0]['axis'])->toBe('object');
 
     config()->set('storyfeed.grouping.curate', false);
 
-    $items = Storyfeed::feed()->live()->get()->toArray()['items'];
+    $items = Storyfeed::feed()->live()->get()->toArray();
     $report = Storyfeed::doctor(['aggregates']);
     expect(Grouping::query()->where('winner', true)->pluck('id')->all())->toBe($stamps)
         ->and($items)->toHaveCount(1)
@@ -263,7 +263,7 @@ it('does not audit singleton repeats with curation off', function () {
     Storyfeed::feeds(['newsroom' => fn (FeedBuilder $feed) => $feed->live()]);
     Storyfeed::activity('upload', Delivery::create(['tracking_number' => 'TN-1']))->publish();
 
-    $items = Storyfeed::feed()->live()->get()->toArray()['items'];
+    $items = Storyfeed::feed()->live()->get()->toArray();
     expect($items)->toHaveCount(1)
         ->and($items[0]['kind'])->toBe('activity')
         ->and(Storyfeed::doctor(['aggregates'])->all())->toBeEmpty();

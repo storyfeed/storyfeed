@@ -11,11 +11,11 @@ it('returns newest-first payload items', function () {
     Storyfeed::activity('create', $delivery)->publishedAt(now()->subHour())->publish();
     Storyfeed::activity()->verb('ping')->publish();
 
-    $payload = Storyfeed::feed()->get()->toArray();
+    $payload = Storyfeed::feed()->cursorPaginate()->toArray();
 
     expect($payload['payload_version'])->toBe(1)
-        ->and($payload['items'])->toHaveCount(2)
-        ->and($payload['items'][0]['verb'])->toBe('ping');
+        ->and($payload['data'])->toHaveCount(2)
+        ->and($payload['data'][0]['verb'])->toBe('ping');
 });
 
 it('nests same-repeat-hash activities into a group node', function () {
@@ -25,7 +25,7 @@ it('nests same-repeat-hash activities into a group node', function () {
         Storyfeed::activity()->actor($user)->verb('upload', Delivery::create(['tracking_number' => "TN-{$i}"]))->publish();
     }
 
-    $items = Storyfeed::feed()->get()->toArray()['items'];
+    $items = Storyfeed::feed()->get()->toArray();
 
     expect($items)->toHaveCount(1)
         ->and($items[0]['kind'])->toBe('group')
@@ -40,7 +40,7 @@ it('keeps singletons as activity nodes', function () {
 
     Storyfeed::activity('confirm', $delivery)->publish();
 
-    $items = Storyfeed::feed()->get()->toArray()['items'];
+    $items = Storyfeed::feed()->get()->toArray();
 
     expect($items)->toHaveCount(1)
         ->and($items[0]['kind'])->toBe('activity');
@@ -53,7 +53,7 @@ it('scopes the feed by actor', function () {
     Storyfeed::activity()->actor($sally)->verb('ping')->publish();
     Storyfeed::activity()->actor($bob)->verb('ping')->publish();
 
-    $items = Storyfeed::feed()->actor($sally)->get()->toArray()['items'];
+    $items = Storyfeed::feed()->actor($sally)->get()->toArray();
 
     expect($items)->toHaveCount(1)
         ->and($items[0]['actor']['label'])->toBe('Sally');
@@ -65,7 +65,7 @@ it('scopes the feed by context', function () {
     Storyfeed::activity()->verb('ping')->context($customer)->publish();
     Storyfeed::activity()->verb('ping')->publish();
 
-    $items = Storyfeed::feed()->context($customer)->get()->toArray()['items'];
+    $items = Storyfeed::feed()->context($customer)->get()->toArray();
 
     expect($items)->toHaveCount(1);
 });
@@ -85,10 +85,10 @@ it('pages past the first screen of groups', function () {
     $cursor = null;
 
     foreach (range(1, 3) as $page) {
-        $payload = Storyfeed::feed()->limit(2)->cursor($cursor)->get()->toArray();
+        $payload = Storyfeed::feed()->limit(2)->cursorPaginate(cursor: $cursor)->toArray();
         $cursor = $payload['next_cursor'];
 
-        $seen = [...$seen, ...collect($payload['items'])->pluck('id')->all()];
+        $seen = [...$seen, ...collect($payload['data'])->pluck('id')->all()];
     }
 
     // Five groups, two per page: the fifth is reachable and no group is
@@ -107,13 +107,13 @@ it('emits one node with a true count and capped children for a large group', fun
         Storyfeed::activity()->actor($user)->verb('ping')->publishedAt(now()->subMinutes(26 - $i))->publish();
     }
 
-    $payload = Storyfeed::feed()->limit(2)->get()->toArray();
+    $payload = Storyfeed::feed()->limit(2)->cursorPaginate()->toArray();
 
-    expect($payload['items'])->toHaveCount(1)
-        ->and($payload['items'][0]['kind'])->toBe('group')
-        ->and($payload['items'][0]['count'])->toBe(25)
-        ->and($payload['items'][0]['children'])->toHaveCount(10)
-        ->and($payload['items'][0]['children_truncated'])->toBeTrue()
+    expect($payload['data'])->toHaveCount(1)
+        ->and($payload['data'][0]['kind'])->toBe('group')
+        ->and($payload['data'][0]['count'])->toBe(25)
+        ->and($payload['data'][0]['children'])->toHaveCount(10)
+        ->and($payload['data'][0]['children_truncated'])->toBeTrue()
         ->and($payload['next_cursor'])->toBeNull();
 });
 
@@ -129,9 +129,9 @@ it('orders deterministically when groups share a published_at', function () {
     $cursor = null;
 
     do {
-        $payload = Storyfeed::feed()->limit(2)->cursor($cursor)->get()->toArray();
+        $payload = Storyfeed::feed()->limit(2)->cursorPaginate(cursor: $cursor)->toArray();
         $cursor = $payload['next_cursor'];
-        $seen = [...$seen, ...collect($payload['items'])->pluck('id')->all()];
+        $seen = [...$seen, ...collect($payload['data'])->pluck('id')->all()];
     } while ($cursor !== null);
 
     expect($seen)->toHaveCount(6)
@@ -141,5 +141,5 @@ it('orders deterministically when groups share a published_at', function () {
 it('excludes unpublished (future) activities', function () {
     Storyfeed::activity()->verb('ping')->publishedAt(now()->addDay())->publish();
 
-    expect(Storyfeed::feed()->get()->toArray()['items'])->toHaveCount(0);
+    expect(Storyfeed::feed()->get()->toArray())->toHaveCount(0);
 });

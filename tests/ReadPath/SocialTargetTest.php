@@ -32,8 +32,8 @@ it('renders Newsroom comments with the document as the pinned target and comment
             ->target($this->document)->context($this->project)->publishedAt($this->start->copy()->addMinutes($i))->publish();
     }
     $feed = Storyfeed::feed()->live()->get();
-    $node = $feed->items()[0];
-    expect($feed->items())->toHaveCount(1)
+    $node = $feed->toArray()[0];
+    expect($feed->toArray())->toHaveCount(1)
         ->and($node['axis'])->toBe('actors_target')
         ->and($node['count'])->toBe(3)
         ->and($node['target']['label'])->toBe('hero-mobile-print-ready.fig')
@@ -44,7 +44,7 @@ it('renders Newsroom comments with the document as the pinned target and comment
         ->and($node['distinct']['objects'])->toBe(3)
         ->and($node['children'])->toHaveCount(3)
         ->and(collect($node['children'])->pluck('target.key')->unique())->toHaveCount(1)
-        ->and($feed->collect()->first()->headline()->toString())->toBe('Aiko, Jasper and Tomás commented on hero-mobile-print-ready.fig')
+        ->and($feed->first()->headline()->toString())->toBe('Aiko, Jasper and Tomás commented on hero-mobile-print-ready.fig')
         ->and(Grouping::query()->where('winner', true)->count())->toBe(Activity::query()->count());
 
     // Simulate L2 history: it had no target-social memberships. Replay adds
@@ -53,7 +53,7 @@ it('renders Newsroom comments with the document as the pinned target and comment
     $this->artisan('storyfeed:curate --rebuild-bursts --writers-paused')->assertSuccessful();
     $snapshot = fn () => Grouping::query()->orderBy('activity_id')->orderBy('bucket')->get(['activity_id', 'bucket', 'hash', 'winner'])->toArray();
     $before = $snapshot();
-    expect(Storyfeed::feed()->live()->get()->items()[0]['axis'])->toBe('actors_target');
+    expect(Storyfeed::feed()->live()->get()->toArray()[0]['axis'])->toBe('actors_target');
     $this->artisan('storyfeed:curate --rebuild-bursts --writers-paused')->assertSuccessful();
     expect($snapshot())->toBe($before);
 })->with([false, true]);
@@ -63,7 +63,7 @@ it('prefers an eligible object social row and assigns each remaining activity on
         Storyfeed::activity()->actor($actor)->verb('comment', $this->project)->target($this->document)->publish();
         Storyfeed::activity()->actor($actor)->verb('comment', Customer::create(['name' => "Other comment {$i}"]))->target($this->document)->publish();
     }
-    $items = collect(Storyfeed::feed()->live()->get()->items());
+    $items = collect(Storyfeed::feed()->live()->get()->toArray());
     expect($items)->toHaveCount(2)
         ->and($items->firstWhere('axis', 'actors')['count'])->toBe(3)
         ->and($items->firstWhere('axis', 'actors_target')['count'])->toBe(3)
@@ -75,10 +75,10 @@ it('uses the social threshold before falling back to the person row', function (
     foreach ([$this->people[0], $this->people[0], $this->people[1], $this->people[2]] as $i => $actor) {
         Storyfeed::activity()->actor($actor)->verb('comment', Customer::create(['name' => "Comment {$i}"]))->target($this->document)->publish();
     }
-    expect(collect(Storyfeed::feed()->live()->get()->items())->pluck('axis'))->not->toContain('actors_target');
+    expect(collect(Storyfeed::feed()->live()->get()->toArray())->pluck('axis'))->not->toContain('actors_target');
     Storyfeed::activity()->actor(User::create(['name' => 'Priya', 'email' => 'priya@example.com']))
         ->verb('comment', Customer::create(['name' => 'Last comment']))->target($this->document)->publish();
-    $items = Storyfeed::feed()->live()->get()->items();
+    $items = Storyfeed::feed()->live()->get()->toArray();
     expect($items)->toHaveCount(1)->and($items[0]['axis'])->toBe('actors_target')->and($items[0]['count'])->toBe(5);
 });
 

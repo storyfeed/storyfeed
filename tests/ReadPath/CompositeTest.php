@@ -38,7 +38,7 @@ it('publishes an explicit composite: one story, six atomic members', function ()
     expect(Activity::query()->count())->toBe(7)
         ->and($parent->object_type)->toBeNull();
 
-    $items = Storyfeed::feed()->get()->toArray()['items'];
+    $items = Storyfeed::feed()->get()->toArray();
 
     expect($items)->toHaveCount(1)
         ->and($items[0]['kind'])->toBe('group')
@@ -54,7 +54,7 @@ it('publishes an explicit composite: one story, six atomic members', function ()
 it('shows the atomic timeline in flat mode — members yes, story no', function () {
     Storyfeed::activity('upload')->actor(tomas())->objects(sixFiles())->publish();
 
-    $items = Storyfeed::feed()->log()->limit(10)->get()->toArray()['items'];
+    $items = Storyfeed::feed()->log()->limit(10)->get()->toArray();
 
     expect($items)->toHaveCount(6)
         ->and(collect($items)->pluck('kind')->unique()->values()->all())->toBe(['activity'])
@@ -66,7 +66,7 @@ it('shows composites in grouped mode — authored stories are not inference', fu
 
     Storyfeed::activity('upload')->actor(tomas())->objects(sixFiles())->publish();
 
-    $items = Storyfeed::feed()->live()->get()->toArray()['items'];
+    $items = Storyfeed::feed()->live()->get()->toArray();
 
     expect($items)->toHaveCount(1)
         ->and($items[0]['axis'])->toBe('composite')
@@ -91,8 +91,8 @@ it('pages composites, repeats and solos exactly once with curation off', functio
     $items = collect();
     $cursor = null;
     foreach (range(1, 3) as $page) {
-        $payload = Storyfeed::feed()->live()->limit(1)->cursor($cursor)->get()->toArray();
-        $items = $items->concat($payload['items']);
+        $payload = Storyfeed::feed()->live()->limit(1)->cursorPaginate(cursor: $cursor)->toArray();
+        $items = $items->concat($payload['data']);
         $cursor = $payload['next_cursor'];
         expect($cursor === null)->toBe($page === 3);
     }
@@ -132,12 +132,12 @@ it('auto-bundles a bundleable run when the batch closes', function (bool $curate
     }
 
     // Pre-close: inference serves it (a repeat group).
-    expect(Storyfeed::feed()->get()->toArray()['items'][0]['axis'])->toBe('repeat');
+    expect(Storyfeed::feed()->get()->toArray()[0]['axis'])->toBe('repeat');
 
     $this->travel(11)->minutes();
     (new CloseBatches)();
 
-    $items = Storyfeed::feed()->get()->toArray()['items'];
+    $items = Storyfeed::feed()->get()->toArray();
 
     // Post-close: the run is a minted story; axis rows are gone.
     expect($items)->toHaveCount(1)
@@ -167,7 +167,7 @@ it('never auto-bundles undesignated types, same-object runs, or singles', functi
     (new CloseBatches)();
 
     expect(Grouping::query()->where('bucket', 'composite')->count())->toBe(0)
-        ->and(Storyfeed::feed()->get()->toArray()['items'][0]['axis'])->toBe('repeat');
+        ->and(Storyfeed::feed()->get()->toArray()[0]['axis'])->toBe('repeat');
 
     // Same-object run of a bundleable: the object axis's story, not a collection.
     Storyfeed::bundleables(['delivery']);
@@ -187,7 +187,7 @@ it('never auto-bundles undesignated types, same-object runs, or singles', functi
 
     expect(Grouping::query()->where('bucket', 'composite')->count())->toBe(0);
 
-    $axes = collect(Storyfeed::feed()->limit(10)->get()->toArray()['items']);
+    $axes = collect(Storyfeed::feed()->limit(10)->get()->toArray());
 
     expect($axes->firstWhere('count', 2)['axis'])->toBe('object');
 });
@@ -212,12 +212,12 @@ it('re-decides abandoned clusters when a run is claimed', function () {
         Storyfeed::activity()->actor($u)->verb('upload', Delivery::firstOrCreate(['tracking_number' => 'T-1']))->for($campaign)->publish();
     }
 
-    expect(Storyfeed::feed()->get()->toArray()['items'][0]['axis'])->toBe('actors');
+    expect(Storyfeed::feed()->get()->toArray()[0]['axis'])->toBe('actors');
 
     $this->travel(11)->minutes();
     (new CloseBatches)();
 
-    $items = collect(Storyfeed::feed()->limit(10)->get()->toArray()['items']);
+    $items = collect(Storyfeed::feed()->limit(10)->get()->toArray());
 
     expect($items->firstWhere('axis', 'composite')['count'])->toBe(2)
         ->and(Grouping::query()->where('bucket', 'actors')->where('winner', true)->count())->toBe(0);
@@ -231,7 +231,7 @@ it('releases members back to inference when the story is force-deleted', functio
     expect(Grouping::query()->where('bucket', 'composite')->count())->toBe(0);
 
     // The events outlive the story: back to inference as a repeat group.
-    $items = Storyfeed::feed()->get()->toArray()['items'];
+    $items = Storyfeed::feed()->get()->toArray();
 
     expect($items)->toHaveCount(1)
         ->and($items[0]['axis'])->toBe('repeat')
@@ -285,7 +285,7 @@ it('backfills history with storyfeed:bundle after late Bundleable adoption', fun
 
     $this->artisan('storyfeed:bundle')->assertSuccessful();
 
-    $items = Storyfeed::feed()->get()->toArray()['items'];
+    $items = Storyfeed::feed()->get()->toArray();
 
     expect($items)->toHaveCount(1)
         ->and($items[0]['axis'])->toBe('composite')
@@ -343,7 +343,7 @@ it('partitions backfilled runs by day — a giant seeded batch never merges days
     // ...but the explicit command is intent, and partitions by day.
     $this->artisan('storyfeed:bundle')->assertSuccessful();
 
-    $items = collect(Storyfeed::feed()->limit(10)->get()->toArray()['items']);
+    $items = collect(Storyfeed::feed()->limit(10)->get()->toArray());
 
     expect($items)->toHaveCount(2)
         ->and($items->pluck('axis')->unique()->values()->all())->toBe(['composite'])

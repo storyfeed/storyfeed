@@ -23,9 +23,9 @@ it('hydrates each promoted role through the ordinary entity presenter and preser
             ->and(serialize_one($activity)['summary'])->toBe('via Named entity');
 
         DB::table($entity->getTable())->where('id', $entity->id)->delete();
-        $page = Storyfeed::feed()->log()->get()->toArray();
-        expect($page['items'])->toHaveCount(2);
-        $item = collect($page['items'])->firstWhere('id', $activity->uid);
+        $page = Storyfeed::feed()->log()->cursorPaginate()->toArray();
+        expect($page['data'])->toHaveCount(2);
+        $item = collect($page['data'])->firstWhere('id', $activity->uid);
         expect($item[$role]['label'])->toBe('Named entity')
             ->and($item[$role]['link'])->toBeNull();
     } finally {
@@ -40,7 +40,7 @@ it('hydrates each promoted role through the ordinary entity presenter and preser
     Storyfeed::feeds(['kitchen' => fn (FeedBuilder $feed) => $feed->log()->only(['onboard'])]);
     $next = Customer::create(['name' => 'Next consumer']);
     Storyfeed::activity('onboard', $next)->publish();
-    $item = Storyfeed::feed('kitchen')->get()->items()[0];
+    $item = Storyfeed::feed('kitchen')->get()->toArray()[0];
 
     expect(Customer::$lastContext?->feed())->toBe('kitchen')
         ->and($item['object']['link']['href'])->toBe("/kitchen/customers/{$next->id}");

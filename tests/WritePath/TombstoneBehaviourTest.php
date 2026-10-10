@@ -73,7 +73,7 @@ it('keeps the label on the tombstone when the model asks', function () {
 
     expect($tombstone->label)->toBe('Delivery #TN-1')
         ->and(Snapshot::query()->where('model_type', FeedTombstone::MORPH_ALIAS)->sole()->label)->toBe('Delivery #TN-1')
-        ->and(Storyfeed::feed()->get()->toArray()['items'][0]['object']['label'])->toBe('Delivery #TN-1')
+        ->and(Storyfeed::feed()->get()->toArray()[0]['object']['label'])->toBe('Delivery #TN-1')
         // Still the model's own snapshot is gone.
         ->and(Snapshot::query()->where('model_type', 'delivery')->exists())->toBeFalse();
 });

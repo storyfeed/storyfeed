@@ -44,12 +44,12 @@ final class ReadPathMeasurement
                     $buildTimes = [];
                     $queries = [];
                     // Warm the read once; measure complete payload construction, not only SQL.
-                    $read($cursor)->get()->toArray();
+                    $read($cursor)->cursorPaginate()->toArray();
                     foreach (range(1, 5) as $rep) {
                         $connection->flushQueryLog();
                         $connection->enableQueryLog();
                         $start = hrtime(true);
-                        $result = $read($cursor)->get();
+                        $result = $read($cursor)->cursorPaginate();
                         $buildTimes[] = (hrtime(true) - $start) / 1e6;
                         $payload = $result->toArray();
                         $times[] = (hrtime(true) - $start) / 1e6;
@@ -75,7 +75,7 @@ final class ReadPathMeasurement
                         $onRead($report);
                     }
                     $cursor = $payload['next_cursor'];
-                    if ($payload['items'] === [] || ($cursor === null && $entity === null)) {
+                    if ($payload['data'] === [] || ($cursor === null && $entity === null)) {
                         throw new \RuntimeException('The scale fixture must have two full pages.');
                     }
                     if ($cursor === null) {

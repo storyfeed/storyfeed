@@ -37,19 +37,19 @@ it('requires a fresh page after rehash moves an unread group before a live curso
     $at = now();
     $first = Storyfeed::activity('middle')->publishedAt($at)->publish();
     $unread = Storyfeed::activity('zebra')->publishedAt($at)->publish();
-    $page = Storyfeed::feed()->live()->limit(1)->get()->toArray();
+    $page = Storyfeed::feed()->live()->limit(1)->cursorPaginate()->toArray();
 
-    expect($page['items'][0]['id'])->toBe($first->uid)
+    expect($page['data'][0]['id'])->toBe($first->uid)
         ->and($page['next_cursor'])->not->toBeNull();
 
     Storyfeed::axes([
         Axis::make('repeat')->key(fn ($activity) => $activity->verb === 'zebra' ? 'alpha' : 'middle')->fallback(),
     ], merge: false);
     $this->artisan('storyfeed:curate --rehash')->assertSuccessful();
-    $next = Storyfeed::feed()->live()->limit(1)->cursor($page['next_cursor'])->get()->toArray();
-    $fresh = Storyfeed::feed()->live()->get()->toArray();
+    $next = Storyfeed::feed()->live()->limit(1)->cursorPaginate(cursor: $page['next_cursor'])->toArray();
+    $fresh = Storyfeed::feed()->live()->cursorPaginate()->toArray();
 
-    expect($next['items'])->toBeEmpty()
+    expect($next['data'])->toBeEmpty()
         ->and($next['sync_token'])->not->toBe($page['sync_token'])
-        ->and(array_column($fresh['items'], 'id'))->toContain($first->uid, $unread->uid);
+        ->and(array_column($fresh['data'], 'id'))->toContain($first->uid, $unread->uid);
 });

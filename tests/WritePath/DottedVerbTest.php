@@ -67,7 +67,7 @@ it('reads historical dotted rows and reports their counts without migrating them
         'published_at' => now(),
     ]));
 
-    expect(collect(Storyfeed::feed()->object($document)->log()->get()->items())->pluck('verb')->all())
+    expect(collect(Storyfeed::feed()->object($document)->log()->get()->toArray())->pluck('verb')->all())
         ->toBe(['document.email', 'document.email']);
 
     $this->artisan('storyfeed:doctor', ['--only' => 'verbs'])

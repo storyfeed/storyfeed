@@ -16,7 +16,7 @@ it('reads reserved party pictures from snapshots without linking or querying the
     Storyfeed::activity('ping')->actor($party)->publish();
     $party->delete();
 
-    $actor = Storyfeed::feed()->get()->toArray()['items'][0]['actor'];
+    $actor = Storyfeed::feed()->get()->toArray()[0]['actor'];
 
     expect($actor['link'])->toBeNull()
         ->and($actor['label'])->toBe('Studio')
@@ -49,14 +49,14 @@ it('updates pictures for existing activities when the party snapshot changes', f
     $party = Party::make('Studio', data: ['$media' => ['preview' => '/old.svg']]);
     Storyfeed::activity('ping')->object($party)->publish();
     Party::make('Studio', data: ['$media' => ['preview' => '/new.svg']]);
-    expect(Storyfeed::feed()->get()->toArray()['items'][0]['object']['media']['preview']['src'])->toBe('/new.svg');
+    expect(Storyfeed::feed()->get()->toArray()[0]['object']['media']['preview']['src'])->toBe('/new.svg');
 });
 
 it('keeps a party external home alongside pictures', function () {
     $party = Party::make('Studio', data: ['$media' => ['icon' => '/avatar.svg']], url: 'https://example.com');
     Storyfeed::activity('ping')->actor($party)->publish();
 
-    $actor = Storyfeed::feed()->get()->toArray()['items'][0]['actor'];
+    $actor = Storyfeed::feed()->get()->toArray()[0]['actor'];
     expect($actor['link']['href'])->toBe('https://example.com')
         ->and($actor['media']['icon']['src'])->toBe('/avatar.svg')
         ->and($actor['media'])->not->toHaveKey('url');

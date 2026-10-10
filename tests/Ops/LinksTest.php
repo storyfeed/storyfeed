@@ -200,7 +200,7 @@ it('deduplicates mirrors within a group and never counts unseen members', functi
     foreach (range(1, 6) as $i) {
         Storyfeed::activity('onboard', $customer)->actor($actor)->publish();
     }
-    $item = Storyfeed::feed('audit')->get()->collect()->sole();
+    $item = Storyfeed::feed('audit')->get()->sole();
     expect($item->isGroup())->toBeTrue()->and($item->count())->toBe(6)
         ->and($item->children())->toHaveCount(2)->and($item->childrenTruncated())->toBeTrue();
 
@@ -216,7 +216,7 @@ it('counts distinct returned group entities rather than the group total', functi
     foreach (range(1, 6) as $i) {
         Storyfeed::activity('onboard', linksCustomer())->actor($actor)->publishedAt(now()->subSeconds(32 - $i))->publish();
     }
-    $item = Storyfeed::feed('audit')->get()->collect()->sole();
+    $item = Storyfeed::feed('audit')->get()->sole();
     expect($item->isGroup())->toBeTrue()->and($item->count())->toBe(6)
         ->and($item->children())->toHaveCount(2)->and($item->childrenTruncated())->toBeTrue();
 

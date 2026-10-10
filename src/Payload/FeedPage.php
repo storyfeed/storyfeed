@@ -2,34 +2,19 @@
 
 namespace Storyfeed\Payload;
 
-use ArrayAccess;
-use Illuminate\Contracts\Support\Arrayable;
-use Illuminate\Contracts\Support\Responsable;
 use Illuminate\Support\Collection;
-use IteratorAggregate;
-use JsonSerializable;
-use LogicException;
 use Storyfeed\Support\FeedItem;
-use Traversable;
 
 /**
- * One page of the feed, emitting the Payload v1 envelope
- * ({payload_version, items, next_cursor}) — see docs/payload.md.
+ * One page of the feed on its way out: the nodes, the cursor that follows
+ * them and the sync token they were read under. `get()` hands back its
+ * nodes as a collection; the paginators carry all three.
  *
  * The cursor is opaque to consumers; its internals may change freely.
  *
- * Read-only ArrayAccess mirrors the JSON envelope, so the first instinct
- * ($page['items']) works the same in PHP as it does client-side.
- *
- * Iterating the page yields each item as a FeedItem reader, the way a
- * paginator yields its models: `@foreach ($page as $item)`. `items()` stays
- * the payload's arrays.
- *
- * @implements ArrayAccess<string, mixed>
- * @implements Arrayable<string, mixed>
- * @implements IteratorAggregate<int, FeedItem>
+ * @internal
  */
-final class FeedPage implements Arrayable, ArrayAccess, IteratorAggregate, JsonSerializable, Responsable
+final class FeedPage
 {
     /** @var array<int, array<string, mixed>>|null */
     protected ?array $presentedItems = null;
@@ -74,59 +59,18 @@ final class FeedPage implements Arrayable, ArrayAccess, IteratorAggregate, JsonS
         return collect($this->items())->map(FeedItem::of(...));
     }
 
-    /** @return Traversable<int, FeedItem> */
-    public function getIterator(): Traversable
-    {
-        return $this->collect()->getIterator();
-    }
-
     public function nextCursor(): ?string
     {
         return $this->nextCursor;
     }
 
-    /** @return array{payload_version: int, items: array<int, array<string, mixed>>, next_cursor: ?string, sync_token: ?string} */
-    public function toArray(): array
+    /**
+     * Opaque, cursor-grained: store it; when a later page's token differs,
+     * settled history was rewritten — drop ALL accumulated nodes and
+     * refetch. Null until the first rewrite ever.
+     */
+    public function syncToken(): ?string
     {
-        return [
-            'payload_version' => 1,
-            'items' => $this->items(),
-            'next_cursor' => $this->nextCursor(),
-            // Opaque, cursor-grained: store it; when a later page's token
-            // differs, settled history was rewritten — drop ALL accumulated
-            // nodes and refetch. Null until the first rewrite ever.
-            'sync_token' => $this->syncToken,
-        ];
-    }
-
-    /** @return array<string, mixed> */
-    public function jsonSerialize(): array
-    {
-        return $this->toArray();
-    }
-
-    public function toResponse($request)
-    {
-        return response()->json($this->toArray());
-    }
-
-    public function offsetExists(mixed $offset): bool
-    {
-        return array_key_exists($offset, $this->toArray());
-    }
-
-    public function offsetGet(mixed $offset): mixed
-    {
-        return $this->toArray()[$offset] ?? null;
-    }
-
-    public function offsetSet(mixed $offset, mixed $value): void
-    {
-        throw new LogicException('FeedPage is read-only.');
-    }
-
-    public function offsetUnset(mixed $offset): void
-    {
-        throw new LogicException('FeedPage is read-only.');
+        return $this->syncToken;
     }
 }

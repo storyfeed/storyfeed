@@ -72,13 +72,13 @@ it('shows six composite objects through the feed while retaining pinned roles', 
     config(['storyfeed.grouping.sample_limits.object' => 6]);
     $files = collect(range(1, 6))->map(fn ($i) => Delivery::create(['tracking_number' => "File-{$i}"]));
     Storyfeed::activity('upload')->actor('Importer')->objects($files)->publish();
-    $node = Storyfeed::feed()->get()->items()[0];
+    $node = Storyfeed::feed()->get()->toArray()[0];
     expect($node['sample']['objects'])->toHaveCount(6)
         ->and($node['actor']['label'])->toBe('Importer')
         ->and($node['sample']['actors'])->toHaveCount(1);
 
     config(['storyfeed.grouping.children_limit' => 2]);
-    $capped = Storyfeed::feed()->get()->items()[0];
+    $capped = Storyfeed::feed()->get()->toArray()[0];
     expect($capped['sample']['objects'])->toHaveCount(2)
         ->and($capped['distinct']['objects'])->toBe(6)
         ->and($capped['children_truncated'])->toBeTrue();

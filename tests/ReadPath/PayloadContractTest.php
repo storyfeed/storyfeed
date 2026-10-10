@@ -17,22 +17,30 @@ it('emits the same payload shape as before the recording API change', function (
 
     Storyfeed::activity('confirm', $delivery)->actor($user)->for($customer)->publish();
 
-    $payload = Storyfeed::feed()->get()->toArray();
+    $payload = Storyfeed::feed()->cursorPaginate()->toArray();
 
-    // 'sync_token' added 2026-08-12 (additive): opaque, cursor-grained —
-    // store it; when a later page's differs, drop accumulated nodes and
-    // refetch. Null until the first settled-history rewrite ever.
-    expect(array_keys($payload))->toBe(['payload_version', 'items', 'next_cursor', 'sync_token']);
-    expect(array_keys($payload['items'][0]))->toBe([
+    // The contract is the node shape (#95, 2026-10-09): a page is Laravel's
+    // own paginator JSON, the nodes in `data`, with the two feed-level values
+    // as extra top-level keys, where an API resource's additional() puts them.
+    // 'sync_token' (2026-08-12): opaque, cursor-grained — store it; when a
+    // later page's differs, drop accumulated nodes and refetch. Null until
+    // the first settled-history rewrite ever.
+    expect(array_keys($payload))->toBe([
+        'data', 'path', 'per_page', 'next_cursor', 'next_page_url', 'prev_cursor', 'prev_page_url',
+        'payload_version', 'sync_token',
+    ]);
+    // get() is the nodes and nothing else.
+    expect(Storyfeed::feed()->get()->toArray())->toBe($payload['data']);
+    expect(array_keys($payload['data'][0]))->toBe([
         'kind', 'id', 'verb', 'published_at', 'starts_at', 'ends_at', 'headline_template', 'headline',
         'glyph', 'glyph_intent', 'actor', 'object', 'target', 'context', 'origin', 'result', 'instrument', 'location', 'generator', 'data',
         'tombstoned', 'redundant', 'missing_headline_template', 'missing_headline',
     ]);
     // `url`, `attributes` and `modal` became one `link` (2026-10-09, #79).
-    expect(array_keys($payload['items'][0]['object']))->toBe([
+    expect(array_keys($payload['data'][0]['object']))->toBe([
         'type', 'id', 'label', 'link', 'data', 'media', 'body', 'tombstone',
     ]);
-    expect(array_keys($payload['items'][0]['object']['link']))->toBe(['href', 'modal', 'attributes']);
+    expect(array_keys($payload['data'][0]['object']['link']))->toBe(['href', 'modal', 'attributes']);
 });
 
 it('emits the frozen group-node shape', function () {
@@ -45,7 +53,7 @@ it('emits the frozen group-node shape', function () {
             ->publish();
     }
 
-    $item = Storyfeed::feed()->get()->toArray()['items'][0];
+    $item = Storyfeed::feed()->get()->toArray()[0];
 
     expect($item['kind'])->toBe('group');
     expect(array_keys($item))->toBe([
@@ -85,7 +93,7 @@ it('emits a byte-identical payload whether authored by a message class or a flue
     // promise the layer was designed around.
     $strip = function (array $payload): array {
         // ids and timestamps differ per row by design.
-        foreach ($payload['items'] as &$item) {
+        foreach ($payload['data'] as &$item) {
             unset($item['id'], $item['published_at']);
         }
 
@@ -104,7 +112,7 @@ it('emits a byte-identical payload whether authored by a message class or a flue
     Storyfeed::activity('confirm', Delivery::create(['tracking_number' => 'TN-1']))
         ->actor($user)->for($customer)->publish();
 
-    $viaFluent = $strip(Storyfeed::feed()->get()->toArray());
+    $viaFluent = $strip(Storyfeed::feed()->cursorPaginate()->toArray());
 
     // Same activity, authored by a message class, on a fresh manager.
     Activity::query()->forceDelete();
@@ -115,16 +123,16 @@ it('emits a byte-identical payload whether authored by a message class or a flue
 
     Storyfeed::publish(new DeliveryWasConfirmed(Delivery::create(['tracking_number' => 'TN-2']), $user, $customer));
 
-    $viaStory = $strip(Storyfeed::feed()->get()->toArray());
+    $viaStory = $strip(Storyfeed::feed()->cursorPaginate()->toArray());
 
     // Object labels differ (different tracking numbers), so compare everything
     // the authoring layer could possibly have moved.
     expect($viaStory['payload_version'])->toBe($viaFluent['payload_version'])
-        ->and(array_keys($viaStory['items'][0]))->toBe(array_keys($viaFluent['items'][0]))
-        ->and($viaStory['items'][0]['headline_template'])->toBe($viaFluent['items'][0]['headline_template'])
-        ->and($viaStory['items'][0]['glyph'])->toBe($viaFluent['items'][0]['glyph'])
-        ->and($viaStory['items'][0]['glyph_intent'])->toBe($viaFluent['items'][0]['glyph_intent'])
-        ->and($viaStory['items'][0]['verb'])->toBe($viaFluent['items'][0]['verb'])
-        ->and($viaStory['items'][0]['actor'])->toBe($viaFluent['items'][0]['actor'])
-        ->and($viaStory['items'][0]['target'])->toBe($viaFluent['items'][0]['target']);
+        ->and(array_keys($viaStory['data'][0]))->toBe(array_keys($viaFluent['data'][0]))
+        ->and($viaStory['data'][0]['headline_template'])->toBe($viaFluent['data'][0]['headline_template'])
+        ->and($viaStory['data'][0]['glyph'])->toBe($viaFluent['data'][0]['glyph'])
+        ->and($viaStory['data'][0]['glyph_intent'])->toBe($viaFluent['data'][0]['glyph_intent'])
+        ->and($viaStory['data'][0]['verb'])->toBe($viaFluent['data'][0]['verb'])
+        ->and($viaStory['data'][0]['actor'])->toBe($viaFluent['data'][0]['actor'])
+        ->and($viaStory['data'][0]['target'])->toBe($viaFluent['data'][0]['target']);
 });

@@ -224,7 +224,7 @@ it('serializes burst membership across overlapping publishers', function (string
         expect(Grouping::query()->orderBy('id')->pluck('hash', 'id')->all())->toBe($memberships)
             ->and(Grouping::where('bucket', 'actors')->where('winner', true)->count())->toBe(2 + $initial)
             ->and(Grouping::where('bucket', 'repeat')->where('winner', true)->count())->toBe(0);
-        expect(Storyfeed::feed()->live()->get()->items())->toHaveCount(1);
+        expect(Storyfeed::feed()->live()->get()->toArray())->toHaveCount(1);
     } finally {
         DB::purge('testing');
         if ($engine === 'pgsql') {

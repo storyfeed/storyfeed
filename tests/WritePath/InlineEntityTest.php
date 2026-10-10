@@ -48,7 +48,7 @@ it('renders like any entity in the payload and the Activity Streams document', f
         ->target($this->poll)
         ->publish();
 
-    $object = Storyfeed::feed()->log()->get()->toArray()['items'][0]['object'];
+    $object = Storyfeed::feed()->log()->get()->toArray()[0]['object'];
 
     expect($object)->toMatchArray(['type' => 'vote', 'label' => 'their vote'])
         ->and($object['link']['href'])->toBe('/polls/1#vote')
@@ -63,7 +63,7 @@ it('fills headline tokens, and files the story under its type', function () {
 
     Storyfeed::activity('change')->actor($this->attendee)->object(['type' => 'vote', 'label' => 'their vote'])->target($this->poll)->publish();
 
-    $node = Storyfeed::feed()->log()->get()->toArray()['items'][0];
+    $node = Storyfeed::feed()->log()->get()->toArray()[0];
 
     expect($node['headline_template'])->toBe(':actor changed :object on :target')
         ->and($node['object']['label'])->toBe('their vote')
@@ -77,9 +77,9 @@ it('reads as the array source reads the same entity', function () {
 
     $sourced = Storyfeed::feed()->log()->source(new ArraySource([
         SourceItem::make('change', $stored->published_at, actor: $this->attendee, object: $entity, target: $this->poll, id: $stored->uid),
-    ]))->get()->toArray()['items'][0];
+    ]))->get()->toArray()[0];
 
-    $read = Storyfeed::feed()->log()->get()->toArray()['items'][0];
+    $read = Storyfeed::feed()->log()->get()->toArray()[0];
 
     expect($read['object'])->toEqual($sourced['object'])
         ->and($read['headline'] ?? null)->toEqual($sourced['headline'] ?? null);
