@@ -185,6 +185,11 @@ class NodePresenter
             // `glyph_intent`.
             'glyph_intent' => $this->storyfeed->glyphIntent($type, $activity->verb),
             ...$this->activityEntities($activity),
+            // Additive (2026-10-09, #76): the role whose entity the row draws
+            // as its body. `object` unless the activity or its verb said
+            // otherwise; null draws no entity body. A featured role that is
+            // empty draws none either; the row is never hidden.
+            'featured' => self::featured($activity),
             'data' => $activity->data,
             // Additive (2026-09-23): the roles whose entity was deleted, and
             // whether one of them is constitutive for this verb, so the
@@ -501,6 +506,7 @@ class NodePresenter
         $first = $members->first();
 
         [$sample, $distinct, $distinctTombstoned] = $this->samples($members, $slice->distinct, $slice->tombstoned);
+        [$sample['featured'], $distinct['featured'], $distinctTombstoned['featured']] = $this->featuredSample($slice);
 
         [$template, $headline] = $this->aggregateHeadline($slice, $distinct);
         $template = $template === null ? null : FeedHeadline::forCount($template, $slice->count);
@@ -546,6 +552,13 @@ class NodePresenter
                     : null;
         }
 
+        // A1, refined (#93): the group features a role only when every
+        // member features it AND it is one entity, which the axis pinning it
+        // guarantees. The row then draws that entity once; otherwise kits
+        // draw the strip from `sample.featured`.
+        $common = $this->commonFeatured($slice);
+        $featured = $common !== null && ($singulars[$common] ?? null) !== null ? $common : null;
+
         $children = $members->map(fn (Activity $a) => $this->activityNode($a))->values()->all();
 
         [$tombstoned, $redundant] = $this->groupTombstoneFact($slice, $children, $distinct, $distinctTombstoned);
@@ -567,6 +580,7 @@ class NodePresenter
             'glyph' => $this->storyfeed->icon($this->objectType($first), $verb),
             'glyph_intent' => $this->storyfeed->glyphIntent($this->objectType($first), $verb),
             ...$singulars,
+            'featured' => $featured,
             'sample' => $sample,
             'distinct' => $distinct,
             'children' => $children,
@@ -647,6 +661,95 @@ class NodePresenter
         }
 
         return [$sample, $counts, $distinctTombstoned];
+    }
+
+    /**
+     * A strip tile per sampled member (#93): each member's featured entity,
+     * newest first, one entry per member activity, so an entity may repeat.
+     * A member that features nothing, or a role it left empty, contributes
+     * no entry. Capped by `grouping.sample_limits.featured`, default 3.
+     * The count is the members across the whole group whose featured entity
+     * is filled; tiles a kit leaves undrawn are counted from `count`.
+     *
+     * @return array{0: list<array<string, mixed>|null>, 1: int, 2: int}
+     */
+    protected function featuredSample(GroupSlice $slice): array
+    {
+        $limit = config('storyfeed.grouping.sample_limits.featured', 3);
+        $limit = is_int($limit) && $limit > 0 ? $limit : 3;
+        $entries = [];
+        $seen = 0;
+        $removed = 0;
+
+        foreach ($slice->members as $member) {
+            $role = self::featured($member);
+            if ($role === null) {
+                continue;
+            }
+
+            $roles = $this->roleFields($member);
+            $type = $roles["{$role}_type"] ?? null;
+            if ($type === null) {
+                continue;
+            }
+
+            $seen++;
+            $removed += $type === FeedTombstone::MORPH_ALIAS ? 1 : 0;
+
+            if (count($entries) < $limit) {
+                $entries[] = $this->entity($type, $roles["{$role}_id"] ?? null, $member->{'cached'.ucfirst($role)});
+            }
+        }
+
+        return [
+            $entries,
+            max(array_sum(array_column($slice->featured, 'count')), $seen),
+            max(array_sum(array_column($slice->featured, 'tombstoned')), $removed),
+        ];
+    }
+
+    /**
+     * The role every member of the group features, filled, or null. From
+     * the aggregate when the read counted it; otherwise from the members,
+     * and only when every member is loaded.
+     */
+    protected function commonFeatured(GroupSlice $slice): ?string
+    {
+        if ($slice->featured !== []) {
+            return count($slice->featured) === 1 && array_values($slice->featured)[0]['count'] === $slice->count
+                ? (string) array_key_first($slice->featured)
+                : null;
+        }
+
+        if ($slice->members->count() !== $slice->count) {
+            return null;
+        }
+
+        $roles = $slice->members->map(function (Activity $member): ?string {
+            $role = self::featured($member);
+
+            return $role !== null && ($this->roleFields($member)["{$role}_type"] ?? null) !== null ? $role : null;
+        })->unique();
+
+        return $roles->count() === 1 ? $roles->first() : null;
+    }
+
+    /**
+     * The role an activity features: its `featured` column, or the object
+     * when the row has none (a source item, or an install that has not run
+     * the migration). A value that names no payload role reads as the object.
+     */
+    protected static function featured(Activity $activity): ?string
+    {
+        $attributes = $activity->getAttributes();
+
+        if (! array_key_exists('featured', $attributes)) {
+            return 'object';
+        }
+
+        $role = $attributes['featured'];
+
+        return $role === null ? null : (in_array($role, ActivityRoles::PAYLOAD, true) ? $role : 'object');
     }
 
     /** @return array<string, mixed>|null */

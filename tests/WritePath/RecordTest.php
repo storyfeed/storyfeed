@@ -80,6 +80,9 @@ it('has a record parameter for every public builder role and setter', function (
         'by', 'using', 'resulting', 'at', 'in', 'to', 'for', 'from', 'on', 'with', 'into', // Role aliases.
         'when', 'unless', // Conditional composition, not activity fields.
         'hasActor', 'isAnonymous', 'has', // What story middleware reads, not setters.
+        // The featured role is one method per role, never a string argument (ruled on #76).
+        'featuringObject', 'featuringActor', 'featuringTarget', 'featuringOrigin', 'featuringResult',
+        'featuringInstrument', 'featuringLocation', 'featuringGenerator', 'withoutFeature',
         // record() stays synchronous (ruled 2026-09-24): queueing is the
         // builder's, with Laravel's Queueable, and so is what it carries.
         'queue', 'snapshotNow', 'deleteWhenMissingModels', '__serialize', '__unserialize',

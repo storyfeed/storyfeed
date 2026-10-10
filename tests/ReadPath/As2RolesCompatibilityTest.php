@@ -30,6 +30,10 @@ it('adds only nullable role keys to baseline payload and event bytes without cha
         }
         // The time range (#78) is the same kind of addition: nullable keys.
         if ($kind === 'node') {
+            // The featured role (#76): the object, by default.
+            expect($payload)->toHaveKey('featured', 'object');
+            unset($payload['featured']);
+
             foreach (['starts_at', 'ends_at'] as $key) {
                 expect($payload)->toHaveKey($key, null);
                 unset($payload[$key]);

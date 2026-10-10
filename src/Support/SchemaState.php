@@ -29,7 +29,7 @@ class SchemaState
      * @var array<string, list<string>>
      */
     public const array EXPECTED = [
-        'activities' => ['location_type', 'location_id', 'cached_location_id', 'generator_type', 'generator_id', 'cached_generator_id'],
+        'activities' => ['location_type', 'location_id', 'cached_location_id', 'generator_type', 'generator_id', 'cached_generator_id', 'featured'],
         'snapshots' => ['shape', 'body', 'meta'],
         'groupings' => ['winner'],
         'participants' => ['distance'],

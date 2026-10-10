@@ -248,6 +248,8 @@ return [
             'instrument' => 3,
             'location' => 3,
             'generator' => 3,
+            // The strip: one entry per member, its featured entity.
+            'featured' => 3,
         ],
 
         /*

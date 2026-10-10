@@ -414,6 +414,73 @@ class PendingActivity
     }
 
     /**
+     * ── The featured role ────────────────────────────────────────────────────
+     *
+     * Which role's entity the row draws as its body: the object, unless the
+     * activity says otherwise. One method per role, so the featured entity is
+     * always one of the activity's own; `withoutFeature()` draws none, while
+     * the activity's own body and its meta line still render. These win over
+     * the verb's `->featuring…()`. Featuring an empty role throws when the
+     * activity is recorded. There is no `featuringContext()`: a context is
+     * the bucket a row belongs to and is never drawn.
+     */
+    /** The default: only needed to undo an earlier `featuring…()`. */
+    public function featuringObject(): static
+    {
+        return $this->featuring('object');
+    }
+
+    public function featuringActor(): static
+    {
+        return $this->featuring('actor');
+    }
+
+    public function featuringTarget(): static
+    {
+        return $this->featuring('target');
+    }
+
+    public function featuringOrigin(): static
+    {
+        return $this->featuring('origin');
+    }
+
+    public function featuringResult(): static
+    {
+        return $this->featuring('result');
+    }
+
+    public function featuringInstrument(): static
+    {
+        return $this->featuring('instrument');
+    }
+
+    public function featuringLocation(): static
+    {
+        return $this->featuring('location');
+    }
+
+    public function featuringGenerator(): static
+    {
+        return $this->featuring('generator');
+    }
+
+    /** Draw no entity body: payload `"featured": null`. */
+    public function withoutFeature(): static
+    {
+        $this->activity->setAttribute('featured', null);
+
+        return $this;
+    }
+
+    private function featuring(string $role): static
+    {
+        $this->activity->setAttribute('featured', $role);
+
+        return $this;
+    }
+
+    /**
      * The activity's data map: app values plus explicitly authored core reserved keys.
      *
      * An `Arrayable` is accepted so a typed DTO can be the authoring surface:
@@ -774,6 +841,8 @@ class PendingActivity
         $this->resolveDefaultActor($manager);
 
         $this->assertRoleTypes($manager);
+
+        $this->resolveFeatured($manager);
 
         if ($manager instanceof StoryfeedFake) {
             return $this->captureOnFake($manager);
@@ -1239,6 +1308,33 @@ class PendingActivity
                     throw StoryRoleMismatch::forRole($verb, ($type ?? '*').".{$verb}", $role, $allowed, $morph);
                 }
             }
+        }
+    }
+
+    /**
+     * The verb's featured role when the activity named none, then the check
+     * that the role is filled. Neither said leaves the column's default, the
+     * object, unwritten, so an install that has not run the migration still
+     * records. The object is never empty in this sense: featuring it is the
+     * default, and a row with no object simply draws no entity body.
+     */
+    private function resolveFeatured(StoryfeedManager $manager): void
+    {
+        if (! array_key_exists('featured', $this->activity->getAttributes())) {
+            $type = $this->activity->object_type;
+            $declared = $manager->featured(is_string($type) && $type !== '' ? $type : null, (string) $this->activity->verb);
+
+            if ($declared === null) {
+                return;
+            }
+
+            $this->activity->setAttribute('featured', $declared === '' ? null : $declared);
+        }
+
+        $role = $this->activity->getAttribute('featured');
+
+        if (is_string($role) && $role !== 'object' && ! $this->has($role)) {
+            throw IncompleteActivity::featuredRoleEmpty((string) $this->activity->verb, $role);
         }
     }
 

@@ -51,6 +51,7 @@ use Storyfeed\StoryfeedManager;
  *     casts: array<string, array<string, string|list<string>>>,
  *     keepLatest: array<string, array{per: list<string>, within: string|null}>,
  *     periods: array<string, string>,
+ *     featured: array<string, string>,
  *     bursts: array<string, array{within: string, ceiling: string}>,
  *     queue: array<string, array{connection?: string, queue?: string, delay?: int, afterCommit?: bool, deleteWhenMissingModels?: bool}>,
  *     middleware: array<string, array{middleware: list<string|Closure>, excluded: list<string>}>,
@@ -63,7 +64,7 @@ use Storyfeed\StoryfeedManager;
 class CompileStories
 {
     /** The registries a compile produces, in the order they are applied. */
-    public const REGISTRIES = ['grammar', 'aggregateGrammar', 'actorlessGrammar', 'icons', 'glyphIntents', 'nouns', 'objectTypes', 'verbs', 'missing', 'missingGrammar', 'forget', 'retention', 'casts', 'keepLatest', 'periods', 'bursts', 'queue', 'middleware', 'actors', 'actions', 'names', 'wheres'];
+    public const REGISTRIES = ['grammar', 'aggregateGrammar', 'actorlessGrammar', 'icons', 'glyphIntents', 'nouns', 'objectTypes', 'verbs', 'missing', 'missingGrammar', 'forget', 'retention', 'casts', 'keepLatest', 'periods', 'featured', 'bursts', 'queue', 'middleware', 'actors', 'actions', 'names', 'wheres'];
 
     /**
      * @param  array<int, Verb>  $definitions
@@ -86,6 +87,7 @@ class CompileStories
         $casts = [];
         $keepLatest = [];
         $periods = [];
+        $featured = [];
         $bursts = [];
         $queue = [];
         $middleware = [];
@@ -238,6 +240,13 @@ class CompileStories
                     $periods[$key] = $period->value;
                 }
 
+                // The role its rows draw, or '' for none. Unsaid, a broader
+                // definition's, or the object.
+                if (($role = $definition->featured()) !== null) {
+                    $this->claim($owners, 'featured', $key, $source);
+                    $featured[$key] = $role;
+                }
+
                 // Where a queued publish goes: scalars, as a job's
                 // `$connection` and `$queue` are. Unsaid, the call site's
                 // and then the queue config's defaults stand.
@@ -358,6 +367,7 @@ class CompileStories
             'casts' => $casts,
             'keepLatest' => $keepLatest,
             'periods' => $periods,
+            'featured' => $featured,
             'bursts' => $bursts,
             'queue' => $queue,
             'middleware' => $middleware,

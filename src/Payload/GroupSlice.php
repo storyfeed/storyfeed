@@ -24,6 +24,10 @@ final class GroupSlice
      * @param  array<string, int>  $tombstoned  TRUE counts per role of the
      *                                          distinct entities that are
      *                                          tombstones, from the same query
+     * @param  array<string, array{count: int, tombstoned: int}>  $featured  per featured
+     *                                                                       role, the members across ALL members whose
+     *                                                                       featured entity is filled, and how many
+     *                                                                       of those entities are tombstones
      */
     public function __construct(
         public readonly ?string $axis,
@@ -32,16 +36,18 @@ final class GroupSlice
         public readonly Collection $members,
         public readonly array $distinct = [],
         public readonly array $tombstoned = [],
+        public readonly array $featured = [],
     ) {}
 
     /**
      * @param  Collection<int, Activity>  $members
      * @param  array<string, int>  $distinct
      * @param  array<string, int>  $tombstoned
+     * @param  array<string, array{count: int, tombstoned: int}>  $featured
      */
-    public static function group(string $axis, string $hash, int $count, Collection $members, array $distinct = [], array $tombstoned = []): self
+    public static function group(string $axis, string $hash, int $count, Collection $members, array $distinct = [], array $tombstoned = [], array $featured = []): self
     {
-        return new self($axis, $hash, $count, $members, $distinct, $tombstoned);
+        return new self($axis, $hash, $count, $members, $distinct, $tombstoned, $featured);
     }
 
     public static function solo(Activity $activity): self

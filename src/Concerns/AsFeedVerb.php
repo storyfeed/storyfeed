@@ -231,6 +231,51 @@ trait AsFeedVerb
         return $this->of()->generator($model);
     }
 
+    public function featuringObject(): PendingActivity
+    {
+        return $this->of()->featuringObject();
+    }
+
+    public function featuringActor(): PendingActivity
+    {
+        return $this->of()->featuringActor();
+    }
+
+    public function featuringTarget(): PendingActivity
+    {
+        return $this->of()->featuringTarget();
+    }
+
+    public function featuringOrigin(): PendingActivity
+    {
+        return $this->of()->featuringOrigin();
+    }
+
+    public function featuringResult(): PendingActivity
+    {
+        return $this->of()->featuringResult();
+    }
+
+    public function featuringInstrument(): PendingActivity
+    {
+        return $this->of()->featuringInstrument();
+    }
+
+    public function featuringLocation(): PendingActivity
+    {
+        return $this->of()->featuringLocation();
+    }
+
+    public function featuringGenerator(): PendingActivity
+    {
+        return $this->of()->featuringGenerator();
+    }
+
+    public function withoutFeature(): PendingActivity
+    {
+        return $this->of()->withoutFeature();
+    }
+
     /**
      * @param  Model|string|array<string, mixed>|null  $model  a model, a party name, or an entity with no model behind it
      */

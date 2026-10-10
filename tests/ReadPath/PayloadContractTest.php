@@ -33,7 +33,7 @@ it('emits the same payload shape as before the recording API change', function (
     expect(Storyfeed::feed()->get()->toArray())->toBe($payload['data']);
     expect(array_keys($payload['data'][0]))->toBe([
         'kind', 'id', 'verb', 'published_at', 'starts_at', 'ends_at', 'headline_template', 'headline',
-        'glyph', 'glyph_intent', 'actor', 'object', 'target', 'context', 'origin', 'result', 'instrument', 'location', 'generator', 'data',
+        'glyph', 'glyph_intent', 'actor', 'object', 'target', 'context', 'origin', 'result', 'instrument', 'location', 'generator', 'featured', 'data',
         'tombstoned', 'redundant', 'missing_headline_template', 'missing_headline',
     ]);
     // `url`, `attributes` and `modal` became one `link` (2026-10-09, #79).
@@ -59,7 +59,7 @@ it('emits the frozen group-node shape', function () {
     expect(array_keys($item))->toBe([
         'kind', 'id', 'axis', 'count', 'verb', 'published_at', 'headline_template',
         'headline', 'glyph', 'glyph_intent', 'actor', 'object', 'target', 'context', 'origin', 'result', 'instrument',
-        'location', 'generator', 'sample', 'distinct', 'children', 'children_truncated',
+        'location', 'generator', 'featured', 'sample', 'distinct', 'children', 'children_truncated',
         'tombstoned', 'redundant', 'distinct_tombstoned',
     ]);
     // PINNED SINGULAR ROLES (2026-08-26, ADDITIVE): a role the axis pins is one
@@ -75,12 +75,12 @@ it('emits the frozen group-node shape', function () {
     // role is a LIST of up to 3 distinct entities; a pinned role collapses
     // to exactly one by construction. `distinct` carries true per-role
     // totals (replacing others_count).
-    expect(array_keys($item['sample']))->toBe(['actors', 'objects', 'targets', 'contexts', 'origins', 'results', 'instruments', 'locations', 'generators']);
-    expect(array_keys($item['distinct']))->toBe(['actors', 'objects', 'targets', 'contexts', 'origins', 'results', 'instruments', 'locations', 'generators']);
+    expect(array_keys($item['sample']))->toBe(['actors', 'objects', 'targets', 'contexts', 'origins', 'results', 'instruments', 'locations', 'generators', 'featured']);
+    expect(array_keys($item['distinct']))->toBe(['actors', 'objects', 'targets', 'contexts', 'origins', 'results', 'instruments', 'locations', 'generators', 'featured']);
     // A group's children are ordinary activity nodes.
     expect(array_keys($item['children'][0]))->toBe([
         'kind', 'id', 'verb', 'published_at', 'starts_at', 'ends_at', 'headline_template', 'headline',
-        'glyph', 'glyph_intent', 'actor', 'object', 'target', 'context', 'origin', 'result', 'instrument', 'location', 'generator', 'data',
+        'glyph', 'glyph_intent', 'actor', 'object', 'target', 'context', 'origin', 'result', 'instrument', 'location', 'generator', 'featured', 'data',
         'tombstoned', 'redundant', 'missing_headline_template', 'missing_headline',
     ]);
 });

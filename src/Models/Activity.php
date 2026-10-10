@@ -59,6 +59,7 @@ use Storyfeed\Support\MorphKeyType;
  * @property string|null $generator_type
  * @property int|string|null $generator_id
  * @property int|null $cached_generator_id
+ * @property string|null $featured the role whose entity the row draws; 'object' by default, null for none
  * @property array<array-key, mixed>|null $data
  * @property array<string, array<string, mixed>>|null $entities roles with no model behind them, by role (see Support\InlineEntity)
  * @property Carbon|null $published_at

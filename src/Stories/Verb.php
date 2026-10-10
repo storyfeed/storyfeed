@@ -96,6 +96,9 @@ final class Verb
     /** The calendar bucket its groups live in; null: not said, so a broader definition's, or a day. */
     protected ?Period $period = null;
 
+    /** The role whose entity a row draws; null: not said, so a broader definition's, or the object. '' draws none. */
+    protected ?string $featured = null;
+
     /** @var array{within: string, ceiling: string}|null */
     protected ?array $bursts = null;
 
@@ -417,6 +420,74 @@ final class Verb
     public function intent(string $intent): self
     {
         $this->intent = $intent;
+
+        return $this;
+    }
+
+    /**
+     * The role whose entity this verb's rows draw as their body, by default:
+     * an activity can still say otherwise. See PendingActivity::featuringObject().
+     */
+    public function featuringObject(): self
+    {
+        $this->featured = 'object';
+
+        return $this;
+    }
+
+    public function featuringActor(): self
+    {
+        $this->featured = 'actor';
+
+        return $this;
+    }
+
+    public function featuringTarget(): self
+    {
+        $this->featured = 'target';
+
+        return $this;
+    }
+
+    public function featuringOrigin(): self
+    {
+        $this->featured = 'origin';
+
+        return $this;
+    }
+
+    public function featuringResult(): self
+    {
+        $this->featured = 'result';
+
+        return $this;
+    }
+
+    public function featuringInstrument(): self
+    {
+        $this->featured = 'instrument';
+
+        return $this;
+    }
+
+    public function featuringLocation(): self
+    {
+        $this->featured = 'location';
+
+        return $this;
+    }
+
+    public function featuringGenerator(): self
+    {
+        $this->featured = 'generator';
+
+        return $this;
+    }
+
+    /** Draw no entity body for this verb's rows. */
+    public function withoutFeature(): self
+    {
+        $this->featured = '';
 
         return $this;
     }
@@ -1273,6 +1344,16 @@ final class Verb
     }
 
     /**
+     * The featured role as declared: a role, '' for none, or null when not said.
+     *
+     * @internal
+     */
+    public function featured(): ?string
+    {
+        return $this->featured;
+    }
+
+    /**
      * Where a queued publish goes, as declared; null when the verb said
      * nothing and a broader definition's answer stands.
      *
@@ -1375,6 +1456,7 @@ final class Verb
             'retention' => $this->retention,
             'keepLatest' => $this->keepLatest === null ? null : [...$this->keepLatest['per'], '@', (string) $this->keepLatest['within']],
             'period' => $this->period,
+            'featured' => $this->featured === '' ? 'none' : $this->featured,
             'bursts' => $this->bursts,
             'queue' => $this->queueing === [] ? null : array_map(
                 fn (string $key, mixed $value) => $key.'='.var_export($value, true),
