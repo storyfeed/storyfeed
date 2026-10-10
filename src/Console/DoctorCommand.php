@@ -7,6 +7,7 @@ use Storyfeed\Diagnostics\Finding;
 use Storyfeed\Diagnostics\Report;
 use Storyfeed\Diagnostics\Severity;
 use Storyfeed\StoryfeedManager;
+use Storyfeed\Support\SnapshotCompiler;
 
 /**
  * Surfaces silent-fallback traps as explicit findings: verbs without grammar
@@ -63,6 +64,13 @@ class DoctorCommand extends Command
 
     protected function renderText(Report $report): void
     {
+        // Configuration, not a finding: `sync` is right locally, and the
+        // `snapshots` check warns about it anywhere else.
+        $mode = rescue(fn () => app(SnapshotCompiler::class)->mode(), null, false);
+        if ($mode !== null) {
+            $this->line("Snapshots compile: {$mode} (STORYFEED_SNAPSHOTS)");
+        }
+
         foreach ($report->all() as $finding) {
             if ($finding->acknowledgment !== null) {
                 $this->line("Acknowledged [{$finding->severity->value}]: {$finding->message} Reason: {$finding->acknowledgment}");

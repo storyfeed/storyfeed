@@ -35,6 +35,7 @@ use Storyfeed\Support\ActivityRoles;
 use Storyfeed\Support\Chronology;
 use Storyfeed\Support\MorphKeyType;
 use Storyfeed\Support\RoleTypes;
+use Storyfeed\Support\SnapshotCompiler;
 use Storyfeed\Support\SyncToken;
 use Storyfeed\Support\VerbFilter;
 
@@ -760,6 +761,8 @@ class FeedBuilder
         if ($this->source !== null) {
             return $this->sourcePage($now, $this->source);
         }
+
+        app(SnapshotCompiler::class)->compileIfChanged();
 
         return $this->shouldGroup()
             ? $this->groupedPage($now)

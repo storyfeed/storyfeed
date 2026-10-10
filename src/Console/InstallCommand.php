@@ -8,7 +8,8 @@ use Storyfeed\Stories\DefinitionsFile;
 
 /**
  * Install Storyfeed: publish the config and migrations, create
- * `routes/feed.php`, and offer to migrate. The analogue of
+ * `routes/feed.php`, set `STORYFEED_SNAPSHOTS=sync` in .env, and offer to
+ * migrate. The analogue of
  * `install:broadcasting` creating `routes/channels.php`.
  *
  * IT NEVER OVERWRITES the definitions file. An app may already use
@@ -36,6 +37,7 @@ class InstallCommand extends Command
         }
 
         $this->createDefinitionsFile($file, $files);
+        $this->writeEnvironment($files);
 
         if (! $this->option('without-migrations')
             && $this->input->isInteractive()
@@ -44,6 +46,39 @@ class InstallCommand extends Command
         }
 
         return self::SUCCESS;
+    }
+
+    /**
+     * `STORYFEED_SNAPSHOTS=sync` in .env and commented in .env.example, as
+     * Laravel ships `QUEUE_CONNECTION`. A line already there is left alone.
+     */
+    protected function writeEnvironment(Filesystem $files): void
+    {
+        $written = false;
+
+        $env = $this->laravel->environmentFilePath();
+
+        foreach ([$env => 'STORYFEED_SNAPSHOTS=sync', $env.'.example' => '# STORYFEED_SNAPSHOTS=sync'] as $path => $line) {
+
+            if (! $files->exists($path)) {
+                continue;
+            }
+
+            $contents = $files->get($path);
+
+            if (preg_match('/^#?\s*STORYFEED_SNAPSHOTS=/m', $contents) === 1) {
+                continue;
+            }
+
+            $eol = str_contains($contents, "\r\n") ? "\r\n" : "\n";
+            $separator = $contents === '' || str_ends_with($contents, "\n") ? '' : $eol;
+            $files->append($path, $separator.$line.$eol);
+            $written = $written || $path === $env;
+        }
+
+        if ($written) {
+            $this->components->info('Set STORYFEED_SNAPSHOTS=sync in .env, so toFeed() changes show on reload.');
+        }
     }
 
     protected function createDefinitionsFile(DefinitionsFile $file, Filesystem $files): void

@@ -185,6 +185,8 @@ it('creates the file on install from the stub, and never overwrites one', functi
     $path = sys_get_temp_dir().DIRECTORY_SEPARATOR.'storyfeed-install-'.bin2hex(random_bytes(6)).'.php';
     $GLOBALS['storyfeedDefinitionsFiles'][] = $path;
     config()->set('storyfeed.definitions', $path);
+    // Install writes .env, and the testbench skeleton's is shared.
+    $this->app->useEnvironmentPath(sys_get_temp_dir().DIRECTORY_SEPARATOR.'storyfeed-no-env-'.bin2hex(random_bytes(6)));
 
     // vendor:publish would write config/storyfeed.php into the testbench
     // skeleton, which every parallel worker boots from: a worker listing the

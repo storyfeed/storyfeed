@@ -28,6 +28,7 @@ class Doctor
         Checks\Columns::class,
         Checks\References::class,
         Checks\Recording::class,
+        Checks\SnapshotCompile::class,
         Checks\Maintenance::class,
         Checks\Coverage::class,
         Checks\ActorlessCoverage::class,

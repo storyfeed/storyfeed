@@ -110,6 +110,30 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Snapshots
+    |--------------------------------------------------------------------------
+    |
+    | When `toFeed()` output is recompiled, configured like QUEUE_CONNECTION.
+    |
+    | `cached` (production): `php artisan optimize` recompiles the snapshots
+    | of the newest 1,000 activities (`storyfeed:cache-snapshots`), and the
+    | trickle catches up the rest.
+    |
+    | `sync` (local): set STORYFEED_SNAPSHOTS=sync and `toFeed()` changes show
+    | on reload. When a Feedable model or Story class file changes, the next
+    | feed read runs that same pass once, as Blade recompiles an edited view.
+    | Rows still show each entity as it was then. `storyfeed:install` writes
+    | the line to your .env, and the doctor warns about it outside local and
+    | testing.
+    |
+    */
+
+    'snapshots' => [
+        'compile' => env('STORYFEED_SNAPSHOTS', 'cached'),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Models
     |--------------------------------------------------------------------------
     |

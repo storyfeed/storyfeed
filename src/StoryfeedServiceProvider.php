@@ -29,6 +29,7 @@ use Storyfeed\Stories\StoryManifest;
 use Storyfeed\Support\Feedables;
 use Storyfeed\Support\QueuedActor;
 use Storyfeed\Support\QueuedContext;
+use Storyfeed\Support\SnapshotCompiler;
 use Storyfeed\Support\TombstoneRules;
 
 class StoryfeedServiceProvider extends PackageServiceProvider
@@ -123,6 +124,7 @@ class StoryfeedServiceProvider extends PackageServiceProvider
         $this->app->alias(StoryfeedManager::class, 'storyfeed');
         $this->app->singleton(Registrar::class);
         $this->app->singleton(Feedables::class);
+        $this->app->scoped(SnapshotCompiler::class);
         $this->app->singleton(DefinitionsFile::class);
         $this->app->singleton(TombstoneRules::class);
         $this->app->singleton(SourceManager::class);

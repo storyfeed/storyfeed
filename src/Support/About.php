@@ -84,6 +84,8 @@ class About
             console: fn (bool $on) => $on ? 'ENABLED' : '<fg=red;options=bold>OFF</>',
         );
 
+        $rows['Snapshots'] = rescue(fn () => $this->app->make(SnapshotCompiler::class)->mode(), 'unsupported', false);
+
         foreach ($this->scheduled() as $command => $event) {
             $rows[ucfirst($command).' schedule'] = AboutCommand::format(
                 $event?->expression,
