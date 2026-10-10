@@ -161,6 +161,15 @@ class StoryfeedServiceProvider extends PackageServiceProvider
                     ->hourly()
                     ->withoutOverlapping();
             }
+
+            // Closed burst windows are write-path working state; sweeping
+            // them never deletes an activity, so it is scheduled for you.
+            if (config('storyfeed.grouping.burst_retention_days', 7) !== null) {
+                $this->app->make(Schedule::class)
+                    ->command('storyfeed:prune', ['--bursts'])
+                    ->daily()
+                    ->withoutOverlapping();
+            }
         });
 
         // After every provider, so the app's morph map is set: a Feedable
