@@ -3,6 +3,7 @@
 use Storyfeed\Events\Snapshots\ActivitySnapshot;
 use Storyfeed\Facades\Storyfeed;
 use Storyfeed\Payload\NodePresenter;
+use Storyfeed\Support\Avatar;
 use Workbench\App\Models\Customer;
 use Workbench\App\Models\Delivery;
 use Workbench\App\Models\User;
@@ -32,6 +33,13 @@ it('adds only nullable role keys to baseline payload and event bytes without cha
             foreach (['starts_at', 'ends_at'] as $key) {
                 expect($payload)->toHaveKey($key, null);
                 unset($payload[$key]);
+            }
+
+            // Every entity has an avatar (#92): the baseline's `media: null`
+            // is now the derived one, initials on a palette colour.
+            foreach (['actor', 'object', 'target', 'context'] as $role) {
+                expect($payload[$role]['media'])->toMatchArray(['icon' => null, 'initials' => Avatar::initials($payload[$role]['label'])]);
+                $payload[$role]['media'] = null;
             }
         }
         $observed[$kind] = json_encode($payload, JSON_THROW_ON_ERROR);

@@ -117,7 +117,7 @@ it('still renders every row, still degrades the link to null', function () {
     expect($items)->toHaveCount(3)
         ->and(array_column(array_column($items, 'object'), 'link'))->toBe([null, null, null])
         ->and(array_column(array_column($items, 'object'), 'label'))->toBe(['Row 3', 'Row 2', 'Row 1'])
-        ->and(array_column(array_column($items, 'object'), 'media'))->toBe([null, null, null]);
+        ->and(array_column(array_column(array_column($items, 'object'), 'media'), 'initials'))->toBe(['R3', 'R2', 'R1']);
 });
 
 it('gives a fresh resolver a fresh memo, and reports again within none', function () {

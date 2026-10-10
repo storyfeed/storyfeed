@@ -156,7 +156,7 @@ it('compiles a bare Feedable with only toFeed() written, and links nothing', fun
 
     expect($item['object']['label'])->toBe('Bare')
         ->and($item['object']['link'])->toBeNull()
-        ->and($item['object']['media'])->toBeNull();
+        ->and($item['object']['media'])->toMatchArray(['icon' => null, 'initials' => 'B']);
 });
 
 it('answers both halves of the contract in the trait', function () {

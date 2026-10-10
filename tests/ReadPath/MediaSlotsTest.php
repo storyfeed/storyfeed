@@ -9,6 +9,7 @@ use Storyfeed\FeedLink;
 use Storyfeed\FeedMedia;
 use Storyfeed\Models\Activity;
 use Storyfeed\Serialization\ActivitySerializer;
+use Storyfeed\Support\Avatar;
 use Workbench\App\Models\Customer;
 use Workbench\App\Models\User;
 
@@ -149,14 +150,15 @@ it('emits entity.link with its suggestion and the full picture as the image slot
                 'height' => 300,
                 'alt' => null,
             ],
-            'initials' => null,
-            'color' => null,
+            // No icon declared, so the avatar is derived (#92).
+            'initials' => 'PT',
+            'color' => Avatar::color('photo', (string) $photo->id),
             'files' => [],
             'slots' => [],
         ]);
 });
 
-it('emits media: null for an entity whose resolver returns only a link', function () {
+it('derives an avatar for an entity whose resolver returns only a link', function () {
     $customer = Customer::create(['name' => 'Acme']);
 
     Storyfeed::activity('onboard', $customer)->publish();
@@ -164,11 +166,12 @@ it('emits media: null for an entity whose resolver returns only a link', functio
     $item = Storyfeed::feed()->get()->toArray()['items'][0];
 
     expect($item['object']['link']['href'])->toBe("/customers/{$customer->id}")
-        ->and($item['object']['media'])->toBeNull()
+        ->and($item['object']['media'])->toBe(Avatar::fill(null, 'customer', (string) $customer->id, 'Acme'))
+        ->and($item['object']['media']['initials'])->toBe('A')
         ->and($item['actor'])->toBeNull();
 });
 
-it('emits media: null for an un-snapshotted entity without calling the resolver', function () {
+it('draws ? on the neutral colour for an un-snapshotted entity, without calling the resolver', function () {
     photoModel();
 
     Activity::query()->create([
@@ -181,7 +184,7 @@ it('emits media: null for an un-snapshotted entity without calling the resolver'
     $object = Storyfeed::feed()->get()->toArray()['items'][0]['object'];
 
     expect($object['link'])->toBeNull()
-        ->and($object['media'])->toBeNull()
+        ->and($object['media'])->toMatchArray(['icon' => null, 'initials' => '?', 'color' => Avatar::NEUTRAL])
         ->and($object['label'])->toBeNull();
 });
 
@@ -208,7 +211,7 @@ it('degrades a throwing resolver to no url and no media, reported', function () 
 
     expect($object['label'])->toBe('Burnt')
         ->and($object['link'])->toBeNull()
-        ->and($object['media'])->toBeNull();
+        ->and($object['media'])->toMatchArray(['icon' => null, 'image' => null, 'preview' => null, 'initials' => 'B']);
     Exceptions::assertReported(RuntimeException::class);
 });
 

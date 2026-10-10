@@ -141,7 +141,7 @@ describe('a model with no feed code', function () {
         expect(snapshotOf($plate)->label)->toBe('Carrot soup')
             ->and($object['label'])->toBe('Carrot soup')
             ->and($object['link'])->toBeNull()
-            ->and($object['media'])->toBeNull();
+            ->and($object['media'])->toMatchArray(['icon' => null, 'initials' => 'CS']);
     });
 
     it('is saved without a label written anywhere', function () {

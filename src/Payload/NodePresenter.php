@@ -13,9 +13,11 @@ use Storyfeed\FeedNoun;
 use Storyfeed\Models\Activity;
 use Storyfeed\Models\FeedTombstone;
 use Storyfeed\Models\Snapshot;
+use Storyfeed\Sources\SourceItem;
 use Storyfeed\StoryfeedManager;
 use Storyfeed\Support\ActivityContextFactory;
 use Storyfeed\Support\ActivityRoles;
+use Storyfeed\Support\Avatar;
 use Storyfeed\Support\Chronology;
 use Storyfeed\Support\LinkResolver;
 use Storyfeed\Support\ModelHydrator;
@@ -666,18 +668,28 @@ class NodePresenter
             routeKey: $this->snapshotJson($snapshot, 'meta')['route_key'] ?? null,
         ));
 
+        $label = $media->label ?? $this->snapshotPlain($snapshot, 'label');
+        $id = $id === null ? null : (string) $id;
+
         return [
             'type' => $type,
-            'id' => $id === null ? null : (string) $id,
-            'label' => $media->label ?? $this->snapshotPlain($snapshot, 'label'),
+            'id' => $id,
+            'label' => $label,
             // Replaced `url`, `attributes` and `modal` (2026-10-09, #79): the
             // FeedLink owns the place a tap goes. An entity with no model
             // behind it (a source's lightweight `['type', 'label', 'url']`)
             // carries its href in the snapshot.
             'link' => self::link($media?->link, $this->snapshotJson($snapshot, 'meta')),
             'data' => $data,
-            // Additive (2026-09-05): the typed image slots, or null.
-            'media' => $media?->media(),
+            // Additive (2026-09-05): the typed image slots. Never null since
+            // #92: every entity has an avatar, declared or derived.
+            // A party's colour follows its key, which a source files it under
+            // too, not the row id the database gave it.
+            'media' => Avatar::fill(
+                $media?->media(), $type,
+                $type === SourceItem::partyAlias() && is_string($data['key'] ?? null) ? $data['key'] : $id,
+                $label, tombstone: $type === FeedTombstone::MORPH_ALIAS,
+            ),
             // Omit only absent body fields: old snapshots keep their shape,
             // while an explicitly empty string remains authored content. The
             // body: what the snapshot stored, then what the resolver resolved.

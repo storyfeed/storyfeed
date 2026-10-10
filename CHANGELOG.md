@@ -16,6 +16,7 @@
 
 ### Changed
 
+- Every entity has an avatar (#92). When an entity declares no `icon`, core derives what it left undeclared: `initials` from its label (first letter of the first and last words, uppercase) and a `color` from its morph alias and key, hashed onto a fixed palette (`Support\Avatar::PALETTE`), so the same entity gets the same tile everywhere. A party is hashed by its key. A tombstone takes the neutral `#6b7280`, and an entity with no label shows `?` on it. Declared values still win. Entity `media` is therefore never null. Not on the Activity Streams wire.
 - `Image::make()`'s first argument is the picture: a URL, a `FeedImage`, `getFeedMedia()` or a `MediaSlot`. `caption`, `alt`, `width` and `height` follow it; named arguments are unchanged. With none, it shows the `preview` slot as before.
 - `Image` v3 writes `image` whenever the body shows a slot, including `preview`. Stored v2 rows upgrade unchanged: an absent `image` is `preview`.
 - Entity `media` carries `slots`, a map of custom slots that is empty when there are none.

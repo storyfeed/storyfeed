@@ -73,7 +73,9 @@ use Throwable;
  *     FeedMedia::make()->initials('AC')->color('#438d98')
  *
  * A renderer draws the icon when there is one, else the initials on a disc
- * of that colour, else its own default. Only the disc colour is declared:
+ * of that colour. Whatever is left undeclared is derived from the label and
+ * the entity's identity when the payload is built ({@see Support\Avatar}),
+ * so every entity has an avatar. Only the disc colour is declared:
  * the renderer picks light or dark text for contrast, as GitHub does for a
  * label's colour. AS2 has no word for either, so they stay in the payload
  * and do not reach the Activity Streams document.
