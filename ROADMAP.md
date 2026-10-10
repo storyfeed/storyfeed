@@ -86,6 +86,13 @@ work leads to is a demonstration of a working package, not a launch event, so
       `STORYFEED_SNAPSHOTS=sync` shows `toFeed()` changes on reload. Tables from
       before 0.13 can be upgraded in place.
 
+- [x] **v0.19 — Read path at scale** *(tagged `v0.19.0`)*. Scoped feeds read in
+      feed order from the participants index, and a Live page takes 9 queries
+      instead of 23: under 100 ms at a million activities on every supported
+      database, with nightly benchmark gates at 1M and 3M. A group's members can
+      be read past its first page, group ids became `Anchor` values, and closed
+      burst windows are swept.
+
 ## The countdown to 1.0
 
 Each version below is a GitHub milestone holding its concrete issues. Issue
@@ -93,9 +100,6 @@ titles start with the version they target, such as `[0.17]`. Milestones show
 the current plan: items may be reordered, moved to a later version or dropped as
 the work teaches us, and a dropped item is closed as not planned with its reason.
 
-- [ ] **[v0.19 — Read path at scale](https://github.com/storyfeed/storyfeed/milestone/3).**
-      Scoped feeds stay fast at a million activities on every supported database,
-      with nightly benchmark gates.
 - [ ] **[v0.20 — Payload and schema freeze](https://github.com/storyfeed/storyfeed/milestone/4).**
       The open points in the payload contract and the schema are settled,
       `location` and `generator` join the recorded roles, and Payload v1 is
