@@ -76,7 +76,7 @@ final class ReadPathBenchmarkCase extends TestCase
                     $reports[$label] = $partial;
                     file_put_contents($path, json_encode($reports, JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR));
                     $read = $partial['reads'][array_key_last($partial['reads'])];
-                    printf("%s %s curate=%s page=%d: %.1fms p50 / %.1fms p95, %d queries\n", $label, $read['mode'], $read['curate'] ? 'true' : 'false', $read['page'], $read['p50_ms'], $read['p95_ms'], $read['queries']);
+                    printf("%s %s %s curate=%s page=%d: %.1fms p50 / %.1fms p95, %d queries\n", $label, $read['scope'], $read['mode'], $read['curate'] ? 'true' : 'false', $read['page'], $read['p50_ms'], $read['p95_ms'], $read['queries']);
                 });
                 $report['seed_seconds'] = $seconds;
                 $reports[$label] = $report;

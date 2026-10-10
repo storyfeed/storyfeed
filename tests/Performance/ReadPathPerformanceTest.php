@@ -5,7 +5,7 @@ use Storyfeed\Tests\Fixtures\NestedReadPathMeasurement;
 use Storyfeed\Tests\Fixtures\ReadPathHistory;
 use Storyfeed\Tests\Fixtures\ReadPathMeasurement;
 
-it('reads Live within a 300ms p50 budget at the requested scale', function () {
+it('reads Live and involving() within a 300ms p50 budget at the requested scale', function () {
     $size = (int) env('STORYFEED_READ_SIZE', 100_000);
     $report = ['status' => 'preflight', 'requested_activities' => $size, 'reads' => []];
     $write = function () use (&$report): void {
@@ -34,13 +34,18 @@ it('reads Live within a 300ms p50 budget at the requested scale', function () {
             $report = array_replace($report, $partial);
             $write();
         });
+        $over = [];
         foreach ($report['reads'] as $read) {
-            fwrite(STDERR, sprintf("\n%s curate=%s page=%d: %.1fms p50 / %.1fms p95, %d queries", $read['mode'], $read['curate'] ? 'true' : 'false', $read['page'], $read['p50_ms'], $read['p95_ms'], $read['queries']));
-            if ($read['page'] === 1) {
-                expect($read['p50_ms'])->toBeLessThan(300);
+            $line = sprintf('%s %s curate=%s page=%d: %.1fms p50 / %.1fms p95, %d queries', $read['scope'], $read['mode'], $read['curate'] ? 'true' : 'false', $read['page'], $read['p50_ms'], $read['p95_ms'], $read['queries']);
+            fwrite(STDERR, "\n".$line);
+            // Live over everything is held on its first page; every involving() page is held.
+            if (($read['scope'] !== 'all' || $read['page'] === 1) && $read['p50_ms'] >= 300) {
+                $over[] = $line;
             }
         }
         fwrite(STDERR, "\n");
+        $report['over_budget'] = $over;
+        expect($over)->toBe([], 'Reads over the 300ms p50 budget');
         if ($size === 100_000) {
             $nested = NestedReadPathMeasurement::run();
             fwrite(STDERR, json_encode($nested, JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR)."\n");

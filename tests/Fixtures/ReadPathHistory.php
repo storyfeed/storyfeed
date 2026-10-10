@@ -3,7 +3,9 @@
 namespace Storyfeed\Tests\Fixtures;
 
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Storyfeed\Actions\SnapshotEntity;
+use Storyfeed\Actions\SyncParticipants;
 use Storyfeed\Facades\Storyfeed;
 use Storyfeed\Grouping\MultiAxisStrategy;
 use Storyfeed\Models\Activity;
@@ -23,7 +25,10 @@ final class ReadPathHistory
         $actors = collect(range(1, 24))->map(fn ($i) => User::create(['name' => "Person {$i}", 'email' => "person{$i}@example.com"]));
         $targets = collect(range(1, 9))->map(fn ($i) => Customer::create(['name' => "Project {$i}"]));
         $objects = collect(range(1, 120))->map(fn ($i) => Delivery::create(['tracking_number' => "Document {$i}"]));
+        // A quiet project: the context of five activities across history.
+        $archive = Customer::create(['name' => 'Archive']);
         $snapshot = new SnapshotEntity;
+        $archiveSnapshot = $snapshot($archive)->getKey();
         $actorSnapshots = $actors->map(fn ($model) => $snapshot($model)->getKey());
         $targetSnapshots = $targets->map(fn ($model) => $snapshot($model)->getKey());
         $objectSnapshots = $objects->map(fn ($model) => $snapshot($model)->getKey());
@@ -67,8 +72,12 @@ final class ReadPathHistory
                         'object_type' => $parent ? null : 'delivery', 'object_id' => $parent ? null : (string) $objects[$object]->id,
                         'cached_object_id' => $parent ? null : $objectSnapshots[$object],
                         'target_type' => 'customer', 'target_id' => (string) $targets[$target]->id, 'cached_target_id' => $targetSnapshots[$target],
+                        'context_type' => null, 'context_id' => null, 'cached_context_id' => null,
                         'published_at' => $at, 'created_at' => $at, 'updated_at' => $at,
                     ];
+                    if ($i % max(1, intdiv($size, 5)) === 7) {
+                        [$row['context_type'], $row['context_id'], $row['cached_context_id']] = ['customer', (string) $archive->id, $archiveSnapshot];
+                    }
                     $activities[] = $row;
 
                     if ($composite) {
@@ -81,7 +90,7 @@ final class ReadPathHistory
                     if ($i % 991 === 0 && ! $composite) {
                         continue;
                     }
-                    $hashKey = implode('|', [$row['verb'], $row['actor_id'], $row['object_id'], $row['target_id'], substr($at, 0, 10)]);
+                    $hashKey = implode('|', [$row['verb'], $row['actor_id'], $row['object_id'], $row['target_id'], $row['context_id'], substr($at, 0, 10)]);
                     $hashes = $hashCache[$hashKey] ??= $strategy->hashes(new Activity($row));
                     foreach ($hashes as $axis => &$logical) {
                         if (! Storyfeed::axis($axis)?->usesBursts()) {
@@ -127,11 +136,31 @@ final class ReadPathHistory
             }
         }
 
+        self::participants($size);
+
         if (DB::getDriverName() === 'pgsql') {
             DB::statement('analyze feed_activities');
             DB::statement('analyze feed_groupings');
+            DB::statement('analyze '.SyncParticipants::table());
         } elseif (in_array(DB::getDriverName(), ['mysql', 'mariadb'], true)) {
-            DB::select('analyze table feed_activities, feed_groupings');
+            DB::select('analyze table feed_activities, feed_groupings, '.SyncParticipants::table());
+        }
+    }
+
+    /** The direct participant rows publish would have written, in bounded batches. */
+    protected static function participants(int $size): void
+    {
+        $table = SyncParticipants::table();
+        $columns = ['activity_id', 'role', 'entity_type', 'entity_id', 'distance'];
+        $published = Schema::hasColumn($table, 'published_at');
+        for ($from = 1; $from <= $size; $from += 100_000) {
+            DB::transaction(function () use ($table, $columns, $published, $from) {
+                foreach (['actor', 'object', 'target', 'context'] as $role) {
+                    DB::table($table)->insertUsing($published ? [...$columns, 'published_at'] : $columns, DB::table('feed_activities')
+                        ->whereBetween('id', [$from, $from + 99_999])->whereNotNull("{$role}_id")
+                        ->selectRaw("id, '{$role}', {$role}_type, {$role}_id, 0".($published ? ', published_at' : '')));
+                }
+            });
         }
     }
 }

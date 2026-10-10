@@ -23,14 +23,8 @@ final class NestedReadPathMeasurement
             $parent = $chain === [] ? null : end($chain);
             $chain[] = NestedContainer::create(['name' => "Container {$i}", 'parent_type' => $parent === null ? null : 'container', 'parent_id' => $parent?->id]);
         }
+        // ReadPathHistory has already written the direct participant rows.
         $participants = SyncParticipants::table();
-        // The history fixture measures reads and bulk-inserts activities.
-        // Populate the direct lookup exactly as publish does before the baseline.
-        foreach (['actor', 'object', 'target'] as $role) {
-            DB::table($participants)->insertUsing(['activity_id', 'role', 'entity_type', 'entity_id', 'distance', 'published_at'],
-                DB::table('feed_activities')->whereNotNull("{$role}_id")
-                    ->selectRaw("id, '{$role}', {$role}_type, {$role}_id, 0, published_at"));
-        }
         $target = Customer::firstOrFail();
         $read = function () use ($target): array {
             $queries = [

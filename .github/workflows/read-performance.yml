@@ -1,4 +1,9 @@
-name: read-performance-3m
+name: read-performance
+
+# Nightly read-path budgets: Live and involving() at one and three million
+# activities on every supported database. A read over its 300ms p50 budget
+# fails its cell. Cells run in parallel; the run lasts as long as the
+# slowest seed.
 
 on:
   workflow_dispatch:
@@ -6,60 +11,114 @@ on:
     - cron: '23 4 * * *'
 
 concurrency:
-  group: read-performance-3m
+  group: read-performance
   cancel-in-progress: false
 
 jobs:
   read-performance:
+    name: read-performance (${{ matrix.database }}, ${{ matrix.size }})
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    # A cell over this reports `cancelled`, not `failure`: compare a
+    # cancelled cell's duration to this cap first. Seeding dominates.
+    timeout-minutes: 150
+    strategy:
+      fail-fast: false
+      matrix:
+        database: [sqlite, mysql, mariadb, postgres]
+        size: [1000000, 3000000]
+    env:
+      REPORT: build/read-path-${{ matrix.database }}-${{ matrix.size }}
+    defaults:
+      run:
+        # -eo pipefail: the guard's output is piped through tee.
+        shell: bash
     steps:
       - uses: actions/checkout@v7
       - name: Initialize failure report
         run: |
           mkdir -p build
-          printf '%s\n' '{"status":"setup","requested_activities":3000000,"reads":[]}' > build/read-path-3m.json
-          df -h > build/read-path-3m-disk.txt
+          printf '%s\n' '{"status":"setup","requested_activities":${{ matrix.size }},"reads":[]}' > "$REPORT.json"
+          df -h > "$REPORT-disk.txt"
       - uses: shivammathur/setup-php@v2
         with:
           php-version: '8.5'
-          extensions: pdo, sqlite, pdo_sqlite
+          extensions: pdo, sqlite, pdo_sqlite${{ matrix.database == 'postgres' && ', pdo_pgsql' || matrix.database != 'sqlite' && ', pdo_mysql' || '' }}
           coverage: none
       - run: composer install --prefer-dist --no-interaction
+
+      # Servers get a production-sized cache: the 128MB defaults would
+      # measure disk reads of a multi-gigabyte table, not the queries.
+      - name: Start MySQL
+        if: matrix.database == 'mysql'
+        run: |
+          docker run -d --name storyfeed-db -e MYSQL_ALLOW_EMPTY_PASSWORD=1 -e MYSQL_DATABASE=storyfeed_test -p 33306:3306 mysql:8 --innodb-buffer-pool-size=4G
+          for attempt in {1..60}; do
+            if docker exec storyfeed-db mysql --protocol=TCP -h 127.0.0.1 -uroot -e 'SELECT 1' >/dev/null 2>&1; then
+              break
+            fi
+            sleep 2
+          done
+          docker exec storyfeed-db mysql --protocol=TCP -h 127.0.0.1 -uroot -e 'SELECT VERSION()'
+          printf '%s\n' 'STORYFEED_TEST_DB=mysql' 'STORYFEED_TEST_PORT=33306' 'STORYFEED_TEST_DATABASE=storyfeed_test' 'STORYFEED_TEST_USERNAME=root' 'STORYFEED_TEST_PASSWORD=' >> "$GITHUB_ENV"
+      - name: Start PostgreSQL
+        if: matrix.database == 'postgres'
+        run: |
+          docker run -d --name storyfeed-db --shm-size=1g -e POSTGRES_HOST_AUTH_METHOD=trust -e POSTGRES_DB=storyfeed_test -p 35432:5432 postgres:18 -c shared_buffers=2GB
+          for attempt in {1..60}; do
+            if docker exec storyfeed-db psql -h 127.0.0.1 -U postgres -d storyfeed_test -c 'SELECT 1' >/dev/null 2>&1; then
+              break
+            fi
+            sleep 2
+          done
+          docker exec storyfeed-db psql -h 127.0.0.1 -U postgres -d storyfeed_test -c 'SELECT version()'
+          printf '%s\n' 'STORYFEED_TEST_DB=pgsql' 'STORYFEED_TEST_PORT=35432' 'STORYFEED_TEST_DATABASE=storyfeed_test' 'STORYFEED_TEST_USERNAME=postgres' 'STORYFEED_TEST_PASSWORD=' >> "$GITHUB_ENV"
+      - name: Start MariaDB
+        if: matrix.database == 'mariadb'
+        run: |
+          docker run -d --name storyfeed-db -e MARIADB_ALLOW_EMPTY_ROOT_PASSWORD=1 -e MARIADB_DATABASE=storyfeed_test -p 33306:3306 mariadb:12.3 --innodb-buffer-pool-size=4G
+          for attempt in {1..60}; do
+            if docker exec storyfeed-db mariadb --protocol=TCP -h 127.0.0.1 -uroot -e 'SELECT 1' >/dev/null 2>&1; then
+              break
+            fi
+            sleep 2
+          done
+          docker exec storyfeed-db mariadb --protocol=TCP -h 127.0.0.1 -uroot -e 'SELECT VERSION()'
+          printf '%s\n' 'STORYFEED_TEST_DB=mariadb' 'STORYFEED_TEST_PORT=33306' 'STORYFEED_TEST_DATABASE=storyfeed_test' 'STORYFEED_TEST_USERNAME=root' 'STORYFEED_TEST_PASSWORD=' >> "$GITHUB_ENV"
       - name: Check seed rollback handling
         run: vendor/bin/pest tests/ReadPath/ReadPathHarnessTest.php --ci
-      - name: Preflight the file-backed benchmark at 2K activities
+      - name: Preflight the benchmark at 2K activities
         env:
           STORYFEED_READ_BENCH: '1'
           STORYFEED_READ_SIZE: '2000'
-          STORYFEED_READ_REPORT: build/read-path-3m-preflight.json
-          STORYFEED_TEST_DB: sqlite
-          STORYFEED_TEST_DATABASE: build/read-path-3m-preflight.sqlite
+          STORYFEED_READ_REPORT: ${{ env.REPORT }}-preflight.json
         run: |
-          touch build/read-path-3m-preflight.sqlite
+          if [ "${{ matrix.database }}" = sqlite ]; then
+            export STORYFEED_TEST_DB=sqlite STORYFEED_TEST_DATABASE="$REPORT-preflight.sqlite"
+            touch "$STORYFEED_TEST_DATABASE"
+          fi
           vendor/bin/pest tests/Performance/ReadPathPerformanceTest.php --ci
-      - name: Guard read performance at 3M activities
+      - name: Guard read performance at ${{ matrix.size }} activities
         env:
           STORYFEED_READ_BENCH: '1'
-          STORYFEED_READ_SIZE: '3000000'
-          STORYFEED_READ_REPORT: build/read-path-3m.json
+          STORYFEED_READ_SIZE: ${{ matrix.size }}
+          STORYFEED_READ_REPORT: ${{ env.REPORT }}.json
           STORYFEED_READ_SEED_PROGRESS: '1'
-          STORYFEED_TEST_DB: sqlite
-          STORYFEED_TEST_DATABASE: build/read-path-3m.sqlite
-        shell: bash
         run: |
-          touch build/read-path-3m.sqlite
-          vendor/bin/pest tests/Performance/ReadPathPerformanceTest.php --ci 2>&1 | tee build/read-path-3m.log
+          if [ "${{ matrix.database }}" = sqlite ]; then
+            export STORYFEED_TEST_DB=sqlite STORYFEED_TEST_DATABASE="$REPORT.sqlite"
+            touch "$STORYFEED_TEST_DATABASE"
+          fi
+          vendor/bin/pest tests/Performance/ReadPathPerformanceTest.php --ci 2>&1 | tee "$REPORT.log"
       - name: Record remaining disk space
         if: always()
-        run: df -h >> build/read-path-3m-disk.txt
+        run: df -h >> "$REPORT-disk.txt"
       - name: Upload read performance report
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: read-path-3m
+          name: read-path-${{ matrix.database }}-${{ matrix.size }}
           path: |
-            build/read-path-3m*.json
-            build/read-path-3m.log
-            build/read-path-3m-disk.txt
+            ${{ env.REPORT }}*.json
+            ${{ env.REPORT }}.log
+            ${{ env.REPORT }}-disk.txt
           if-no-files-found: error

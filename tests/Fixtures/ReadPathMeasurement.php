@@ -4,6 +4,9 @@ namespace Storyfeed\Tests\Fixtures;
 
 use Illuminate\Support\Facades\DB;
 use Storyfeed\FeedBuilder;
+use Workbench\App\Models\Customer;
+use Workbench\App\Models\Delivery;
+use Workbench\App\Models\User;
 
 final class ReadPathMeasurement
 {
@@ -20,21 +23,33 @@ final class ReadPathMeasurement
         if (DB::getDriverName() === 'pgsql') {
             $report['statistics'] = DB::select("select relname, reltuples from pg_class where relname in ('feed_activities', 'feed_groupings')");
         }
-        foreach ([false, true] as $curate) {
-            config()->set('storyfeed.grouping.curate', $curate);
-            foreach (['live'] as $mode) {
+        // Live over everything, then involving() for a project (a ninth of
+        // history), a person, a document and a quiet project in five activities.
+        $scopes = [
+            'all' => null,
+            'project' => Customer::query()->where('name', 'Project 1')->first(),
+            'person' => User::query()->where('name', 'Person 1')->first(),
+            'document' => Delivery::query()->where('tracking_number', 'Document 1')->first(),
+            'archive' => Customer::query()->where('name', 'Archive')->first(),
+        ];
+        foreach ($scopes as $scope => $entity) {
+            foreach ($entity === null ? [['live', false], ['live', true]] : [['live', false], ['live', true], ['log', true]] as [$mode, $curate]) {
+                config()->set('storyfeed.grouping.curate', $curate);
+                $read = fn (?string $cursor) => (new $builder)->{$mode}()
+                    ->when($entity, fn (FeedBuilder $feed) => $feed->involving($entity))
+                    ->limit(30)->cursor($cursor);
                 $cursor = null;
                 foreach ([1, 2] as $page) {
                     $times = [];
                     $buildTimes = [];
                     $queries = [];
                     // Warm the read once; measure complete payload construction, not only SQL.
-                    (new $builder)->{$mode}()->limit(30)->cursor($cursor)->get()->toArray();
+                    $read($cursor)->get()->toArray();
                     foreach (range(1, 5) as $rep) {
                         $connection->flushQueryLog();
                         $connection->enableQueryLog();
                         $start = hrtime(true);
-                        $result = (new $builder)->{$mode}()->limit(30)->cursor($cursor)->get();
+                        $result = $read($cursor)->get();
                         $buildTimes[] = (hrtime(true) - $start) / 1e6;
                         $payload = $result->toArray();
                         $times[] = (hrtime(true) - $start) / 1e6;
@@ -55,13 +70,16 @@ final class ReadPathMeasurement
                         }
                         unset($query);
                     }
-                    $report['reads'][] = ['mode' => $mode, 'curate' => $curate, 'page' => $page, 'p50_ms' => $times[2], 'p95_ms' => $times[4], 'samples_ms' => $times, 'build_ms' => $buildTimes, 'sql_ms' => array_sum(array_column($queries, 'time')), 'queries' => count($queries), 'slowest' => $slowest];
+                    $report['reads'][] = ['scope' => $scope, 'mode' => $mode, 'curate' => $curate, 'page' => $page, 'p50_ms' => $times[2], 'p95_ms' => $times[4], 'samples_ms' => $times, 'build_ms' => $buildTimes, 'sql_ms' => array_sum(array_column($queries, 'time')), 'queries' => count($queries), 'slowest' => $slowest];
                     if ($onRead !== null) {
                         $onRead($report);
                     }
                     $cursor = $payload['next_cursor'];
-                    if ($payload['items'] === [] || $cursor === null) {
+                    if ($payload['items'] === [] || ($cursor === null && $entity === null)) {
                         throw new \RuntimeException('The scale fixture must have two full pages.');
+                    }
+                    if ($cursor === null) {
+                        break;
                     }
                 }
             }
