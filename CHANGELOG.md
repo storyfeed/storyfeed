@@ -27,6 +27,7 @@
 
 ### Fixed
 
+- A Log page on MariaDB 12 no longer reads every composite in history. The check that leaves a composite's parent row out of Log was a NOT EXISTS, which MariaDB 12.3 ran as an antijoin over every composite row: 290ms a page at one million activities and 830ms at three million in the nightly benchmark. It is a scalar probe per row now, as the Live queries already use.
 - doctor's `aggregates.missing` sees the repeat groups Live renders from activities curation has not reached yet (#101), such as history before the first `storyfeed:curate`. It sampled stamped winners only, so a live surface could render a repeat group with no headline while the check stayed green. It now selects the rows Live reads.
 
 ## v0.18.0 - 2026-10-09

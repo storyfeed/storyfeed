@@ -1198,15 +1198,20 @@ class FeedBuilder
         // repeat every row in between. The parameter names are the ones the
         // paginator used, so a cursor minted before this method existed still
         // decodes and still lands where it was minted.
+        // Flat is the atomic timeline: composite MEMBERS appear, the
+        // object-less parent STORY does not (its self-row marks it). A
+        // scalar probe, not NOT EXISTS: MariaDB 12 turned that into an
+        // antijoin over every composite row in history, 830ms a page at
+        // three million activities.
+        $parent = $this->groupingModel()->getConnection()->query()
+            ->selectRaw('1')
+            ->from($groupings)
+            ->whereColumn("{$groupings}.activity_id", "{$activities}.id")
+            ->where("{$groupings}.bucket", 'composite')
+            ->whereColumn("{$groupings}.hash", "{$activities}.uid")
+            ->limit(1);
         $rows = $this->filteredActivities($now)
-            // Flat is the atomic timeline: composite MEMBERS appear, the
-            // object-less parent STORY does not (its self-row marks it).
-            ->whereNotExists(fn (QueryBuilder $sub) => $sub
-                ->selectRaw('1')
-                ->from($groupings)
-                ->whereColumn("{$groupings}.activity_id", "{$activities}.id")
-                ->where("{$groupings}.bucket", 'composite')
-                ->whereColumn("{$groupings}.hash", "{$activities}.uid"))
+            ->whereRaw('('.$parent->toSql().') is null', $parent->getBindings())
             ->tap(fn (ActivityBuilder $q) => $this->keysetPage($q, $activities, $cursor));
 
         return $this->activityPage($rows->get(), $activities);
