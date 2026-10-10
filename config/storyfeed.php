@@ -283,6 +283,11 @@ return [
             'ceiling' => '4 hours',
         ],
 
+        // Days a closed burst window is kept for late arrivals (imports,
+        // backfills) to join. Past it, a late activity opens its own group.
+        // Swept daily by `storyfeed:prune --bursts`; null keeps every window.
+        'burst_retention_days' => 7,
+
         /*
         | Batches: bursts of activity by one actor, inferred by a sliding
         | quiet window — recorded automatically, invisible to the recording
