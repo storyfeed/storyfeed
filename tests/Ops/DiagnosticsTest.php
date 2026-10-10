@@ -6,6 +6,7 @@ use Storyfeed\Diagnostics\Fix;
 use Storyfeed\Diagnostics\Severity;
 use Storyfeed\Facades\Story;
 use Storyfeed\Facades\Storyfeed;
+use Storyfeed\Models\Grouping;
 use Storyfeed\StoryfeedManager;
 use Symfony\Component\Console\Exception\RuntimeException;
 use Workbench\App\Models\Customer;
@@ -301,4 +302,41 @@ it('renders verb drift from the same check doctor uses', function () {
         ->expectsOutputToContain('Recorded but never declared')
         ->expectsOutputToContain('confrim')
         ->assertSuccessful();
+});
+
+it('reports a repeat group live renders from activities curation has not reached', function () {
+    $sally = User::create(['name' => 'Sally', 'email' => 'sally@example.com']);
+
+    foreach (range(1, 3) as $i) {
+        Storyfeed::activity()->actor($sally)->verb('upload', Delivery::create(['tracking_number' => "TN-{$i}"]))->publish();
+    }
+
+    // History before the first storyfeed:curate: no winner stamped anywhere,
+    // so Live falls back to repeat for every one of them.
+    Grouping::query()->update(['winner' => null]);
+
+    $items = Storyfeed::feed()->get()->toArray()['items'];
+    $missing = Storyfeed::doctor(['aggregates'])->withCode('aggregates.missing');
+
+    expect($items)->toHaveCount(1)
+        ->and($items[0]['axis'])->toBe('repeat')
+        ->and($missing->pluck('subject.key')->all())->toBe(['repeat.delivery.upload']);
+});
+
+it('does not count an activity curation stamped on another axis toward a repeat group', function () {
+    $sally = User::create(['name' => 'Sally', 'email' => 'sally@example.com']);
+
+    foreach (range(1, 2) as $i) {
+        Storyfeed::activity()->actor($sally)->verb('upload', Delivery::create(['tracking_number' => "TN-{$i}"]))->publish();
+    }
+
+    // One member keeps its stamp on another axis, so Live reads it there and
+    // the repeat group it would have joined has one member: not a group.
+    Grouping::query()->update(['winner' => null]);
+    $stamped = Grouping::query()->where('bucket', 'actors')
+        ->where('activity_id', Grouping::query()->min('activity_id'))->update(['winner' => true]);
+
+    expect($stamped)->toBe(1)
+        ->and(Storyfeed::doctor(['aggregates'])->withCode('aggregates.missing')
+            ->contains(fn ($finding) => $finding->subject['axis'] === 'repeat'))->toBeFalse();
 });

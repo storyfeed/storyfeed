@@ -59,12 +59,26 @@ class AggregateCoverage extends Check
         $groupings = $this->table('groupings');
         $activities = $this->table('activities');
 
-        // Match live's curation-off predicate in BOTH queries: repeat groups
-        // need no winner stamp, and historical winners on other axes are no
-        // longer read. Keep the existing winner sampling with curation on.
+        // Select exactly the rows live() reads (FeedBuilder::winning()):
+        // stamped winners, plus the repeat fallback for any activity with no
+        // eligible winner stamped anywhere. Sampling winners alone missed
+        // repeat groups of history curation had not reached yet, which live
+        // renders with a group headline. With curation off only composite
+        // claims are eligible, as on the read path.
         $curate = config('storyfeed.grouping.curate', true);
-        $selectionColumn = $curate ? "{$groupings}.winner" : "{$groupings}.bucket";
-        $selectionValue = $curate ? true : 'repeat';
+        $probe = $this->groupings()->getQuery()
+            ->selectRaw('1')->from("{$groupings} as w")
+            ->whereColumn('w.activity_id', "{$groupings}.activity_id")
+            ->where('w.winner', true)
+            ->when(! $curate, fn ($claim) => $claim->where('w.bucket', 'composite'))
+            ->limit(1);
+        $selected = fn ($query) => $query->where(fn ($read) => $read
+            ->where(fn ($winner) => $winner
+                ->where("{$groupings}.winner", true)
+                ->when(! $curate, fn ($claim) => $claim->where("{$groupings}.bucket", 'composite')))
+            ->orWhere(fn ($fallback) => $fallback
+                ->where("{$groupings}.bucket", 'repeat')
+                ->whereRaw('('.$probe->toSql().') is null', $probe->getBindings())));
 
         // ALL registered axes, fallback included: the fallback's exclusion
         // from aggregateAxes() is about curation priority — a different
@@ -75,7 +89,7 @@ class AggregateCoverage extends Check
         // groups with one member render as plain activity nodes.
         $clustered = $this->groupings()
             ->select(["{$groupings}.bucket", "{$groupings}.hash"])
-            ->where($selectionColumn, $selectionValue)
+            ->where($selected)
             ->whereIn("{$groupings}.bucket", array_keys($storyfeed->registeredAxes()))
             ->groupBy(["{$groupings}.bucket", "{$groupings}.hash"])
             ->havingRaw('count(*) > 1');
@@ -87,7 +101,7 @@ class AggregateCoverage extends Check
 
         $pairs = $query
             ->join($groupings, "{$groupings}.activity_id", '=', "{$activities}.id")
-            ->where($selectionColumn, $selectionValue)
+            ->where($selected)
             ->joinSub($clustered, 'clustered', function ($join) use ($groupings) {
                 $join->on('clustered.bucket', '=', "{$groupings}.bucket")
                     ->on('clustered.hash', '=', "{$groupings}.hash");

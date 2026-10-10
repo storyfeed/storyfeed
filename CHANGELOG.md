@@ -17,6 +17,10 @@
 
 - `removedBy` on a payload entity's `tombstone`. It was reserved for redaction and always `null`; nothing set it, and Activity Streams has no term for it. A tombstone carries `formerType`, `deleted` and `approximate`.
 
+### Fixed
+
+- doctor's `aggregates.missing` sees the repeat groups Live renders from activities curation has not reached yet (#101), such as history before the first `storyfeed:curate`. It sampled stamped winners only, so a live surface could render a repeat group with no headline while the check stayed green. It now selects the rows Live reads.
+
 ## v0.18.0 - 2026-10-09
 
 ### Added
