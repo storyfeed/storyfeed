@@ -1,0 +1,68 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+
+/**
+ * Batches gain `closes_at`: when the sitting ends.
+ *
+ * A batch used to end a fixed quiet window after its last activity. Now each
+ * verb may say its own window (`->batched(within: '5 minutes')`), so each
+ * batched activity moves `closes_at` to its own published_at plus its own
+ * window, and the next activity joins if it was published before then.
+ *
+ * Open batches are backfilled with what they would have closed at before:
+ * last seen plus `storyfeed.grouping.batch.quiet_minutes`. Closed batches
+ * are left alone; nothing reads their `closes_at`.
+ */
+return new class extends Migration
+{
+    public function up(): void
+    {
+        $batches = config('storyfeed.tables.batches', 'feed_batches');
+
+        if (! Schema::hasTable($batches)) {
+            return;
+        }
+
+        if (! Schema::hasColumn($batches, 'closes_at')) {
+            Schema::table($batches, function (Blueprint $table) {
+                $table->timestamp('closes_at')->nullable()->after('last_activity_at');
+                $table->index(['closed_at', 'closes_at'], 'feed_batches_closes_at_index');
+            });
+        }
+
+        $quiet = (int) config('storyfeed.grouping.batch.quiet_minutes', 10);
+
+        DB::table($batches)
+            ->whereNull('closed_at')
+            ->whereNull('closes_at')
+            ->orderBy('id')
+            ->chunkById(200, function ($open) use ($batches, $quiet) {
+                foreach ($open as $batch) {
+                    $lastSeen = $batch->last_activity_at ?? $batch->opened_at;
+
+                    DB::table($batches)->where('id', $batch->id)->update([
+                        'closes_at' => Carbon::parse($lastSeen)->addMinutes($quiet),
+                    ]);
+                }
+            });
+    }
+
+    public function down(): void
+    {
+        $batches = config('storyfeed.tables.batches', 'feed_batches');
+
+        if (! Schema::hasColumn($batches, 'closes_at')) {
+            return;
+        }
+
+        Schema::table($batches, function (Blueprint $table) {
+            $table->dropIndex('feed_batches_closes_at_index');
+            $table->dropColumn('closes_at');
+        });
+    }
+};

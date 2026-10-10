@@ -66,6 +66,23 @@ class MorphKeyType implements CastsInboundAttributes
     }
 
     /**
+     * Is this column, as Schema::getColumns() describes it, the shape id() creates?
+     *
+     * @param  array{type_name: string, type: string, collation: ?string}  $column
+     */
+    public static function shaped(array $column, ?string $driver = null): bool
+    {
+        $driver ??= Schema::getConnection()->getDriverName();
+
+        return match ($driver) {
+            // SQLite keeps the declared name and ignores the length.
+            'sqlite' => strtolower($column['type_name']) === 'varchar',
+            'mysql', 'mariadb' => strtolower($column['type']) === 'varchar(36)' && $column['collation'] === 'ascii_bin',
+            default => in_array(strtolower($column['type']), ['varchar(36)', 'character varying(36)'], true),
+        };
+    }
+
+    /**
      * Cast only the package key: the indexed app-reference column stays bare.
      */
     public static function packageKey(Grammar $grammar, string $column): Expression

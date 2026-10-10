@@ -4,6 +4,7 @@ namespace Storyfeed\Diagnostics;
 
 use Storyfeed\Contracts\DiagnosticCheck;
 use Storyfeed\StoryfeedManager;
+use Storyfeed\Support\SchemaState;
 use Throwable;
 
 /**
@@ -25,6 +26,7 @@ class Doctor
     public const DEFAULT_CHECKS = [
         Checks\Tables::class,
         Checks\Columns::class,
+        Checks\References::class,
         Checks\Recording::class,
         Checks\Maintenance::class,
         Checks\Coverage::class,
@@ -88,7 +90,8 @@ class Doctor
                 $findings[] = Finding::error(
                     'doctor.check_failed',
                     "Check `{$check->name()}` threw ".$e::class.': '.$e->getMessage()
-                    .' — the other checks still ran, but this one told you nothing.',
+                    .' — the other checks still ran, but this one told you nothing.'
+                    .($this->referencesMisshapen() ? ' Reference columns are still in the pre-0.13 shape; see `references.shape`.' : ''),
                     ['check' => $check->name(), 'exception' => $e::class],
                 );
             }
@@ -144,6 +147,20 @@ class Doctor
             ),
             array_filter($only, fn (string $name) => ! in_array($name, $known, true)),
         ));
+    }
+
+    /**
+     * Pre-0.13 reference columns make every tombstone join throw on
+     * PostgreSQL, so a failed check names them rather than leaving the
+     * reader to match the SQL error to its cause.
+     */
+    protected function referencesMisshapen(): bool
+    {
+        try {
+            return SchemaState::misshapenReferences() !== [];
+        } catch (Throwable) {
+            return false;
+        }
     }
 
     /** @return list<string> */

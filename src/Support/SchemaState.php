@@ -34,6 +34,50 @@ class SchemaState
         'participants' => ['distance'],
     ];
 
+    /**
+     * Table key => app-reference columns stored in the MorphKeyType shape
+     * since 0.13. Tables published before then hold bigint or varchar(255)
+     * here, and PostgreSQL refuses to compare those with the package's keys.
+     * The `cached_*` columns are package keys and stay bigint.
+     *
+     * @var array<string, list<string>>
+     */
+    public const array REFERENCES = [
+        'activities' => ['actor_id', 'object_id', 'target_id', 'context_id', 'origin_id', 'result_id', 'instrument_id'],
+        'snapshots' => ['model_id'],
+        'batches' => ['actor_id'],
+        'batch_locks' => ['actor_id'],
+        'participants' => ['entity_id'],
+        'tombstones' => ['model_id'],
+    ];
+
+    /**
+     * Reference columns not yet in the MorphKeyType shape, by table name.
+     * Tables and columns that don't exist are left to `Tables` and `Columns`.
+     *
+     * @return array<string, list<string>>
+     */
+    public static function misshapenReferences(): array
+    {
+        $misshapen = [];
+
+        foreach (self::REFERENCES as $key => $names) {
+            $table = self::table($key);
+
+            if (! Schema::hasTable($table)) {
+                continue;
+            }
+
+            foreach (Schema::getColumns($table) as $column) {
+                if (in_array($column['name'], $names, true) && ! MorphKeyType::shaped($column)) {
+                    $misshapen[$table][] = $column['name'];
+                }
+            }
+        }
+
+        return $misshapen;
+    }
+
     public static function table(string $key): string
     {
         return config("storyfeed.tables.{$key}", "feed_{$key}");

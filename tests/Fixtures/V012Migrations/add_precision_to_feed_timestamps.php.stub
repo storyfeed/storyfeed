@@ -1,0 +1,146 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+/**
+ * Feed timestamps gain microseconds.
+ *
+ * `published_at` was created as a whole-second column, so two activities
+ * published milliseconds apart were tied in storage and the tiebreak — not
+ * the clock — decided their order. The column now carries microseconds and
+ * the Activity model writes them (Support\Chronology). This migration brings
+ * an existing install to the shape the create stubs now produce:
+ *
+ *  - activities: published_at, created_at, updated_at, deleted_at. One model,
+ *    one date format, so all four widen together or the other three truncate.
+ *  - participants: published_at, a denormalized copy of the activity's.
+ *
+ * Batches, snapshots, groupings, parties and meta are deliberately left
+ * alone: nothing orders or pages by their timestamps, and each is written by
+ * its own model in the driver's format.
+ *
+ * On SQLite the column is text and has no precision; the model's format is
+ * what carries the microseconds there. Legacy values are padded to the new
+ * width so that lexical comparison — which is what SQLite does — stays
+ * chronological, and so a cursor minted before the upgrade still lands on
+ * the row it was minted from.
+ *
+ * Existing rows keep `.000000`; nothing re-orders them against each other. No
+ * grouping hash changes (grouping pins the publication DAY) and no cursor is
+ * invalidated: a second-precision cursor compares correctly against
+ * microsecond values.
+ */
+return new class extends Migration
+{
+    private const LEGACY_WIDTH = 19; // 'Y-m-d H:i:s'
+
+    /** @return array<string, array<string, bool>> table => column => nullable */
+    private function columns(): array
+    {
+        return [
+            config('storyfeed.tables.activities', 'feed_activities') => [
+                'published_at' => true,
+                'created_at' => true,
+                'updated_at' => true,
+                'deleted_at' => true,
+            ],
+            config('storyfeed.tables.participants', 'feed_participants') => [
+                'published_at' => true,
+            ],
+        ];
+    }
+
+    public function up(): void
+    {
+        foreach ($this->columns() as $table => $columns) {
+            if (! Schema::hasTable($table)) {
+                continue;
+            }
+
+            foreach ($columns as $column => $nullable) {
+                if (! Schema::hasColumn($table, $column)) {
+                    continue;
+                }
+
+                if ($this->sqlite()) {
+                    $this->pad($table, $column);
+
+                    continue;
+                }
+
+                Schema::table($table, function (Blueprint $blueprint) use ($column, $nullable) {
+                    $blueprint->timestamp($column, 6)->nullable($nullable)->change();
+                });
+            }
+        }
+    }
+
+    public function down(): void
+    {
+        foreach ($this->columns() as $table => $columns) {
+            if (! Schema::hasTable($table)) {
+                continue;
+            }
+
+            foreach ($columns as $column => $nullable) {
+                if (! Schema::hasColumn($table, $column)) {
+                    continue;
+                }
+
+                if ($this->sqlite()) {
+                    $this->trim($table, $column);
+
+                    continue;
+                }
+
+                Schema::table($table, function (Blueprint $blueprint) use ($column, $nullable) {
+                    $blueprint->timestamp($column)->nullable($nullable)->change();
+                });
+            }
+        }
+    }
+
+    private function sqlite(): bool
+    {
+        return Schema::getConnection()->getDriverName() === 'sqlite';
+    }
+
+    /** `2026-09-10 12:00:00` becomes `2026-09-10 12:00:00.000000`; idempotent. */
+    private function pad(string $table, string $column): void
+    {
+        $this->rewrite($table, $column, "{column} || '.000000'", '=');
+    }
+
+    private function trim(string $table, string $column): void
+    {
+        $this->rewrite($table, $column, 'substr({column}, 1, '.self::LEGACY_WIDTH.')', '>');
+    }
+
+    /**
+     * One `statement()` rather than the builder's `whereRaw()` and `raw()`.
+     *
+     * This file is published into the app's own migrations and analysed by the
+     * app's PHPStan, not ours. Those two methods take a `literal-string`, and a
+     * grammar-wrapped identifier is not one, so the builder form fails level 7
+     * in every consumer that publishes it. Same SQL, same binding.
+     *
+     * @param  string  $value  the new column value, with `{column}` standing in
+     *                         for the wrapped identifier
+     * @param  '='|'>'  $comparison  against the legacy width
+     */
+    private function rewrite(string $table, string $column, string $value, string $comparison): void
+    {
+        $connection = Schema::getConnection();
+        $grammar = $connection->getQueryGrammar();
+        $wrapped = $grammar->wrap($column);
+        $value = str_replace('{column}', $wrapped, $value);
+
+        $connection->statement(
+            'update '.$grammar->wrapTable($table)." set {$wrapped} = {$value}"
+            ." where {$wrapped} is not null and length({$wrapped}) {$comparison} ?",
+            [self::LEGACY_WIDTH],
+        );
+    }
+};

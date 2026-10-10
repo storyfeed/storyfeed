@@ -1,0 +1,91 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+use Storyfeed\Support\MorphKeyType;
+use Storyfeed\Support\SchemaState;
+
+return new class extends Migration
+{
+    /**
+     * Tables published before 0.13 keep Laravel's bigint morph ids and
+     * varchar(255) keys. Convert each app reference to the varchar(36) shape
+     * the package compares against; the cached_* package keys stay bigint.
+     * A column already in shape is skipped, so a rerun or a fresh install
+     * changes nothing.
+     */
+    public function up(): void
+    {
+        foreach (SchemaState::misshapenReferences() as $table => $names) {
+            $columns = collect(Schema::getColumns($table))->keyBy('name');
+
+            Schema::table($table, function (Blueprint $blueprint) use ($names, $columns) {
+                foreach ($names as $name) {
+                    MorphKeyType::id($blueprint, $name)->nullable($columns[$name]['nullable'])->change();
+                }
+            });
+        }
+    }
+
+    /**
+     * Back to the 0.12 shapes, where the data allows: a UUID or a party
+     * reference can't become a bigint, so that refuses before anything changes.
+     */
+    public function down(): void
+    {
+        $legacy = [
+            'activities' => ['actor_id', 'object_id', 'target_id', 'context_id', 'origin_id', 'result_id', 'instrument_id'],
+            'snapshots' => ['model_id'],
+            'batches' => ['actor_id'],
+        ];
+
+        $bigints = [];
+        foreach ($legacy as $key => $names) {
+            $table = SchemaState::table($key);
+            $names = array_values(array_filter($names, fn (string $name) => Schema::hasColumn($table, $name)));
+            foreach ($names as $name) {
+                if ($this->nonNumeric($table, $name)) {
+                    throw new RuntimeException("{$table}.{$name} holds ids that aren't integers, so it can't go back to bigint.");
+                }
+            }
+            $bigints[$table] = $names;
+        }
+
+        foreach ($bigints as $table => $names) {
+            $nullable = collect(Schema::getColumns($table))->keyBy('name');
+            if (DB::getDriverName() === 'pgsql') {
+                foreach ($names as $name) {
+                    DB::statement(sprintf('alter table %1$s alter column %2$s type bigint using %2$s::bigint', DB::getQueryGrammar()->wrapTable($table), DB::getQueryGrammar()->wrap($name)));
+                }
+
+                continue;
+            }
+            Schema::table($table, function (Blueprint $blueprint) use ($names, $nullable) {
+                foreach ($names as $name) {
+                    $blueprint->unsignedBigInteger($name)->nullable($nullable[$name]['nullable'])->change();
+                }
+            });
+        }
+
+        foreach (['batch_locks' => 'actor_id', 'participants' => 'entity_id', 'tombstones' => 'model_id'] as $key => $name) {
+            $table = SchemaState::table($key);
+            if (Schema::hasColumn($table, $name)) {
+                Schema::table($table, fn (Blueprint $blueprint) => $blueprint->string($name)->change());
+            }
+        }
+    }
+
+    protected function nonNumeric(string $table, string $name): bool
+    {
+        $query = DB::table($table)->whereNotNull($name);
+
+        return match (DB::getDriverName()) {
+            'pgsql' => $query->where(fn ($query) => $query->where($name, '~', '[^0-9]')->orWhere($name, ''))->exists(),
+            'mysql', 'mariadb' => $query->where(fn ($query) => $query->where($name, 'regexp', '[^0-9]')->orWhere($name, ''))->exists(),
+            // SQLite has no regular expressions without an extension.
+            default => $query->orderBy('id')->lazy()->contains(fn (object $row) => ! ctype_digit((string) $row->{$name})),
+        };
+    }
+};

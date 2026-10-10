@@ -1,0 +1,47 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    // Publish and run this additive migration before enabling these roles or
+    // running upgraded snapshot maintenance. Historical rows stay null.
+    public function up(): void
+    {
+        $table = config('storyfeed.tables.activities', 'feed_activities');
+
+        foreach (['origin', 'result', 'instrument'] as $role) {
+            if (! Schema::hasColumn($table, $role.'_type')) {
+                Schema::table($table, function (Blueprint $blueprint) use ($role) {
+                    // The morph index serves rebuild's distinct identities and
+                    // identity-filtered updates. No paging or cached-id index:
+                    // involving() uses participants; snapshot loads use their PK.
+                    $blueprint->nullableMorphs($role);
+                });
+            }
+
+            if (! Schema::hasColumn($table, 'cached_'.$role.'_id')) {
+                Schema::table($table, function (Blueprint $blueprint) use ($role) {
+                    $blueprint->foreignId('cached_'.$role.'_id')->nullable();
+                });
+            }
+        }
+    }
+
+    public function down(): void
+    {
+        $table = config('storyfeed.tables.activities', 'feed_activities');
+
+        foreach (['origin', 'result', 'instrument'] as $role) {
+            if (Schema::hasColumn($table, 'cached_'.$role.'_id')) {
+                Schema::table($table, fn (Blueprint $blueprint) => $blueprint->dropColumn('cached_'.$role.'_id'));
+            }
+
+            if (Schema::hasColumn($table, $role.'_type')) {
+                Schema::table($table, fn (Blueprint $blueprint) => $blueprint->dropMorphs($role));
+            }
+        }
+    }
+};

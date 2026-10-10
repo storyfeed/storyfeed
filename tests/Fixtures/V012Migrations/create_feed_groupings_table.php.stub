@@ -1,0 +1,31 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create(config('storyfeed.tables.groupings', 'feed_groupings'), function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('activity_id')->index();
+            $table->string('hash');
+            $table->string('bucket')->nullable();
+            // Curation's stamp: exactly one true per curated activity; null
+            // means "never curated", read as "the repeat axis wins".
+            $table->boolean('winner')->nullable();
+            $table->timestamps();
+
+            $table->unique(['activity_id', 'bucket']);
+            $table->index(['bucket', 'hash']);
+            $table->index(['winner', 'bucket', 'hash'], 'feed_groupings_winner_index');
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists(config('storyfeed.tables.groupings', 'feed_groupings'));
+    }
+};
