@@ -1410,7 +1410,7 @@ class FeedBuilder
         $ceiling = $cursor['latest'] ?? null;
         foreach ($this->windowDepths() as $depth) {
             $floor = $depth === null ? null : $this->windowFloor($now, $ceiling, $depth);
-            $groups = $this->groupAggregate($now, $cursor, $floor, $floor === null ? null : $ceiling)
+            $groups = $this->groupAggregate($now, $cursor, $floor, $floor === null ? null : $ceiling, $ceiling === null ? $depth : null)
                 ->map(fn (object $row) => FeedCandidate::group(
                     $this->normalizeTimestamp($row->latest), (string) $row->bucket,
                     (string) $row->hash, (int) $row->members, $row->last_id,
@@ -1523,7 +1523,7 @@ class FeedBuilder
             // A depth deeper than eligible history IS the unbounded read.
             $windowed = $floor !== null;
 
-            $rows = $this->groupAggregate($now, $cursor, $windowed ? $floor : null, $windowed ? $ceiling : null);
+            $rows = $this->groupAggregate($now, $cursor, $windowed ? $floor : null, $windowed ? $ceiling : null, $ceiling === null ? $depth : null);
 
             if (! $windowed || $rows->count() > $this->limit) {
                 break;
@@ -1586,10 +1586,21 @@ class FeedBuilder
      * this is the whole of history and needs no correction; with a window it
      * is the windowed read groupStream() describes, ceiling-excluded.
      *
+     * `$within` is the depth whose window found no floor: eligible history
+     * holds fewer activities than that, so capping the eligible set at it
+     * drops nothing. It matters on PostgreSQL. The planner multiplies the
+     * selectivities of entity_type and entity_id as if they were unrelated,
+     * so a quiet entity whose id is common across types reads as thousands
+     * of rows: at a million activities it estimated 17,450 for five, hashed
+     * a sequential scan of feed_activities, and spent 190ms compiling JIT
+     * for a cost it would never pay (374ms in all; 0.4ms with the cap).
+     * Only the uncursored read can cap: under a cursor the aggregate also
+     * counts members above the ceiling, which the floor did not.
+     *
      * @param  array{latest: string, rank: int, axis: string|null, hash: string|null, id: int|string|null}|null  $cursor
      * @return Collection<int, \stdClass> rows of bucket, hash, latest, members
      */
-    protected function groupAggregate(Carbon $now, ?array $cursor, ?string $floor, ?string $ceiling): Collection
+    protected function groupAggregate(Carbon $now, ?array $cursor, ?string $floor, ?string $ceiling, ?int $within = null): Collection
     {
         $activities = $this->activityModel()->getTable();
         [$publishedAt, $id] = $this->timeline();
@@ -1606,6 +1617,8 @@ class FeedBuilder
         $filtered = $this->filteredActivities($now)
             ->when($floor !== null, fn (ActivityBuilder $q) => $q->where($publishedAt, '>=', $floor))
             ->when($ceiling !== null, fn (ActivityBuilder $q) => $q->where($publishedAt, '<=', $ceiling))
+            ->when($floor === null && $within !== null, fn (ActivityBuilder $q) => $q
+                ->orderBy($publishedAt, 'desc')->orderBy($id, 'desc')->limit($within))
             ->select(["{$activities}.id as fa_id", "{$activities}.published_at as fa_published"]);
 
         $query = $this->groupingModel()->newQuery();
