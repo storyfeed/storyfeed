@@ -21,10 +21,11 @@ boundary.
 
 ## The journal (maintain this!)
 
-`docs/journal/` is an as-it-happened decision log — source material for a
-future conference talk. **After every milestone or significant decision
-cluster, add a numbered entry** capturing: what was decided, the tension
-(what lost and why), and talk-worthy moments (surprises, traps, reversals).
+`docs/journal/` is an as-it-happened decision log — source material for
+write-ups and the project's design history. **After every milestone or
+significant decision cluster, add a numbered entry** capturing: what was
+decided, the tension (what lost and why), and notable moments (surprises,
+traps, reversals).
 Write it while it's fresh; never reconstruct after the fact. See
 `docs/journal/README.md` for conventions.
 
