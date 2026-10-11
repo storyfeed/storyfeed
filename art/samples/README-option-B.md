@@ -23,10 +23,10 @@ timelines generally, popularized by Facebook's News Feed in 2006.
 <picture>
   <source media="(prefers-reduced-motion: reduce)" srcset="https://raw.githubusercontent.com/storyfeed/storyfeed/refs/heads/readme/samples/art/samples/showcase-light.png">
   <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/storyfeed/storyfeed/refs/heads/readme/samples/art/samples/showcase-dark.svg">
-  <img src="https://raw.githubusercontent.com/storyfeed/storyfeed/refs/heads/readme/samples/art/samples/showcase-light.svg" width="800" alt="A Storyfeed feed growing: one plain row gains avatars, a photo and a key-value card; five volunteers joining fold into one grouped row; photos arrive live and regroup with a strip of thumbnails; the feed narrows to one person; then the Blade, Vue and React kits render the same feed side by side.">
+  <img src="https://raw.githubusercontent.com/storyfeed/storyfeed/refs/heads/readme/samples/art/samples/showcase-light.svg" width="800" alt="A Storyfeed feed growing: one plain row gains avatars, a photo and a key-value card; five volunteers joining fold into one grouped row; photos arrive live and regroup with a strip of thumbnails; the feed narrows to one person, then opens out to the whole feed as one more booking arrives.">
 </picture>
 
-Every frame is real output: activities recorded through this package, drawn by the Blade, Vue and React kits in [storyfeed/ui](https://github.com/storyfeed/ui).
+Every frame is real output from activities recorded through this package. Ships with Blade, Vue and React kits in [storyfeed/ui](https://github.com/storyfeed/ui).
 
 Storyfeed grew out of sixteen years of rough implementations across production
 applications, where many gaps were left unsolved. This package revisits that
