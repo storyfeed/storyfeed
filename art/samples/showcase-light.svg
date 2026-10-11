@@ -1,0 +1,1366 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="520" viewBox="0 0 800 520" role="img" aria-label="Inside a feed of people looking at Storyfeed's README, your look's picture shows a feed growing: one plain row gains avatars, a photo and a key-value card; five volunteers joining fold into one grouped row; photos arrive live and regroup with a strip of thumbnails; then one more booking arrives. Your look sits at the top of a long feed of looks at the README; then the next person's arrives above it, still in progress with a typing indicator, whose dots the camera dives into."><style><![CDATA[/*! tailwindcss v4.3.3 | MIT License | https://tailwindcss.com */
+@layer properties{@supports (((-webkit-hyphens:none)) and (not (margin-trim:inline))) or ((-moz-orient:inline) and (not (color:rgb(from red r g b)))){*,:before,:after,::backdrop{--tw-rotate-x:initial;--tw-rotate-y:initial;--tw-rotate-z:initial;--tw-skew-x:initial;--tw-skew-y:initial;--tw-border-style:solid;--tw-gradient-position:initial;--tw-gradient-from:#0000;--tw-gradient-via:#0000;--tw-gradient-to:#0000;--tw-gradient-stops:initial;--tw-gradient-via-stops:initial;--tw-gradient-from-position:0%;--tw-gradient-via-position:50%;--tw-gradient-to-position:100%;--tw-leading:initial;--tw-font-weight:initial;--tw-tracking:initial;--tw-ordinal:initial;--tw-slashed-zero:initial;--tw-numeric-figure:initial;--tw-numeric-spacing:initial;--tw-numeric-fraction:initial;--tw-shadow:0 0 #0000;--tw-shadow-color:initial;--tw-shadow-alpha:100%;--tw-inset-shadow:0 0 #0000;--tw-inset-shadow-color:initial;--tw-inset-shadow-alpha:100%;--tw-ring-color:initial;--tw-ring-shadow:0 0 #0000;--tw-inset-ring-color:initial;--tw-inset-ring-shadow:0 0 #0000;--tw-ring-inset:initial;--tw-ring-offset-width:0px;--tw-ring-offset-color:#fff;--tw-ring-offset-shadow:0 0 #0000;--tw-outline-style:solid}}}@layer theme{:root,:host{--font-sans:-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", "Noto Sans", Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";--font-mono:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;--color-white:#fff;--spacing:.25rem;--text-xs:.75rem;--text-xs--line-height:calc(1 / .75);--text-sm:.875rem;--text-sm--line-height:calc(1.25 / .875);--text-base:1rem;--text-base--line-height:calc(1.5 / 1);--font-weight-normal:400;--font-weight-medium:500;--font-weight-semibold:600;--leading-normal:1.5;--radius-sm:.25rem;--radius-lg:.5rem;--default-transition-duration:.15s;--default-transition-timing-function:cubic-bezier(.4, 0, .2, 1);--default-font-family:var(--font-sans);--default-mono-font-family:var(--font-mono);--color-foreground:var(--foreground);--color-card:var(--card);--color-muted-foreground:var(--muted-foreground);--color-border:var(--border)}}@layer base{*,:after,:before,::backdrop{box-sizing:border-box;border:0 solid;margin:0;padding:0}::file-selector-button{box-sizing:border-box;border:0 solid;margin:0;padding:0}html,:host{-webkit-text-size-adjust:100%;tab-size:4;line-height:1.5;font-family:var(--default-font-family,-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", "Noto Sans", Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji");font-feature-settings:var(--default-font-feature-settings,normal);font-variation-settings:var(--default-font-variation-settings,normal);-webkit-tap-highlight-color:transparent}hr{height:0;color:inherit;border-top-width:1px}abbr:where([title]){-webkit-text-decoration:underline dotted;text-decoration:underline dotted}h1,h2,h3,h4,h5,h6{font-size:inherit;font-weight:inherit}a{color:inherit;-webkit-text-decoration:inherit;-webkit-text-decoration:inherit;-webkit-text-decoration:inherit;text-decoration:inherit}b,strong{font-weight:bolder}code,kbd,samp,pre{font-family:var(--default-mono-font-family,ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace);font-feature-settings:var(--default-mono-font-feature-settings,normal);font-variation-settings:var(--default-mono-font-variation-settings,normal);font-size:1em}small{font-size:80%}sub,sup{vertical-align:baseline;font-size:75%;line-height:0;position:relative}sub{bottom:-.25em}sup{top:-.5em}table{text-indent:0;border-color:inherit;border-collapse:collapse}:-moz-focusring:where(:not(iframe)){outline:auto}progress{vertical-align:baseline}summary{display:list-item}ol,ul,menu{list-style:none}img,svg,video,canvas,audio,iframe,embed,object{vertical-align:middle;display:block}img,video{max-width:100%;height:auto}button,input,select,optgroup,textarea{font:inherit;font-feature-settings:inherit;font-variation-settings:inherit;letter-spacing:inherit;color:inherit;opacity:1;background-color:#0000;border-radius:0}::file-selector-button{font:inherit;font-feature-settings:inherit;font-variation-settings:inherit;letter-spacing:inherit;color:inherit;opacity:1;background-color:#0000;border-radius:0}:where(select:is([multiple],[size])) optgroup{font-weight:bolder}:where(select:is([multiple],[size])) optgroup option{padding-inline-start:20px}::file-selector-button{margin-inline-end:4px}::placeholder{opacity:1}@supports (not ((-webkit-appearance:-apple-pay-button))) or (contain-intrinsic-size:1px){::placeholder{color:currentColor}@supports (color:color-mix(in lab, red, red)){::placeholder{color:color-mix(in oklab, currentcolor 50%, transparent)}}}textarea{resize:vertical}::-webkit-search-decoration{-webkit-appearance:none}::-webkit-date-and-time-value{min-height:1lh;text-align:inherit}::-webkit-datetime-edit{display:inline-flex}::-webkit-datetime-edit-fields-wrapper{padding:0}::-webkit-datetime-edit{padding-block:0}::-webkit-datetime-edit-year-field{padding-block:0}::-webkit-datetime-edit-month-field{padding-block:0}::-webkit-datetime-edit-day-field{padding-block:0}::-webkit-datetime-edit-hour-field{padding-block:0}::-webkit-datetime-edit-minute-field{padding-block:0}::-webkit-datetime-edit-second-field{padding-block:0}::-webkit-datetime-edit-millisecond-field{padding-block:0}::-webkit-datetime-edit-meridiem-field{padding-block:0}::-webkit-calendar-picker-indicator{line-height:1}:-moz-ui-invalid{box-shadow:none}button,input:where([type=button],[type=reset],[type=submit]){appearance:button}::file-selector-button{appearance:button}::-webkit-inner-spin-button{height:auto}::-webkit-outer-spin-button{height:auto}[hidden]:where(:not([hidden=until-found])){display:none!important}*{border-color:var(--border);outline-color:var(--ring)}@supports (color:color-mix(in lab, red, red)){*{outline-color:color-mix(in oklab, var(--ring) 50%, transparent)}}}@layer components;@layer utilities{.c1u{container:facts/inline-size}.c23{container:pair/inline-size}.c1m{pointer-events:none}.collapse{visibility:collapse}.c3o{position:absolute}.c3n{position:relative}.c3z{inset:0}.c3h{inset-inline:0}.c4k{top:0}.top-4{top:calc(var(--spacing) * 4)}.c1a{top:calc(.5625em - .5px)}.c0{top:calc(var(--sf-disc-v) + calc(var(--spacing) * .5) - (var(--sf-badge-anchor-v) + var(--sf-badge-v)) / 2)}.c46{right:0}.right-6{right:calc(var(--spacing) * 6)}.c3v{bottom:0}.c4f{left:0}.c4{left:calc(50% + var(--sf-disc-v) / 2 - (var(--sf-badge-anchor-v) + var(--sf-badge-v)) / 2)}.c1h{left:calc(50% - .5px)}.c47{isolation:isolate}.c4y{z-index:10}.c4v{z-index:30}.c2j{grid-column:1/-1}.c52{margin:0}.c4m{margin-top:0!important}.c4c{margin-top:calc(var(--spacing) * .5)}.c4t{margin-top:var(--spacing)}.c4u{margin-top:calc(var(--spacing) * 2)}.mt-3{margin-top:calc(var(--spacing) * 3)}.cn{margin-top:calc(.5625em - .5px + var(--spacing) * 2)}.c3w{margin-left:calc(var(--spacing) * -.25)}.c2x{box-sizing:content-box}.c4j{display:block}.c4p{display:flex}.c4x{display:grid}.hidden{display:none}.c30{display:inline-flex}.c2m{aspect-ratio:1}.c2b{aspect-ratio:1!important}.c1l{width:var(--sf-badge-v);height:var(--sf-badge-v)}.c1o{width:var(--sf-disc-v);height:var(--sf-disc-v)}.c4g{width:calc(var(--spacing) * 6);height:calc(var(--spacing) * 6)}.cy{width:calc(var(--sf-disc-v) * 2 / 3);height:calc(var(--sf-disc-v) * 2 / 3)}.cv{width:var(--sf-disc,calc(var(--spacing) * 8));height:var(--sf-disc,calc(var(--spacing) * 8))}.c3k{width:100%;height:100%}.c39{width:100%!important;height:100%!important}.c51{height:calc(var(--spacing) * 2)}.c4z{height:calc(var(--spacing) * 14)}.c50{height:calc(var(--spacing) * 32)}.c49{min-height:calc(var(--spacing) * 6)}.c1z{width:var(--sf-disc-v)}.c1q{width:var(--sf-gutter-v)}.c8{width:calc(50% + .5px + var(--sf-gap,calc(var(--spacing) * 3)) - var(--spacing) * 1.5)}.cx{width:var(--sf-gutter,calc(var(--spacing) * 8))}.c4q{width:1px}.c3x{max-width:calc(var(--spacing) * 88)}.c3i{max-width:calc(var(--spacing) * 128)}.c3g{max-width:calc(var(--spacing) * 176)}.c34{max-width:100%}.c32{max-width:none!important}.c41{min-width:0}.c4a{flex:1}.c3p{flex-shrink:0}.transform{transform:var(--tw-rotate-x,) var(--tw-rotate-y,) var(--tw-rotate-z,) var(--tw-skew-x,) var(--tw-skew-y,)}.c28{cursor:pointer}.c3m{list-style-type:none}.c31{grid-template-columns:repeat(4,minmax(0,1fr))}.cp{grid-template-columns:fit-content(40%) minmax(0,1fr)}.c1r{grid-template-columns:subgrid}.c3q{flex-direction:column}.c3l{flex-wrap:wrap}.c26{align-items:baseline}.c2o{align-items:center}.c2w{align-items:flex-start}.c25{justify-content:center}.c1t{gap:var(--sf-gap-v)}.c4l{gap:var(--spacing)}.c4i{gap:calc(var(--spacing) * 3)}.cz{gap:var(--sf-gap,calc(var(--spacing) * 3))}.c43{column-gap:calc(var(--spacing) * 4)}.c44{row-gap:var(--spacing)}.c2p{align-self:stretch}.c1x{overflow:hidden}.c2q{border-radius:3.40282e38px}.c35{border-radius:var(--radius-lg)}.c33{border-radius:var(--radius-lg)!important}.c38{border-radius:var(--radius-sm)}.c4b{border-style:var(--tw-border-style);border-width:1px}.c3s{border-style:var(--tw-border-style);border-width:0}.c3u{border-bottom-style:var(--tw-border-style);border-bottom-width:1px}.c2{border-color:var(--sf-well-border,var(--color-foreground))}@supports (color:color-mix(in lab, red, red)){.c2{border-color:var(--sf-well-border,color-mix(in oklab,var(--color-foreground) 8%,transparent))}}.c2h{border-color:var(--border)}.c5{background-color:var(--sf-well,var(--color-card))}@supports (color:color-mix(in lab, red, red)){.c5{background-color:var(--sf-well,color-mix(in oklab,var(--color-card) 55%,transparent))}}.c2e{background-color:var(--background)}.c3d{background-color:var(--border)}.c3y{background-color:var(--muted)}.c29{background-color:#0000}.c2d{--tw-gradient-position:to bottom}@supports (background-image:linear-gradient(in lab, red, red)){.c2d{--tw-gradient-position:to bottom in oklab}}.c2d{background-image:linear-gradient(var(--tw-gradient-stops))}.c1w{--tw-gradient-from:transparent;--tw-gradient-stops:var(--tw-gradient-via-stops,var(--tw-gradient-position), var(--tw-gradient-from) var(--tw-gradient-from-position), var(--tw-gradient-to) var(--tw-gradient-to-position))}.c2n{--tw-gradient-to:var(--background);--tw-gradient-stops:var(--tw-gradient-via-stops,var(--tw-gradient-position), var(--tw-gradient-from) var(--tw-gradient-from-position), var(--tw-gradient-to) var(--tw-gradient-to-position))}.c3c{fill:none}.c3r{stroke-width:1px}.c53{padding:0}.c4w{padding-inline:calc(var(--spacing) * 3)}.c4n{padding-inline:calc(var(--spacing) * 6)}.c45{padding-block:calc(var(--spacing) * .75)}.py-1{padding-block:var(--spacing)}.c4e{padding-block:calc(var(--spacing) * 1.5)}.c4r{padding-top:0}.c4o{padding-top:calc(var(--spacing) * 4)}.cl{padding-top:max(0px, calc((var(--sf-disc-v) - 1lh) / 2))}.c4s{padding-bottom:calc(var(--spacing) * 5)}.c48{padding-left:calc(var(--spacing) * .25)}.c3j{text-align:left}.c2c{font-family:inherit}.c3a{font-family:var(--font-sans)}.c3b{font-size:var(--text-base);line-height:var(--tw-leading,var(--text-base--line-height))}.c42{font-size:var(--text-sm);line-height:var(--tw-leading,var(--text-sm--line-height))}.c40{font-size:var(--text-xs);line-height:var(--tw-leading,var(--text-xs--line-height))}.text-\[13px\]{font-size:13px}.c2u{font-size:16px}.c17{font-size:calc(var(--spacing) * 2.5)}.c1d{font-size:calc(var(--spacing) * 4)}.cf{font-size:calc(var(--sf-disc,calc(var(--spacing) * 8)) * 3 / 8)}.cq{font-size:calc(var(--sf-disc-v) * 11 / 32)}.c11{--tw-leading:var(--text-xs--line-height);line-height:var(--text-xs--line-height)}.c2i{--tw-leading:1.5;line-height:1.5}.c2f{--tw-leading:1.6;line-height:1.6}.c24{--tw-leading:var(--leading-normal);line-height:var(--leading-normal)}.c2y{--tw-font-weight:var(--font-weight-medium);font-weight:var(--font-weight-medium)}.c2g{--tw-font-weight:var(--font-weight-semibold);font-weight:var(--font-weight-semibold)}.c1p{--tw-tracking:.05em;letter-spacing:.05em}.c1f{overflow-wrap:anywhere}.c1y{color:var(--foreground)}.c1i{color:var(--muted-foreground)}.c36{color:var(--color-white)}.c3e{text-transform:uppercase}.c2s{--tw-numeric-spacing:tabular-nums;font-variant-numeric:var(--tw-ordinal,) var(--tw-slashed-zero,) var(--tw-numeric-figure,) var(--tw-numeric-spacing,) var(--tw-numeric-fraction,)}.c1n{text-underline-offset:2px}.c2v{-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}.c4d{--tw-ring-shadow:var(--tw-ring-inset,) 0 0 0 calc(2px + var(--tw-ring-offset-width)) var(--tw-ring-color,currentcolor);box-shadow:var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow)}.c14{--tw-ring-shadow:var(--tw-ring-inset,) 0 0 0 calc(calc(var(--spacing) * .375) + var(--tw-ring-offset-width)) var(--tw-ring-color,currentcolor);box-shadow:var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow)}.c21{--tw-ring-color:var(--background)}.transition{transition-property:color,background-color,border-color,outline-color,text-decoration-color,fill,stroke,--tw-gradient-from,--tw-gradient-via,--tw-gradient-to,opacity,box-shadow,transform,translate,scale,rotate,filter,-webkit-backdrop-filter,backdrop-filter,display,content-visibility,overlay,pointer-events;transition-timing-function:var(--tw-ease,var(--default-transition-timing-function));transition-duration:var(--tw-duration,var(--default-transition-duration))}.c2z{-webkit-user-select:none;user-select:none}.cu{--sf-badge-anchor-v:calc(var(--spacing) * 3.5)}.ca{--sf-badge-face-v:var(--sf-badge-face,calc(var(--spacing) * 4.5))}.cj{--sf-badge-v:var(--sf-badge,calc(var(--spacing) * 3.5))}.cr{--sf-disc-v:var(--sf-disc,calc(var(--spacing) * 8))}.cs{--sf-gap-v:var(--sf-gap,calc(var(--spacing) * 3))}.ci{--sf-gutter-v:var(--sf-gutter,calc(var(--spacing) * 8))}.ck{--spacing:calc(var(--sf-font-size,1rem) / 4)}.ct{--text-base:var(--sf-font-size,1rem)}.cg{--text-sm:calc(var(--sf-font-size,1rem) * .875)}.ch{--text-xs:calc(var(--sf-font-size,1rem) * .75)}.c10{stop-color:var(--color-border)}.cm{stop-color:var(--color-muted-foreground)}.c18:is(:where(.c1v):is([open],:popover-open,:open) *){display:none}.group-open\/disclosure\:inline:is(:where(.c1v):is([open],:popover-open,:open) *){display:inline}.c22:last-child{border-bottom-style:var(--tw-border-style);border-bottom-width:0}.c2r:empty{display:none}@media (hover:hover){.c1j:hover{color:var(--foreground)}.c20:hover{text-decoration-line:underline}}.c1g:focus-visible{outline-style:var(--tw-outline-style);outline-width:2px}.c13:focus-visible{outline-offset:2px}.c1b:focus-visible{outline-color:var(--ring)}@container facts not (min-width:28rem){.c15{grid-template-columns:repeat(1,minmax(0,1fr))}}@container pair not (min-width:1.5rem){.c1e{display:none}.c16{width:100%;height:100%}.c9{font-size:calc(var(--sf-disc-v) * 33 / 64)}}.c3:is(.dark *){background-color:var(--sf-well,var(--color-foreground))}@supports (color:color-mix(in lab, red, red)){.c3:is(.dark *){background-color:var(--sf-well,color-mix(in oklab,var(--color-foreground) 3%,transparent))}}@media print{.c2t{display:none}}.c1c .c3f{--tw-font-weight:var(--font-weight-normal);font-weight:var(--font-weight-normal)}.c19 .c3f{color:inherit}.co svg{width:calc(var(--sf-badge-v) * 5 / 7);height:calc(var(--sf-badge-v) * 5 / 7)}.cc svg{width:calc(var(--sf-disc,calc(var(--spacing) * 8)) * 7 / 16);height:calc(var(--sf-disc,calc(var(--spacing) * 8)) * 7 / 16)}.cw::-webkit-details-marker{display:none}@media print{.c12::details-content{display:block}.cb::details-content{content-visibility:visible}}.c7:has(>.c37)>.c3t{--sf-badge-anchor-v:calc(var(--spacing) * 2.75)}.c1:has(>.c37)>.c3t{--sf-badge-v:calc(var(--sf-badge,calc(var(--spacing) * 3.5)) * 11 / 14)}.c6:has(>.c37)>.c3t svg{width:calc(var(--sf-badge-v) * 8 / 11);height:calc(var(--sf-badge-v) * 8 / 11)}.ce:has(>.c2k[open])>.c27,.cd:has(>.c2k[open])>.c2a{display:none}.c2l>img{display:block}.c1s>img{width:100%;height:100%}.c1k>img{object-fit:cover}}.c4h{--background:#fff;--foreground:#0a0a0a;--card:#fff;--primary:#171717;--primary-foreground:#fafafa;--muted:#f5f5f5;--muted-foreground:#737373;--border:#ededed;--ring:#0a0a0a;--code:#f6f8fa;--code-key:#b65326;--code-var:#0a7ea4;--code-string:#3d7a2a}.dark{--background:#0d1117;--foreground:#f5f5f5;--card:#0d1117;--primary:#fafafa;--primary-foreground:#171717;--muted:#1f242c;--muted-foreground:#a3a3a3;--border:#262c36;--ring:#d4d4d4;--code:#151b23;--code-key:#e8834f;--code-var:#79c0ff;--code-string:#a5d6a7}@property --tw-rotate-x{syntax:"*";inherits:false}@property --tw-rotate-y{syntax:"*";inherits:false}@property --tw-rotate-z{syntax:"*";inherits:false}@property --tw-skew-x{syntax:"*";inherits:false}@property --tw-skew-y{syntax:"*";inherits:false}@property --tw-border-style{syntax:"*";inherits:false;initial-value:solid}@property --tw-gradient-position{syntax:"*";inherits:false}@property --tw-gradient-from{syntax:"<color>";inherits:false;initial-value:#0000}@property --tw-gradient-via{syntax:"<color>";inherits:false;initial-value:#0000}@property --tw-gradient-to{syntax:"<color>";inherits:false;initial-value:#0000}@property --tw-gradient-stops{syntax:"*";inherits:false}@property --tw-gradient-via-stops{syntax:"*";inherits:false}@property --tw-gradient-from-position{syntax:"<length-percentage>";inherits:false;initial-value:0%}@property --tw-gradient-via-position{syntax:"<length-percentage>";inherits:false;initial-value:50%}@property --tw-gradient-to-position{syntax:"<length-percentage>";inherits:false;initial-value:100%}@property --tw-leading{syntax:"*";inherits:false}@property --tw-font-weight{syntax:"*";inherits:false}@property --tw-tracking{syntax:"*";inherits:false}@property --tw-ordinal{syntax:"*";inherits:false}@property --tw-slashed-zero{syntax:"*";inherits:false}@property --tw-numeric-figure{syntax:"*";inherits:false}@property --tw-numeric-spacing{syntax:"*";inherits:false}@property --tw-numeric-fraction{syntax:"*";inherits:false}@property --tw-shadow{syntax:"*";inherits:false;initial-value:0 0 #0000}@property --tw-shadow-color{syntax:"*";inherits:false}@property --tw-shadow-alpha{syntax:"<percentage>";inherits:false;initial-value:100%}@property --tw-inset-shadow{syntax:"*";inherits:false;initial-value:0 0 #0000}@property --tw-inset-shadow-color{syntax:"*";inherits:false}@property --tw-inset-shadow-alpha{syntax:"<percentage>";inherits:false;initial-value:100%}@property --tw-ring-color{syntax:"*";inherits:false}@property --tw-ring-shadow{syntax:"*";inherits:false;initial-value:0 0 #0000}@property --tw-inset-ring-color{syntax:"*";inherits:false}@property --tw-inset-ring-shadow{syntax:"*";inherits:false;initial-value:0 0 #0000}@property --tw-ring-inset{syntax:"*";inherits:false}@property --tw-ring-offset-width{syntax:"<length>";inherits:false;initial-value:0}@property --tw-ring-offset-color{syntax:"*";inherits:false;initial-value:#fff}@property --tw-ring-offset-shadow{syntax:"*";inherits:false;initial-value:0 0 #0000}@property --tw-outline-style{syntax:"*";inherits:false;initial-value:solid}.tdot{animation:tdot 1.2s cubic-bezier(.3,0,.2,1) infinite}.tdot:nth-child(2){animation-delay:.15s}.tdot:nth-child(3){animation-delay:.3s}@keyframes tdot{0%,60%,100%{opacity:.35;transform:translateY(0)}30%{opacity:1;transform:translateY(-3px)}}.p0{content:url(data:image/webp;base64,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)}.p1{content:url(data:image/webp;base64,UklGRtokAABXRUJQVlA4WAoAAAAgAAAAFwEA0QAASUNDUMgBAAAAAAHIAAAAAAQwAABtbnRyUkdCIFhZWiAH4AABAAEAAAAAAABhY3NwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAA9tYAAQAAAADTLQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAlkZXNjAAAA8AAAACRyWFlaAAABFAAAABRnWFlaAAABKAAAABRiWFlaAAABPAAAABR3dHB0AAABUAAAABRyVFJDAAABZAAAAChnVFJDAAABZAAAAChiVFJDAAABZAAAAChjcHJ0AAABjAAAADxtbHVjAAAAAAAAAAEAAAAMZW5VUwAAAAgAAAAcAHMAUgBHAEJYWVogAAAAAAAAb6IAADj1AAADkFhZWiAAAAAAAABimQAAt4UAABjaWFlaIAAAAAAAACSgAAAPhAAAts9YWVogAAAAAAAA9tYAAQAAAADTLXBhcmEAAAAAAAQAAAACZmYAAPKnAAANWQAAE9AAAApbAAAAAAAAAABtbHVjAAAAAAAAAAEAAAAMZW5VUwAAACAAAAAcAEcAbwBvAGcAbABlACAASQBuAGMALgAgADIAMAAxADZWUDgg7CIAAPB6AJ0BKhgB0gA/AWqqT6smI6Mym9qRYCAJY22eDcMUTpI4U0BbrEJyE+z+Nd8/oIB7tV7NnZjwCMWOwzAD3WM1z5/oJ8negF5RX/R5GP3X/vewh+3X7te3f7KvRg/aZvenxD5CWygNoSOfT2LZiZvw7rmvfP3zL89/UCYkDfNMrKE7xnEzHf2pSUNoLutZwruVkIy4FwEZAeILDIOsBE2iIIWaCrW0IJqE6IggJYR/x84gqeTYu/WVzmn+C0sOVuNtaqeykXydhsLx+NCSWtibvWTjitrZx5+x1o+cmd7cjL7urKNNlQiEklVyisCI7j+/BIabIcEAom2YzgVXd8PDYOG18IMfVO51X8k9UaLVx63pj7FzCizeESjTmdotT4VYZhwbwmHsonW9MzhDzj5UAJJh7pZFQBSL5iEFv/04fdzx2Wd5zl8bNWhXQD9Ds9T/e2ef7y21dxrMfe52813k8HovevBRPWcyGvrilwKmEHDL/7n7ahScWtmAKp0LlJnXQ2HKn4eNNmY8JfLiPCXYNA6v525oZT4mK3aLT1GBGfYF50wCS+aIFxvpp5BR8wiBUKJxFRDumNa+klsDAeIaFZ7sQcLuxa3mCTYVG+BIbOnOELNLjwPOslmOguzAUE9EZAte4AaD0ZIFUUgzFpJDC/NQgIVw25hBiSqVlbJ8MWVeSnlOYmfm+jAaQSfG1GXa1rXQ05BHxpFZpvBQNIttB5OZnLjQk1uhNbKdP4Vl9LUr9coBCFJro70ecXCYyITQG98f5HcevbCrcISFeiQujCRkiWFT7T2gzzin+YRWlh2fUmSa7hc9iCX0G8cSg6SDRQXUMbiw4debH/p8HeT38gP4+RtMYdo5w0+UsRW652tvSmGZpgGjLU1i8VrXS2GulbsprGhVotltr2VooMFOUXV6mU7liDaUT0N7hajAgZP4lJqTN7sFQHu/dMjCzswShuvq79P7M4lLJf6YGXnefRDkStRfW+75KDmfMd8N0Y49k52uGLQTsjYhPJaUqEnpk2wI6XH87Qk3huERXVgeQGppJPHOLX4mPvCJumI+PnWOnjlQ50z+puMK+rVcifROjpL6i5UR/axdaL1mX7mX3wmMKWyTeUINV6ReFhzn8DU/c2RQi5/06Z8G6AoOWkLfI84q4a83NCnCn0r+tssgjfyvgHAI5OIgyR9BASEcneykoRbWZEv3Rl12THVgk70HHTK84/T0ENxJvKxjLQbERFNSIo9XgXi7Pgmsr61SdBCbM6+Th5vHuNvf7sMLxj4tG40JA3wyHDXBzadVU8ZWXSuCdTWEXl2haen95Z5AAP7vRgAbFBJZmGpsqtv198YVsXnrAmb8cwAPLgU9fAx3onTLDQwHYFyCS3wpiC2dFy21GKodpIE6lYyNTc5K8fwgcri+yjxbeZfIExKGwTBWciF8NjA6RHDDnIgo6gOFNSjj8HK9lPBPb4Uxpwr/5izinzjRS2Xc2CWlF212OKvTWgIHqyvVS07xGt2FK6Crzt7QXsd41yXhXxp5Uy0vXOnwNA3HzBxPRka6KAy3u4CaBIY+F/GQy6KI41pCQa3rfgEu/QmPYHD57OzGG0Fu8vK6j7/cg1n7b/esNvkhKEAIPj0BL73AuP5q/7eadUEXPogrz9ucenLwVO/cidWj1c/w80K8HitKKzr9sFxMBUtG2KiYkRnnCaiAI8GGRp4dZgTS1n947OgEoyoY/H3JsdTBzOrlOiXjCwKrqTYNJRIO64s5e/eum2fVTwIacyCC9YMtX1DFwYm3OZzTiKYQUAXgm41YPJ7E1Qqe5NcqGOPpR5Sn4ZfTvHI6BdKuTVZst10xmOi4nR6xzLgbUStJzpOPefgGuU10CTqXDeb7Mx4xSspX2W3uqdzkM9evusJ/BhR0dyXzc2s6JSGFHz4eYGuURBsrQI/Pz3Yvv3DslCFAZoi8F3BBGHR+SeQjqUP5VOYOPgV1bevSpXNvKkfAeewuWXXkkrLU5i6BIQxzv1AZfBzxUebVzm+i4h6ZD8/evb/4k0z78x9fgSnqG+OwZuB/kSHWySfnmYHuUxDudPmYt7MPzSDDNx+BRvKkqxfV66gCY1Asb9qY47GY0iOQ6PyeYg5PsD41VOx8uMA3YajMPiygz3GxA0gAssZxqmd9WEPViWInyrUSvGgcW87rFA//IqM6ng2WRfxorW2tjBWaa7pMuTDFExd03yMsClBygPU7Yi5OW3igJ94XK5t78M7Rmhe3Fyalsp99ySAwEysyhrRxV/BVHhpExL0aDb7PCsUssARZEU9YCgDDcP9dCZAwbGNgAhgNp72qWnY8GRLuzwPNp2DIokLA9N9rV8bJtwB7MK3rvWxqxdtyrRZ5FX14sixYB8cm0j/p2bip94Kn4fnSQ0g27yXxFJ7Vg1BjOZAUfq2sVjpCJsQDimK8/3WDiTev4WggjSEaVhigyOIM51x7l2/8sbTh16noYc4T2gMWWmonVAjhIXokM7SUXWcpWhhgd+6K6Gk7Ll2qc3Z2tnqskvWFBJtH9RlkBfTY6KtxodAL810OvAv1RNxd4iYWzijp2XiXXGvHHkRpNao16K2eG5VfnHbI6NCkLKffajKtsFQ5UC1tbntCYQGerCT8WrJbjNWfkzbyTHn4wtDCrKpzP5EP1SV4qOz0MPJTUfYULWwW4+buM1cOaGqmzDTzItKwWO/cVy0w+ewdpPLbVkHeNbuzjIuEhaqQ7CvIFtgFxdUI/+8IfTzprGecSY72VR8wCdoI23Esb+xEd6Xbq817Blkor1R339nuY/AQ8wiZ6XQ30biu9F94xWAJeyK0wguI0FDNIvc6G6AFK2FjDYA7GkDf+h7ZPT9wBm+ErhjAABMrelLxUxfyHCKtIIg3UwW9gLMYDN5nbD6c2suJlLuFNYqZ1jbV4balkMWVb2f0HM68gtfRtfc8O4Y5bd2xI/lLoUzv9ySPcziY3xrlOYLKRqc71pv/1R3ZDelszGyDVG2AfvWdVQnYOMCnfD30yvADxQ58peh7aG86z524FJ747PYHFNXrOapq9LrsjUKdEi1f/uGGJror3OaKkK99KdEK/3OQPRumtykhU1OJZuGd317wZ/FkZFF/9KOq3FSN5ozXI5TV+f2H2rm26NCn2mG+zuq7ft6rxK1LOOu0ryPpAH2vT6YJvHwzBdun5axOK4047m0b9WBxtwy+NrNpgyTJQhiQekkkE0MYGqj2apUxKaQV9YJhm7wZiPcBk4atsWYHTeuuCtUGQDrNo2i5j1k9kNBLMBwIdiRsTof6n1zoLzgn6CwFv9DOx50gLXbd+AijhKW+grbw3aD5yRyEUrGCpGMW4YjYAS+a/D4qqDL7hxAKzaDLSGoUlhjyGX9OHOSeZSfGHnI1pS/F/2wV8aLeh9yEq8m8hii1PM+zUfWLpww8Nli0pNWX+td//F2pHL+E71r/SzC4I5Dy3HUhOVPNsLmoaJY2Gs5SX46HqXWDkyGcGWUELu2cuy3Fo6afEcMj6THp9jQFAbCe9zWVdk5vSGZH4cK6Ayfxt9bzNxIEdROSvE6s29eNmqL6xrJ52HZbb0WWv4VaDH8+ajtievUyKvHBi8AfViRSLJid6q+SRupXXNd+iSzsxtFanWj4DDCpSRJ/5DVwPpBUGCfKkmd8p/8pIZKHiZ5xWlHyJawjrK2kOCtnfSSHv/VvyN8eD3Y25BO0rDdPi1flww9z1xVIE4qiBLUVtWc2VUYbCnLrDDw5sUhDl43C9pyZT+a4dS4/JB/HJNEIV4nx/k6YD8YyhddN+aH7y5jOSbEw33Zn96q8Mazd0lRhuPe848+oED7Z4G/Rc0wcjI6qugLUYeyS1ZO2D7GZ8R8wJFV8MgHJbi7e1+69VxxcyYCx9nfbEfdXfkAXi4pR+mN1eGMqpO8y5iG1nXAa6nFBzrOa/77zjavzLmvH/l1JbR0qLZBkv8y/vriH2OkQlBux0+BxuvksI+kTvDuSSwZbxLUxXlaOJmwRhXOwMkK+nUitR3ZQBUg/MPSsPF6v7QdYLpS0/T3yVAPvYjuFzY/LFzSfhmIYnltbg/rWyYorseSEUjQ71DUMfcxKXKj/Z942GiKcMEUNDHT4Zx/M6hY/1kXuHpcqG2wwCcSBlv9Cv9CrRGM13TDkZocbcvXt5WE9u+FJbVWRccMyvYYp4mQEOHAoUB18Uoh/KxzB9gDE4WoUp31dDeSiAt+xV1fDyfh433tkXoQB4Qog7HU7Um3xzl5ugg3hAOocvufODdILhnQw49Y27s4x1/iqNOfxjBdQY4sXgO1gRgwNukAWPMGmzsi0atAdY/wNyBwg7Ox5mKBDIUlrlBYsawYLNKwe97TesYZy7P7elFo2xwYO3UzpN7tKDpRSr7lL1w1bL8tjk+Yk7fTyYHk6ISHYwNTGdzjXiMeYCeUSyhKmz27WS27yZoy6VlDtbE9jbqzMkpRMj0xmSPgCNuQqBff9JhpVNJok85keN0opRggp+wja3zWz7OadJRhn0PCrEtzkPCD5IErTesmtYBdSVjqKj2BaAEaBsG3jdw8BMXBKJr/QOqdQc22qg35D6Hz0YDIvgjAzF6dybEx/4myj6PE/5iR/g4jgqCk2ENJDaWEFhDGW8ybovtm/vpL+bZq6iPA/ddYezDXfH1eJ382Vc4Y1bdyWrrg1OdsdLWgeZkDEr6y5ZN5mHJ077fQchTsjTtiIEJzUIOSDgNxV3J8Y7H3pHoQly/zZWsWk7fRtrn8CrCitcywv89uWA6y77TslBDYFde9NBPI4MNSjfds8e+YXxHOc+dasiybcRqXxX7JXkAKN9Ipn2cOWyZiPJohm+XvJS3e9MkPHWB8yP8rfj2gQ06vKCZVulD3YjVOR1E+0Epy+DzHqbVqxLkN1Wh+Bp/bGJ27xuaTA1FtAvzf3C8W2b5YnaI1D7kqJRce4pHwKpH+XTxG2WtbI3vAB3iHf5J+XXYw9QiapSf7o9rBjDj5w2eE8NxR2Nh5PwDTjrIL39q7adP22p5ZuteaNYOQGTE9pOD9tuNXFPdCvchgxj4Ke1IbqkN3kMScMOyhFtzJkWeyqtrStrSiR/t3UKOWGrt0YAff/QdFPwbnvZlvwLr99EfdGskrNvlAFbcKGeKaVsVKsXzD4DIEmetbK/ycrR0BoAMcmIwQsXUgOumtxNWmHyV4Vc7ZqS7LYGTqabC2p6h2gxpq/071eY+7lpjyoYIvuF6btF/g8y/3vkeAzQOBflDPS2WpDREdGbTHibHfnoeWy6m8MEhHlKkgyMWMBtMkUP7y8GLsusKXuNpi5gPBBM0UvXyNUzLRZ2oDo7VG77qcjw0mN8MoJR9LQJyGZwFovzqi5YNMb8ckUFQnx3Dl3ZDseCh9H7xOXsHQBDvxS5aBkXHMjH0xah/Z0nRNglQIEbcd0aH2kmMDDwDmGLFDIE3kF3qgDuZ2MYVvtqzrC3sS3uZg87Rs/S8p4IxzPw29Ek+fKEA/sFP8UfQwGs/C7D6LNpr5zypCrAaX1fHnwu5I8neLZcDf5ew9SlQYvjhVcD2ruUEqPZZk347sE6L/6Y/P0jZxxZqAOjcl1nWr1o1QikASi0qcL7NDw77RmOLtfsnIjpuP5WtFQPj5VyJ8aQmj5Bn+rR8GLs32nOaXLOd28FbWZDMDzWOe7ltYJOgy19cBYo2/QcAjCfRci7V+Xh3NWDE3G/psFDyGq06/6l6oy+MpcU1gPqIJeiqB/+fuGDfmNM+2qdm2U1N1muiMMxN0FnraSArmFMXSYRZ6AiRryCeeO+zq827AjuQCABmIaLb+Pkhil+wV4bxNb5OoI7d8keCcADGYRlSlAgcyrEyqkq408nUTCuStJsqzIjTsmQE8sYRDpG+QKr66xuWjifrFr8qQCmpawdmsAz90arX7ZWmsoa03r9K4eym2KC6V5yksfSRn5whCIlJljmQe519pXx3tljXySgGcPMgMhRTg1nM+SrEbI1hS77wdeVc1YvR1zaxGRnQ4tY2QqriT+0iC67tWmegI8JAFLx5MGrCCLCRp2Ks2QPedCYpCj0H63e9buVYTYk6dblyMJRvx6+kkFxhzHShjjc3Bc6iHW6Ndw7yqgcSQEuj3xgzOJ2LzfwIgvuZIgqGI+WgIw4uVijXFffGc4wygBe8bmGm7QuguKs/5yBRxnxkz43dgZ1pwiccIiF0I5jJDjEvGwiplQ2iAVodVm2TDslfrete80LLGs4bTLwMUEEY5QNWavVUAuS85J6LqYCHkfhT8JRHPtIHFaknl7yh9KXTf5zfSct8FhHj2qOoOb4I0KB6PImv7ZOzGaPltWhV8a5SNvW+UKP7n/F7zeEaG6akIqF50YqXZNBbAUgXS4+w1yUyJZgb9cI6qjCpE4Lso1yp17ZRAV8mmb+mXTAdWV7iwCV/xzT2Evj+jdv0ZNkvnl9259VJd9REGTU7NZJBEgPoCevGa3txtizKEn3QxW7rkR81RpykdqHneJ7HQ5HzqHEN3g6CpEQBtA/mIlYbbeBzFC2UrmfUT+15iqBuKlltUTkj89BnwhOr0Pmrn/sRdXxnivb63o0piSp2AUIdo8hhYYcBRc2m0TpR18sCVfWNf+etWcAvUVG5xYCWbpXd9IeJON/577YceculjCwPu2ZAcJmtaeF0AKx06rfDe+ozhhcmZUtkm4gvC9tbtOOUG5Usvam+iLQTXJFqajP66+uBC+iFKZKQElAvHLzhFLDYZwzwdSq57PBMG3ld5U8WsRIONMyO5eOoczf8QY0JnTdMXMo2aOGJ7C5Wo2LWU5qEpOIxSXdUro/NKJ9ACuXEtEdXDzKRSYmXb6xaPBmxNkfyzx8snhOs5XXGSa4arTZFHZEXa9/veSFtCKLtuy9NW9vdN5xPY8fyYeh9nCXWMKxGp2DNZJEIUAeawXnDf4uFaSMQBxc/HDqGeZ4YBb4/XfZR2RmCyzUsxOmaIP/i15g0pvy4K2kcidU+bjiujb6nHbVH7zpBZ45z7TbFhz0og4nf5ylR8krPvP1LQRLKYWxi1pJa4ssfcfm9AR+dSsOB8h66X/aKSh7XHoxScoC2TML/v5xSJzQ72zbQ5H4cbrcmua8YcjTe7TvKTmPm+MBqRRl0v+4I/d1N+4o212PzX2i9JUgHt3KDTaP6AH+bTTSNtJIQqR8BmM+0YGlpU8bTpxTa8DbWOQXSz2pFGr5sXdaYFBQbGPgt+Sjd4oe0N3v+ZHu3l6VvvQ69YZktoKXdSMIGcGpnL6W3QcUsmw8VdaQj+VUhzYgdWBoIS/XzAbENJiS+ZK5KvGxrDW4iVgEOqrQMRoJCjHMqIRghhZVSZpkoG4Jf9hWy905E690tR4R0YbRmZpnQUUrA8DxoJA9i6+nSejmltYyb8lAqGs5ZkR6k1mVJ6f3qNUHrR/mEE4o8/+ub7eToGOAtD9SlHUXcK1B45XEGS06xRNM1qS2hq3y8idQ/7tPG6LZ+GKMJ56i/GLqosqKFDUMcH3hPmyz+wTVa/8YVHRzjbawI6DUuLc2nfBsj+sy3zlEez7R1l0Zx0s5kCsvYRUtNoeFpQEqm9QarpqYKpZ+88Y5yWMsxXJCNwrLZWPNo6pdskt7bkCPasLZJevswnOA2sVSVDqOI99YGAgLFF7XsqN/0bjpy9kQ4ZY4a/LBUJrqmWiJeSe56A1L3/ly2HFxFNgz1TyBiEsnNtnkiI/YvRRWO+i8Z0UkbwOLVrKhmEaDzrYFrI899p1OH91IoKHcwIZROqIADihnFcOqU8cZHSQUBHaqHNUKemRzo47MSPpZli0DY4OPPufXkxe6QM0+qXZBSOWYNF3Wrzt0HiniZU5/shrvNNAn0C+zf2X5EvhUCqjOFsRDkAgBw2gCYBNKW5nsbzD3tBOS8atqqPOL8NKkmtsIeQKwJVw8hDHxw7Y7YKDYuc2ODKz4AbrlHYBw2E9zKsgvaJuueQFYXCnwSYS03gLFLhjccOcP0VYcYt7Vz5xjqmliyHP0stmZZZmWXtO44CpqBCdFPR7kp5aj6b6QwXUuWgy8vxlkJaIlhbs98CvU+jfC6eA0oFT9DuCv387TFIDupPidktyCTMIrOiK/rifnP/kZAAUK1Fb9rILDgFV6IPpl2pQSYqmDL8QOvcd6i6r1xkeNSZ8wUYEx/MukGsO6C3sTuUTzUGtqb9RwcUTy40msK03JBPnQnWomtz2nzbLfTC46xULlTZgU3QIJs6z/Y2eoSYwc3JiYkA5Gk4RDngLI5wRT/LWZHAzXSRUtKDBCuR01r0+Pu//VGVr6lU2t0lXJJGmqACxuB4fwC0DJuOAHepybllFYRXkwWsOCWn0fyH7xx+89wTsgkpsldqDRwrARqKYn+vESaHixETqLB4gtY4UHzOKHCfN6FrjrlPP7EiKHfKAfjC/pgT/G4WW62HAPYyc0XwqsAtch0/mUecIIESSAv8qQslzFKPkJxBzTSAum3YqAv7Z0yawKewjXhTBJEGHX0r/hB0wRIkq+J8eTZ5jBuikDMnlOOrndeN9gyd1jfxB5nPbNmQJkmhaxO2Ql1//x3+jUqzkEyxXoGkkDWHc+FH1lVxg/zcs+wlpzyTuoQcCA9dfrmOnTsqHRj8W8uXKO5+LupZe+Cejl8gB7DT4w6G+gR1NEaIoYQ1jHcF/86AoWvvRZFBw/uSlNqjhWd7tDxSmJq8euhMRzohrH9F5ITVGxbQYs37mNBu3DjBc5idXPoo5QG55U+XRGeTA/jNBiv8IcMkWwGRDanBN8gPE7iFdp4t+1DjNMthwSEEY5GiJuHte1+NAopp4UiicBbzflVV5yDO5gff3vLG+Vw+QX1vLQhUylCQ2U8bsVBF7uXneDB4X5wV/2dlbSdMr6mH7ELh8eFvK1ApNnjxFJvUfDl+VoTd0TcSWN2dJ4BmBbKz9cJ96r1mnKadMgAUvCMlOi/Sau1732ZIZ5NYMboGzXyMcCHCMZs1lSCX0isbURyLwlBnzG0m3g3Ojez4UMJYNxaMRWcCuVErTVc4miFHlk3a3h4Wln3gGNKJrjPNjjjIegH4sH+bSE2eSpqGUN34niiP9RIGkO1GviXQSByFsqbK9/Xe8+PAOwvfTbu2yQgal4jl7SKgJSby9wdOiGYQyOCHXY+irKiX3KsSU6ZaqAWgsmGaIYdRGHvCZwUouczUDvfJHKnWAHj8J5SmtSgevST5400I1biZSyWPsvFCC50cYfJFmdZbBcrq9EnwqifO6Fq4pOJty9Pm1Jyd/RXR1iceHomYz1gby+tX8RU9+A18cprU+DSHQP361aQKRPQd7YkICwQrKqUe9XaCKzNuLcSlIIjnUpPdQFGaDMLtFWJ/hKaJQPd4Q9SIG9xlSILD7XtB5Fgcw/wN/pFqFu533rxMdpd+CXYp76wCsCyoQefIGM4K6EAJI3vEFZ+dGDSHPBhO66xnkxCy2QXkuTkWQKVkZywdWAHvuRHR0RroHram0eCTI6jvHhHHr/olunUDo3noHm4iMD1uk5TuaYCfCMBcTvPO4PFj/OeFY47gySIw8tBZt5KW+PnW+fYfRJ9cOMFoupRTeihv+qYJhQVbU1DDmHv0qtzo9BXLox5YaayfcH2HRn5s1Qc90QZzi1c5K0jh1vu9eRSNr2upWQ65UUpiu1XChd+zovP+PS2sw6FLptHbtRxZJnuzywmp6S+fTjF4Iu5954X20WLfKRpp2nzSqHUukpYVW6AQuKy2Dga0mBoMDZp4F9cVxq2BdUE9UN4VYuhxpGKPi5tfs7W4UxLQEUeFlOFrZWnDWBcBZPMwYfDuCL0AE9wRAmHwB1EKjN42hgtM3HsigGUmN/h17Q0/6jBjbgjQq9Gypp+KGNjm/lCBeKDTY00xk5Vla3fRbRDSq+hLudjcTJyG0QuHlIP7bBWYYsm7yz2C08b2vUTxGJPtRNfsZjoO6j7pMSzky3vWKF7G/Ew0LmmGgncLm1Bk/DEziwVSiUWO7zDBgWbxuh+gqVWK6LIzkrgLch3lZDWfrCbgjrJ4OxS93M1NrkSqZHq73i3pjt2kMKR6bosABQzkQunz+GhCAqGDc86B/iSh0l4BePQT74ru0ziS9gdMcJuk4pN7Vq0yXnOeEcHNKCZwCd+idWPxFTjRjZ9cQMaFKw8lDc8+OaIeB/Tb2lmXTyQezJCzRBWYDEtEwrmlw808cVwlVXG4toiUaisvCLsiJ8K2G9DwEwUTD3aOuGQeCMk/HRbx1jmq+SKvtl2q/qEir2M+lYJyCNVgSJQ+O/iWZlYYjSSMBUTr8i7BTuF4Dy9xFhQpvTctXQ9jTGKVc5Xy9Yzm3WfVbMJaDqOaCOHYTT/npKXrhb2GawKsh+OPfG3Kx2PkXHkb4oHSet56JDiE1pB5OjaZ1oZI7x/cSFx1mfFXo7BcYBMPVxYahHzxvQvri4rk0hfmkIcjtgIlJVliXLB4MSCEPEtYGOVPDn3npNiadDxK2FTNPjm09DcyTbL7sV6xKqnv9rbtRZ1GkRN2PeoEblV/2iiC0DTdHkkcSmg1LZXhMt8LKPerp88H586YsaQl8OqHubczAvMJ/yxkm5Y2wDsb/JbJODFKByK2bhQLe6VqlspxxaNLLhucBBe/5YMQ37FFMqNUVT3oZeAOUhOefdtMiWAy8ryeWhdRxDygGzwHKoP0jsgSmbCQwxBysp+cBJk4CmDrZGQR1+Days6hDlLRy0v+ow0xNtr733cyUGtGjp/cPC6oF344Vv4RDSLEPrWf40AMphYeYYdMTicYa9Ck8VEfBBpkstFVPvx4g7kIPOoY2CG8bYh1tl2I/g9pQYrMcykZnqaG7L/NO66xaERQSpBx2oQqMlq+6ecqlKTiLQ/TGzZaqogoOnvLvWKTlIb8xcTAR+oVhT9oUpALV5jwGbhO6Zg9gVMQTjwjM8dsER4vxmiYrmGij3SqLVG/4xXDzZKJksGVOg7gFweh0roskLBIchkx663G4lPvB3zj4tbJFf3YUxDXEkmJgWGVPOOvuu07kSPx2gSq9bvCBcRahWoDzj01endsCOZOfhGlQWaHXCuLVQ8JDZPRLb4wCyjAJvOsYCd9gVnJkhdFgGz/5qnKuxNHlBnwZOPURLnaZQ2smjdimcQHXsvdj+XsWMxYf7lN+mVTVBfGb8KEQ3CVPdNeI8zij4fracRMWUznqhsdMTwowF59KN/bJdU6xfKdSMCO7gL0wdultIQfIjg3mJ91yvK3dw44mk2NGvatK8YT1S5ydbIVgfKfeSLgyKOCrBEGY5EVbGXV0bZiRueAGwEaRfAPZQ0WmLLeacFKOaGH1p6j2GKBZJO/ORpiw9rvIpY9dQL8sZ1lVoyvkEDqwvvNPXovrLkgqBWm9UHATe2dGS5ogj6KZBf/CqcrI527Bt7h4fna1pOkqzcHyZNuOVSut2DT0mGjSCws39cUmQP9G/z9ZXeAhZ7kGLeRnTzBaCYRESwsob1yAYEYWITpIRRfUsfqYBs6uusW4wlpCVdTOoSzqAVAMMBrhCF7svBLfmPeLRVY+ofW7DwNo+3XiPq1vXUP6aLs1Hvf7ROfwH+X1sJJBYSdJTUk2FgO4ON8M1ecgka4fwMYEFQFcMze47LlyN2jHzDcW9yO46XaqLXZ2AENM6iy/lCtfxA4t0vcp/uFnAW79fEsaUnBj7IK9+Qa32F5qOK69pcgtZ5wKCzOtKqgL8qv3QTsrLF8jF982ZgStGFr58ZPPa1PYSEKMVFtHi0pelr0gtycLkLCCIS9IFvYY3HiVFddh5TBxlawf2pfJ+KIbI73SgUW0dRw+Udj8RE24kbfjAWsy1/5YmtR2ffANE6zfuqsNLWs7ZmRjbaCboUu/DhmAd1to3iswZ5CiEZijkXj/10U5vTKAgYtNpGqifaEAF7JllwHS3rqH15h46pB5B40XQ1rBnBey/OPmgAAH3DgAAA==)}.p2{content:url(data:image/webp;base64,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)}.p3{content:url(data:image/webp;base64,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)}.p4{content:url(data:image/webp;base64,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)}.p5{content:url(data:image/webp;base64,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)}.L-plain{animation:a38 16.1s cubic-bezier(.3,0,.2,1) infinite}@keyframes a38{0%{opacity:1}0%{opacity:1}7.453%{opacity:1}9.938%{opacity:0}99.876%{opacity:0}99.938%{opacity:1}100%{opacity:1}}.L-avatar{animation:a39 16.1s cubic-bezier(.3,0,.2,1) infinite}@keyframes a39{0%{opacity:0}0%{opacity:0}7.453%{opacity:0}9.938%{opacity:1}12.422%{opacity:1}12.484%{opacity:0}100%{opacity:0}}.L-rich1{animation:a40 16.1s cubic-bezier(.3,0,.2,1) infinite}@keyframes a40{0%{opacity:0}0%{opacity:0}12.422%{opacity:0}12.484%{opacity:1}16.149%{opacity:1}16.211%{opacity:0}100%{opacity:0}}.L-rich2{animation:a41 16.1s cubic-bezier(.3,0,.2,1) infinite}@keyframes a41{0%{opacity:0}0%{opacity:0}16.149%{opacity:0}16.211%{opacity:1}21.118%{opacity:1}21.18%{opacity:0}100%{opacity:0}}.L-joins{animation:a42 16.1s cubic-bezier(.3,0,.2,1) infinite}@keyframes a42{0%{opacity:0}0%{opacity:0}21.118%{opacity:0}21.18%{opacity:1}33.54%{opacity:1}35.404%{opacity:0}100%{opacity:0}}.L-joined{animation:a43 16.1s cubic-bezier(.3,0,.2,1) infinite}@keyframes a43{0%{opacity:0}0%{opacity:0}33.54%{opacity:0}35.404%{opacity:1}37.888%{opacity:1}37.95%{opacity:0}100%{opacity:0}}.L-photos1{animation:a44 16.1s cubic-bezier(.3,0,.2,1) infinite}@keyframes a44{0%{opacity:0}0%{opacity:0}37.888%{opacity:0}37.95%{opacity:1}43.478%{opacity:1}43.54%{opacity:0}100%{opacity:0}}.L-photos2{animation:a45 16.1s cubic-bezier(.3,0,.2,1) infinite}@keyframes a45{0%{opacity:0}0%{opacity:0}43.478%{opacity:0}43.54%{opacity:1}47.95%{opacity:1}50.435%{opacity:0}100%{opacity:0}}.L-photos3{animation:a46 16.1s cubic-bezier(.3,0,.2,1) infinite}@keyframes a46{0%{opacity:0}0%{opacity:0}47.95%{opacity:0}50.435%{opacity:1}51.528%{opacity:1}54.012%{opacity:0}100%{opacity:0}}.L-finished{animation:a47 16.1s cubic-bezier(.3,0,.2,1) infinite}@keyframes a47{0%{opacity:0}0%{opacity:0}51.528%{opacity:0}54.012%{opacity:1}99.876%{opacity:1}99.938%{opacity:0}100%{opacity:0}}.L-joins .R0{animation:a48 16.1s cubic-bezier(.3,0,.2,1) infinite}@keyframes a48{0%{opacity:0;transform:translateY(-212.39px)}21.118%{opacity:0;transform:translateY(-212.39px)}21.118%{opacity:0;transform:translateY(-212.39px)}23.602%{opacity:0;transform:translateY(-141.59px)}23.602%{opacity:0;transform:translateY(-141.59px)}26.087%{opacity:0;transform:translateY(-70.79px)}26.087%{opacity:0;transform:translateY(0px)}27.329%{opacity:0;transform:translateY(0px)}29.193%{opacity:1;transform:translateY(0px)}31.056%{opacity:1;transform:translateY(0px)}100%{opacity:1;transform:translateY(0px)}}.L-joins .R1{animation:a49 16.1s cubic-bezier(.3,0,.2,1) infinite}@keyframes a49{0%{opacity:0;transform:translateY(-212.39px)}21.118%{opacity:0;transform:translateY(-212.39px)}21.118%{opacity:0;transform:translateY(-212.39px)}23.602%{opacity:0;transform:translateY(-141.59px)}23.602%{opacity:0;transform:translateY(-70.79px)}24.845%{opacity:0;transform:translateY(-70.79px)}26.087%{opacity:1;transform:translateY(-70.79px)}26.708%{opacity:1;transform:translateY(-70.79px)}28.571%{opacity:1;transform:translateY(0px)}31.056%{opacity:1;transform:translateY(0px)}32.298%{opacity:0;transform:translateY(-35.395px)}33.54%{opacity:0;transform:translateY(-70.79px)}100%{opacity:0;transform:translateY(-70.79px)}}.L-joins .R2{animation:a50 16.1s cubic-bezier(.3,0,.2,1) infinite}@keyframes a50{0%{opacity:0;transform:translateY(-212.39px)}21.118%{opacity:0;transform:translateY(-212.39px)}21.118%{opacity:0;transform:translateY(-141.59px)}22.36%{opacity:0;transform:translateY(-141.59px)}23.602%{opacity:1;transform:translateY(-141.59px)}24.224%{opacity:1;transform:translateY(-141.59px)}26.087%{opacity:1;transform:translateY(-70.79px)}26.087%{opacity:1;transform:translateY(-70.79px)}28.571%{opacity:1;transform:translateY(0px)}31.056%{opacity:1;transform:translateY(0px)}32.298%{opacity:0;transform:translateY(-70.795px)}33.54%{opacity:0;transform:translateY(-141.59px)}100%{opacity:0;transform:translateY(-141.59px)}}.L-joins .R3{animation:a51 16.1s cubic-bezier(.3,0,.2,1) infinite}@keyframes a51{0%{opacity:1;transform:translateY(-212.39px)}21.118%{opacity:1;transform:translateY(-212.39px)}21.118%{opacity:1;transform:translateY(-212.39px)}23.602%{opacity:1;transform:translateY(-141.59px)}23.602%{opacity:1;transform:translateY(-141.59px)}26.087%{opacity:1;transform:translateY(-70.79px)}26.087%{opacity:1;transform:translateY(-70.79px)}28.571%{opacity:1;transform:translateY(0px)}31.056%{opacity:1;transform:translateY(0px)}33.54%{opacity:1;transform:translateY(-81.6px)}100%{opacity:1;transform:translateY(-81.6px)}}.L-joins .R4{animation:a52 16.1s cubic-bezier(.3,0,.2,1) infinite}@keyframes a52{0%{opacity:1;transform:translateY(-212.39px)}21.118%{opacity:1;transform:translateY(-212.39px)}21.118%{opacity:1;transform:translateY(-212.39px)}23.602%{opacity:1;transform:translateY(-141.59px)}23.602%{opacity:1;transform:translateY(-141.59px)}26.087%{opacity:1;transform:translateY(-70.79px)}26.087%{opacity:1;transform:translateY(-70.79px)}28.571%{opacity:1;transform:translateY(0px)}31.056%{opacity:1;transform:translateY(0px)}33.54%{opacity:1;transform:translateY(-81.59px)}100%{opacity:1;transform:translateY(-81.59px)}}.L-joins .R5{animation:a53 16.1s cubic-bezier(.3,0,.2,1) infinite}@keyframes a53{0%{opacity:1;transform:translateY(-212.39px)}21.118%{opacity:1;transform:translateY(-212.39px)}21.118%{opacity:1;transform:translateY(-212.39px)}23.602%{opacity:1;transform:translateY(-141.59px)}23.602%{opacity:1;transform:translateY(-141.59px)}26.087%{opacity:1;transform:translateY(-70.79px)}26.087%{opacity:1;transform:translateY(-70.79px)}28.571%{opacity:1;transform:translateY(0px)}31.056%{opacity:1;transform:translateY(0px)}33.54%{opacity:1;transform:translateY(0px)}100%{opacity:1;transform:translateY(0px)}}.L-photos1 .R0{animation:a54 16.1s cubic-bezier(.3,0,.2,1) infinite}@keyframes a54{0%{opacity:0;transform:translateY(0px)}37.888%{opacity:0;transform:translateY(0px)}39.13%{opacity:0;transform:translateY(0px)}40.994%{opacity:1;transform:translateY(0px)}100%{opacity:1;transform:translateY(0px)}}.L-photos1 .R1{animation:a55 16.1s cubic-bezier(.3,0,.2,1) infinite}@keyframes a55{0%{transform:translateY(-198.79px)}37.888%{transform:translateY(-198.79px)}40.373%{transform:translateY(0px)}100%{transform:translateY(0px)}}.L-photos1 .R2{animation:a56 16.1s cubic-bezier(.3,0,.2,1) infinite}@keyframes a56{0%{transform:translateY(-198.79px)}37.888%{transform:translateY(-198.79px)}40.373%{transform:translateY(0px)}100%{transform:translateY(0px)}}.L-photos1 .R3{animation:a57 16.1s cubic-bezier(.3,0,.2,1) infinite}@keyframes a57{0%{transform:translateY(-198.79px)}37.888%{transform:translateY(-198.79px)}40.373%{transform:translateY(0px)}100%{transform:translateY(0px)}}.L-photos2 .R0{animation:a58 16.1s cubic-bezier(.3,0,.2,1) infinite}@keyframes a58{0%{opacity:0;transform:translateY(0px)}43.478%{opacity:0;transform:translateY(0px)}44.72%{opacity:0;transform:translateY(0px)}46.584%{opacity:1;transform:translateY(0px)}100%{opacity:1;transform:translateY(0px)}}.L-photos2 .R1{animation:a59 16.1s cubic-bezier(.3,0,.2,1) infinite}@keyframes a59{0%{transform:translateY(-198.79px)}43.478%{transform:translateY(-198.79px)}45.963%{transform:translateY(0px)}100%{transform:translateY(0px)}}.L-photos2 .R2{animation:a60 16.1s cubic-bezier(.3,0,.2,1) infinite}@keyframes a60{0%{transform:translateY(-198.79px)}43.478%{transform:translateY(-198.79px)}45.963%{transform:translateY(0px)}100%{transform:translateY(0px)}}.L-photos2 .R3{animation:a61 16.1s cubic-bezier(.3,0,.2,1) infinite}@keyframes a61{0%{transform:translateY(-198.79px)}43.478%{transform:translateY(-198.79px)}45.963%{transform:translateY(0px)}100%{transform:translateY(0px)}}.L-rich1 .R0{animation:a62 16.1s cubic-bezier(.3,0,.2,1) infinite}@keyframes a62{0%{opacity:0;transform:translateY(0px)}12.422%{opacity:0;transform:translateY(0px)}13.665%{opacity:0;transform:translateY(0px)}15.528%{opacity:1;transform:translateY(0px)}100%{opacity:1;transform:translateY(0px)}}.L-rich1 .R1{animation:a63 16.1s cubic-bezier(.3,0,.2,1) infinite}@keyframes a63{0%{transform:translateY(-175.79px)}12.422%{transform:translateY(-175.79px)}14.907%{transform:translateY(0px)}100%{transform:translateY(0px)}}.L-rich2 .R0{animation:a64 16.1s cubic-bezier(.3,0,.2,1) infinite}@keyframes a64{0%{opacity:0;transform:translateY(0px)}16.149%{opacity:0;transform:translateY(0px)}17.391%{opacity:0;transform:translateY(0px)}19.255%{opacity:1;transform:translateY(0px)}100%{opacity:1;transform:translateY(0px)}}.L-rich2 .R1{animation:a65 16.1s cubic-bezier(.3,0,.2,1) infinite}@keyframes a65{0%{transform:translateY(-225.98px)}16.149%{transform:translateY(-225.98px)}18.634%{transform:translateY(0px)}100%{transform:translateY(0px)}}.L-rich2 .R2{animation:a66 16.1s cubic-bezier(.3,0,.2,1) infinite}@keyframes a66{0%{transform:translateY(-225.98px)}16.149%{transform:translateY(-225.98px)}18.634%{transform:translateY(0px)}100%{transform:translateY(0px)}}.camera{animation:a67 16.1s cubic-bezier(.3,0,.2,1) infinite}@keyframes a67{0%{transform:translate(-170px,-287.45px) scale(2.5)}0%{transform:translate(-170px,-287.45px) scale(2.5)}56.522%{transform:translate(-170px,-287.45px) scale(2.5)}63.975%{transform:translate(0px,0px) scale(1)}90.683%{transform:translate(0px,0px) scale(1)}100%{transform:translate(-1292.9854300000002px,-2011.583574px) scale(17.5439)}100%{transform:translate(-1292.9854300000002px,-2011.583574px) scale(17.5439)}}.outer .O0{animation:a68 16.1s cubic-bezier(.3,0,.2,1) infinite}@keyframes a68{0%{opacity:0;transform:translateY(-108.78999999999999px)}0%{opacity:0;transform:translateY(-108.78999999999999px)}60.248%{opacity:0;transform:translateY(-108.78999999999999px)}69.565%{opacity:0;transform:translateY(0px)}70.807%{opacity:0;transform:translateY(0px)}72.671%{opacity:1;transform:translateY(0px)}100%{opacity:1;transform:translateY(0px)}}.outer .O1{animation:a69 16.1s cubic-bezier(.3,0,.2,1) infinite}@keyframes a69{0%{opacity:0;transform:translateY(-108.78999999999999px)}0%{opacity:0;transform:translateY(-108.78999999999999px)}60.248%{opacity:0;transform:translateY(-108.78999999999999px)}62.112%{opacity:1;transform:translateY(-108.78999999999999px)}69.565%{opacity:1;transform:translateY(-108.78999999999999px)}72.05%{opacity:1;transform:translateY(0px)}100%{opacity:1;transform:translateY(0px)}}.youpic{animation:a70 16.1s cubic-bezier(.3,0,.2,1) infinite}@keyframes a70{0%{transform:translateY(-108.78999999999999px)}0%{transform:translateY(-108.78999999999999px)}60.248%{transform:translateY(-108.78999999999999px)}62.112%{transform:translateY(-108.78999999999999px)}69.565%{transform:translateY(-108.78999999999999px)}72.05%{transform:translateY(0px)}100%{transform:translateY(0px)}}.outer .O2{animation:a71 16.1s cubic-bezier(.3,0,.2,1) infinite}@keyframes a71{0%{opacity:1;transform:translateY(-108.78999999999999px)}0%{opacity:1;transform:translateY(-108.78999999999999px)}60.248%{opacity:1;transform:translateY(-108.78999999999999px)}69.565%{opacity:1;transform:translateY(-108.78999999999999px)}72.05%{opacity:1;transform:translateY(0px)}100%{opacity:1;transform:translateY(0px)}}.outer .O3{animation:a72 16.1s cubic-bezier(.3,0,.2,1) infinite}@keyframes a72{0%{opacity:1;transform:translateY(-108.78999999999999px)}0%{opacity:1;transform:translateY(-108.78999999999999px)}60.248%{opacity:1;transform:translateY(-108.78999999999999px)}69.565%{opacity:1;transform:translateY(-108.78999999999999px)}72.05%{opacity:1;transform:translateY(0px)}100%{opacity:1;transform:translateY(0px)}}.inner{animation:a73 16.1s cubic-bezier(.3,0,.2,1) infinite}@keyframes a73{0%{border-radius:0px;box-shadow:0 0 0 0px var(--border)}0%{border-radius:0px;box-shadow:0 0 0 0px var(--border)}56.522%{border-radius:0px;box-shadow:0 0 0 0px var(--border)}63.975%{border-radius:20px;box-shadow:0 0 0 2.5px var(--border)}100%{border-radius:20px;box-shadow:0 0 0 2.5px var(--border)}}.inner2{animation:a74 16.1s cubic-bezier(.3,0,.2,1) infinite}@keyframes a74{0%{opacity:0;border-radius:260px}0%{opacity:0;border-radius:260px}94.876%{opacity:0;border-radius:260px}98.137%{opacity:1;border-radius:0px}100%{opacity:1;border-radius:0px}}.outfade{animation:a75 16.1s cubic-bezier(.3,0,.2,1) infinite}@keyframes a75{0%{opacity:0}0%{opacity:0}56.522%{opacity:0}63.975%{opacity:1}90.683%{opacity:1}100%{opacity:0}100%{opacity:0}}@media (prefers-reduced-motion:reduce){#stage,#stage *{animation:none!important}.layer{opacity:0}#stage .L-finished{opacity:1}#stage .outfade{opacity:1}}]]></style><foreignObject width="800" height="520"><div xmlns="http://www.w3.org/1999/xhtml" id="stage" class="c4h c3n c1x c2e c1y c3a c2u c24 c2v" style="width:800px;height:520px"><div class="camera c3o c3z" style="transform-origin:0 0"><div class="outer c4n c4o"><div class="ck ch cg ct ci cs cr cj ca c3b c2f c1i">
+        <div role="feed">
+                                    <div class="c3n c4p c2w cz">
+    <div class="c3n c4p cx c3p c3q c2o c2p">
+            
+            <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" class="c3o c1a c1h c51 c8 c1x"><defs><linearGradient id="sf-branch-ThTGxF7O9f" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="100%" y2="0"><stop offset="0" class="c10"/><stop offset="1" class="cm"/></linearGradient></defs><rect x="0.5" y="0.5" width="200%" height="200%" rx="0.5em" class="c3c c3r" stroke="url(#sf-branch-ThTGxF7O9f)"/></svg>
+        <div aria-hidden="true" class="cn c4q c4a c3d"></div>
+    </div>
+    <h2 class="c52 c3s c4r c4s c40 c2f c2g c1p c1i c3e">Today</h2>
+</div>
+                
+                                <article class="c3n c4p c2w c1t ck ch cg ct ci cs cr cj ca c3b c2f O0">
+    <div class="c2x c4p c1q c3p c3q c2o c2p">
+    <div class="c3n c4p c1z c3p c1 c7 c6">
+            <span data-sf-intent="pending" data-sf-glyph="eye" class="c4p cv c3p c2o c25 c2q c4b c2h c2e c1i cc" aria-hidden="true">
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/><circle cx="12" cy="12" r="3"/></svg>
+</span>
+    </div>
+
+        <div class="c4t c4q c4a c3d" aria-hidden="true"></div>
+
+</div>
+    <div class="c41 c4a cl c4s">
+        <div class="c4p c26 c4i"><span class="c2f c1i c1f"><span class="c3f c2y c1i">Someone</span> is looking at <a class="c3f c2y c1y c1n c20 c1g c13 c1b" href="https://github.com/storyfeed/storyfeed">Storyfeed</a>'s <a class="c3f c2y c1y c1n c20 c1g c13 c1b" href="https://github.com/storyfeed/storyfeed#readme">README</a></span>
+</div>
+        <div class="c4c c42 c2i c1i c1f c19 c1c">
+        <time datetime="2026-09-25T12:00:20+00:00" title="Friday, 25 September 2026, 12:00:20 PM" class="c42 c1i">just now</time>
+                    </div><div class="typing" style="display:flex;width:max-content;align-items:center;gap:5px;margin-top:8px;padding:11px 13px;border-radius:9999px;background:var(--muted)"><span class="tdot" style="width:7px;height:7px;border-radius:9999px;background:var(--muted-foreground)"></span><span class="tdot" style="width:7px;height:7px;border-radius:9999px;background:var(--muted-foreground)"></span><span class="tdot" style="width:7px;height:7px;border-radius:9999px;background:var(--muted-foreground)"></span></div>
+        
+        
+    </div>
+</article>
+                                
+                                <article class="c3n c4p c2w c1t ck ch cg ct ci cs cr cj ca c3b c2f O1">
+    <div class="c2x c4p c1q c3p c3q c2o c2p">
+    <div class="c3n c4p c1z c3p c1 c7 c6">
+            <span data-sf-glyph="eye" class="c4p cv c3p c2o c25 c2q c4b c2h c2e c1i cc" aria-hidden="true">
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/><circle cx="12" cy="12" r="3"/></svg>
+</span>
+    </div>
+
+        <div class="c4t c4q c4a c3d" aria-hidden="true"></div>
+
+</div>
+    <div class="c41 c4a cl c4s">
+        <div class="c4p c26 c4i"><span class="c2f c1i c1f"><span class="c3f c2y c1y">You</span> looked at <a class="c3f c2y c1y c1n c20 c1g c13 c1b" href="https://github.com/storyfeed/storyfeed">Storyfeed</a>'s <a class="c3f c2y c1y c1n c20 c1g c13 c1b" href="https://github.com/storyfeed/storyfeed#readme">README</a></span>
+</div>
+        <div class="c4c c42 c2i c1i c1f c19 c1c">
+        <time datetime="2026-09-25T12:00:00+00:00" title="Friday, 25 September 2026, 12:00:00 PM" class="c42 c1i">just now</time>
+                    </div>
+        
+<div data-storyfeed-body="" class="c4u c3g c2r"> <figure class="c52">
+                <img alt="The Storyfeed showcase, at its finished frame" width="320" height="208" class="c4j c34 c35 p0" style="width: 320px; height: 208px;" />
+            </figure>
+ </div>
+        
+    </div>
+</article>
+                                
+                                <article class="c3n c4p c2w c1t ck ch cg ct ci cs cr cj ca c3b c2f O2">
+    <div class="c2x c4p c1q c3p c3q c2o c2p">
+    <div class="c3n c4p c1z c3p c1 c7 c6">
+            <span data-sf-glyph="eye" class="c4p cv c3p c2o c25 c2q c4b c2h c2e c1i cc" aria-hidden="true">
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/><circle cx="12" cy="12" r="3"/></svg>
+</span>
+    </div>
+
+        <div class="c4t c4q c4a c3d" aria-hidden="true"></div>
+
+</div>
+    <div class="c41 c4a cl c4s">
+        <div class="c4p c26 c4i"><span class="c2f c1i c1f"><span class="c3f c2y c1i">Someone</span> looked at <a class="c3f c2y c1y c1n c20 c1g c13 c1b" href="https://github.com/storyfeed/storyfeed">Storyfeed</a>'s <a class="c3f c2y c1y c1n c20 c1g c13 c1b" href="https://github.com/storyfeed/storyfeed#readme">README</a></span>
+</div>
+        <div class="c4c c42 c2i c1i c1f c19 c1c">
+        <time datetime="2026-09-25T11:58:00+00:00" title="Friday, 25 September 2026, 11:58:00 AM" class="c42 c1i">2 minutes ago</time>
+                    </div>
+        
+<div data-storyfeed-body="" class="c4u c3g c2r"> <figure class="c52">
+                <img alt="The Storyfeed showcase, at its finished frame" width="320" height="208" class="c4j c34 c35 p0" style="width: 320px; height: 208px;" />
+            </figure>
+ </div>
+        
+    </div>
+</article>
+                                
+                                <article class="c3n c4p c2w c1t ck ch cg ct ci cs cr cj ca c3b c2f O3">
+    <div class="c2x c4p c1q c3p c3q c2o c2p">
+    <div class="c3n c4p c1z c3p c1 c7 c6">
+            <span data-sf-glyph="eye" class="c4p cv c3p c2o c25 c2q c4b c2h c2e c1i cc" aria-hidden="true">
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/><circle cx="12" cy="12" r="3"/></svg>
+</span>
+    </div>
+
+</div>
+    <div class="c41 c4a cl">
+        <div class="c4p c26 c4i"><span class="c2f c1i c1f"><span class="c3f c2y c1i">Someone</span> looked at <a class="c3f c2y c1y c1n c20 c1g c13 c1b" href="https://github.com/storyfeed/storyfeed">Storyfeed</a>'s <a class="c3f c2y c1y c1n c20 c1g c13 c1b" href="https://github.com/storyfeed/storyfeed#readme">README</a></span>
+</div>
+        <div class="c4c c42 c2i c1i c1f c19 c1c">
+        <time datetime="2026-09-25T11:56:00+00:00" title="Friday, 25 September 2026, 11:56:00 AM" class="c42 c1i">4 minutes ago</time>
+                    </div>
+        
+<div data-storyfeed-body="" class="c4u c3g c2r"> <figure class="c52">
+                <img alt="The Storyfeed showcase, at its finished frame" width="320" height="208" class="c4j c34 c35 p0" style="width: 320px; height: 208px;" />
+            </figure>
+ </div>
+        
+    </div>
+</article>
+        </div>
+        </div>
+</div><div class="youpic c3o" style="left: 68px; top: 223.781px;"><div class="inner c3o c1x c2e" style="left: 0px; top: 0px; width: 800px; height: 520px; transform-origin: 0px 0px; transform: scale(0.4); border-radius: 20px; box-shadow: 0 0 0 2.5px var(--border);"><div class="layer L-plain c3o c3h c4k"><div class="c4n c4o"><div class="ck ch cg ct ci cs cr cj ca c3b c2f c1i">
+        <div role="feed">
+                                    <div class="c3n c4p c2w cz">
+    <div class="c3n c4p cx c3p c3q c2o c2p">
+            
+            <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" class="c3o c1a c1h c51 c8 c1x"><defs><linearGradient id="sf-branch-Zztxr5Qbu2" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="100%" y2="0"><stop offset="0" class="c10"/><stop offset="1" class="cm"/></linearGradient></defs><rect x="0.5" y="0.5" width="200%" height="200%" rx="0.5em" class="c3c c3r" stroke="url(#sf-branch-Zztxr5Qbu2)"/></svg>
+        <div aria-hidden="true" class="cn c4q c4a c3d"></div>
+    </div>
+    <h2 class="c52 c3s c4r c4s c40 c2f c2g c1p c1i c3e">Today</h2>
+</div>
+                
+                                <article class="c3n c4p c2w c1t ck ch cg ct ci cs cr cj ca c3b c2f R0">
+    <div class="c2x c4p c1q c3p c3q c2o c2p">
+    <div class="c3n c4p c1z c3p c1 c7 c6">
+            <span data-sf-intent="success" data-sf-glyph="ticket" class="c4p cv c3p c2o c25 c2q c4b c2h c2e c1i cc" aria-hidden="true">
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"/><path d="M13 5v2"/><path d="M13 17v2"/><path d="M13 11v2"/></svg>
+</span>
+    </div>
+
+</div>
+    <div class="c41 c4a cl">
+        <div class="c4p c26 c4i"><span class="c2f c1i c1f"><a class="c3f c2y c1y c1n c20 c1g c13 c1b" href="/members/1">Mira Okafor</a> confirmed <a class="c3f c2y c1y c1n c20 c1g c13 c1b" href="/bookings/1">Booking #1042</a> for <a class="c3f c2y c1y c1n c20 c1g c13 c1b" href="/fairs/1">Maple Street Fair</a></span>
+</div>
+        <div class="c4c c42 c2i c1i c1f c19 c1c">
+        <time datetime="2026-09-25T10:50:00+00:00" title="Friday, 25 September 2026, 10:50:00 AM" class="c42 c1i">just now</time>
+                    </div>
+        
+        
+    </div>
+</article>
+        </div>
+        </div>
+</div></div><div class="layer L-avatar c3o c3h c4k"><div class="c4n c4o"><div class="ck ch cg ct ci cs cr cj ca c3b c2f c1i">
+        <div role="feed">
+                                    <div class="c3n c4p c2w cz">
+    <div class="c3n c4p cx c3p c3q c2o c2p">
+            
+            <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" class="c3o c1a c1h c51 c8 c1x"><defs><linearGradient id="sf-branch-MGSpDavobm" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="100%" y2="0"><stop offset="0" class="c10"/><stop offset="1" class="cm"/></linearGradient></defs><rect x="0.5" y="0.5" width="200%" height="200%" rx="0.5em" class="c3c c3r" stroke="url(#sf-branch-MGSpDavobm)"/></svg>
+        <div aria-hidden="true" class="cn c4q c4a c3d"></div>
+    </div>
+    <h2 class="c52 c3s c4r c4s c40 c2f c2g c1p c1i c3e">Today</h2>
+</div>
+                
+                                <article class="c3n c4p c2w c1t ck ch cg ct ci cs cr cj ca c3b c2f R0">
+    <div class="c2x c4p c1q c3p c3q c2o c2p">
+    <div class="c3n c4p c1z c3p c1 c7 c6">
+            <span role="img" aria-label="Mira Okafor" title="Mira Okafor" style="background-color: #a21caf" class="c4p c3p c2o c25 c2q c2g c2z c4d c21 cv cf c11 c36">
+        MO
+</span>
+            <span data-sf-glyph="ticket" class="c3t c3o c4v cu c0 c4 c4p c1l c2o c25 c2q c2e c1i c14 c21 co" aria-hidden="true">
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"/><path d="M13 5v2"/><path d="M13 17v2"/><path d="M13 11v2"/></svg>
+</span>
+    </div>
+
+</div>
+    <div class="c41 c4a cl">
+        <div class="c4p c26 c4i"><span class="c2f c1i c1f"><a class="c3f c2y c1y c1n c20 c1g c13 c1b" href="/members/1">Mira Okafor</a> confirmed <a class="c3f c2y c1y c1n c20 c1g c13 c1b" href="/bookings/1">Booking #1042</a> for <a class="c3f c2y c1y c1n c20 c1g c13 c1b" href="/fairs/1">Maple Street Fair</a></span>
+</div>
+        <div class="c4c c42 c2i c1i c1f c19 c1c">
+        <time datetime="2026-09-25T10:50:00+00:00" title="Friday, 25 September 2026, 10:50:00 AM" class="c42 c1i">just now</time>
+                    </div>
+        
+        
+    </div>
+</article>
+        </div>
+        </div>
+</div></div><div class="layer L-rich1 c3o c3h c4k"><div class="c4n c4o"><div class="ck ch cg ct ci cs cr cj ca c3b c2f c1i">
+        <div role="feed">
+                                    <div class="c3n c4p c2w cz">
+    <div class="c3n c4p cx c3p c3q c2o c2p">
+            
+            <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" class="c3o c1a c1h c51 c8 c1x"><defs><linearGradient id="sf-branch-GYYCwYHnNV" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="100%" y2="0"><stop offset="0" class="c10"/><stop offset="1" class="cm"/></linearGradient></defs><rect x="0.5" y="0.5" width="200%" height="200%" rx="0.5em" class="c3c c3r" stroke="url(#sf-branch-GYYCwYHnNV)"/></svg>
+        <div aria-hidden="true" class="cn c4q c4a c3d"></div>
+    </div>
+    <h2 class="c52 c3s c4r c4s c40 c2f c2g c1p c1i c3e">Today</h2>
+</div>
+                
+                                <article class="c3n c4p c2w c1t ck ch cg ct ci cs cr cj ca c3b c2f R0">
+    <div class="c2x c4p c1q c3p c3q c2o c2p">
+    <div class="c3n c4p c1z c3p c1 c7 c6">
+            <span role="img" aria-label="Sam Ortega" title="Sam Ortega" style="background-color: #4d7c0f" class="c4p c3p c2o c25 c2q c2g c2z c4d c21 cv cf c11 c36">
+        SO
+</span>
+            <span data-sf-glyph="file-check" class="c3t c3o c4v cu c0 c4 c4p c1l c2o c25 c2q c2e c1i c14 c21 co" aria-hidden="true">
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z"/><path d="M14 2v5a1 1 0 0 0 1 1h5"/><path d="m9 15 2 2 4-4"/></svg>
+</span>
+    </div>
+
+        <div class="c4t c4q c4a c3d" aria-hidden="true"></div>
+
+</div>
+    <div class="c41 c4a cl c4s">
+        <div class="c4p c26 c4i"><span class="c2f c1i c1f"><a class="c3f c2y c1y c1n c20 c1g c13 c1b" href="/members/4">Sam Ortega</a> approved <a class="c3f c2y c1y c1n c20 c1g c13 c1b" href="/permits/1">Permit #318</a></span>
+</div>
+        <div class="c4c c42 c2i c1i c1f c19 c1c">
+        <time datetime="2026-09-25T11:00:00+00:00" title="Friday, 25 September 2026, 11:00:00 AM" class="c42 c1i">just now</time>
+                    </div>
+        
+<div data-storyfeed-body="" class="c4u c3g c2r"> <figure class="c1u c52 c4p c3i c3q c35 c4b c2 c5 c3 c4w c4e c42 c2i">
+        <dl class="c52 c4x cp c15">
+                                <div class="c2j c4x c1r c26 c43 c44 c3u c2h c45 c22">
+                    <dt class="c1f c1i">Stall</dt>
+                                                    <dd class="c52 c41 c3j c2s c1f c1y"><span class="c4j c34">Soft pretzels</span></dd>
+                </div>
+                                <div class="c2j c4x c1r c26 c43 c44 c3u c2h c45 c22">
+                    <dt class="c1f c1i">Pitch</dt>
+                                                    <dd class="c52 c41 c3j c2s c1f c1y"><span class="c4j c34">B4</span></dd>
+                </div>
+                                <div class="c2j c4x c1r c26 c43 c44 c3u c2h c45 c22">
+                    <dt class="c1f c1i">Fee</dt>
+                                                    <dd class="c52 c41 c3j c2s c1f c1y"><span class="c4j c34">$120, paid</span></dd>
+                </div>
+        </dl>
+    </figure>
+ </div>
+        
+    </div>
+</article>
+                                
+                                <article class="c3n c4p c2w c1t ck ch cg ct ci cs cr cj ca c3b c2f R1">
+    <div class="c2x c4p c1q c3p c3q c2o c2p">
+    <div class="c3n c4p c1z c3p c1 c7 c6">
+            <span role="img" aria-label="Mira Okafor" title="Mira Okafor" style="background-color: #a21caf" class="c4p c3p c2o c25 c2q c2g c2z c4d c21 cv cf c11 c36">
+        MO
+</span>
+            <span data-sf-glyph="ticket" class="c3t c3o c4v cu c0 c4 c4p c1l c2o c25 c2q c2e c1i c14 c21 co" aria-hidden="true">
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"/><path d="M13 5v2"/><path d="M13 17v2"/><path d="M13 11v2"/></svg>
+</span>
+    </div>
+
+</div>
+    <div class="c41 c4a cl">
+        <div class="c4p c26 c4i"><span class="c2f c1i c1f"><a class="c3f c2y c1y c1n c20 c1g c13 c1b" href="/members/1">Mira Okafor</a> confirmed <a class="c3f c2y c1y c1n c20 c1g c13 c1b" href="/bookings/1">Booking #1042</a> for <a class="c3f c2y c1y c1n c20 c1g c13 c1b" href="/fairs/1">Maple Street Fair</a></span>
+</div>
+        <div class="c4c c42 c2i c1i c1f c19 c1c">
+        <time datetime="2026-09-25T10:50:00+00:00" title="Friday, 25 September 2026, 10:50:00 AM" class="c42 c1i">10 minutes ago</time>
+                    </div>
+        
+        
+    </div>
+</article>
+        </div>
+        </div>
+</div></div><div class="layer L-rich2 c3o c3h c4k"><div class="c4n c4o"><div class="ck ch cg ct ci cs cr cj ca c3b c2f c1i">
+        <div role="feed">
+                                    <div class="c3n c4p c2w cz">
+    <div class="c3n c4p cx c3p c3q c2o c2p">
+            
+            <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" class="c3o c1a c1h c51 c8 c1x"><defs><linearGradient id="sf-branch-eZKkHEFQ4X" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="100%" y2="0"><stop offset="0" class="c10"/><stop offset="1" class="cm"/></linearGradient></defs><rect x="0.5" y="0.5" width="200%" height="200%" rx="0.5em" class="c3c c3r" stroke="url(#sf-branch-eZKkHEFQ4X)"/></svg>
+        <div aria-hidden="true" class="cn c4q c4a c3d"></div>
+    </div>
+    <h2 class="c52 c3s c4r c4s c40 c2f c2g c1p c1i c3e">Today</h2>
+</div>
+                
+                                <article class="c3n c4p c2w c1t ck ch cg ct ci cs cr cj ca c3b c2f R0">
+    <div class="c2x c4p c1q c3p c3q c2o c2p">
+    <div class="c3n c4p c1z c3p c1 c7 c6">
+            <span role="img" aria-label="Theo Lindqvist" title="Theo Lindqvist" style="background-color: #15803d" class="c4p c3p c2o c25 c2q c2g c2z c4d c21 cv cf c11 c36">
+        TL
+</span>
+            <span data-sf-glyph="image" class="c3t c3o c4v cu c0 c4 c4p c1l c2o c25 c2q c2e c1i c14 c21 co" aria-hidden="true">
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
+</span>
+    </div>
+
+        <div class="c4t c4q c4a c3d" aria-hidden="true"></div>
+
+</div>
+    <div class="c41 c4a cl c4s">
+        <div class="c4p c26 c4i"><span class="c2f c1i c1f"><a class="c3f c2y c1y c1n c20 c1g c13 c1b" href="/members/2">Theo Lindqvist</a> uploaded <a class="c3f c2y c1y c1n c20 c1g c13 c1b" href="/photos/1">a photo</a> to <a class="c3f c2y c1y c1n c20 c1g c13 c1b" href="/fairs/1">Maple Street Fair</a></span>
+</div>
+        <div class="c4c c42 c2i c1i c1f c19 c1c">
+        <time datetime="2026-09-25T11:10:00+00:00" title="Friday, 25 September 2026, 11:10:00 AM" class="c42 c1i">just now</time>
+                    </div>
+        
+<div data-storyfeed-body="" class="c4u c3g c2r"> <figure class="c52">
+                <img alt="Fireworks over a river at night" width="160" height="120" class="c4j c34 c35 p1" style="width: 160px; height: 120px;" />
+                    <figcaption class="c4u c40 c2f c1i">Fireworks over the river, from the test launch</figcaption>
+    </figure>
+ </div>
+        
+    </div>
+</article>
+                                
+                                <article class="c3n c4p c2w c1t ck ch cg ct ci cs cr cj ca c3b c2f R1">
+    <div class="c2x c4p c1q c3p c3q c2o c2p">
+    <div class="c3n c4p c1z c3p c1 c7 c6">
+            <span role="img" aria-label="Sam Ortega" title="Sam Ortega" style="background-color: #4d7c0f" class="c4p c3p c2o c25 c2q c2g c2z c4d c21 cv cf c11 c36">
+        SO
+</span>
+            <span data-sf-glyph="file-check" class="c3t c3o c4v cu c0 c4 c4p c1l c2o c25 c2q c2e c1i c14 c21 co" aria-hidden="true">
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z"/><path d="M14 2v5a1 1 0 0 0 1 1h5"/><path d="m9 15 2 2 4-4"/></svg>
+</span>
+    </div>
+
+        <div class="c4t c4q c4a c3d" aria-hidden="true"></div>
+
+</div>
+    <div class="c41 c4a cl c4s">
+        <div class="c4p c26 c4i"><span class="c2f c1i c1f"><a class="c3f c2y c1y c1n c20 c1g c13 c1b" href="/members/4">Sam Ortega</a> approved <a class="c3f c2y c1y c1n c20 c1g c13 c1b" href="/permits/1">Permit #318</a></span>
+</div>
+        <div class="c4c c42 c2i c1i c1f c19 c1c">
+        <time datetime="2026-09-25T11:00:00+00:00" title="Friday, 25 September 2026, 11:00:00 AM" class="c42 c1i">10 minutes ago</time>
+                    </div>
+        
+<div data-storyfeed-body="" class="c4u c3g c2r"> <figure class="c1u c52 c4p c3i c3q c35 c4b c2 c5 c3 c4w c4e c42 c2i">
+        <dl class="c52 c4x cp c15">
+                                <div class="c2j c4x c1r c26 c43 c44 c3u c2h c45 c22">
+                    <dt class="c1f c1i">Stall</dt>
+                                                    <dd class="c52 c41 c3j c2s c1f c1y"><span class="c4j c34">Soft pretzels</span></dd>
+                </div>
+                                <div class="c2j c4x c1r c26 c43 c44 c3u c2h c45 c22">
+                    <dt class="c1f c1i">Pitch</dt>
+                                                    <dd class="c52 c41 c3j c2s c1f c1y"><span class="c4j c34">B4</span></dd>
+                </div>
+                                <div class="c2j c4x c1r c26 c43 c44 c3u c2h c45 c22">
+                    <dt class="c1f c1i">Fee</dt>
+                                                    <dd class="c52 c41 c3j c2s c1f c1y"><span class="c4j c34">$120, paid</span></dd>
+                </div>
+        </dl>
+    </figure>
+ </div>
+        
+    </div>
+</article>
+                                
+                                <article class="c3n c4p c2w c1t ck ch cg ct ci cs cr cj ca c3b c2f R2">
+    <div class="c2x c4p c1q c3p c3q c2o c2p">
+    <div class="c3n c4p c1z c3p c1 c7 c6">
+            <span role="img" aria-label="Mira Okafor" title="Mira Okafor" style="background-color: #a21caf" class="c4p c3p c2o c25 c2q c2g c2z c4d c21 cv cf c11 c36">
+        MO
+</span>
+            <span data-sf-glyph="ticket" class="c3t c3o c4v cu c0 c4 c4p c1l c2o c25 c2q c2e c1i c14 c21 co" aria-hidden="true">
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"/><path d="M13 5v2"/><path d="M13 17v2"/><path d="M13 11v2"/></svg>
+</span>
+    </div>
+
+</div>
+    <div class="c41 c4a cl">
+        <div class="c4p c26 c4i"><span class="c2f c1i c1f"><a class="c3f c2y c1y c1n c20 c1g c13 c1b" href="/members/1">Mira Okafor</a> confirmed <a class="c3f c2y c1y c1n c20 c1g c13 c1b" href="/bookings/1">Booking #1042</a> for <a class="c3f c2y c1y c1n c20 c1g c13 c1b" href="/fairs/1">Maple Street Fair</a></span>
+</div>
+        <div class="c4c c42 c2i c1i c1f c19 c1c">
+        <time datetime="2026-09-25T10:50:00+00:00" title="Friday, 25 September 2026, 10:50:00 AM" class="c42 c1i">20 minutes ago</time>
+                    </div>
+        
+        
+    </div>
+</article>
+        </div>
+        </div>
+</div></div><div class="layer L-joins c3o c3h c4k"><div class="c4n c4o"><div class="ck ch cg ct ci cs cr cj ca c3b c2f c1i">
+        <div role="feed">
+                                    <div class="c3n c4p c2w cz">
+    <div class="c3n c4p cx c3p c3q c2o c2p">
+            
+            <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" class="c3o c1a c1h c51 c8 c1x"><defs><linearGradient id="sf-branch-Mzj33vczzY" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="100%" y2="0"><stop offset="0" class="c10"/><stop offset="1" class="cm"/></linearGradient></defs><rect x="0.5" y="0.5" width="200%" height="200%" rx="0.5em" class="c3c c3r" stroke="url(#sf-branch-Mzj33vczzY)"/></svg>
+        <div aria-hidden="true" class="cn c4q c4a c3d"></div>
+    </div>
+    <h2 class="c52 c3s c4r c4s c40 c2f c2g c1p c1i c3e">Today</h2>
+</div>
+                
+                                <article class="c3n c4p c2w c1t ck ch cg ct ci cs cr cj ca c3b c2f R0">
+    <div class="c2x c4p c1q c3p c3q c2o c2p">
+    <div class="c3n c4p c1z c3p c1 c7 c6">
+            <span role="img" aria-label="June Park" title="June Park" style="background-color: #b45309" class="c4p c3p c2o c25 c2q c2g c2z c4d c21 cv cf c11 c36">
+        JP
+</span>
+            <span data-sf-glyph="user-plus" class="c3t c3o c4v cu c0 c4 c4p c1l c2o c25 c2q c2e c1i c14 c21 co" aria-hidden="true">
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" x2="19" y1="8" y2="14"/><line x1="22" x2="16" y1="11" y2="11"/></svg>
+</span>
+    </div>
+
+        <div class="c4t c4q c4a c3d" aria-hidden="true"></div>
+
+</div>
+    <div class="c41 c4a cl c4s">
+        <div class="c4p c26 c4i"><span class="c2f c1i c1f"><a class="c3f c2y c1y c1n c20 c1g c13 c1b" href="/members/3">June Park</a> joined <a class="c3f c2y c1y c1n c20 c1g c13 c1b" href="/fairs/1">Maple Street Fair</a></span>
+</div>
+        <div class="c4c c42 c2i c1i c1f c19 c1c">
+        <time datetime="2026-09-25T11:23:00+00:00" title="Friday, 25 September 2026, 11:23:00 AM" class="c42 c1i">just now</time>
+                    </div>
+        
+        
+    </div>
+</article>
+                                
+                                <article class="c3n c4p c2w c1t ck ch cg ct ci cs cr cj ca c3b c2f R1">
+    <div class="c2x c4p c1q c3p c3q c2o c2p">
+    <div class="c3n c4p c1z c3p c1 c7 c6">
+            <span role="img" aria-label="Sam Ortega" title="Sam Ortega" style="background-color: #4d7c0f" class="c4p c3p c2o c25 c2q c2g c2z c4d c21 cv cf c11 c36">
+        SO
+</span>
+            <span data-sf-glyph="user-plus" class="c3t c3o c4v cu c0 c4 c4p c1l c2o c25 c2q c2e c1i c14 c21 co" aria-hidden="true">
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" x2="19" y1="8" y2="14"/><line x1="22" x2="16" y1="11" y2="11"/></svg>
+</span>
+    </div>
+
+        <div class="c4t c4q c4a c3d" aria-hidden="true"></div>
+
+</div>
+    <div class="c41 c4a cl c4s">
+        <div class="c4p c26 c4i"><span class="c2f c1i c1f"><a class="c3f c2y c1y c1n c20 c1g c13 c1b" href="/members/4">Sam Ortega</a> joined <a class="c3f c2y c1y c1n c20 c1g c13 c1b" href="/fairs/1">Maple Street Fair</a></span>
+</div>
+        <div class="c4c c42 c2i c1i c1f c19 c1c">
+        <time datetime="2026-09-25T11:22:00+00:00" title="Friday, 25 September 2026, 11:22:00 AM" class="c42 c1i">1 minute ago</time>
+                    </div>
+        
+        
+    </div>
+</article>
+                                
+                                <article class="c3n c4p c2w c1t ck ch cg ct ci cs cr cj ca c3b c2f R2">
+    <div class="c2x c4p c1q c3p c3q c2o c2p">
+    <div class="c3n c4p c1z c3p c1 c7 c6">
+            <span role="img" aria-label="Priya Nair" title="Priya Nair" style="background-color: #c2410c" class="c4p c3p c2o c25 c2q c2g c2z c4d c21 cv cf c11 c36">
+        PN
+</span>
+            <span data-sf-glyph="user-plus" class="c3t c3o c4v cu c0 c4 c4p c1l c2o c25 c2q c2e c1i c14 c21 co" aria-hidden="true">
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" x2="19" y1="8" y2="14"/><line x1="22" x2="16" y1="11" y2="11"/></svg>
+</span>
+    </div>
+
+        <div class="c4t c4q c4a c3d" aria-hidden="true"></div>
+
+</div>
+    <div class="c41 c4a cl c4s">
+        <div class="c4p c26 c4i"><span class="c2f c1i c1f"><a class="c3f c2y c1y c1n c20 c1g c13 c1b" href="/members/5">Priya Nair</a> joined <a class="c3f c2y c1y c1n c20 c1g c13 c1b" href="/fairs/1">Maple Street Fair</a></span>
+</div>
+        <div class="c4c c42 c2i c1i c1f c19 c1c">
+        <time datetime="2026-09-25T11:21:00+00:00" title="Friday, 25 September 2026, 11:21:00 AM" class="c42 c1i">2 minutes ago</time>
+                    </div>
+        
+        
+    </div>
+</article>
+                                
+                                <article class="c3n c4p c2w c1t ck ch cg ct ci cs cr cj ca c3b c2f R3">
+    <div class="c2x c4p c1q c3p c3q c2o c2p">
+    <div class="c3n c4p c1z c3p c1 c7 c6">
+            <span role="img" aria-label="Theo Lindqvist" title="Theo Lindqvist" style="background-color: #15803d" class="c4p c3p c2o c25 c2q c2g c2z c4d c21 cv cf c11 c36">
+        TL
+</span>
+            <span data-sf-glyph="image" class="c3t c3o c4v cu c0 c4 c4p c1l c2o c25 c2q c2e c1i c14 c21 co" aria-hidden="true">
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
+</span>
+    </div>
+
+        <div class="c4t c4q c4a c3d" aria-hidden="true"></div>
+
+</div>
+    <div class="c41 c4a cl c4s">
+        <div class="c4p c26 c4i"><span class="c2f c1i c1f"><a class="c3f c2y c1y c1n c20 c1g c13 c1b" href="/members/2">Theo Lindqvist</a> uploaded <a class="c3f c2y c1y c1n c20 c1g c13 c1b" href="/photos/1">a photo</a> to <a class="c3f c2y c1y c1n c20 c1g c13 c1b" href="/fairs/1">Maple Street Fair</a></span>
+</div>
+        <div class="c4c c42 c2i c1i c1f c19 c1c">
+        <time datetime="2026-09-25T11:10:00+00:00" title="Friday, 25 September 2026, 11:10:00 AM" class="c42 c1i">13 minutes ago</time>
+                    </div>
+        
+<div data-storyfeed-body="" class="c4u c3g c2r"> <figure class="c52">
+                <img alt="Fireworks over a river at night" width="160" height="120" class="c4j c34 c35 p1" style="width: 160px; height: 120px;" />
+                    <figcaption class="c4u c40 c2f c1i">Fireworks over the river, from the test launch</figcaption>
+    </figure>
+ </div>
+        
+    </div>
+</article>
+                                
+                                <article class="c3n c4p c2w c1t ck ch cg ct ci cs cr cj ca c3b c2f R4">
+    <div class="c2x c4p c1q c3p c3q c2o c2p">
+    <div class="c3n c4p c1z c3p c1 c7 c6">
+            <span role="img" aria-label="Sam Ortega" title="Sam Ortega" style="background-color: #4d7c0f" class="c4p c3p c2o c25 c2q c2g c2z c4d c21 cv cf c11 c36">
+        SO
+</span>
+            <span data-sf-glyph="file-check" class="c3t c3o c4v cu c0 c4 c4p c1l c2o c25 c2q c2e c1i c14 c21 co" aria-hidden="true">
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z"/><path d="M14 2v5a1 1 0 0 0 1 1h5"/><path d="m9 15 2 2 4-4"/></svg>
+</span>
+    </div>
+
+        <div class="c4t c4q c4a c3d" aria-hidden="true"></div>
+
+</div>
+    <div class="c41 c4a cl c4s">
+        <div class="c4p c26 c4i"><span class="c2f c1i c1f"><a class="c3f c2y c1y c1n c20 c1g c13 c1b" href="/members/4">Sam Ortega</a> approved <a class="c3f c2y c1y c1n c20 c1g c13 c1b" href="/permits/1">Permit #318</a></span>
+</div>
+        <div class="c4c c42 c2i c1i c1f c19 c1c">
+        <time datetime="2026-09-25T11:00:00+00:00" title="Friday, 25 September 2026, 11:00:00 AM" class="c42 c1i">23 minutes ago</time>
+                    </div>
+        
+<div data-storyfeed-body="" class="c4u c3g c2r"> <figure class="c1u c52 c4p c3i c3q c35 c4b c2 c5 c3 c4w c4e c42 c2i">
+        <dl class="c52 c4x cp c15">
+                                <div class="c2j c4x c1r c26 c43 c44 c3u c2h c45 c22">
+                    <dt class="c1f c1i">Stall</dt>
+                                                    <dd class="c52 c41 c3j c2s c1f c1y"><span class="c4j c34">Soft pretzels</span></dd>
+                </div>
+                                <div class="c2j c4x c1r c26 c43 c44 c3u c2h c45 c22">
+                    <dt class="c1f c1i">Pitch</dt>
+                                                    <dd class="c52 c41 c3j c2s c1f c1y"><span class="c4j c34">B4</span></dd>
+                </div>
+                                <div class="c2j c4x c1r c26 c43 c44 c3u c2h c45 c22">
+                    <dt class="c1f c1i">Fee</dt>
+                                                    <dd class="c52 c41 c3j c2s c1f c1y"><span class="c4j c34">$120, paid</span></dd>
+                </div>
+        </dl>
+    </figure>
+ </div>
+        
+    </div>
+</article>
+                                
+                                <article class="c3n c4p c2w c1t ck ch cg ct ci cs cr cj ca c3b c2f R5">
+    <div class="c2x c4p c1q c3p c3q c2o c2p">
+    <div class="c3n c4p c1z c3p c1 c7 c6">
+            <span role="img" aria-label="Mira Okafor" title="Mira Okafor" style="background-color: #a21caf" class="c4p c3p c2o c25 c2q c2g c2z c4d c21 cv cf c11 c36">
+        MO
+</span>
+            <span data-sf-glyph="ticket" class="c3t c3o c4v cu c0 c4 c4p c1l c2o c25 c2q c2e c1i c14 c21 co" aria-hidden="true">
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"/><path d="M13 5v2"/><path d="M13 17v2"/><path d="M13 11v2"/></svg>
+</span>
+    </div>
+
+</div>
+    <div class="c41 c4a cl">
+        <div class="c4p c26 c4i"><span class="c2f c1i c1f"><a class="c3f c2y c1y c1n c20 c1g c13 c1b" href="/members/1">Mira Okafor</a> confirmed <a class="c3f c2y c1y c1n c20 c1g c13 c1b" href="/bookings/1">Booking #1042</a> for <a class="c3f c2y c1y c1n c20 c1g c13 c1b" href="/fairs/1">Maple Street Fair</a></span>
+</div>
+        <div class="c4c c42 c2i c1i c1f c19 c1c">
+        <time datetime="2026-09-25T10:50:00+00:00" title="Friday, 25 September 2026, 10:50:00 AM" class="c42 c1i">33 minutes ago</time>
+                    </div>
+        
+        
+    </div>
+</article>
+        </div>
+        </div>
+</div></div><div class="layer L-joined c3o c3h c4k"><div class="c4n c4o"><div class="ck ch cg ct ci cs cr cj ca c3b c2f c1i">
+        <div role="feed">
+                                    <div class="c3n c4p c2w cz">
+    <div class="c3n c4p cx c3p c3q c2o c2p">
+            
+            <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" class="c3o c1a c1h c51 c8 c1x"><defs><linearGradient id="sf-branch-nEDQooLGwv" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="100%" y2="0"><stop offset="0" class="c10"/><stop offset="1" class="cm"/></linearGradient></defs><rect x="0.5" y="0.5" width="200%" height="200%" rx="0.5em" class="c3c c3r" stroke="url(#sf-branch-nEDQooLGwv)"/></svg>
+        <div aria-hidden="true" class="cn c4q c4a c3d"></div>
+    </div>
+    <h2 class="c52 c3s c4r c4s c40 c2f c2g c1p c1i c3e">Today</h2>
+</div>
+                
+                                <article class="c3n c4p c2w c1t ck ch cg ct ci cs cr cj ca c3b c2f R0">
+    <div class="c2x c4p c1q c3p c3q c2o c2p">
+    <div class="c3n c4p c1z c3p c1 c7 c6">
+            <div class="c37 c23 c3n c1o c3p">
+                <span class="c3o c46 c3v c4y c4p cy c16">
+                    <span role="img" aria-label="June Park" title="June Park" style="background-color: #b45309" class="c4p c3p c2o c25 c2q c2g c2z c4d c21 c3k cq c9 c36">
+        J
+</span>
+                </span>
+                <span class="c3o c4k c4f c4p cy c1e">
+                    <span role="img" aria-label="Sam Ortega" title="Sam Ortega" style="background-color: #4d7c0f" class="c4p c3p c2o c25 c2q c2g c2z c4d c21 c3k cq c9 c36">
+        S
+</span>
+                </span>
+            </div>
+            <span data-sf-glyph="user-plus" class="c3t c3o c4v cu c0 c4 c4p c1l c2o c25 c2q c2e c1i c14 c21 co" aria-hidden="true">
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" x2="19" y1="8" y2="14"/><line x1="22" x2="16" y1="11" y2="11"/></svg>
+</span>
+    </div>
+
+        <div class="c4t c4q c4a c3d" aria-hidden="true"></div>
+
+</div>
+    <div class="c41 c4a cl cd ce c4s">
+        <div class="c4p c26 c4i"><span class="c2f c1i c1f"><a class="c3f c2y c1y c1n c20 c1g c13 c1b" href="/members/3">June Park</a>, <a class="c3f c2y c1y c1n c20 c1g c13 c1b" href="/members/4">Sam Ortega</a> and <a class="c3f c2y c1y c1n c20 c1g c13 c1b" href="/members/5">Priya Nair</a> joined <a class="c3f c2y c1y c1n c20 c1g c13 c1b" href="/fairs/1">Maple Street Fair</a></span>
+</div>
+        <div class="c4c c42 c2i c1i c1f c19 c1c">
+        <time datetime="2026-09-25T11:23:00+00:00" title="Friday, 25 September 2026, 11:23:00 AM" class="c42 c1i">just now</time>
+                    </div>
+        
+        
+        
+        <div class="c27 c47 c4u c4p c3l c2o c44 c48">
+        <span class="c3n c3w c4p c3p" style="z-index: 3"><span role="img" aria-label="June Park" title="June Park" style="background-color: #b45309" class="c4p c3p c2o c25 c2q c2g c2z c4d c21 c4g c17 c36">
+        JP
+</span>
+</span>
+        <span class="c3n c3w c4p c3p" style="z-index: 2"><span role="img" aria-label="Sam Ortega" title="Sam Ortega" style="background-color: #4d7c0f" class="c4p c3p c2o c25 c2q c2g c2z c4d c21 c4g c17 c36">
+        SO
+</span>
+</span>
+        <span class="c3n c3w c4p c3p" style="z-index: 1"><span role="img" aria-label="Priya Nair" title="Priya Nair" style="background-color: #c2410c" class="c4p c3p c2o c25 c2q c2g c2z c4d c21 c4g c17 c36">
+        PN
+</span>
+</span>
+    </div>
+                                            <details class="c1v c2k c12 cb" ontoggle="var o=this.open;this.closest('.sf-row').querySelectorAll('.sf-media-strip__more[aria-expanded],.sf-actor-strip__more[aria-expanded]').forEach(function(b){b.setAttribute('aria-expanded',o)})">
+                    <summary class="c4t c30 c49 c2o c28 c3m c38 c3s c29 c53 c42 c2f c2y c1i c1n c1j c20 c1g c1b cw c2t">
+                        <span class="c18">Show all 3</span>
+                    </summary>
+                            
+                            </details>
+                        </div>
+</article>
+                                
+                                <article class="c3n c4p c2w c1t ck ch cg ct ci cs cr cj ca c3b c2f R1">
+    <div class="c2x c4p c1q c3p c3q c2o c2p">
+    <div class="c3n c4p c1z c3p c1 c7 c6">
+            <span role="img" aria-label="Theo Lindqvist" title="Theo Lindqvist" style="background-color: #15803d" class="c4p c3p c2o c25 c2q c2g c2z c4d c21 cv cf c11 c36">
+        TL
+</span>
+            <span data-sf-glyph="image" class="c3t c3o c4v cu c0 c4 c4p c1l c2o c25 c2q c2e c1i c14 c21 co" aria-hidden="true">
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
+</span>
+    </div>
+
+        <div class="c4t c4q c4a c3d" aria-hidden="true"></div>
+
+</div>
+    <div class="c41 c4a cl c4s">
+        <div class="c4p c26 c4i"><span class="c2f c1i c1f"><a class="c3f c2y c1y c1n c20 c1g c13 c1b" href="/members/2">Theo Lindqvist</a> uploaded <a class="c3f c2y c1y c1n c20 c1g c13 c1b" href="/photos/1">a photo</a> to <a class="c3f c2y c1y c1n c20 c1g c13 c1b" href="/fairs/1">Maple Street Fair</a></span>
+</div>
+        <div class="c4c c42 c2i c1i c1f c19 c1c">
+        <time datetime="2026-09-25T11:10:00+00:00" title="Friday, 25 September 2026, 11:10:00 AM" class="c42 c1i">13 minutes ago</time>
+                    </div>
+        
+<div data-storyfeed-body="" class="c4u c3g c2r"> <figure class="c52">
+                <img alt="Fireworks over a river at night" width="160" height="120" class="c4j c34 c35 p1" style="width: 160px; height: 120px;" />
+                    <figcaption class="c4u c40 c2f c1i">Fireworks over the river, from the test launch</figcaption>
+    </figure>
+ </div>
+        
+    </div>
+</article>
+                                
+                                <article class="c3n c4p c2w c1t ck ch cg ct ci cs cr cj ca c3b c2f R2">
+    <div class="c2x c4p c1q c3p c3q c2o c2p">
+    <div class="c3n c4p c1z c3p c1 c7 c6">
+            <span role="img" aria-label="Sam Ortega" title="Sam Ortega" style="background-color: #4d7c0f" class="c4p c3p c2o c25 c2q c2g c2z c4d c21 cv cf c11 c36">
+        SO
+</span>
+            <span data-sf-glyph="file-check" class="c3t c3o c4v cu c0 c4 c4p c1l c2o c25 c2q c2e c1i c14 c21 co" aria-hidden="true">
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z"/><path d="M14 2v5a1 1 0 0 0 1 1h5"/><path d="m9 15 2 2 4-4"/></svg>
+</span>
+    </div>
+
+        <div class="c4t c4q c4a c3d" aria-hidden="true"></div>
+
+</div>
+    <div class="c41 c4a cl c4s">
+        <div class="c4p c26 c4i"><span class="c2f c1i c1f"><a class="c3f c2y c1y c1n c20 c1g c13 c1b" href="/members/4">Sam Ortega</a> approved <a class="c3f c2y c1y c1n c20 c1g c13 c1b" href="/permits/1">Permit #318</a></span>
+</div>
+        <div class="c4c c42 c2i c1i c1f c19 c1c">
+        <time datetime="2026-09-25T11:00:00+00:00" title="Friday, 25 September 2026, 11:00:00 AM" class="c42 c1i">23 minutes ago</time>
+                    </div>
+        
+<div data-storyfeed-body="" class="c4u c3g c2r"> <figure class="c1u c52 c4p c3i c3q c35 c4b c2 c5 c3 c4w c4e c42 c2i">
+        <dl class="c52 c4x cp c15">
+                                <div class="c2j c4x c1r c26 c43 c44 c3u c2h c45 c22">
+                    <dt class="c1f c1i">Stall</dt>
+                                                    <dd class="c52 c41 c3j c2s c1f c1y"><span class="c4j c34">Soft pretzels</span></dd>
+                </div>
+                                <div class="c2j c4x c1r c26 c43 c44 c3u c2h c45 c22">
+                    <dt class="c1f c1i">Pitch</dt>
+                                                    <dd class="c52 c41 c3j c2s c1f c1y"><span class="c4j c34">B4</span></dd>
+                </div>
+                                <div class="c2j c4x c1r c26 c43 c44 c3u c2h c45 c22">
+                    <dt class="c1f c1i">Fee</dt>
+                                                    <dd class="c52 c41 c3j c2s c1f c1y"><span class="c4j c34">$120, paid</span></dd>
+                </div>
+        </dl>
+    </figure>
+ </div>
+        
+    </div>
+</article>
+                                
+                                
+        </div>
+        </div>
+</div></div><div class="layer L-photos1 c3o c3h c4k"><div class="c4n c4o"><div class="ck ch cg ct ci cs cr cj ca c3b c2f c1i">
+        <div role="feed">
+                                    <div class="c3n c4p c2w cz">
+    <div class="c3n c4p cx c3p c3q c2o c2p">
+            
+            <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" class="c3o c1a c1h c51 c8 c1x"><defs><linearGradient id="sf-branch-tJLDT4rXnf" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="100%" y2="0"><stop offset="0" class="c10"/><stop offset="1" class="cm"/></linearGradient></defs><rect x="0.5" y="0.5" width="200%" height="200%" rx="0.5em" class="c3c c3r" stroke="url(#sf-branch-tJLDT4rXnf)"/></svg>
+        <div aria-hidden="true" class="cn c4q c4a c3d"></div>
+    </div>
+    <h2 class="c52 c3s c4r c4s c40 c2f c2g c1p c1i c3e">Today</h2>
+</div>
+                
+                                <article class="c3n c4p c2w c1t ck ch cg ct ci cs cr cj ca c3b c2f R0">
+    <div class="c2x c4p c1q c3p c3q c2o c2p">
+    <div class="c3n c4p c1z c3p c1 c7 c6">
+            <span role="img" aria-label="June Park" title="June Park" style="background-color: #b45309" class="c4p c3p c2o c25 c2q c2g c2z c4d c21 cv cf c11 c36">
+        JP
+</span>
+            <span data-sf-glyph="image" class="c3t c3o c4v cu c0 c4 c4p c1l c2o c25 c2q c2e c1i c14 c21 co" aria-hidden="true">
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
+</span>
+    </div>
+
+        <div class="c4t c4q c4a c3d" aria-hidden="true"></div>
+
+</div>
+    <div class="c41 c4a cl c4s">
+        <div class="c4p c26 c4i"><span class="c2f c1i c1f"><a class="c3f c2y c1y c1n c20 c1g c13 c1b" href="/members/3">June Park</a> uploaded <a class="c3f c2y c1y c1n c20 c1g c13 c1b" href="/photos/2">a photo</a> to <a class="c3f c2y c1y c1n c20 c1g c13 c1b" href="/fairs/1">Maple Street Fair</a></span>
+</div>
+        <div class="c4c c42 c2i c1i c1f c19 c1c">
+        <time datetime="2026-09-25T11:44:00+00:00" title="Friday, 25 September 2026, 11:44:00 AM" class="c42 c1i">just now</time>
+                    </div>
+        
+<div data-storyfeed-body="" class="c4u c3g c2r"> <figure class="c52">
+                <img alt="A photo from the fair" width="160" height="120" class="c4j c34 c35 p2" style="width: 160px; height: 120px;" />
+            </figure>
+ </div>
+        
+    </div>
+</article>
+                                
+                                <article class="c3n c4p c2w c1t ck ch cg ct ci cs cr cj ca c3b c2f R1">
+    <div class="c2x c4p c1q c3p c3q c2o c2p">
+    <div class="c3n c4p c1z c3p c1 c7 c6">
+            <div class="c37 c23 c3n c1o c3p">
+                <span class="c3o c46 c3v c4y c4p cy c16">
+                    <span role="img" aria-label="June Park" title="June Park" style="background-color: #b45309" class="c4p c3p c2o c25 c2q c2g c2z c4d c21 c3k cq c9 c36">
+        J
+</span>
+                </span>
+                <span class="c3o c4k c4f c4p cy c1e">
+                    <span role="img" aria-label="Sam Ortega" title="Sam Ortega" style="background-color: #4d7c0f" class="c4p c3p c2o c25 c2q c2g c2z c4d c21 c3k cq c9 c36">
+        S
+</span>
+                </span>
+            </div>
+            <span data-sf-glyph="user-plus" class="c3t c3o c4v cu c0 c4 c4p c1l c2o c25 c2q c2e c1i c14 c21 co" aria-hidden="true">
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" x2="19" y1="8" y2="14"/><line x1="22" x2="16" y1="11" y2="11"/></svg>
+</span>
+    </div>
+
+        <div class="c4t c4q c4a c3d" aria-hidden="true"></div>
+
+</div>
+    <div class="c41 c4a cl cd ce c4s">
+        <div class="c4p c26 c4i"><span class="c2f c1i c1f"><a class="c3f c2y c1y c1n c20 c1g c13 c1b" href="/members/3">June Park</a>, <a class="c3f c2y c1y c1n c20 c1g c13 c1b" href="/members/4">Sam Ortega</a> and <a class="c3f c2y c1y c1n c20 c1g c13 c1b" href="/members/5">Priya Nair</a> joined <a class="c3f c2y c1y c1n c20 c1g c13 c1b" href="/fairs/1">Maple Street Fair</a></span>
+</div>
+        <div class="c4c c42 c2i c1i c1f c19 c1c">
+        <time datetime="2026-09-25T11:23:00+00:00" title="Friday, 25 September 2026, 11:23:00 AM" class="c42 c1i">21 minutes ago</time>
+                    </div>
+        
+        
+        
+        <div class="c27 c47 c4u c4p c3l c2o c44 c48">
+        <span class="c3n c3w c4p c3p" style="z-index: 3"><span role="img" aria-label="June Park" title="June Park" style="background-color: #b45309" class="c4p c3p c2o c25 c2q c2g c2z c4d c21 c4g c17 c36">
+        JP
+</span>
+</span>
+        <span class="c3n c3w c4p c3p" style="z-index: 2"><span role="img" aria-label="Sam Ortega" title="Sam Ortega" style="background-color: #4d7c0f" class="c4p c3p c2o c25 c2q c2g c2z c4d c21 c4g c17 c36">
+        SO
+</span>
+</span>
+        <span class="c3n c3w c4p c3p" style="z-index: 1"><span role="img" aria-label="Priya Nair" title="Priya Nair" style="background-color: #c2410c" class="c4p c3p c2o c25 c2q c2g c2z c4d c21 c4g c17 c36">
+        PN
+</span>
+</span>
+    </div>
+                                            <details class="c1v c2k c12 cb" ontoggle="var o=this.open;this.closest('.sf-row').querySelectorAll('.sf-media-strip__more[aria-expanded],.sf-actor-strip__more[aria-expanded]').forEach(function(b){b.setAttribute('aria-expanded',o)})">
+                    <summary class="c4t c30 c49 c2o c28 c3m c38 c3s c29 c53 c42 c2f c2y c1i c1n c1j c20 c1g c1b cw c2t">
+                        <span class="c18">Show all 3</span>
+                    </summary>
+                            
+                            </details>
+                        </div>
+</article>
+                                
+                                <article class="c3n c4p c2w c1t ck ch cg ct ci cs cr cj ca c3b c2f R2">
+    <div class="c2x c4p c1q c3p c3q c2o c2p">
+    <div class="c3n c4p c1z c3p c1 c7 c6">
+            <span role="img" aria-label="Theo Lindqvist" title="Theo Lindqvist" style="background-color: #15803d" class="c4p c3p c2o c25 c2q c2g c2z c4d c21 cv cf c11 c36">
+        TL
+</span>
+            <span data-sf-glyph="image" class="c3t c3o c4v cu c0 c4 c4p c1l c2o c25 c2q c2e c1i c14 c21 co" aria-hidden="true">
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
+</span>
+    </div>
+
+        <div class="c4t c4q c4a c3d" aria-hidden="true"></div>
+
+</div>
+    <div class="c41 c4a cl c4s">
+        <div class="c4p c26 c4i"><span class="c2f c1i c1f"><a class="c3f c2y c1y c1n c20 c1g c13 c1b" href="/members/2">Theo Lindqvist</a> uploaded <a class="c3f c2y c1y c1n c20 c1g c13 c1b" href="/photos/1">a photo</a> to <a class="c3f c2y c1y c1n c20 c1g c13 c1b" href="/fairs/1">Maple Street Fair</a></span>
+</div>
+        <div class="c4c c42 c2i c1i c1f c19 c1c">
+        <time datetime="2026-09-25T11:10:00+00:00" title="Friday, 25 September 2026, 11:10:00 AM" class="c42 c1i">34 minutes ago</time>
+                    </div>
+        
+<div data-storyfeed-body="" class="c4u c3g c2r"> <figure class="c52">
+                <img alt="Fireworks over a river at night" width="160" height="120" class="c4j c34 c35 p1" style="width: 160px; height: 120px;" />
+                    <figcaption class="c4u c40 c2f c1i">Fireworks over the river, from the test launch</figcaption>
+    </figure>
+ </div>
+        
+    </div>
+</article>
+                                
+                                <article class="c3n c4p c2w c1t ck ch cg ct ci cs cr cj ca c3b c2f R3">
+    <div class="c2x c4p c1q c3p c3q c2o c2p">
+    <div class="c3n c4p c1z c3p c1 c7 c6">
+            <span role="img" aria-label="Sam Ortega" title="Sam Ortega" style="background-color: #4d7c0f" class="c4p c3p c2o c25 c2q c2g c2z c4d c21 cv cf c11 c36">
+        SO
+</span>
+            <span data-sf-glyph="file-check" class="c3t c3o c4v cu c0 c4 c4p c1l c2o c25 c2q c2e c1i c14 c21 co" aria-hidden="true">
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z"/><path d="M14 2v5a1 1 0 0 0 1 1h5"/><path d="m9 15 2 2 4-4"/></svg>
+</span>
+    </div>
+
+</div>
+    <div class="c41 c4a cl">
+        <div class="c4p c26 c4i"><span class="c2f c1i c1f"><a class="c3f c2y c1y c1n c20 c1g c13 c1b" href="/members/4">Sam Ortega</a> approved <a class="c3f c2y c1y c1n c20 c1g c13 c1b" href="/permits/1">Permit #318</a></span>
+</div>
+        <div class="c4c c42 c2i c1i c1f c19 c1c">
+        <time datetime="2026-09-25T11:00:00+00:00" title="Friday, 25 September 2026, 11:00:00 AM" class="c42 c1i">44 minutes ago</time>
+                    </div>
+        
+<div data-storyfeed-body="" class="c4u c3g c2r"> <figure class="c1u c52 c4p c3i c3q c35 c4b c2 c5 c3 c4w c4e c42 c2i">
+        <dl class="c52 c4x cp c15">
+                                <div class="c2j c4x c1r c26 c43 c44 c3u c2h c45 c22">
+                    <dt class="c1f c1i">Stall</dt>
+                                                    <dd class="c52 c41 c3j c2s c1f c1y"><span class="c4j c34">Soft pretzels</span></dd>
+                </div>
+                                <div class="c2j c4x c1r c26 c43 c44 c3u c2h c45 c22">
+                    <dt class="c1f c1i">Pitch</dt>
+                                                    <dd class="c52 c41 c3j c2s c1f c1y"><span class="c4j c34">B4</span></dd>
+                </div>
+                                <div class="c2j c4x c1r c26 c43 c44 c3u c2h c45 c22">
+                    <dt class="c1f c1i">Fee</dt>
+                                                    <dd class="c52 c41 c3j c2s c1f c1y"><span class="c4j c34">$120, paid</span></dd>
+                </div>
+        </dl>
+    </figure>
+ </div>
+        
+    </div>
+</article>
+        </div>
+        </div>
+</div></div><div class="layer L-photos2 c3o c3h c4k"><div class="c4n c4o"><div class="ck ch cg ct ci cs cr cj ca c3b c2f c1i">
+        <div role="feed">
+                                    <div class="c3n c4p c2w cz">
+    <div class="c3n c4p cx c3p c3q c2o c2p">
+            
+            <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" class="c3o c1a c1h c51 c8 c1x"><defs><linearGradient id="sf-branch-DLyivv6giC" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="100%" y2="0"><stop offset="0" class="c10"/><stop offset="1" class="cm"/></linearGradient></defs><rect x="0.5" y="0.5" width="200%" height="200%" rx="0.5em" class="c3c c3r" stroke="url(#sf-branch-DLyivv6giC)"/></svg>
+        <div aria-hidden="true" class="cn c4q c4a c3d"></div>
+    </div>
+    <h2 class="c52 c3s c4r c4s c40 c2f c2g c1p c1i c3e">Today</h2>
+</div>
+                
+                                <article class="c3n c4p c2w c1t ck ch cg ct ci cs cr cj ca c3b c2f R0">
+    <div class="c2x c4p c1q c3p c3q c2o c2p">
+    <div class="c3n c4p c1z c3p c1 c7 c6">
+            <span role="img" aria-label="Sam Ortega" title="Sam Ortega" style="background-color: #4d7c0f" class="c4p c3p c2o c25 c2q c2g c2z c4d c21 cv cf c11 c36">
+        SO
+</span>
+            <span data-sf-glyph="image" class="c3t c3o c4v cu c0 c4 c4p c1l c2o c25 c2q c2e c1i c14 c21 co" aria-hidden="true">
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
+</span>
+    </div>
+
+        <div class="c4t c4q c4a c3d" aria-hidden="true"></div>
+
+</div>
+    <div class="c41 c4a cl c4s">
+        <div class="c4p c26 c4i"><span class="c2f c1i c1f"><a class="c3f c2y c1y c1n c20 c1g c13 c1b" href="/members/4">Sam Ortega</a> uploaded <a class="c3f c2y c1y c1n c20 c1g c13 c1b" href="/photos/3">a photo</a> to <a class="c3f c2y c1y c1n c20 c1g c13 c1b" href="/fairs/1">Maple Street Fair</a></span>
+</div>
+        <div class="c4c c42 c2i c1i c1f c19 c1c">
+        <time datetime="2026-09-25T11:45:00+00:00" title="Friday, 25 September 2026, 11:45:00 AM" class="c42 c1i">just now</time>
+                    </div>
+        
+<div data-storyfeed-body="" class="c4u c3g c2r"> <figure class="c52">
+                <img alt="A photo from the fair" width="160" height="120" class="c4j c34 c35 p3" style="width: 160px; height: 120px;" />
+            </figure>
+ </div>
+        
+    </div>
+</article>
+                                
+                                <article class="c3n c4p c2w c1t ck ch cg ct ci cs cr cj ca c3b c2f R1">
+    <div class="c2x c4p c1q c3p c3q c2o c2p">
+    <div class="c3n c4p c1z c3p c1 c7 c6">
+            <span role="img" aria-label="June Park" title="June Park" style="background-color: #b45309" class="c4p c3p c2o c25 c2q c2g c2z c4d c21 cv cf c11 c36">
+        JP
+</span>
+            <span data-sf-glyph="image" class="c3t c3o c4v cu c0 c4 c4p c1l c2o c25 c2q c2e c1i c14 c21 co" aria-hidden="true">
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
+</span>
+    </div>
+
+        <div class="c4t c4q c4a c3d" aria-hidden="true"></div>
+
+</div>
+    <div class="c41 c4a cl c4s">
+        <div class="c4p c26 c4i"><span class="c2f c1i c1f"><a class="c3f c2y c1y c1n c20 c1g c13 c1b" href="/members/3">June Park</a> uploaded <a class="c3f c2y c1y c1n c20 c1g c13 c1b" href="/photos/2">a photo</a> to <a class="c3f c2y c1y c1n c20 c1g c13 c1b" href="/fairs/1">Maple Street Fair</a></span>
+</div>
+        <div class="c4c c42 c2i c1i c1f c19 c1c">
+        <time datetime="2026-09-25T11:44:00+00:00" title="Friday, 25 September 2026, 11:44:00 AM" class="c42 c1i">1 minute ago</time>
+                    </div>
+        
+<div data-storyfeed-body="" class="c4u c3g c2r"> <figure class="c52">
+                <img alt="A photo from the fair" width="160" height="120" class="c4j c34 c35 p2" style="width: 160px; height: 120px;" />
+            </figure>
+ </div>
+        
+    </div>
+</article>
+                                
+                                <article class="c3n c4p c2w c1t ck ch cg ct ci cs cr cj ca c3b c2f R2">
+    <div class="c2x c4p c1q c3p c3q c2o c2p">
+    <div class="c3n c4p c1z c3p c1 c7 c6">
+            <div class="c37 c23 c3n c1o c3p">
+                <span class="c3o c46 c3v c4y c4p cy c16">
+                    <span role="img" aria-label="June Park" title="June Park" style="background-color: #b45309" class="c4p c3p c2o c25 c2q c2g c2z c4d c21 c3k cq c9 c36">
+        J
+</span>
+                </span>
+                <span class="c3o c4k c4f c4p cy c1e">
+                    <span role="img" aria-label="Sam Ortega" title="Sam Ortega" style="background-color: #4d7c0f" class="c4p c3p c2o c25 c2q c2g c2z c4d c21 c3k cq c9 c36">
+        S
+</span>
+                </span>
+            </div>
+            <span data-sf-glyph="user-plus" class="c3t c3o c4v cu c0 c4 c4p c1l c2o c25 c2q c2e c1i c14 c21 co" aria-hidden="true">
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" x2="19" y1="8" y2="14"/><line x1="22" x2="16" y1="11" y2="11"/></svg>
+</span>
+    </div>
+
+        <div class="c4t c4q c4a c3d" aria-hidden="true"></div>
+
+</div>
+    <div class="c41 c4a cl cd ce c4s">
+        <div class="c4p c26 c4i"><span class="c2f c1i c1f"><a class="c3f c2y c1y c1n c20 c1g c13 c1b" href="/members/3">June Park</a>, <a class="c3f c2y c1y c1n c20 c1g c13 c1b" href="/members/4">Sam Ortega</a> and <a class="c3f c2y c1y c1n c20 c1g c13 c1b" href="/members/5">Priya Nair</a> joined <a class="c3f c2y c1y c1n c20 c1g c13 c1b" href="/fairs/1">Maple Street Fair</a></span>
+</div>
+        <div class="c4c c42 c2i c1i c1f c19 c1c">
+        <time datetime="2026-09-25T11:23:00+00:00" title="Friday, 25 September 2026, 11:23:00 AM" class="c42 c1i">22 minutes ago</time>
+                    </div>
+        
+        
+        
+        <div class="c27 c47 c4u c4p c3l c2o c44 c48">
+        <span class="c3n c3w c4p c3p" style="z-index: 3"><span role="img" aria-label="June Park" title="June Park" style="background-color: #b45309" class="c4p c3p c2o c25 c2q c2g c2z c4d c21 c4g c17 c36">
+        JP
+</span>
+</span>
+        <span class="c3n c3w c4p c3p" style="z-index: 2"><span role="img" aria-label="Sam Ortega" title="Sam Ortega" style="background-color: #4d7c0f" class="c4p c3p c2o c25 c2q c2g c2z c4d c21 c4g c17 c36">
+        SO
+</span>
+</span>
+        <span class="c3n c3w c4p c3p" style="z-index: 1"><span role="img" aria-label="Priya Nair" title="Priya Nair" style="background-color: #c2410c" class="c4p c3p c2o c25 c2q c2g c2z c4d c21 c4g c17 c36">
+        PN
+</span>
+</span>
+    </div>
+                                            <details class="c1v c2k c12 cb" ontoggle="var o=this.open;this.closest('.sf-row').querySelectorAll('.sf-media-strip__more[aria-expanded],.sf-actor-strip__more[aria-expanded]').forEach(function(b){b.setAttribute('aria-expanded',o)})">
+                    <summary class="c4t c30 c49 c2o c28 c3m c38 c3s c29 c53 c42 c2f c2y c1i c1n c1j c20 c1g c1b cw c2t">
+                        <span class="c18">Show all 3</span>
+                    </summary>
+                            
+                            </details>
+                        </div>
+</article>
+                                
+                                <article class="c3n c4p c2w c1t ck ch cg ct ci cs cr cj ca c3b c2f R3">
+    <div class="c2x c4p c1q c3p c3q c2o c2p">
+    <div class="c3n c4p c1z c3p c1 c7 c6">
+            <span role="img" aria-label="Theo Lindqvist" title="Theo Lindqvist" style="background-color: #15803d" class="c4p c3p c2o c25 c2q c2g c2z c4d c21 cv cf c11 c36">
+        TL
+</span>
+            <span data-sf-glyph="image" class="c3t c3o c4v cu c0 c4 c4p c1l c2o c25 c2q c2e c1i c14 c21 co" aria-hidden="true">
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
+</span>
+    </div>
+
+</div>
+    <div class="c41 c4a cl">
+        <div class="c4p c26 c4i"><span class="c2f c1i c1f"><a class="c3f c2y c1y c1n c20 c1g c13 c1b" href="/members/2">Theo Lindqvist</a> uploaded <a class="c3f c2y c1y c1n c20 c1g c13 c1b" href="/photos/1">a photo</a> to <a class="c3f c2y c1y c1n c20 c1g c13 c1b" href="/fairs/1">Maple Street Fair</a></span>
+</div>
+        <div class="c4c c42 c2i c1i c1f c19 c1c">
+        <time datetime="2026-09-25T11:10:00+00:00" title="Friday, 25 September 2026, 11:10:00 AM" class="c42 c1i">35 minutes ago</time>
+                    </div>
+        
+<div data-storyfeed-body="" class="c4u c3g c2r"> <figure class="c52">
+                <img alt="Fireworks over a river at night" width="160" height="120" class="c4j c34 c35 p1" style="width: 160px; height: 120px;" />
+                    <figcaption class="c4u c40 c2f c1i">Fireworks over the river, from the test launch</figcaption>
+    </figure>
+ </div>
+        
+    </div>
+</article>
+        </div>
+        </div>
+</div></div><div class="layer L-photos3 c3o c3h c4k"><div class="c4n c4o"><div class="ck ch cg ct ci cs cr cj ca c3b c2f c1i">
+        <div role="feed">
+                                    <div class="c3n c4p c2w cz">
+    <div class="c3n c4p cx c3p c3q c2o c2p">
+            
+            <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" class="c3o c1a c1h c51 c8 c1x"><defs><linearGradient id="sf-branch-jUS9qxWy6g" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="100%" y2="0"><stop offset="0" class="c10"/><stop offset="1" class="cm"/></linearGradient></defs><rect x="0.5" y="0.5" width="200%" height="200%" rx="0.5em" class="c3c c3r" stroke="url(#sf-branch-jUS9qxWy6g)"/></svg>
+        <div aria-hidden="true" class="cn c4q c4a c3d"></div>
+    </div>
+    <h2 class="c52 c3s c4r c4s c40 c2f c2g c1p c1i c3e">Today</h2>
+</div>
+                
+                                <article class="c3n c4p c2w c1t ck ch cg ct ci cs cr cj ca c3b c2f R0">
+    <div class="c2x c4p c1q c3p c3q c2o c2p">
+    <div class="c3n c4p c1z c3p c1 c7 c6">
+            <div class="c37 c23 c3n c1o c3p">
+                <span class="c3o c46 c3v c4y c4p cy c16">
+                    <span role="img" aria-label="Priya Nair" title="Priya Nair" style="background-color: #c2410c" class="c4p c3p c2o c25 c2q c2g c2z c4d c21 c3k cq c9 c36">
+        P
+</span>
+                </span>
+                <span class="c3o c4k c4f c4p cy c1e">
+                    <span role="img" aria-label="Sam Ortega" title="Sam Ortega" style="background-color: #4d7c0f" class="c4p c3p c2o c25 c2q c2g c2z c4d c21 c3k cq c9 c36">
+        S
+</span>
+                </span>
+            </div>
+            <span data-sf-glyph="image" class="c3t c3o c4v cu c0 c4 c4p c1l c2o c25 c2q c2e c1i c14 c21 co" aria-hidden="true">
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
+</span>
+    </div>
+
+        <div class="c4t c4q c4a c3d" aria-hidden="true"></div>
+
+</div>
+    <div class="c41 c4a cl cd ce c4s">
+        <div class="c4p c26 c4i"><span class="c2f c1i c1f"><a class="c3f c2y c1y c1n c20 c1g c13 c1b" href="/members/5">Priya Nair</a>, <a class="c3f c2y c1y c1n c20 c1g c13 c1b" href="/members/4">Sam Ortega</a> and <a class="c3f c2y c1y c1n c20 c1g c13 c1b" href="/members/3">June Park</a> uploaded 3 photos to <a class="c3f c2y c1y c1n c20 c1g c13 c1b" href="/fairs/1">Maple Street Fair</a></span>
+</div>
+        <div class="c4c c42 c2i c1i c1f c19 c1c">
+        <time datetime="2026-09-25T11:46:00+00:00" title="Friday, 25 September 2026, 11:46:00 AM" class="c42 c1i">just now</time>
+                    </div>
+        
+        
+        
+        <div class="c27 c47 c4u c4p c3l c2o c44 c48">
+        <span class="c3n c3w c4p c3p" style="z-index: 3"><span role="img" aria-label="Priya Nair" title="Priya Nair" style="background-color: #c2410c" class="c4p c3p c2o c25 c2q c2g c2z c4d c21 c4g c17 c36">
+        PN
+</span>
+</span>
+        <span class="c3n c3w c4p c3p" style="z-index: 2"><span role="img" aria-label="Sam Ortega" title="Sam Ortega" style="background-color: #4d7c0f" class="c4p c3p c2o c25 c2q c2g c2z c4d c21 c4g c17 c36">
+        SO
+</span>
+</span>
+        <span class="c3n c3w c4p c3p" style="z-index: 1"><span role="img" aria-label="June Park" title="June Park" style="background-color: #b45309" class="c4p c3p c2o c25 c2q c2g c2z c4d c21 c4g c17 c36">
+        JP
+</span>
+</span>
+    </div>
+        <div class="c2a c4u c4x c3x c31 c4l">
+<a href="/photos/4" class="c4u c4j c3x c1x c35 c3y c2l c1s c1k c4m c2b c39 c32 c33" style="aspect-ratio: 160 / 120"><img alt="A photo from the fair" width="160" height="120" class="p4" style="width: 85px; height: 85px;" /></a>
+
+<a href="/photos/3" class="c4u c4j c3x c1x c35 c3y c2l c1s c1k c4m c2b c39 c32 c33" style="aspect-ratio: 160 / 120"><img alt="A photo from the fair" width="160" height="120" class="p3" style="width: 85px; height: 85px;" /></a>
+
+<a href="/photos/2" class="c4u c4j c3x c1x c35 c3y c2l c1s c1k c4m c2b c39 c32 c33" style="aspect-ratio: 160 / 120"><img alt="A photo from the fair" width="160" height="120" class="p2" style="width: 85px; height: 85px;" /></a>
+
+    </div>
+                                    <details class="c1v c2k c12 cb" ontoggle="var o=this.open;this.closest('.sf-row').querySelectorAll('.sf-media-strip__more[aria-expanded],.sf-actor-strip__more[aria-expanded]').forEach(function(b){b.setAttribute('aria-expanded',o)})">
+                    <summary class="c4t c30 c49 c2o c28 c3m c38 c3s c29 c53 c42 c2f c2y c1i c1n c1j c20 c1g c1b cw c2t">
+                        <span class="c18">Show all 3</span>
+                    </summary>
+                            
+                            </details>
+                        </div>
+</article>
+                                
+                                <article class="c3n c4p c2w c1t ck ch cg ct ci cs cr cj ca c3b c2f R1">
+    <div class="c2x c4p c1q c3p c3q c2o c2p">
+    <div class="c3n c4p c1z c3p c1 c7 c6">
+            <div class="c37 c23 c3n c1o c3p">
+                <span class="c3o c46 c3v c4y c4p cy c16">
+                    <span role="img" aria-label="June Park" title="June Park" style="background-color: #b45309" class="c4p c3p c2o c25 c2q c2g c2z c4d c21 c3k cq c9 c36">
+        J
+</span>
+                </span>
+                <span class="c3o c4k c4f c4p cy c1e">
+                    <span role="img" aria-label="Sam Ortega" title="Sam Ortega" style="background-color: #4d7c0f" class="c4p c3p c2o c25 c2q c2g c2z c4d c21 c3k cq c9 c36">
+        S
+</span>
+                </span>
+            </div>
+            <span data-sf-glyph="user-plus" class="c3t c3o c4v cu c0 c4 c4p c1l c2o c25 c2q c2e c1i c14 c21 co" aria-hidden="true">
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" x2="19" y1="8" y2="14"/><line x1="22" x2="16" y1="11" y2="11"/></svg>
+</span>
+    </div>
+
+        <div class="c4t c4q c4a c3d" aria-hidden="true"></div>
+
+</div>
+    <div class="c41 c4a cl cd ce c4s">
+        <div class="c4p c26 c4i"><span class="c2f c1i c1f"><a class="c3f c2y c1y c1n c20 c1g c13 c1b" href="/members/3">June Park</a>, <a class="c3f c2y c1y c1n c20 c1g c13 c1b" href="/members/4">Sam Ortega</a> and <a class="c3f c2y c1y c1n c20 c1g c13 c1b" href="/members/5">Priya Nair</a> joined <a class="c3f c2y c1y c1n c20 c1g c13 c1b" href="/fairs/1">Maple Street Fair</a></span>
+</div>
+        <div class="c4c c42 c2i c1i c1f c19 c1c">
+        <time datetime="2026-09-25T11:23:00+00:00" title="Friday, 25 September 2026, 11:23:00 AM" class="c42 c1i">23 minutes ago</time>
+                    </div>
+        
+        
+        
+        <div class="c27 c47 c4u c4p c3l c2o c44 c48">
+        <span class="c3n c3w c4p c3p" style="z-index: 3"><span role="img" aria-label="June Park" title="June Park" style="background-color: #b45309" class="c4p c3p c2o c25 c2q c2g c2z c4d c21 c4g c17 c36">
+        JP
+</span>
+</span>
+        <span class="c3n c3w c4p c3p" style="z-index: 2"><span role="img" aria-label="Sam Ortega" title="Sam Ortega" style="background-color: #4d7c0f" class="c4p c3p c2o c25 c2q c2g c2z c4d c21 c4g c17 c36">
+        SO
+</span>
+</span>
+        <span class="c3n c3w c4p c3p" style="z-index: 1"><span role="img" aria-label="Priya Nair" title="Priya Nair" style="background-color: #c2410c" class="c4p c3p c2o c25 c2q c2g c2z c4d c21 c4g c17 c36">
+        PN
+</span>
+</span>
+    </div>
+                                            <details class="c1v c2k c12 cb" ontoggle="var o=this.open;this.closest('.sf-row').querySelectorAll('.sf-media-strip__more[aria-expanded],.sf-actor-strip__more[aria-expanded]').forEach(function(b){b.setAttribute('aria-expanded',o)})">
+                    <summary class="c4t c30 c49 c2o c28 c3m c38 c3s c29 c53 c42 c2f c2y c1i c1n c1j c20 c1g c1b cw c2t">
+                        <span class="c18">Show all 3</span>
+                    </summary>
+                            
+                            </details>
+                        </div>
+</article>
+                                
+                                <article class="c3n c4p c2w c1t ck ch cg ct ci cs cr cj ca c3b c2f R2">
+    <div class="c2x c4p c1q c3p c3q c2o c2p">
+    <div class="c3n c4p c1z c3p c1 c7 c6">
+            <span role="img" aria-label="Theo Lindqvist" title="Theo Lindqvist" style="background-color: #15803d" class="c4p c3p c2o c25 c2q c2g c2z c4d c21 cv cf c11 c36">
+        TL
+</span>
+            <span data-sf-glyph="image" class="c3t c3o c4v cu c0 c4 c4p c1l c2o c25 c2q c2e c1i c14 c21 co" aria-hidden="true">
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
+</span>
+    </div>
+
+        <div class="c4t c4q c4a c3d" aria-hidden="true"></div>
+
+</div>
+    <div class="c41 c4a cl c4s">
+        <div class="c4p c26 c4i"><span class="c2f c1i c1f"><a class="c3f c2y c1y c1n c20 c1g c13 c1b" href="/members/2">Theo Lindqvist</a> uploaded <a class="c3f c2y c1y c1n c20 c1g c13 c1b" href="/photos/1">a photo</a> to <a class="c3f c2y c1y c1n c20 c1g c13 c1b" href="/fairs/1">Maple Street Fair</a></span>
+</div>
+        <div class="c4c c42 c2i c1i c1f c19 c1c">
+        <time datetime="2026-09-25T11:10:00+00:00" title="Friday, 25 September 2026, 11:10:00 AM" class="c42 c1i">36 minutes ago</time>
+                    </div>
+        
+<div data-storyfeed-body="" class="c4u c3g c2r"> <figure class="c52">
+                <img alt="Fireworks over a river at night" width="160" height="120" class="c4j c34 c35 p1" style="width: 160px; height: 120px;" />
+                    <figcaption class="c4u c40 c2f c1i">Fireworks over the river, from the test launch</figcaption>
+    </figure>
+ </div>
+        
+    </div>
+</article>
+                                
+                                
+        </div>
+        </div>
+</div></div><div class="layer L-finished c3o c3h c4k"><div class="c4n c4o"><div class="ck ch cg ct ci cs cr cj ca c3b c2f c1i">
+        <div role="feed">
+                                    <div class="c3n c4p c2w cz">
+    <div class="c3n c4p cx c3p c3q c2o c2p">
+            
+            <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" class="c3o c1a c1h c51 c8 c1x"><defs><linearGradient id="sf-branch-Pf8ktwsXLs" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="100%" y2="0"><stop offset="0" class="c10"/><stop offset="1" class="cm"/></linearGradient></defs><rect x="0.5" y="0.5" width="200%" height="200%" rx="0.5em" class="c3c c3r" stroke="url(#sf-branch-Pf8ktwsXLs)"/></svg>
+        <div aria-hidden="true" class="cn c4q c4a c3d"></div>
+    </div>
+    <h2 class="c52 c3s c4r c4s c40 c2f c2g c1p c1i c3e">Today</h2>
+</div>
+                
+                                <article class="c3n c4p c2w c1t ck ch cg ct ci cs cr cj ca c3b c2f R0">
+    <div class="c2x c4p c1q c3p c3q c2o c2p">
+    <div class="c3n c4p c1z c3p c1 c7 c6">
+            <div class="c37 c23 c3n c1o c3p">
+                <span class="c3o c46 c3v c4y c4p cy c16">
+                    <span role="img" aria-label="Ola Brandt" title="Ola Brandt" style="background-color: #4d7c0f" class="c4p c3p c2o c25 c2q c2g c2z c4d c21 c3k cq c9 c36">
+        O
+</span>
+                </span>
+                <span class="c3o c4k c4f c4p cy c1e">
+                    <span role="img" aria-label="Priya Nair" title="Priya Nair" style="background-color: #c2410c" class="c4p c3p c2o c25 c2q c2g c2z c4d c21 c3k cq c9 c36">
+        P
+</span>
+                </span>
+            </div>
+            <span data-sf-glyph="image" class="c3t c3o c4v cu c0 c4 c4p c1l c2o c25 c2q c2e c1i c14 c21 co" aria-hidden="true">
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
+</span>
+    </div>
+
+        <div class="c4t c4q c4a c3d" aria-hidden="true"></div>
+
+</div>
+    <div class="c41 c4a cl cd ce c4s">
+        <div class="c4p c26 c4i"><span class="c2f c1i c1f"><a class="c3f c2y c1y c1n c20 c1g c13 c1b" href="/members/6">Ola Brandt</a>, <a class="c3f c2y c1y c1n c20 c1g c13 c1b" href="/members/5">Priya Nair</a>, <a class="c3f c2y c1y c1n c20 c1g c13 c1b" href="/members/4">Sam Ortega</a> and 1 more uploaded 4 photos to <a class="c3f c2y c1y c1n c20 c1g c13 c1b" href="/fairs/1">Maple Street Fair</a></span>
+</div>
+        <div class="c4c c42 c2i c1i c1f c19 c1c">
+        <time datetime="2026-09-25T11:47:00+00:00" title="Friday, 25 September 2026, 11:47:00 AM" class="c42 c1i">just now</time>
+                    </div>
+        
+        
+        
+        <div class="c27 c47 c4u c4p c3l c2o c44 c48">
+        <span class="c3n c3w c4p c3p" style="z-index: 4"><span role="img" aria-label="Ola Brandt" title="Ola Brandt" style="background-color: #4d7c0f" class="c4p c3p c2o c25 c2q c2g c2z c4d c21 c4g c17 c36">
+        OB
+</span>
+</span>
+        <span class="c3n c3w c4p c3p" style="z-index: 3"><span role="img" aria-label="Priya Nair" title="Priya Nair" style="background-color: #c2410c" class="c4p c3p c2o c25 c2q c2g c2z c4d c21 c4g c17 c36">
+        PN
+</span>
+</span>
+        <span class="c3n c3w c4p c3p" style="z-index: 2"><span role="img" aria-label="Sam Ortega" title="Sam Ortega" style="background-color: #4d7c0f" class="c4p c3p c2o c25 c2q c2g c2z c4d c21 c4g c17 c36">
+        SO
+</span>
+</span>
+        <span class="c3n c3w c4p c3p" style="z-index: 1"><span role="img" aria-label="June Park" title="June Park" style="background-color: #b45309" class="c4p c3p c2o c25 c2q c2g c2z c4d c21 c4g c17 c36">
+        JP
+</span>
+</span>
+    </div>
+        <div class="c2a c4u c4x c3x c31 c4l">
+<a href="/photos/5" class="c4u c4j c3x c1x c35 c3y c2l c1s c1k c4m c2b c39 c32 c33" style="aspect-ratio: 160 / 120"><img alt="A photo from the fair" width="160" height="120" class="p5" style="width: 85px; height: 85px;" /></a>
+
+<a href="/photos/4" class="c4u c4j c3x c1x c35 c3y c2l c1s c1k c4m c2b c39 c32 c33" style="aspect-ratio: 160 / 120"><img alt="A photo from the fair" width="160" height="120" class="p4" style="width: 85px; height: 85px;" /></a>
+
+<a href="/photos/3" class="c4u c4j c3x c1x c35 c3y c2l c1s c1k c4m c2b c39 c32 c33" style="aspect-ratio: 160 / 120"><img alt="A photo from the fair" width="160" height="120" class="p3" style="width: 85px; height: 85px;" /></a>
+
+<button type="button" aria-label="Show all 4" aria-expanded="false" aria-controls="sf-members-grp_djIfYWN0b3JzX3RhcmdldB9iMTpkOTE0MjA4MTZjNzMzZGU4NzQ2OTY3OWYxZGZkMmI5NjljODA3YjIzOTY0OTY1YzA0MmRlOWIwOThhYjBhMmMzOjAxbTRwYXpiMnJxa3M4Nzg4eDZ4YTBkYmoz" class="c4p c2m c2o c25 c35 c3y c1d c2g c1i c2z c28 c3s c53 c2c c1j c1g c1b" onclick="var d=this.closest('.sf-row').querySelector('.sf-disclosure');if(d)d.open=!d.open">+1</button>
+    </div>
+                                    <details class="c1v c2k c12 cb" ontoggle="var o=this.open;this.closest('.sf-row').querySelectorAll('.sf-media-strip__more[aria-expanded],.sf-actor-strip__more[aria-expanded]').forEach(function(b){b.setAttribute('aria-expanded',o)})">
+                    <summary class="c4t c30 c49 c2o c28 c3m c38 c3s c29 c53 c42 c2f c2y c1i c1n c1j c20 c1g c1b cw c2t">
+                        <span class="c18">Show all 4</span>
+                    </summary>
+                            
+                            </details>
+                        </div>
+</article>
+                                
+                                <article class="c3n c4p c2w c1t ck ch cg ct ci cs cr cj ca c3b c2f R1">
+    <div class="c2x c4p c1q c3p c3q c2o c2p">
+    <div class="c3n c4p c1z c3p c1 c7 c6">
+            <div class="c37 c23 c3n c1o c3p">
+                <span class="c3o c46 c3v c4y c4p cy c16">
+                    <span role="img" aria-label="June Park" title="June Park" style="background-color: #b45309" class="c4p c3p c2o c25 c2q c2g c2z c4d c21 c3k cq c9 c36">
+        J
+</span>
+                </span>
+                <span class="c3o c4k c4f c4p cy c1e">
+                    <span role="img" aria-label="Sam Ortega" title="Sam Ortega" style="background-color: #4d7c0f" class="c4p c3p c2o c25 c2q c2g c2z c4d c21 c3k cq c9 c36">
+        S
+</span>
+                </span>
+            </div>
+            <span data-sf-glyph="user-plus" class="c3t c3o c4v cu c0 c4 c4p c1l c2o c25 c2q c2e c1i c14 c21 co" aria-hidden="true">
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" x2="19" y1="8" y2="14"/><line x1="22" x2="16" y1="11" y2="11"/></svg>
+</span>
+    </div>
+
+        <div class="c4t c4q c4a c3d" aria-hidden="true"></div>
+
+</div>
+    <div class="c41 c4a cl cd ce c4s">
+        <div class="c4p c26 c4i"><span class="c2f c1i c1f"><a class="c3f c2y c1y c1n c20 c1g c13 c1b" href="/members/3">June Park</a>, <a class="c3f c2y c1y c1n c20 c1g c13 c1b" href="/members/4">Sam Ortega</a> and <a class="c3f c2y c1y c1n c20 c1g c13 c1b" href="/members/5">Priya Nair</a> joined <a class="c3f c2y c1y c1n c20 c1g c13 c1b" href="/fairs/1">Maple Street Fair</a></span>
+</div>
+        <div class="c4c c42 c2i c1i c1f c19 c1c">
+        <time datetime="2026-09-25T11:23:00+00:00" title="Friday, 25 September 2026, 11:23:00 AM" class="c42 c1i">24 minutes ago</time>
+                    </div>
+        
+        
+        
+        <div class="c27 c47 c4u c4p c3l c2o c44 c48">
+        <span class="c3n c3w c4p c3p" style="z-index: 3"><span role="img" aria-label="June Park" title="June Park" style="background-color: #b45309" class="c4p c3p c2o c25 c2q c2g c2z c4d c21 c4g c17 c36">
+        JP
+</span>
+</span>
+        <span class="c3n c3w c4p c3p" style="z-index: 2"><span role="img" aria-label="Sam Ortega" title="Sam Ortega" style="background-color: #4d7c0f" class="c4p c3p c2o c25 c2q c2g c2z c4d c21 c4g c17 c36">
+        SO
+</span>
+</span>
+        <span class="c3n c3w c4p c3p" style="z-index: 1"><span role="img" aria-label="Priya Nair" title="Priya Nair" style="background-color: #c2410c" class="c4p c3p c2o c25 c2q c2g c2z c4d c21 c4g c17 c36">
+        PN
+</span>
+</span>
+    </div>
+                                            <details class="c1v c2k c12 cb" ontoggle="var o=this.open;this.closest('.sf-row').querySelectorAll('.sf-media-strip__more[aria-expanded],.sf-actor-strip__more[aria-expanded]').forEach(function(b){b.setAttribute('aria-expanded',o)})">
+                    <summary class="c4t c30 c49 c2o c28 c3m c38 c3s c29 c53 c42 c2f c2y c1i c1n c1j c20 c1g c1b cw c2t">
+                        <span class="c18">Show all 3</span>
+                    </summary>
+                            
+                            </details>
+                        </div>
+</article>
+                                
+                                <article class="c3n c4p c2w c1t ck ch cg ct ci cs cr cj ca c3b c2f R2">
+    <div class="c2x c4p c1q c3p c3q c2o c2p">
+    <div class="c3n c4p c1z c3p c1 c7 c6">
+            <span role="img" aria-label="Theo Lindqvist" title="Theo Lindqvist" style="background-color: #15803d" class="c4p c3p c2o c25 c2q c2g c2z c4d c21 cv cf c11 c36">
+        TL
+</span>
+            <span data-sf-glyph="image" class="c3t c3o c4v cu c0 c4 c4p c1l c2o c25 c2q c2e c1i c14 c21 co" aria-hidden="true">
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
+</span>
+    </div>
+
+        <div class="c4t c4q c4a c3d" aria-hidden="true"></div>
+
+</div>
+    <div class="c41 c4a cl c4s">
+        <div class="c4p c26 c4i"><span class="c2f c1i c1f"><a class="c3f c2y c1y c1n c20 c1g c13 c1b" href="/members/2">Theo Lindqvist</a> uploaded <a class="c3f c2y c1y c1n c20 c1g c13 c1b" href="/photos/1">a photo</a> to <a class="c3f c2y c1y c1n c20 c1g c13 c1b" href="/fairs/1">Maple Street Fair</a></span>
+</div>
+        <div class="c4c c42 c2i c1i c1f c19 c1c">
+        <time datetime="2026-09-25T11:10:00+00:00" title="Friday, 25 September 2026, 11:10:00 AM" class="c42 c1i">37 minutes ago</time>
+                    </div>
+        
+<div data-storyfeed-body="" class="c4u c3g c2r"> <figure class="c52">
+                <img alt="Fireworks over a river at night" width="160" height="120" class="c4j c34 c35 p1" style="width: 160px; height: 120px;" />
+                    <figcaption class="c4u c40 c2f c1i">Fireworks over the river, from the test launch</figcaption>
+    </figure>
+ </div>
+        
+    </div>
+</article>
+                                
+                                
+        </div>
+        </div>
+</div></div><div class="c1m c3o c3h c3v c4z c2d c1w c2n"></div></div></div><div class="nextpic c3o" style="left: 73.7px; top: 114.664px;"><div class="inner2 c3o c1x c2e" style="left: 0px; top: 0px; width: 800px; height: 520px; transform-origin: 0px 0px; transform: scale(0.057); border-radius: 260px; opacity: 0;"><div class="c3o c3h c4k"><div class="c4n c4o"><div class="ck ch cg ct ci cs cr cj ca c3b c2f c1i">
+        <div role="feed">
+                                    <div class="c3n c4p c2w cz">
+    <div class="c3n c4p cx c3p c3q c2o c2p">
+            
+            <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" class="c3o c1a c1h c51 c8 c1x"><defs><linearGradient id="sf-branch-Zztxr5Qbu2" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="100%" y2="0"><stop offset="0" class="c10"/><stop offset="1" class="cm"/></linearGradient></defs><rect x="0.5" y="0.5" width="200%" height="200%" rx="0.5em" class="c3c c3r" stroke="url(#sf-branch-Zztxr5Qbu2)"/></svg>
+        <div aria-hidden="true" class="cn c4q c4a c3d"></div>
+    </div>
+    <h2 class="c52 c3s c4r c4s c40 c2f c2g c1p c1i c3e">Today</h2>
+</div>
+                
+                                <article class="c3n c4p c2w c1t ck ch cg ct ci cs cr cj ca c3b c2f">
+    <div class="c2x c4p c1q c3p c3q c2o c2p">
+    <div class="c3n c4p c1z c3p c1 c7 c6">
+            <span data-sf-intent="success" data-sf-glyph="ticket" class="c4p cv c3p c2o c25 c2q c4b c2h c2e c1i cc" aria-hidden="true">
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"/><path d="M13 5v2"/><path d="M13 17v2"/><path d="M13 11v2"/></svg>
+</span>
+    </div>
+
+</div>
+    <div class="c41 c4a cl">
+        <div class="c4p c26 c4i"><span class="c2f c1i c1f"><a class="c3f c2y c1y c1n c20 c1g c13 c1b" href="/members/1">Mira Okafor</a> confirmed <a class="c3f c2y c1y c1n c20 c1g c13 c1b" href="/bookings/1">Booking #1042</a> for <a class="c3f c2y c1y c1n c20 c1g c13 c1b" href="/fairs/1">Maple Street Fair</a></span>
+</div>
+        <div class="c4c c42 c2i c1i c1f c19 c1c">
+        <time datetime="2026-09-25T10:50:00+00:00" title="Friday, 25 September 2026, 10:50:00 AM" class="c42 c1i">just now</time>
+                    </div>
+        
+        
+    </div>
+</article>
+        </div>
+        </div>
+</div></div><div class="c1m c3o c3h c3v c4z c2d c1w c2n"></div></div></div></div><div class="outfade c1m c3o c3h c3v c50 c2d c1w c2n"></div></div></foreignObject></svg>
