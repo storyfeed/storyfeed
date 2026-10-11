@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.20.5 - 2026-10-11
 
 ### Changed
 
@@ -8,6 +8,7 @@
 
 ### Fixed
 
+- On PostgreSQL, Live over a scoped feed whose entity has little history no longer reads slowly at scale (#160). The group aggregate ran unbounded when the windowed read found no floor, and the planner misjudged the entity's rows and compiled JIT for a query touching a handful of them (about 340 ms at a million activities). With no cursor, it now reads the eligible history in timeline order, capped at the depth the window already searched, which drops nothing. The same read takes about 31 ms. Other databases are unaffected.
 - A group whose verb has no group headline no longer reads "added a menu item, items" (#163). When core words a group from the verb's single-activity headline, it swaps a token whose members differ for the plural noun ("Sally uploaded files"). It now leaves a token that comes right after `,` `:` or `(`, or before `'s`, since a plural noun reads wrong there, and the group shows the verb label. Register a group headline to word it.
 
 ## v0.20.4 - 2026-10-11
