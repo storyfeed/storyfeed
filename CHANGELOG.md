@@ -6,6 +6,7 @@
 
 - Composer-and-renderer mode (#131): `Storyfeed::withoutStorage()`, called from a service provider's `boot()`, declares that the app composes and renders feeds from its own data and has none of core's tables. Nothing is scheduled (no `storyfeed:curate`, no `storyfeed:prune --bursts`), a Feedable model's save, delete and restore write nothing, and recording an activity (`Storyfeed::activity()`, the `storyfeed()` helper, a Story class, `Storyfeed::publish()`) throws `Storyfeed\Exceptions\StorageDisabled` instead of a SQL error about a missing table. `Storyfeed::compose()`, named sources, the feed file and every kit work as before. `storyfeed:doctor` reports the mode as `recording.without_storage` and skips its `tables` and `maintenance` checks. `storyfeed:install --without-storage` publishes the config and creates `routes/feed.php`, with no migrations and no `.env` line, and prints the declaration to add.
 - `Storyfeed::deleteFromFeed($model)` and `Storyfeed::forceDeleteFromFeed($model)` (#137): the trait's `deleteFromFeed()` and `forceDeleteFromFeed()` for a model registered with `Storyfeed::feedable()`, which has no trait to call them on. Until now the only way was the `@internal` actions.
+- `Entity::absent($role)` and `Entity::isAbsent()` on the `Storyfeed\Support` readers: an empty role read as an entity, with no type, label or link, that reads as its fallback words ("Someone"). It is neither degraded nor a tombstone.
 
 ### Changed
 
@@ -17,6 +18,7 @@
 - `$context->model()` in a `feedMedia()` resolver returns the model a composed entry or a source item named the role with (#138). It returned `null` for an unsaved model, so a resolver that read the model gave no link or media, and it queried a saved model again on a feed that otherwise runs no query. It now hands back that instance with no query. `with:` and `withCount:` load onto it, batched across the page's instances of the class; `withTrashed:` is moot. Stored activities hydrate from the database as before.
 - The Activity Streams document carries the `url` and `media` of an entity with no model behind it (#136). Both reached the JSON payload but not the AS2 output, so its links and pictures were lost there. A link goes out as `url` (as `id` on an actor), and `icon`, `image` and `preview` as Link objects, as a model's `feedMedia()` pictures do.
 - A slot-form `Image` or `MediaObject` body on a party name (`->action('ship', 'Storyfeed')->body(Image::make())`) drew nothing and said nothing (#136). A party name declares no pictures, so it now throws when the entry is added, as an inline entity does, naming the slot and both ways out: pass an entity array that declares the picture in its `media`, or give the body its own.
+- `Headline::toHtml($closure)` draws an empty role through the closure too (#98), as an `Entity::absent()`, so a renderer can put its own element or class on an anonymous actor's "Someone". It used to skip the closure and write the bare words. A closure typed `fn (Entity $entity)` keeps working.
 
 ## v0.20.1 - 2026-10-11
 

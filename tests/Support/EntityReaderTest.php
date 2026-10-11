@@ -116,3 +116,18 @@ it('hands the payload back unchanged', function () {
 
     expect(fn () => $entity['label'] = 'x')->toThrow(LogicException::class, 'Entity is read-only.');
 });
+
+it('reads an absent role as its fallback words, neither degraded nor a tombstone', function () {
+    $actor = Entity::absent('actor');
+
+    expect($actor->isAbsent())->toBeTrue()
+        ->and($actor->isDegraded())->toBeFalse()
+        ->and($actor->isTombstone())->toBeFalse()
+        ->and($actor->type())->toBeNull()
+        ->and($actor->label())->toBeNull()
+        ->and($actor->role())->toBe('actor')
+        ->and($actor->toString())->toBe('Someone')
+        ->and($actor->toHtml())->toBe('Someone')
+        ->and(Entity::absent('object')->toString())->toBe('Something')
+        ->and(Entity::of(entityPayload())->isAbsent())->toBeFalse();
+});

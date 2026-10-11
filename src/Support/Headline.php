@@ -85,7 +85,9 @@ final class Headline implements Htmlable, JsonSerializable, Stringable
     /**
      * The sentence as HTML, text escaped and each entity drawn by its own
      * `toHtml()`: a link when it has a url. Pass a closure to draw entities
-     * your way; it receives the Entity and returns HTML.
+     * your way; it receives the Entity and returns HTML. An empty role, such
+     * as an anonymous actor, reaches it too, as an Entity whose
+     * `isAbsent()` is true and which reads as its fallback words.
      *
      * @param  (Closure(Entity): string)|null  $entity
      */
@@ -94,7 +96,7 @@ final class Headline implements Htmlable, JsonSerializable, Stringable
         $draw = $entity ?? fn (Entity $entity): string => $entity->toHtml();
 
         return $this->segments()->map(fn (array $segment): string => match ($segment['type']) {
-            'entity' => $segment['entity'] instanceof Entity ? $draw($segment['entity']) : e($segment['text']),
+            'entity' => $draw($segment['entity'] ?? Entity::absent($segment['role'])),
             'entities' => $this->listHtml($segment, $draw),
             default => e($segment['text']),
         })->implode('');
