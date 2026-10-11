@@ -1,9 +1,8 @@
 <p align="center">
 <a href="https://storyfeed.dev/">
   <picture>
-    <source media="(prefers-reduced-motion: reduce)" srcset="https://raw.githubusercontent.com/storyfeed/storyfeed/fbba01bed14a405ac83526f3ec8ef5db93c2b774/art/storyfeed-static-light.png">
-    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/storyfeed/storyfeed/fbba01bed14a405ac83526f3ec8ef5db93c2b774/art/storyfeed-animated-dark.gif">
-    <img src="https://raw.githubusercontent.com/storyfeed/storyfeed/fbba01bed14a405ac83526f3ec8ef5db93c2b774/art/storyfeed-animated-light.gif" width="800" alt="Storyfeed. New activities advance through a three-card feed.">
+    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/storyfeed/storyfeed/PIN_TO_MERGE_COMMIT/art/storyfeed-header-dark.svg">
+    <img src="https://raw.githubusercontent.com/storyfeed/storyfeed/PIN_TO_MERGE_COMMIT/art/storyfeed-header-light.svg" width="328" alt="Storyfeed">
   </picture>
 </a>
 </p>
@@ -21,11 +20,14 @@ Storyfeed records activities from your Laravel application and reads them back
 as a feed: the pattern behind GitHub's dashboard, Slack's activity and social
 timelines generally, popularized by Facebook's News Feed in 2006.
 
-> *Sally confirmed Delivery #1042 for Acme Co.*
->
-> *Bob, Sally, and 3 others uploaded files to Project X.*
+<picture>
+  <source media="(prefers-reduced-motion: reduce)" srcset="https://raw.githubusercontent.com/storyfeed/storyfeed/PIN_TO_MERGE_COMMIT/art/samples/showcase-light.png">
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/storyfeed/storyfeed/PIN_TO_MERGE_COMMIT/art/samples/showcase-dark.svg">
+  <img src="https://raw.githubusercontent.com/storyfeed/storyfeed/PIN_TO_MERGE_COMMIT/art/samples/showcase-light.svg" width="800" alt="A Storyfeed feed growing, top first: a booking, then its person, a key-value card and a photo; three volunteers joining fold into one grouped row; photos arrive live and regroup with thumbnails. The camera pulls back: the whole feed is the picture in a row that reads You looked at Storyfeed's README, above earlier looks by others. Someone else's look arrives above yours, still typing, and the camera dives into its dots, back to the start.">
+</picture>
 
-The second headline is one feed item covering several activities.
+Every frame is real output from activities recorded through this package.
+Ships with Blade, Vue and React kits in [storyfeed/ui](https://github.com/storyfeed/ui).
 
 Storyfeed grew out of sixteen years of rough implementations across production
 applications, where many gaps were left unsolved. This package revisits that

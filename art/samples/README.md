@@ -3,13 +3,16 @@
 Real feed output for the README, from a made-up street fair: every name, booking
 and permit is invented.
 
-`showcase-{light,dark}.svg` is a 17.5-second loop of one feed growing: a plain
-row gains its people and bodies, five joins fold into one grouped row, photos
-arrive live and regroup, the feed narrows to one person, then opens out to the
-whole feed as one more booking arrives, holds, and dissolves back into the
-opening row. Every state is the Blade kit's own markup and stylesheet inside
-`foreignObject`, animated by CSS keyframes; nothing runs in it.
-`showcase-{light,dark}.png` is the richest frame, still, for reduced motion.
+`showcase-{light,dark}.svg` is a 16.1-second loop. A made-up street fair's
+feed grows, top first: a booking gains its person, a key-value card and a
+photo arrive, three joins fold into one grouped row, and photos arrive live
+and regroup. The camera pulls back: the feed is the picture in "You looked at
+Storyfeed's README", above earlier looks. The next person's look arrives on
+top, typing, and the camera dives into its dots, landing on the opening frame.
+Every row is a kit's own markup and stylesheet inside `foreignObject`,
+animated by CSS keyframes; the typing bubble and the camera are the page's own.
+Nothing runs in it. `showcase-{light,dark}.png` is the closing frame, still,
+for reduced motion.
 
 These are generated: run `npm run readme:showcase` in a storyfeed/ui checkout
 beside this one (its `workbench/readme/`). Regenerate them when the kits'
