@@ -15,6 +15,7 @@ use Storyfeed\Stories\StoryManifest;
 use Storyfeed\StoryfeedManager;
 use Storyfeed\Support\Feedables;
 use Storyfeed\Support\SurfaceScanner;
+use Throwable;
 
 /**
  * Compile registered stories into `bootstrap/cache/storyfeed.php`.
@@ -58,8 +59,29 @@ class CacheCommand extends Command
 
         if (Relation::requiresMorphMap() || $feedables->requiresMorphMap()) {
             $models = array_unique([...app(SurfaceScanner::class)->scan()['feedable'], ...$feedables->registered()]);
-            $unaliased = array_filter($models, fn (string $model) => is_a($model, Model::class, true)
-                && $feedables->morphAlias(new $model) === null);
+            $unaliased = [];
+
+            foreach ($models as $model) {
+                if (! is_a($model, Model::class, true)) {
+                    continue;
+                }
+
+                // A blank instance is all there is to ask, and a model that
+                // works out its morph class from its attributes can't answer
+                // on one. Saying so beats failing a deploy's `optimize` over
+                // a class that may be fine.
+                try {
+                    $alias = $feedables->morphAlias(new $model);
+                } catch (Throwable $e) {
+                    $this->warn("Can't check the morph alias of {$model}: ".class_basename($e).": {$e->getMessage()}");
+
+                    continue;
+                }
+
+                if ($alias === null) {
+                    $unaliased[] = $model;
+                }
+            }
 
             if ($unaliased !== []) {
                 $this->error('Feedable morph aliases are required — nothing was cached.');
