@@ -222,6 +222,39 @@ it('does not eat the plural token that shares a prefix', function () {
     expect($item['headline_template'])->toBe(':actor uploaded files of :objects');
 });
 
+it('falls to the verb label when the token is not a bare noun slot', function (string $headline) {
+    Story::for('delivery')->verb('upload')->override()->headline($headline);
+
+    $project = Customer::create(['name' => 'Concur']);
+
+    sallyUploads($project, ['a.docx', 'b.docx']);
+
+    $item = Storyfeed::feed()->get()->toArray()[0];
+
+    // After a comma, colon or bracket the token names the thing the sentence
+    // already counted, and before 's it owns something. A plural there reads
+    // "a file, files" or "files's history" (storyfeed/storyfeed#163).
+    expect($item['axis'])->toBe('repeat')
+        ->and($item['headline_template'])->toBeNull();
+})->with([
+    'appositive' => ':actor uploaded a file, :object',
+    'colon' => ':actor uploaded a file: :object',
+    'parenthetical' => ':actor uploaded a file (:object)',
+    'possessive' => ":actor updated :object's history",
+]);
+
+it('still pluralises a bare noun slot beside punctuation of its own', function () {
+    Story::for('delivery')->verb('upload')->override()->headline(':actor uploaded :object, again');
+
+    $project = Customer::create(['name' => 'Concur']);
+
+    sallyUploads($project, ['a.docx', 'b.docx']);
+
+    $item = Storyfeed::feed()->get()->toArray()[0];
+
+    expect($item['headline_template'])->toBe(':actor uploaded files, again');
+});
+
 it('still picks the form by count in a locale with more than two of them', function () {
     // The number left the sentence; the count did not leave the decision.
     // Polish "klauzule" (2–4) and "klauzul" (5+) are a fact about how many

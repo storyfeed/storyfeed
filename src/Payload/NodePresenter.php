@@ -426,6 +426,12 @@ class NodePresenter
      *    reading as unfinished until it gets one.
      *  - The token is not a role at all (`:verb`, or anything invented).
      *    Nothing can be counted, so nothing is claimed.
+     *  - The token is not a bare noun slot (2026-10-11, #163). A token
+     *    right after `,` `:` or `(` is an appositive — "added a menu item,
+     *    :object" names the item the sentence already counted — and one
+     *    followed by `'s` is a possessive. A plural noun in either place
+     *    reads "a menu item, items" or "items's price": a wrong sentence,
+     *    not a bland one.
      *  - The slice carries no true distinct counts. The in-page count is
      *    capped at `grouping.children_limit` and would understate; a floor
      *    is fine for a sample list that says "and N others", and not fine
@@ -471,6 +477,10 @@ class NodePresenter
                 return [null, null];
             }
 
+            if (! $this->isNounSlot($entry, $token)) {
+                return [null, null];
+            }
+
             // The type is pinned by construction, so the head member's alias
             // is every member's alias — the licence for one noun to speak
             // for all of them. The count picks the form; it is never printed.
@@ -501,6 +511,19 @@ class NodePresenter
         }
 
         return [$entry, null];
+    }
+
+    /**
+     * Whether every occurrence of the token stands where a plural noun can
+     * go: not after `,` `:` or `(` (an appositive or a parenthetical), and
+     * not before `'s` (a possessive).
+     */
+    protected function isNounSlot(string $entry, string $token): bool
+    {
+        $quoted = preg_quote($token, '/');
+
+        return preg_match('/[,:(]\s*'.$quoted.'(?![a-z])/', $entry) !== 1
+            && preg_match('/'.$quoted.'(?![a-z])[\'’]s\b/u', $entry) !== 1;
     }
 
     /** role => [plural sample key, snapshot relation] */
