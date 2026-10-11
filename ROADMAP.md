@@ -1,45 +1,42 @@
 # Roadmap
 
-Storyfeed is being built in the open, on the road to a stable 1.0. This is the
-high-level plan; detailed design documents will be published as the milestones land.
+Storyfeed 1.0 means a stable Payload v1 that renderers can build on without
+breaking changes, one audited schema, and a published versioning and support
+policy.
 
-**Versions are milestones, not dates**, and the milestones are ordered by what
-makes the package genuinely usable rather than by what makes a version number
-land. Nothing on this list is scheduled against a conference date: the talk this
-work leads to is a demonstration of a working package, not a launch event, so
-1.0 arrives when the contract has earned it.
+**Versions are milestones, not dates.**
 
 ## Shipped
 
-- [x] **v0.1 — Foundation.** Schema (activities, entity snapshots, groupings), the
+- [x] **[v0.1 — Foundation](https://github.com/storyfeed/storyfeed/milestone/7).** Schema (activities, entity snapshots, groupings), the
       fluent recording API (`Storyfeed::activity(...)->actor($user)->publish()`),
       snapshot-backed entities, workbench + test suite.
-- [x] **v0.2 — Read model.** Feed query builder, scoped feeds, cursor pagination,
+- [x] **[v0.2 — Read model](https://github.com/storyfeed/storyfeed/milestone/8).** Feed query builder, scoped feeds, cursor pagination,
       the self-describing JSON payload (headline templates, icons, linked entities —
       renderers need zero domain knowledge).
-- [x] **v0.3 — Payload contract.** Headline grammar + icon registries, feed events,
+- [x] **[v0.3 — Payload contract](https://github.com/storyfeed/storyfeed/milestone/9).** Headline grammar + icon registries, feed events,
       retention (`storyfeed:prune`) and health checks (`storyfeed:doctor`); the feed
       payload shape documented as a versioned freeze-candidate contract, including
       grouped-activity nodes ("Bob, Sally, and 3 others uploaded files to Project X").
-- [x] **v0.4 — Typed recording API.** An autocomplete-friendly write API (no magic
+- [x] **[v0.4 — Typed recording API](https://github.com/storyfeed/storyfeed/milestone/10).** An autocomplete-friendly write API (no magic
       methods), verbs declarable as enums, and the Activity Streams 2.0 vocabulary
       shipped as PHP enums verified against the W3C spec.
-- [x] **v0.5 — DX & tooling.** Test fakes, grammar-coverage assertions, named
+- [x] **[v0.5 — DX & tooling](https://github.com/storyfeed/storyfeed/milestone/11).** Test fakes, grammar-coverage assertions, named
       participants (`Party`), the documentation corpus — and **the Newsroom**: a
       deployed, living showcase app with simulated activity you can watch and poke.
-- [x] **v0.6 — Read modes & Activity Streams 2.0** *(tagged `v0.6.0-alpha.1`)*.
+- [x] **[v0.6 — Read modes & Activity Streams 2.0](https://github.com/storyfeed/storyfeed/milestone/12)** *(tagged `v0.6.0-alpha.1`)*.
       Three explicit read modes (`->log()`, `->live()`, `->summary()`), multi-axis
       grouping, `involving()` as a first-class indexed read, self-healing snapshots
       and `sync_token` — plus spec-conformant JSON-LD serialization (`Activity`,
       `OrderedCollection`) behind opt-in content-negotiated routes. Emitted
       documents reference the extension context published at
       [`https://ns.storyfeed.dev`](https://ns.storyfeed.dev).
-- [x] **v0.7 — Authoring DX** *(released as part of `v0.8.0-alpha.1`)*. `Story`
+- [x] **[v0.7 — Authoring DX](https://github.com/storyfeed/storyfeed/milestone/13)** *(released as part of `v0.8.0-alpha.1`)*. `Story`
       classes — one class per activity type instead of seven registration sites —
       with `make:story`, `PublishesToFeed` for domain events, a structured `doctor`
       report you can assert on in CI, `storyfeed:stories`, `storyfeed:cache`, and
       strict grammar in local/testing.
-- [x] **v0.8 — Audience scoping** *(tagged `v0.8.0`)*. Named feed presets
+- [x] **[v0.8 — Audience scoping](https://github.com/storyfeed/storyfeed/milestone/14)** *(tagged `v0.8.0`)*. Named feed presets
       registered once (`Storyfeed::feeds([...])`, entered as
       `Storyfeed::feed('customer')`) and `Feed` classes that take their subject as a
       typed constructor argument, so an unscoped feed cannot be built. `->only()` /
@@ -47,52 +44,51 @@ work leads to is a demonstration of a working package, not a launch event, so
       belongs to no audience fails CI rather than leaking, and `storyfeed:demo` for
       showing a feed without production data. In the MIT core, deliberately: nothing
       that makes a feed safe to show belongs in a paid package.
-- [x] **v0.9 — What renderers need** *(tagged `v0.9.0`)*. The first milestone driven
+- [x] **[v0.9 — What renderers need](https://github.com/storyfeed/storyfeed/milestone/15)** *(tagged `v0.9.0`)*. The first milestone driven
       by consumers rendering the payload rather than by the package's own plan: group
       nodes carry their pinned roles as singulars instead of leaving every renderer to
       reconstruct them, an activity's `data` accepts a typed DTO, and the trickle
       reports activities it cannot resolve instead of deleting them.
-- [x] **v0.10 — Diagnostics and read-time media** *(tagged `v0.10.0`)*. New doctor
+- [x] **[v0.10 — Diagnostics and read-time media](https://github.com/storyfeed/storyfeed/milestone/16)** *(tagged `v0.10.0`)*. New doctor
       checks on a redrawn severity axis, so `--fail-on=error` fires on a feed that
       renders wrong today; the `feedMedia()` read-time resolver contract on
       `Feedable`; and `FeedLink` back as a label with an optional link.
-- [x] **v0.11 — Pre-launch preview** *(tagged `v0.11.0`, unveiled at GPUG on
-      Sep 30, 2026)*. Body types, headlines and a live feed that reads curated
+- [x] **[v0.11 — Pre-launch preview](https://github.com/storyfeed/storyfeed/milestone/17)** *(tagged `v0.11.0`)*. Body types, headlines and a live feed that reads curated
       groups; `storyfeed/ui` v0.2.0 renders it with Tailwind.
-- [x] **v0.12 — Pictures and quotes are bodies** *(tagged `v0.12.0`)*. An `Image`
+- [x] **[v0.12 — Pictures and quotes are bodies](https://github.com/storyfeed/storyfeed/milestone/18)** *(tagged `v0.12.0`)*. An `Image`
       body names the picture a row shows; quoted words are an `Excerpt`; the
       discussion-specific thread leaves core.
-- [x] **v0.13 — Live bursts and renderer kits.** Live groups one action into
+- [x] **[v0.13 — Live bursts and renderer kits](https://github.com/storyfeed/storyfeed/milestone/19).** Live groups one action into
       bursts; Summary is retired. Free React, Vue/Inertia and Blade kits render
       the feed. Live first pages stay under 300ms at 3M activities in benchmarks.
-- [x] **v0.14 — Distant relations** *(tagged `v0.14.0`)*. A model names its
+- [x] **[v0.14 — Distant relations](https://github.com/storyfeed/storyfeed/milestone/20)** *(tagged `v0.14.0`)*. A model names its
       parent, and `involving()` reaches activity anywhere beneath it.
-- [x] **v0.15 — Story classes and sharper filters** *(tagged `v0.15.0`)*. A verb
+- [x] **[v0.15 — Story classes and sharper filters](https://github.com/storyfeed/storyfeed/milestone/21)** *(tagged `v0.15.0`)*. A verb
       can bind one Story class method; feeds filter by role type or exclude
       distant relations; never-recorded ancestry can be filled in without
       rewriting history.
-- [x] **v0.16 — Cleanup and truth** *(tagged `v0.16.0`)*. Deprecated aliases
+- [x] **[v0.16 — Cleanup and truth](https://github.com/storyfeed/storyfeed/milestone/1)** *(tagged `v0.16.0`)*. Deprecated aliases
       are gone, Story classes are no longer experimental, and entities can
       declare a text avatar.
 
-- [x] **v0.17 — Bodies** *(tagged `v0.17.0`)*. A base class every body builds
+- [x] **[v0.17 — Bodies](https://github.com/storyfeed/storyfeed/milestone/2)** *(tagged `v0.17.0`)*. A base class every body builds
       on, links that own their behaviour, `CallToAction` and `Table` bodies,
       time ranges, and a body's own `$meta` for rendering concerns. The array
       source for static content arrived early.
 
-- [x] **v0.18 — Feed sources** *(tagged `v0.18.0`)*. A role can be filled by
+- [x] **[v0.18 — Feed sources](https://github.com/storyfeed/storyfeed/milestone/22)** *(tagged `v0.18.0`)*. A role can be filled by
       something with no model behind it, an `Image` can carry its own picture,
       bodies can show any `feedMedia()` slot, every entity has an avatar, and
       `STORYFEED_SNAPSHOTS=sync` shows `toFeed()` changes on reload. Tables from
       before 0.13 can be upgraded in place.
 
-- [x] **v0.19 — Read path at scale** *(tagged `v0.19.0`)*. Scoped feeds read in
+- [x] **[v0.19 — Read path at scale](https://github.com/storyfeed/storyfeed/milestone/3)** *(tagged `v0.19.0`)*. Scoped feeds read in
       feed order from the participants index, and a Live page takes 9 queries
       instead of 23: under 100 ms at a million activities on every supported
       database, with nightly benchmark gates at 1M and 3M. A group's members can
       be read past its first page, group ids became `Anchor` values, and closed
       burst windows are swept.
-- [x] **v0.20 — Composed feeds** *(tagged `v0.20.0`)*. `Storyfeed::compose()`
+- [x] **[v0.20 — Composed feeds](https://github.com/storyfeed/storyfeed/milestone/23)** *(tagged `v0.20.0`)*. `Storyfeed::compose()`
       builds a feed by hand from data an app already has, such as a project
       showcase, a list of talks or a record's status progression, as `Entry`
       items: dated or dateless, newest first or in the order given, with inline
@@ -128,13 +124,6 @@ The rest of Activity Streams 2.0, each additive to Payload v1: replies
 place coordinates. Addressing
 (`to`, `cc`, `bto`, `bcc`, `audience`) arrives with delivery, long-range,
 alongside ActivityPub.
-
-## Under discovery
-
-Ideas waiting on evidence from real applications before they join a milestone:
-
-- [Audience-aware phrasing](https://github.com/storyfeed/storyfeed/issues/44),
-  such as "You closed the list" for the reader who did it.
 
 ## Sponsor-funded
 
