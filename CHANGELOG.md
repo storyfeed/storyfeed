@@ -4,7 +4,7 @@
 
 ### Changed
 
-- `ActivityType` no longer implements `FeedVerb` and has no `verb()` or `activityType()` method: it is the Activity Streams vocabulary only (#97). Author with `Act`, which reaches every activity type: `Act::Create` for `ActivityType::Create`, `Act::TentativelyAccept` for `ActivityType::TentativeAccept`. Mapping a verb to an `ActivityType` (`activityType()` on an app enum, `Storyfeed::verbs()`, `->type()`) is unchanged.
+- **Breaking:** `ActivityType` no longer implements `FeedVerb` and has no `verb()` or `activityType()` method: it is the Activity Streams vocabulary only (#97). **To upgrade:** wherever you record with an `ActivityType` case as the verb, or call `verb()` / `activityType()` on one, use `Act`, which reaches every activity type: `Act::Create` for `ActivityType::Create`, `Act::TentativelyAccept` for `ActivityType::TentativeAccept`. Mapping a verb to an `ActivityType` (`activityType()` on an app enum, `Storyfeed::verbs()`, `->type()`) is unchanged.
 
 ### Fixed
 
