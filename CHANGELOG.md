@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## v0.20.1 - 2026-10-11
+
 ### Added
 
 - An entity with no model behind it can declare `media` (#133): `['type' => 'product', 'label' => 'InvoiceJam', 'media' => ['icon' => 'https://…/invoicejam.svg']]`. It takes `icon`, `image` and `preview`, each a URL, a `FeedImage` or its array form (`src`, `mediaType`, `width`, `height`, `alt`), and `initials` and `color`, and it reaches the payload's `media` in the shape a model's `feedMedia()` gives it. So an inline actor draws a picture avatar, and a slot-form `Image` or `MediaObject` body on an inline entity shows the picture it declares. It works on composed entries, array source items and the write path, which stores it with the entity, as it stores its `url`.
