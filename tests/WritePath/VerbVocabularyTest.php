@@ -16,7 +16,7 @@ use Workbench\App\Models\User;
  */
 it('reaches every Activity Streams type, so it can be the only authoring surface', function () {
     /*
-     * The precondition for ActivityType dropping `implements FeedVerb`: an
+     * What let ActivityType drop `implements FeedVerb` (#97): an
      * author must never have to fall back to the transcription to express
      * something. If this fails, removing it would strand a use case.
      */

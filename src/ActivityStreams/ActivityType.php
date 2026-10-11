@@ -3,7 +3,6 @@
 namespace Storyfeed\ActivityStreams;
 
 use Storyfeed\ActivityStreams\Concerns\IsVocabularyTerm;
-use Storyfeed\Contracts\FeedVerb;
 
 /**
  * The 28 Activity Streams 2.0 activity types.
@@ -13,14 +12,12 @@ use Storyfeed\Contracts\FeedVerb;
  * Keeping the abstract bases out prevents them being registered as if they
  * were real mappings.
  *
- * Implements FeedVerb so the spec vocabulary can be used directly as a verb
- * without an app declaring its own enum. The stored verb is lcfirst(value),
- * which reproduces every built-in verb key exactly (TentativeAccept →
- * 'tentativeAccept').
+ * This is the serialization vocabulary, not a verb. To author with core's
+ * words, use `Storyfeed\Act`, which reaches every type here.
  *
  * @see https://www.w3.org/TR/activitystreams-vocabulary/#activity-types
  */
-enum ActivityType: string implements FeedVerb, VocabularyTerm
+enum ActivityType: string implements VocabularyTerm
 {
     use IsVocabularyTerm;
 
@@ -91,15 +88,5 @@ enum ActivityType: string implements FeedVerb, VocabularyTerm
     public function isA(self $type): bool
     {
         return $this === $type || $this->parent()?->isA($type) === true;
-    }
-
-    public function verb(): string
-    {
-        return lcfirst($this->value);
-    }
-
-    public function activityType(): self
-    {
-        return $this;
     }
 }

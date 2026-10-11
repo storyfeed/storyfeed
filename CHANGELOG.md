@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Changed
+
+- `ActivityType` no longer implements `FeedVerb` and has no `verb()` or `activityType()` method: it is the Activity Streams vocabulary only (#97). Author with `Act`, which reaches every activity type: `Act::Create` for `ActivityType::Create`, `Act::TentativelyAccept` for `ActivityType::TentativeAccept`. Mapping a verb to an `ActivityType` (`activityType()` on an app enum, `Storyfeed::verbs()`, `->type()`) is unchanged.
+
 ### Fixed
 
 - `storyfeed:cache`, and so `php artisan optimize`, no longer fails on a Feedable that works out its morph class from its attributes (#151). With a morph map required, it read each discovered Feedable's alias from a blank instance, and a `getMorphClass()` that returns `$this->kind` threw a `TypeError` there. It now prints a line naming the class and the error, and caches. `storyfeed:doctor`'s `surface` check reports the class as `surface.uncheckable` (a warning while a morph map is required, information otherwise) and checks the rest.
