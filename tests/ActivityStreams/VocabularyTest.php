@@ -1,9 +1,11 @@
 <?php
 
+use Storyfeed\Act;
 use Storyfeed\ActivityStreams\ActivityType;
 use Storyfeed\ActivityStreams\Context;
 use Storyfeed\ActivityStreams\CoreType;
 use Storyfeed\ActivityStreams\ObjectType;
+use Storyfeed\Contracts\FeedVerb;
 use Storyfeed\Serialization\ActivitySerializer;
 
 /**
@@ -121,9 +123,8 @@ it('returns null for unknown terms rather than throwing', function () {
         ->and(ObjectType::tryFromLoose('ext:Widget'))->toBeNull();
 });
 
-it('uses spec casing for the wire and lowercase for the stored verb', function () {
+it('is vocabulary only, and authors with Act', function () {
     expect(ActivityType::Create->value)->toBe('Create')
-        ->and(ActivityType::Create->verb())->toBe('create')
-        ->and(ActivityType::TentativeAccept->verb())->toBe('tentativeAccept')
-        ->and(ActivityType::Create->activityType())->toBe(ActivityType::Create);
+        ->and(ActivityType::Create)->not->toBeInstanceOf(FeedVerb::class)
+        ->and(Act::TentativelyAccept->activityType())->toBe(ActivityType::TentativeAccept);
 });
