@@ -395,7 +395,12 @@ class ActivitySerializer
             routeKey: $snapshot->meta['route_key'] ?? null,
             model: ModelHydrator::carried($snapshot),
         ));
-        $href = $media?->href();
+        // An entity with no model behind it has no resolver to ask, and
+        // carries its href and pictures in the snapshot instead, as the
+        // payload presenter reads them.
+        $meta = $snapshot->meta ?? [];
+        $stored = $media === null ? $meta['media'] ?? [] : [];
+        $href = $media?->href() ?? (($meta['url'] ?? '') !== '' ? $meta['url'] : null);
         $absolute = $href === null ? null : url($href);
 
         return array_filter([
@@ -414,9 +419,9 @@ class ActivitySerializer
             // The remaining slots are AS2's own properties with AS2's own
             // meanings, which is the whole reason FeedMedia names them that
             // way — nothing to translate, only to spell out.
-            Property::Icon->value => $this->link($media?->icon),
-            Property::Image->value => $this->link($media?->image),
-            Property::Preview->value => $this->link($media?->preview),
+            Property::Icon->value => $this->link($media->icon ?? self::storedImage($stored, 'icon')),
+            Property::Image->value => $this->link($media->image ?? self::storedImage($stored, 'image')),
+            Property::Preview->value => $this->link($media->preview ?? self::storedImage($stored, 'preview')),
             // `attachment` is non-functional in the vocabulary, so many
             // values are one property holding an array (AS2 Core §4.1, and
             // a JSON-LD object cannot repeat a key). Always an array, never
@@ -428,6 +433,29 @@ class ActivitySerializer
                 Property::Url->value => $this->link($resource),
             ], $media->files),
         ], fn ($value) => $value !== null);
+    }
+
+    /**
+     * One picture an entity with no model behind it declared, read back
+     * from the shape {@see FeedImage::toArray()} stored it in.
+     *
+     * @param  array<array-key, mixed>  $media
+     */
+    private static function storedImage(array $media, string $slot): ?FeedImage
+    {
+        $image = $media[$slot] ?? null;
+
+        if (! is_array($image) || ! is_string($image['src'] ?? null) || $image['src'] === '') {
+            return null;
+        }
+
+        return FeedImage::make(
+            src: $image['src'],
+            mediaType: is_string($image['mediaType'] ?? null) ? $image['mediaType'] : null,
+            width: is_int($image['width'] ?? null) ? $image['width'] : null,
+            height: is_int($image['height'] ?? null) ? $image['height'] : null,
+            alt: is_string($image['alt'] ?? null) ? $image['alt'] : null,
+        );
     }
 
     /**

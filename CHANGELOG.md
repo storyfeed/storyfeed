@@ -15,6 +15,8 @@
 
 - Saving a Feedable model no longer fails when the `feed_snapshots` table doesn't exist, with or without `withoutStorage()`: the save writes no snapshot (#131). Before, creating a Feedable model on an app without core's tables threw `Table 'feed_snapshots' doesn't exist`.
 - `$context->model()` in a `feedMedia()` resolver returns the model a composed entry or a source item named the role with (#138). It returned `null` for an unsaved model, so a resolver that read the model gave no link or media, and it queried a saved model again on a feed that otherwise runs no query. It now hands back that instance with no query. `with:` and `withCount:` load onto it, batched across the page's instances of the class; `withTrashed:` is moot. Stored activities hydrate from the database as before.
+- The Activity Streams document carries the `url` and `media` of an entity with no model behind it (#136). Both reached the JSON payload but not the AS2 output, so its links and pictures were lost there. A link goes out as `url` (as `id` on an actor), and `icon`, `image` and `preview` as Link objects, as a model's `feedMedia()` pictures do.
+- A slot-form `Image` or `MediaObject` body on a party name (`->action('ship', 'Storyfeed')->body(Image::make())`) drew nothing and said nothing (#136). A party name declares no pictures, so it now throws when the entry is added, as an inline entity does, naming the slot and both ways out: pass an entity array that declares the picture in its `media`, or give the body its own.
 
 ## v0.20.1 - 2026-10-11
 
