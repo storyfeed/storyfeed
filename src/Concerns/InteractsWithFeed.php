@@ -60,8 +60,10 @@ trait InteractsWithFeed
         // suite hit Postgres autovacuum deadlocks on exactly that table. The
         // explicit call below is deliberately not gated: a method does what
         // its name says; only the automatic write is muted.
+        // Without the table (no migrations, or Storyfeed::withoutStorage())
+        // the save writes nothing: a feed table must never fail a save.
         static::saved(function ($model) {
-            if (app(StoryfeedManager::class)->isRecording()) {
+            if (app(StoryfeedManager::class)->isRecording() && SnapshotEntity::installed()) {
                 $model->updateFeedSnapshot();
             }
         });

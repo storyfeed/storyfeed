@@ -65,6 +65,20 @@ class Doctor
         Checks\RequestActions::class,
     ];
 
+    /**
+     * The checks that read core's tables, skipped for an app that declared
+     * Storyfeed::withoutStorage(): one reports the missing tables, the other
+     * reads the scheduled runs' history from them. Every other check guards
+     * its own reads, so grammar, stories, links and an app's own checks still
+     * run.
+     *
+     * @var list<class-string<DiagnosticCheck>>
+     */
+    public const STORAGE_CHECKS = [
+        Checks\Tables::class,
+        Checks\Maintenance::class,
+    ];
+
     /** @param list<DiagnosticCheck> $checks */
     public function __construct(
         protected array $checks,
@@ -79,6 +93,10 @@ class Doctor
 
         foreach ($this->checks as $check) {
             if ($only !== [] && ! in_array($check->name(), $only, true)) {
+                continue;
+            }
+
+            if (! $storyfeed->usesStorage() && in_array($check::class, self::STORAGE_CHECKS, true)) {
                 continue;
             }
 
@@ -163,6 +181,12 @@ class Doctor
         } catch (Throwable) {
             return false;
         }
+    }
+
+    /** @return list<string> */
+    public static function storageCheckNames(): array
+    {
+        return array_map(fn (string $check) => app($check)->name(), self::STORAGE_CHECKS);
     }
 
     /** @return list<string> */

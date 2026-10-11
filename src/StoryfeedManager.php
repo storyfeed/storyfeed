@@ -30,6 +30,7 @@ use Storyfeed\Contracts\PublishesToFeed;
 use Storyfeed\Diagnostics\Doctor;
 use Storyfeed\Diagnostics\Report;
 use Storyfeed\Exceptions\DottedVerb;
+use Storyfeed\Exceptions\StorageDisabled;
 use Storyfeed\Exceptions\StoryMisconfigured;
 use Storyfeed\Exceptions\StoryNotFound;
 use Storyfeed\Exceptions\StoryObjectMismatch;
@@ -115,6 +116,9 @@ class StoryfeedManager
      * one — the same reason Pulse keeps `$shouldRecord` on its singleton.
      */
     protected ?bool $recording = null;
+
+    /** False once the app declares withoutStorage(): it composes and renders, and has no tables. */
+    protected bool $storage = true;
 
     /** @var array<string, string|Closure|FeedHeadline> */
     protected array $grammar = [];
@@ -571,7 +575,37 @@ class StoryfeedManager
      */
     public function isRecording(): bool
     {
-        return $this->recording ?? (bool) config('storyfeed.recording.enabled', true);
+        return $this->storage && ($this->recording ?? (bool) config('storyfeed.recording.enabled', true));
+    }
+
+    /**
+     * Use Storyfeed to compose and render only, with none of its tables:
+     *
+     *     public function boot(): void
+     *     {
+     *         Storyfeed::withoutStorage();
+     *     }
+     *
+     * Called from a service provider, as `JsonResource::withoutWrapping()`
+     * is. From then on nothing is scheduled, a Feedable model's save and
+     * delete write nothing, and recording an activity throws
+     * StorageDisabled rather than a SQL error about a missing table.
+     * Storyfeed::compose() and every kit still work.
+     *
+     * Process-scoped like the recording switch, so a test can declare it
+     * without leaking into the next one.
+     */
+    public function withoutStorage(): static
+    {
+        $this->storage = false;
+
+        return $this;
+    }
+
+    /** Whether this app stores its feed, false after withoutStorage(). */
+    public function usesStorage(): bool
+    {
+        return $this->storage;
     }
 
     /**
@@ -1403,6 +1437,10 @@ class StoryfeedManager
      */
     public function publish(Story $story): ?Activity
     {
+        if (! $this->storage) {
+            throw StorageDisabled::recording();
+        }
+
         PublishQueuedStory::ensureNotDebounced($story);
 
         if (! $story instanceof ShouldQueue) {
@@ -2921,7 +2959,8 @@ class StoryfeedManager
             return $model::make($name);
         }
 
-        return $model::find($name) ?? $this->unsavedParty($name);
+        // Without storage there is no table to find it in.
+        return ($this->storage ? $model::find($name) : null) ?? $this->unsavedParty($name);
     }
 
     protected function unsavedParty(string $name): Party

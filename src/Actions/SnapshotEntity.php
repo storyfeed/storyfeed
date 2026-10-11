@@ -5,6 +5,7 @@ namespace Storyfeed\Actions;
 use Carbon\CarbonImmutable;
 use DateTimeInterface;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Schema;
 use InvalidArgumentException;
 use Storyfeed\Contracts\Feedable;
 use Storyfeed\Models\Snapshot;
@@ -23,6 +24,32 @@ use Storyfeed\Support\ShapeSignature;
  */
 class SnapshotEntity
 {
+    /** @var array<string, true> by connection and table */
+    private static array $installed = [];
+
+    /**
+     * Whether the snapshots table exists. A Feedable model's save checks
+     * first, so an app without core's tables (or a deploy that runs its code
+     * before `migrate`) saves the model and writes nothing, rather than
+     * failing a save that has nothing to do with the feed. Only a positive
+     * answer is remembered, per connection, as TombstoneEntity::installed().
+     */
+    public static function installed(): bool
+    {
+        $model = new (config('storyfeed.models.snapshot', Snapshot::class));
+        $key = $model->getConnection()->getName().'|'.$model->getTable();
+
+        if (isset(self::$installed[$key])) {
+            return true;
+        }
+
+        if (! Schema::connection($model->getConnectionName())->hasTable($model->getTable())) {
+            return false;
+        }
+
+        return self::$installed[$key] = true;
+    }
+
     public function __invoke(Model $model): Snapshot
     {
         $snapshot = config('storyfeed.models.snapshot', Snapshot::class);

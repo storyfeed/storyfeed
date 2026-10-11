@@ -236,6 +236,46 @@ it('creates the file on install from the stub, and never overwrites one', functi
     expect($published)->toBe(['storyfeed-config', 'storyfeed-config', 'storyfeed-config']);
 });
 
+it('installs without storage: the definitions file and the declaration, no migrations or .env', function () {
+    $path = sys_get_temp_dir().DIRECTORY_SEPARATOR.'storyfeed-install-'.bin2hex(random_bytes(6)).'.php';
+    $GLOBALS['storyfeedDefinitionsFiles'][] = $path;
+    config()->set('storyfeed.definitions', $path);
+
+    $environment = sys_get_temp_dir().DIRECTORY_SEPARATOR.'storyfeed-env-'.bin2hex(random_bytes(6));
+    mkdir($environment);
+    file_put_contents("{$environment}/.env", "APP_ENV=local\n");
+    $this->app->useEnvironmentPath($environment);
+
+    $published = [];
+    $this->app->make(Kernel::class)->registerCommand(new class($published) extends Command
+    {
+        protected $signature = 'vendor:publish {--tag=}';
+
+        /** @param  list<string>  $published */
+        public function __construct(private array &$published)
+        {
+            parent::__construct();
+        }
+
+        public function handle(): void
+        {
+            $this->published[] = (string) $this->option('tag');
+        }
+    });
+
+    $this->artisan('storyfeed:install', ['--without-storage' => true])
+        ->expectsOutputToContain('Created')
+        ->expectsOutputToContain('Storyfeed::withoutStorage();')
+        ->assertSuccessful();
+
+    expect($published)->toBe(['storyfeed-config'])
+        ->and(file_exists($path))->toBeTrue()
+        ->and(file_get_contents("{$environment}/.env"))->toBe("APP_ENV=local\n");
+
+    unlink("{$environment}/.env");
+    rmdir($environment);
+});
+
 it('publishes the stub with the storyfeed-definitions tag', function () {
     $paths = ServiceProvider::pathsToPublish(StoryfeedServiceProvider::class, 'storyfeed-definitions');
 

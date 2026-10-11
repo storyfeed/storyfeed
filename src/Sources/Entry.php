@@ -569,7 +569,8 @@ final class Entry
         if ($value instanceof Model && ! app(Feedables::class)->isFeedable($value)) {
             throw new InvalidArgumentException(sprintf(
                 'The [%s] role is a %s, which is not Feedable, so it would read with no label. '
-                .'Pass an entity array ([\'type\' => …, \'label\' => …]), or make the model Feedable.',
+                .'Pass an entity array, which carries its own media ([\'type\' => …, \'label\' => …, \'media\' => [\'icon\' => …]]), '
+                .'or make the model Feedable.',
                 $role, $value::class,
             ));
         }

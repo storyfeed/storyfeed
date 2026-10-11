@@ -2,6 +2,7 @@
 
 namespace Storyfeed\Diagnostics\Checks;
 
+use Storyfeed\Diagnostics\Doctor;
 use Storyfeed\Diagnostics\Finding;
 use Storyfeed\StoryfeedManager;
 
@@ -34,6 +35,17 @@ class Recording extends Check
 
     public function run(StoryfeedManager $storyfeed): iterable
     {
+        if (! $storyfeed->usesStorage()) {
+            yield Finding::info(
+                'recording.without_storage',
+                'This app composes and renders feeds only (Storyfeed::withoutStorage()): nothing is recorded, '
+                .'and the checks that read core\'s tables were skipped.',
+                ['skipped' => implode(', ', Doctor::storageCheckNames())],
+            );
+
+            return;
+        }
+
         if ($storyfeed->isRecording()) {
             return;
         }
