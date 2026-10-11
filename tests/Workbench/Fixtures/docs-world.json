@@ -1,0 +1,46 @@
+{
+  "fixture": {
+    "canonicalNow": "2026-07-04T19:00:00Z",
+    "verbs": {
+      "place": { "glyph": "shopping-bag", "headline": ":actor placed :object with :target", "repeat": ":actor placed :count orders with :target" },
+      "pay": { "glyph": "receipt", "headline": ":actor marked :object paid" },
+      "remove": { "glyph": "circle-x", "headline": ":actor removed :object from :target" },
+      "complete": { "glyph": "square-check", "headline": ":actor completed :object on :target", "composite": ":actor completed :count tasks" }
+    },
+    "intents": { "order.place": "pending" },
+    "rows": [
+      { "id": "p1", "at": "2026-07-04T12:00:00Z", "verb": "place", "data": null, "headline": null,
+        "actor": { "type": "user", "id": "101", "label": "Erica Sinclair", "url": "/users/101", "data": null, "body": null,
+          "media": { "icon": { "src": "/avatars/erica.jpg", "mediaType": "image/jpeg", "width": 256, "height": 256, "alt": null } } },
+        "object": { "type": "order", "id": "1001", "label": "Order #1001", "url": "/orders/1001", "data": null, "body": null, "media": null },
+        "target": { "type": "venue", "id": "101", "label": "Scoops Ahoy", "url": "/venues/scoops", "data": null, "body": null, "media": null } },
+      { "id": "p2", "at": "2026-07-04T12:05:00Z", "verb": "place", "data": null, "headline": null,
+        "actor": { "type": "user", "id": "101", "label": "Erica Sinclair", "url": "/users/101", "data": null, "body": null,
+          "media": { "icon": { "src": "/avatars/erica.jpg", "mediaType": "image/jpeg", "width": 256, "height": 256, "alt": null } } },
+        "object": { "type": "order", "id": "1002", "label": "Order #1002", "url": "/orders/1002", "data": null, "body": null, "media": null },
+        "target": { "type": "venue", "id": "101", "label": "Scoops Ahoy", "url": "/venues/scoops", "data": null, "body": null, "media": null } },
+      { "id": "paid", "at": "2026-07-04T12:10:00Z", "verb": "pay", "data": { "amount": 295 }, "headline": null,
+        "actor": { "type": "storyfeed.party", "id": "101", "label": "Stripe", "url": null, "data": null, "body": null, "media": null },
+        "object": { "type": "order", "id": "1001", "label": "Order #1001", "url": "/orders/1001", "data": null, "body": null, "media": null } },
+      { "id": "removed", "at": "2026-07-04T13:00:00Z", "verb": "remove", "data": null, "headline": null,
+        "actor": { "type": "user", "id": "102", "label": "Steve Harrington", "url": "/users/102", "data": null, "body": null, "media": null },
+        "object": { "type": "menu_item", "id": "101", "label": "USS Butterscotch", "url": "/menu/butterscotch", "data": null,
+          "body": [{ "$body": "Storyfeed/Body/Prose", "$v": 2, "content": "A sundae.", "title": "USS Butterscotch" }], "media": null },
+        "target": { "type": "venue", "id": "101", "label": "Scoops Ahoy", "url": "/venues/scoops", "data": null, "body": null, "media": null } },
+      { "id": "t1", "at": "2026-07-04T14:00:00Z", "verb": "complete", "data": null, "headline": null,
+        "actor": { "type": "user", "id": "103", "label": "Robin Buckley", "url": "/users/103", "data": null, "body": null, "media": null },
+        "object": { "type": "task", "id": "201", "label": "Crack the code", "url": "/tasks/201", "data": null, "body": null, "media": null },
+        "target": { "type": "project", "id": "301", "label": "The board", "url": "/projects/board", "data": null, "body": null, "media": null } },
+      { "id": "t2", "at": "2026-07-04T14:30:00Z", "verb": "complete", "data": null, "headline": null,
+        "actor": { "type": "user", "id": "103", "label": "Robin Buckley", "url": "/users/103", "data": null, "body": null, "media": null },
+        "object": { "type": "task", "id": "202", "label": "Map the code", "url": "/tasks/202", "data": null, "body": null, "media": null },
+        "target": { "type": "project", "id": "301", "label": "The board", "url": "/projects/board", "data": null, "body": null, "media": null } },
+      { "id": "later", "at": "2026-07-04T20:00:00Z", "verb": "place", "data": null, "headline": null,
+        "actor": { "type": "user", "id": "101", "label": "Erica Sinclair", "url": "/users/101", "data": null, "body": null, "media": null },
+        "object": { "type": "order", "id": "1003", "label": "Order #1003", "url": "/orders/1003", "data": null, "body": null, "media": null },
+        "target": { "type": "venue", "id": "101", "label": "Scoops Ahoy", "url": "/venues/scoops", "data": null, "body": null, "media": null } }
+    ],
+    "scenes": { "scene.repeats": ["p1", "p2"], "everything": ["p1", "p2", "paid", "removed", "t1", "t2"] },
+    "variants": { "deletion": "removed", "composite": ["t1", "t2"] }
+  }
+}
