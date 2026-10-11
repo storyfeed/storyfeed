@@ -39,7 +39,7 @@ final class WindowedFeedBuilder extends FeedBuilder
     /** @var non-empty-list<int|null> */
     public static array $depths = [null];
 
-    /** @var list<array{floor: ?string, ceiling: ?string}> */
+    /** @var list<array{floor: ?string, ceiling: ?string, within: ?int}> */
     public static array $attempts = [];
 
     protected function windowDepths(): array
@@ -47,11 +47,11 @@ final class WindowedFeedBuilder extends FeedBuilder
         return self::$depths;
     }
 
-    protected function groupAggregate(Carbon $now, ?array $cursor, ?string $floor, ?string $ceiling): Collection
+    protected function groupAggregate(Carbon $now, ?array $cursor, ?string $floor, ?string $ceiling, ?int $within = null): Collection
     {
-        self::$attempts[] = ['floor' => $floor, 'ceiling' => $ceiling];
+        self::$attempts[] = ['floor' => $floor, 'ceiling' => $ceiling, 'within' => $within];
 
-        return parent::groupAggregate($now, $cursor, $floor, $ceiling);
+        return parent::groupAggregate($now, $cursor, $floor, $ceiling, $within);
     }
 }
 
@@ -211,6 +211,20 @@ it('pages identically when the window is deeper than history', function () {
     expect($walks['windowed'])->toBe($walks['oracle'])
         ->and(collect(WindowedFeedBuilder::$attempts)->whereNotNull('floor')->count())->toBe(0)
         ->and(count(WindowedFeedBuilder::$attempts))->toBe(count($walks['windowed']));
+});
+
+it('caps the unbounded aggregate at a depth eligible history does not reach', function () {
+    ['project' => $project] = windowedFixture(53);
+
+    // The tightest cap the floor allows: one more than the eligible activities,
+    // with soft-deleted and future rows still in the entity's participant rows.
+    // One page holds the whole entity, so a cap that cut anything would show.
+    $eligible = collect(walkPages(fn () => (new FeedBuilder)->log()->involving($project)->limit(100)))
+        ->sum(fn (array $page) => count($page['items']));
+    $walks = compareWalks(fn (FeedBuilder $feed) => $feed->live()->involving($project), limit: 100, depths: [$eligible + 1, null]);
+
+    expect($walks['windowed'])->toBe($walks['oracle'])
+        ->and(WindowedFeedBuilder::$attempts[0])->toBe(['floor' => null, 'ceiling' => null, 'within' => $eligible + 1]);
 });
 
 it('reports true member counts, not the windowed ones', function () {

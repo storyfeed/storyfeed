@@ -35,7 +35,7 @@ final class ReadPathOracle extends FeedBuilder
             ->values();
     }
 
-    protected function groupAggregate(Carbon $now, ?array $cursor, ?string $floor, ?string $ceiling): Collection
+    protected function groupAggregate(Carbon $now, ?array $cursor, ?string $floor, ?string $ceiling, ?int $within = null): Collection
     {
         $activities = $this->activityModel()->getTable();
         $groupings = $this->groupingModel()->getTable();
