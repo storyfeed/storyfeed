@@ -148,7 +148,7 @@ class Feedables
         $events = app(Dispatcher::class);
 
         $events->listen("eloquent.saved: {$class}", function (Model $model): void {
-            if (app(StoryfeedManager::class)->isRecording()) {
+            if (app(StoryfeedManager::class)->isRecording() && SnapshotEntity::installed()) {
                 (new SnapshotEntity)($model);
             }
         });

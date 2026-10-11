@@ -31,6 +31,8 @@ use Storyfeed\Testing\StoryfeedFake;
  * @method static \Storyfeed\StoryfeedManager startRecording()
  * @method static mixed withoutRecording(callable $callback)
  * @method static mixed recording(callable $callback)
+ * @method static \Storyfeed\StoryfeedManager withoutStorage()
+ * @method static bool usesStorage()
  * @method static void assertPublished(string|\Storyfeed\Contracts\FeedVerb|\BackedEnum|\Closure $verb, ?\Illuminate\Database\Eloquent\Model $object = null)
  * @method static void assertNotPublished(string|\Storyfeed\Contracts\FeedVerb|\BackedEnum|\Closure $verb, ?\Illuminate\Database\Eloquent\Model $object = null)
  * @method static void assertPublishedCount(int $count, string|\Storyfeed\Contracts\FeedVerb|\BackedEnum|\Closure|null $verb = null)

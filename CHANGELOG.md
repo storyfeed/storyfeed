@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+### Added
+
+- Composer-and-renderer mode (#131): `Storyfeed::withoutStorage()`, called from a service provider's `boot()`, declares that the app composes and renders feeds from its own data and has none of core's tables. Nothing is scheduled (no `storyfeed:curate`, no `storyfeed:prune --bursts`), a Feedable model's save, delete and restore write nothing, and recording an activity (`Storyfeed::activity()`, the `storyfeed()` helper, a Story class, `Storyfeed::publish()`) throws `Storyfeed\Exceptions\StorageDisabled` instead of a SQL error about a missing table. `Storyfeed::compose()`, named sources, the feed file and every kit work as before. `storyfeed:doctor` reports the mode as `recording.without_storage` and skips its `tables` and `maintenance` checks. `storyfeed:install --without-storage` publishes the config and creates `routes/feed.php`, with no migrations and no `.env` line, and prints the declaration to add.
+
+### Changed
+
+- The error for a non-Feedable model role on a composed entry or a source item offers an entity array with its own `media` first.
+
+### Fixed
+
+- Saving a Feedable model no longer fails when the `feed_snapshots` table doesn't exist, with or without `withoutStorage()`: the save writes no snapshot (#131). Before, creating a Feedable model on an app without core's tables threw `Table 'feed_snapshots' doesn't exist`.
+
 ## v0.20.1 - 2026-10-11
 
 ### Added

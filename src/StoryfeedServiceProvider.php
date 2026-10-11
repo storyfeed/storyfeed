@@ -155,6 +155,12 @@ class StoryfeedServiceProvider extends PackageServiceProvider
         ], 'storyfeed-definitions');
 
         $this->app->booted(function () {
+            // Both read and write core's tables, which an app that only
+            // composes and renders doesn't have.
+            if (! $this->app->make(StoryfeedManager::class)->usesStorage()) {
+                return;
+            }
+
             if (config('storyfeed.curate.schedule', true)) {
                 $this->app->make(Schedule::class)
                     ->command('storyfeed:curate', $this->curateWindow())

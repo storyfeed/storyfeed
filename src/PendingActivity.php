@@ -28,6 +28,7 @@ use Storyfeed\Events\ActivityPublished;
 use Storyfeed\Events\Snapshots\ActivitySnapshot;
 use Storyfeed\Exceptions\DottedVerb;
 use Storyfeed\Exceptions\IncompleteActivity;
+use Storyfeed\Exceptions\StorageDisabled;
 use Storyfeed\Exceptions\StoryRoleMismatch;
 use Storyfeed\Exceptions\UnauthoredActivity;
 use Storyfeed\Exceptions\UnknownVerb;
@@ -110,6 +111,12 @@ class PendingActivity
      */
     public function __construct(string|FeedVerb|BackedEnum|null $verb = null, Model|string|array|null $object = null)
     {
+        // At the first call, before an actor or party is looked up in a
+        // table that an app without storage doesn't have.
+        if (! app(StoryfeedManager::class)->usesStorage()) {
+            throw StorageDisabled::recording();
+        }
+
         $model = config('storyfeed.models.activity', Activity::class);
 
         $this->activity = new $model;
