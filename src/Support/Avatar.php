@@ -25,6 +25,9 @@ final class Avatar
 
     public const NEUTRAL = '#6b7280';
 
+    /** The media object of an entity that declared none. */
+    public const EMPTY = ['icon' => null, 'image' => null, 'preview' => null, 'initials' => null, 'color' => null, 'files' => [], 'slots' => []];
+
     /**
      * The media object with the avatar filled in: the given one, or an empty
      * one when the entity declared no media.
@@ -34,7 +37,7 @@ final class Avatar
      */
     public static function fill(?array $media, string $type, ?string $id, ?string $label, bool $tombstone = false): array
     {
-        $media ??= ['icon' => null, 'image' => null, 'preview' => null, 'initials' => null, 'color' => null, 'files' => [], 'slots' => []];
+        $media ??= self::EMPTY;
 
         if ($media['icon'] !== null) {
             return $media;

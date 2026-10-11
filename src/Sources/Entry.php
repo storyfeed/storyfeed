@@ -53,7 +53,8 @@ use Stringable;
  * A role (actor, object, target, context, origin, result, instrument,
  * location, generator) is a model, a party name, or an entity with no model
  * behind it: an array with a `type` and a `label`, and optionally a `url`,
- * an `id`, `data` and a `body`. An entity's `id` defaults to its label. The
+ * an `id`, `data`, a `body` and `media` (its pictures and avatar, as
+ * {@see InlineEntity} reads them). An entity's `id` defaults to its label. The
  * role methods are the recording vocabulary's: `by()`, `on()`, `at()` and
  * the rest set the roles they set on `Storyfeed::activity()`.
  *
@@ -532,6 +533,14 @@ final class Entry
             throw new InvalidArgumentException('An entry with a body needs an object: the body is the object\'s.');
         }
 
+        // An entity with no model behind it has only the pictures it declares,
+        // so a body showing a slot it leaves empty would draw nothing.
+        foreach (ActivityRoles::STORED as $role) {
+            if (is_array($value = $this->{$role})) {
+                InlineEntity::assertSlots($role, self::inline($value, $role === 'object' ? $this->body : null)->body, InlineEntity::media($role, $value['media'] ?? null));
+            }
+        }
+
         if ($this->headline !== null) {
             $unfilled = array_filter(self::roleTokens($this->headline), fn (string $role) => $this->{$role} === null);
 
@@ -751,21 +760,34 @@ final class Entry
         }
 
         $id = (string) ($value['id'] ?? $value['label']);
-        $entity = FeedEntity::make(label: $value['label'], data: $value['data'] ?? [], body: $value['body'] ?? null)->body($body);
+        $entity = self::inline($value, $body);
 
         return [
             (string) $value['type'],
             $id,
-            self::snapshot((string) $value['type'], $id, $entity->label, $entity->data, $entity->body === [] ? null : $entity->body, $value['url'] ?? null),
+            self::snapshot((string) $value['type'], $id, $entity->label, $entity->data, $entity->body === [] ? null : $entity->body, $value['url'] ?? null, InlineEntity::media($role, $value['media'] ?? null)),
             null,
         ];
     }
 
     /**
+     * An entity array as the entity it reads as, with the entry's body when
+     * it is the object.
+     *
+     * @param  array<string, mixed>  $value
+     * @param  string|FeedBody|iterable<mixed>|null  $body
+     */
+    protected static function inline(array $value, string|FeedBody|iterable|null $body): FeedEntity
+    {
+        return FeedEntity::make(label: $value['label'], data: $value['data'] ?? [], body: $value['body'] ?? null)->body($body);
+    }
+
+    /**
      * @param  array<string, mixed>  $data
      * @param  list<array<string, mixed>>|null  $body
+     * @param  array<string, mixed>|null  $media
      */
-    protected static function snapshot(string $type, ?string $id, ?string $label, array $data, ?array $body, ?string $url = null): Snapshot
+    protected static function snapshot(string $type, ?string $id, ?string $label, array $data, ?array $body, ?string $url = null, ?array $media = null): Snapshot
     {
         $model = config('storyfeed.models.snapshot', Snapshot::class);
 
@@ -775,7 +797,7 @@ final class Entry
             'label' => $label,
             'data' => $data,
             'body' => $body,
-            'meta' => $url === null ? [] : ['url' => $url],
+            'meta' => InlineEntity::meta($url, $media),
         ]);
     }
 

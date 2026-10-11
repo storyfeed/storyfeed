@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+### Added
+
+- An entity with no model behind it can declare `media` (#133): `['type' => 'product', 'label' => 'InvoiceJam', 'media' => ['icon' => 'https://…/invoicejam.svg']]`. It takes `icon`, `image` and `preview`, each a URL, a `FeedImage` or its array form (`src`, `mediaType`, `width`, `height`, `alt`), and `initials` and `color`, and it reaches the payload's `media` in the shape a model's `feedMedia()` gives it. So an inline actor draws a picture avatar, and a slot-form `Image` or `MediaObject` body on an inline entity shows the picture it declares. It works on composed entries, array source items and the write path, which stores it with the entity, as it stores its `url`.
+
+### Fixed
+
+- A slot-form `Image` or `MediaObject` body (`Image::make()`, `->image(MediaSlot::Icon)`) on an inline entity of a composed entry or a source item drew nothing and said nothing. It now throws when the entry is added, naming the slot and both ways out: declare the picture in the entity's `media`, or give the body its own (`FeedImage::make()->src($url)`). Model roles are unaffected, and so is the write path.
+
 ## v0.20.0 - 2026-10-10
 
 ### Added

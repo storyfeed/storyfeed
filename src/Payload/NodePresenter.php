@@ -802,8 +802,10 @@ class NodePresenter
             // #92: every entity has an avatar, declared or derived.
             // A party's colour follows its key, which a source files it under
             // too, not the row id the database gave it.
+            // An entity with no model behind it carries the media it declared
+            // in the snapshot, as it carries its href.
             'media' => Avatar::fill(
-                $media?->media(), $type,
+                $media?->media() ?? self::storedMedia($this->snapshotJson($snapshot, 'meta')), $type,
                 $type === Entry::partyAlias() && is_string($data['key'] ?? null) ? $data['key'] : $id,
                 $label, tombstone: $type === FeedTombstone::MORPH_ALIAS,
             ),
@@ -848,6 +850,19 @@ class NodePresenter
         $url = $meta['url'] ?? null;
 
         return is_string($url) && $url !== '' ? ['href' => $url, 'modal' => false, 'attributes' => []] : null;
+    }
+
+    /**
+     * The media an entity with no model behind it declared, or null.
+     *
+     * @param  array<array-key, mixed>|null  $meta
+     * @return array<string, mixed>|null
+     */
+    private static function storedMedia(?array $meta): ?array
+    {
+        $media = $meta['media'] ?? null;
+
+        return is_array($media) ? [...Avatar::EMPTY, ...$media] : null;
     }
 
     /** @return array<string, array<string, mixed>|null> */
