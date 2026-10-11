@@ -7,7 +7,7 @@ use Storyfeed\FeedBody;
 use Stringable;
 
 /**
- * A fragment of text, and where it came from.
+ * A passage of text, and where it came from.
  *
  *     FeedEntity::make()->label($clause->reference)->body(Excerpt::make()->text($clause->text))
  *
@@ -29,12 +29,13 @@ use Stringable;
  * retainer") are the same body type; they differ only in what the attribution
  * points at, which is a field.
  *
- * ## `truncated` exists because the NAME over-claims
+ * ## Complete unless the caller says `truncated()`
  *
- * "Excerpt" asserts the text is partial, and a comment rendered in full is not.
- * The flag is how a caller says otherwise, and it is the honest fix for a name
- * that was chosen for readability over precision — the same trade `Facts` lost
- * and this one wins, narrowly.
+ * "Excerpt" sounds partial, but most excerpts are whole: a comment, a clause, a
+ * note, attributed speech. So the passage is complete by default, and a caller
+ * who shortened the text says `truncated()`. Until v3 the default was the
+ * other way round, and apps wrote `truncated(false)` on almost every excerpt;
+ * forgetting it marked complete text as cut.
  *
  * ## Not a before and after
  *
@@ -52,7 +53,7 @@ class Excerpt extends FeedBody
 
     protected ?string $from = null;
 
-    protected bool $truncated = true;
+    protected bool $truncated = false;
 
     /**
      * Start an excerpt. Every argument is optional and has a method of the
@@ -60,9 +61,9 @@ class Excerpt extends FeedBody
      *
      * @param  mixed  $text  the passage; markup is flattened to text
      * @param  string|null  $from  who or what it came from, when the sentence above does not already say
-     * @param  bool  $truncated  whether this is a fragment of something longer
+     * @param  bool  $truncated  whether the text was cut from something longer
      */
-    protected function __construct(mixed $text = null, ?string $from = null, bool $truncated = true)
+    protected function __construct(mixed $text = null, ?string $from = null, bool $truncated = false)
     {
         $this->from($from)->truncated($truncated);
 
@@ -89,7 +90,7 @@ class Excerpt extends FeedBody
         return $this;
     }
 
-    /** Whether this is a fragment of something longer. True unless told otherwise. */
+    /** Whether the text was cut from something longer. False unless told otherwise. */
     public function truncated(bool $truncated = true): static
     {
         $this->truncated = $truncated;
@@ -115,22 +116,28 @@ class Excerpt extends FeedBody
         return 'Storyfeed/Body/Excerpt';
     }
 
-    /** 2 since 2026-10-09: `from` and `truncated` are written only when they differ from their defaults. */
+    /**
+     * 2 since 2026-10-09: `from` and `truncated` are written only when they
+     * differ from their defaults. 3 since 2026-10-11: `truncated` defaults to
+     * false, so the default that a v2 row left out was true.
+     */
     public static function version(): int
     {
-        return 2;
+        return 3;
     }
 
     public static function upgrade(array $payload, int $from): array
     {
         // Total by contract: a payload from a version this class does not know
         // still has to render, because the row is in the database either way.
-        // A v1 row always wrote `truncated`, so one without it was written by
-        // hand and reads as whole; from v2 an absent flag is the default.
+        // An absent flag means what that version left out: a v1 row always
+        // wrote it, so one without it was written by hand and reads as whole;
+        // v2 left out true; from v3 an absent flag is false. Nothing stored
+        // is rewritten.
         return [
             'text' => is_string($payload['text'] ?? null) ? $payload['text'] : '',
             'from' => is_string($payload['from'] ?? null) ? $payload['from'] : null,
-            'truncated' => (bool) ($payload['truncated'] ?? $from >= 2),
+            'truncated' => (bool) ($payload['truncated'] ?? $from === 2),
         ];
     }
 
@@ -145,7 +152,7 @@ class Excerpt extends FeedBody
 
     protected static function defaults(): array
     {
-        return ['from' => null, 'truncated' => true];
+        return ['from' => null, 'truncated' => false];
     }
 
     /**

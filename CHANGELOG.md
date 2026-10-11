@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Changed
+
+- `Excerpt` is complete by default; call `truncated()` when the text was cut (#152). Most excerpts are whole (a comment, a clause, a note), so apps wrote `truncated(false)` on almost every one, and forgetting it made the kits mark complete text as cut. The body is now v3. Stored rows are not rewritten and keep their meaning: a v2 row without `truncated` still reads as `true`, and a v1 row without it as `false`, as before. A v3 row without it reads as `false`. Renderers that read a body without calling `upgrade()` must apply the new default: an absent `Excerpt.truncated` is `false` from v3. An app that wants an excerpt marked as cut adds `->truncated()`; `->truncated(false)` still works and now writes nothing.
+
 ## v0.20.2 - 2026-10-11
 
 ### Added
