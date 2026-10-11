@@ -435,6 +435,27 @@ it('degrades to classic repeat-only grouping app-wide when curation is disabled'
         ->and(collect($items)->firstWhere('kind', 'group')['count'])->toBe(4);
 });
 
+it('stamps no winners from storyfeed:curate while curation is off, and says why', function (string $options) {
+    config()->set('storyfeed.grouping.curate', false);
+
+    $project = Customer::create(['name' => 'Concur']);
+
+    foreach (['Bob', 'Sally', 'Ann'] as $name) {
+        uploadsTo($project, $name);
+    }
+
+    $this->artisan(trim("storyfeed:curate {$options}"))
+        ->expectsOutputToContain('Curation is off (storyfeed.grouping.curate is false), so there is nothing to curate')
+        ->doesntExpectOutputToContain('Curated')
+        ->assertSuccessful();
+
+    expect(Grouping::query()->whereNotNull('winner')->count())->toBe(0);
+})->with([
+    'a plain run' => [''],
+    'a rehash' => ['--rehash'],
+    'a burst rebuild' => ['--rebuild-bursts --writers-paused'],
+]);
+
 it('keeps an activity solo with curation off when only a stale inferred winner remains', function () {
     $project = Customer::create(['name' => 'Concur']);
 

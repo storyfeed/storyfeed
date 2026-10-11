@@ -19,6 +19,7 @@
 - The Activity Streams document carries the `url` and `media` of an entity with no model behind it (#136). Both reached the JSON payload but not the AS2 output, so its links and pictures were lost there. A link goes out as `url` (as `id` on an actor), and `icon`, `image` and `preview` as Link objects, as a model's `feedMedia()` pictures do.
 - A slot-form `Image` or `MediaObject` body on a party name (`->action('ship', 'Storyfeed')->body(Image::make())`) drew nothing and said nothing (#136). A party name declares no pictures, so it now throws when the entry is added, as an inline entity does, naming the slot and both ways out: pass an entity array that declares the picture in its `media`, or give the body its own.
 - `Headline::toHtml($closure)` draws an empty role through the closure too (#98), as an `Entity::absent()`, so a renderer can put its own element or class on an anonymous actor's "Someone". It used to skip the closure and write the bare words. A closure typed `fn (Entity $entity)` keeps working.
+- `storyfeed:curate` does nothing, and says so, when `storyfeed.grouping.curate` is false (#99). It stamped winners that Live ignores while curation is off, leaving stamps that suggested it was on; `--rehash` and `--rebuild-bursts` are skipped the same way. `--release` still releases dangling composite claims, which render either way, and no longer stamps winners for the members it hands back while curation is off, as prune already did not.
 
 ## v0.20.1 - 2026-10-11
 
