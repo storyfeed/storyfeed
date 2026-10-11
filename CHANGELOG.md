@@ -11,6 +11,7 @@
 ### Changed
 
 - The error for a non-Feedable model role on a composed entry or a source item offers an entity array with its own `media` first.
+- Live orders groups that share an instant by their highest member id, descending (#104), where it ordered them by grouping axis and hash. For a group of one that is its activity's id, so Live and `log()` now read same-instant rows in the same order. The full order is: `published_at` descending (a group's newest member's), then groups before solo activities, then id descending (a group's highest member id), then axis and hash. It holds on stored feeds and sources, and it rests on ids a rehash cannot change, so a live cursor keeps its place across `storyfeed:curate --rehash`. Grouped cursors carry the id, so a cursor minted before this can skip groups tied at its own instant once.
 
 ### Fixed
 

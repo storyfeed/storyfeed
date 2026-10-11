@@ -1366,14 +1366,15 @@ class FeedBuilder
     /**
      * Phase 1 — select one page of FEED ITEMS by merging the grouped and solo
      * streams. Ordering is total by construction: (latest DESC, stream rank
-     * ASC, then a PER-STREAM tiebreak — groups by (axis, hash) ASC, solos by
-     * id DESC), which is what makes the cursor deterministic when several
-     * items share a MAX(published_at) — routine on bulk imports.
+     * ASC, then a PER-STREAM tiebreak — groups by highest member id DESC and
+     * then (axis, hash) ASC, solos by id DESC), which is what makes the
+     * cursor deterministic when several items share a MAX(published_at) —
+     * routine on bulk imports.
      *
-     * THE TWO TIEBREAKS POINT DIFFERENT WAYS ON PURPOSE, and rank is what
-     * makes that safe: every group sorts before every solo at a shared
-     * timestamp, so a group is never tiebroken against a solo and each stream
-     * only has to agree with its own SQL and its own cursor predicate.
+     * Rank keeps the streams apart: every group sorts before every solo at a
+     * shared timestamp, so a group is never tiebroken against a solo and
+     * each stream only has to agree with its own SQL and its own cursor
+     * predicate.
      *
      * Solos descend (2026-08-26) because THAT tiebreak means something: id
      * DESC is newest-first, the same order `logPage()` has always used. While
@@ -1384,11 +1385,16 @@ class FeedBuilder
      * grouping on. On an audit surface "which happened first" is the question,
      * and rows sharing a timestamp are routine on seeds and imports.
      *
-     * Groups keep ascending because (axis, hash) is arbitrary-but-stable
-     * naming, not recency: reversing it would reorder every tied page — the
-     * `actors` group and the `repeat` group swap places — while making no
-     * page more correct. A tiebreak that carries no meaning should not be
-     * churned for symmetry with one that does.
+     * Groups break ties on their highest member id, descending, since #104
+     * (2026-10-11). For a group of one that IS the activity's id, so a group
+     * of one and the same row read through log() agree on order; until then
+     * groups tiebroke on (axis, hash) ascending, and two consumers merging
+     * rows with their own copied log()'s order and got it wrong. The highest
+     * id is the newest member's whenever ids follow publish order, and costs
+     * one more column on the aggregate where the newest member's own id
+     * would cost a second pass. (axis, hash) ascending stays as the last
+     * word: an activity can win more than one group with curation off, so
+     * two groups can share a highest id.
      *
      * Since timestamps carry microseconds (W123, 2026-09-10) a tie is a
      * genuinely simultaneous pair — or a bulk import that stamped one instant
@@ -1407,7 +1413,7 @@ class FeedBuilder
             $groups = $this->groupAggregate($now, $cursor, $floor, $floor === null ? null : $ceiling)
                 ->map(fn (object $row) => FeedCandidate::group(
                     $this->normalizeTimestamp($row->latest), (string) $row->bucket,
-                    (string) $row->hash, (int) $row->members,
+                    (string) $row->hash, (int) $row->members, $row->last_id,
                 ));
             $solos = $this->soloStream($now, $cursor, $floor);
 
@@ -1446,15 +1452,15 @@ class FeedBuilder
      * Only ever called for candidates of the same stream — the rank
      * comparison has already separated the two.
      *
-     * Groups compare on (axis, hash), matching the SQL tuple comparison in
-     * the cursor predicate exactly. Comparing on hash alone would assume no
+     * Groups compare on highest member id, descending, then (axis, hash),
+     * matching the SQL tuple comparison in the cursor predicate exactly. Comparing on hash alone would assume no
      * two axes can ever produce the same hash string — true in practice,
      * but nothing enforces it.
      */
     protected function compareTiebreak(FeedCandidate $a, FeedCandidate $b): int
     {
         if ($a->hash !== null && $b->hash !== null) {
-            return strcmp((string) $a->axis, (string) $b->axis) ?: strcmp($a->hash, $b->hash);
+            return ($b->id <=> $a->id) ?: strcmp((string) $a->axis, (string) $b->axis) ?: strcmp($a->hash, $b->hash);
         }
 
         if ($a->activity !== null && $b->activity !== null) {
@@ -1529,6 +1535,7 @@ class FeedBuilder
             (string) $row->bucket,
             (string) $row->hash,
             (int) $row->members,
+            $row->last_id,
         ));
 
         return $windowed ? $this->recountMembers($now, $groups) : $groups;
@@ -1592,6 +1599,9 @@ class FeedBuilder
         $bucketColumn = $grammar->wrapTable($groupings).'.'.$grammar->wrap('bucket');
         $hashColumn = $grammar->wrapTable($groupings).'.'.$grammar->wrap('hash');
         $latest = 'max(fa.fa_published)';
+        // The highest member id: for a group of one, the activity's own id,
+        // so a group of one orders as the same row does in log().
+        $lastId = 'max('.$grammar->wrapTable($groupings).'.'.$grammar->wrap('activity_id').')';
 
         $filtered = $this->filteredActivities($now)
             ->when($floor !== null, fn (ActivityBuilder $q) => $q->where($publishedAt, '>=', $floor))
@@ -1638,6 +1648,7 @@ class FeedBuilder
             ->groupBy("{$groupings}.bucket", "{$groupings}.hash")
             ->select(["{$groupings}.bucket", "{$groupings}.hash"])
             ->selectRaw("{$latest} as latest")
+            ->selectRaw("{$lastId} as last_id")
             ->selectRaw('count(*) as members')
             ->toBase();
 
@@ -1645,8 +1656,8 @@ class FeedBuilder
         // cursor has already consumed every group in that tie.
         if ($cursor !== null && $cursor['rank'] === self::RANK_GROUP) {
             $query->havingRaw(
-                "({$latest} < ? or ({$latest} = ? and ({$bucketColumn} > ? or ({$bucketColumn} = ? and {$hashColumn} > ?))))",
-                [$cursor['latest'], $cursor['latest'], $cursor['axis'], $cursor['axis'], $cursor['hash']],
+                "({$latest} < ? or ({$latest} = ? and ({$lastId} < ? or ({$lastId} = ? and ({$bucketColumn} > ? or ({$bucketColumn} = ? and {$hashColumn} > ?))))))",
+                [$cursor['latest'], $cursor['latest'], $cursor['id'], $cursor['id'], $cursor['axis'], $cursor['axis'], $cursor['hash']],
             );
         } elseif ($cursor !== null) {
             $query->havingRaw("{$latest} < ?", [$cursor['latest']]);
@@ -1655,6 +1666,7 @@ class FeedBuilder
         if ($ceiling === null) {
             return $query
                 ->orderByRaw("{$latest} desc")
+                ->orderByRaw("{$lastId} desc")
                 ->orderBy("{$groupings}.bucket")
                 ->orderBy("{$groupings}.hash")
                 ->limit($this->limit + 1)
@@ -1677,6 +1689,7 @@ class FeedBuilder
             ->fromSub($query, 'windowed')
             ->whereNotExists($newer)
             ->orderBy('latest', 'desc')
+            ->orderBy('last_id', 'desc')
             ->orderBy('bucket')
             ->orderBy('hash')
             ->limit($this->limit + 1)
@@ -1711,6 +1724,7 @@ class FeedBuilder
             (string) $group->axis,
             (string) $group->hash,
             (int) ($counts->get($this->groupKey($group))->members ?? $group->count),
+            $group->id,
         ));
     }
 
@@ -2287,7 +2301,7 @@ class FeedBuilder
             'rank' => $this->rank($candidate),
             'axis' => $candidate->axis,
             'hash' => $candidate->hash,
-            'id' => $candidate->activity?->getKey(),
+            'id' => $candidate->id,
             ...$this->cursorScope(),
         ]))->encode();
     }

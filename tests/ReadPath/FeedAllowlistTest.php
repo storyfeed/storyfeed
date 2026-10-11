@@ -176,7 +176,8 @@ it('leaks no excluded actor into the distinct-role counts', function () {
     Storyfeed::activity()->actor($priya)->verb('order_confirmed', $file)->to($this->project)->publish();
     Storyfeed::activity()->actor($priya)->verb('order_margin_note', $file)->to($this->project)->publish();
 
-    $unfiltered = $this->project->storyfeed()->get()->toArray()[0];
+    // Priya's margin note shares the instant and is newer, so it reads first.
+    $unfiltered = collect($this->project->storyfeed()->get()->toArray())->firstWhere('kind', 'group');
 
     expect($unfiltered['distinct']['actors'])->toBe(3);
 

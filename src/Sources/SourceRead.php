@@ -174,7 +174,7 @@ final class SourceRead
                 ->values();
 
             $candidates->push([
-                FeedCandidate::group(self::stamp($members->first()), $axis, $hash, $members->count()),
+                FeedCandidate::group(self::stamp($members->first()), $axis, $hash, $members->count(), $members->max(fn (Activity $member) => $member->getKey())),
                 $members,
             ]);
         }
@@ -357,9 +357,8 @@ final class SourceRead
 
         return strcmp($b->latest, $a->latest)
             ?: (self::rank($a) <=> self::rank($b))
-            ?: ($a->isGroup()
-                ? strcmp((string) $a->axis, (string) $b->axis) ?: strcmp((string) $a->hash, (string) $b->hash)
-                : $b->activity?->getKey() <=> $a->activity?->getKey());
+            ?: ($b->id <=> $a->id)
+            ?: strcmp((string) $a->axis, (string) $b->axis) ?: strcmp((string) $a->hash, (string) $b->hash);
     }
 
     /** @param  array{latest: string, rank: int, axis: string|null, hash: string|null, id: int|string|null}  $cursor */
@@ -371,9 +370,8 @@ final class SourceRead
 
         return strcmp($cursor['latest'], $candidate->latest)
             ?: (self::rank($candidate) <=> $cursor['rank'])
-            ?: ($candidate->isGroup()
-                ? strcmp((string) $candidate->axis, (string) $cursor['axis']) ?: strcmp((string) $candidate->hash, (string) $cursor['hash'])
-                : $cursor['id'] <=> $candidate->activity?->getKey());
+            ?: ($cursor['id'] <=> $candidate->id)
+            ?: strcmp((string) $candidate->axis, (string) $cursor['axis']) ?: strcmp((string) $candidate->hash, (string) $cursor['hash']);
     }
 
     protected static function rank(FeedCandidate $candidate): int
@@ -422,7 +420,7 @@ final class SourceRead
             'rank' => self::rank($candidate),
             'axis' => $candidate->axis,
             'hash' => $candidate->hash,
-            'id' => $candidate->activity?->getKey(),
+            'id' => $candidate->id,
         ]))->encode();
     }
 

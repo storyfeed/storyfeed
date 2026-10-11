@@ -17,16 +17,22 @@ final class FeedCandidate
         public readonly ?string $hash,
         public readonly int $count,
         public readonly ?Activity $activity,
+        public readonly int|string|null $id,
     ) {}
 
-    public static function group(string $latest, string $axis, string $hash, int $count): self
+    /**
+     * @param  int|string|null  $id  the highest member id, the group's tiebreak
+     *                               at a shared `latest`; null where nothing
+     *                               is ordered by it
+     */
+    public static function group(string $latest, string $axis, string $hash, int $count, int|string|null $id = null): self
     {
-        return new self($latest, $axis, $hash, $count, null);
+        return new self($latest, $axis, $hash, $count, null, $id);
     }
 
     public static function solo(string $latest, Activity $activity): self
     {
-        return new self($latest, null, null, 1, $activity);
+        return new self($latest, null, null, 1, $activity, $activity->getKey());
     }
 
     public function isGroup(): bool

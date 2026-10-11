@@ -32,24 +32,25 @@ it('keeps stored hashes after a recipe change until the existing curate rehash c
         ->and(SyncToken::current())->not->toBe($token);
 });
 
-it('requires a fresh page after rehash moves an unread group before a live cursor', function () {
+it('keeps a live cursor\'s place across a rehash, since tied groups order by member id', function () {
     Storyfeed::axes([Axis::make('repeat')->key('v')->fallback()], merge: false);
     $at = now();
     $first = Storyfeed::activity('middle')->publishedAt($at)->publish();
-    $unread = Storyfeed::activity('zebra')->publishedAt($at)->publish();
+    $second = Storyfeed::activity('zebra')->publishedAt($at)->publish();
     $page = Storyfeed::feed()->live()->limit(1)->cursorPaginate()->toArray();
 
-    expect($page['data'][0]['id'])->toBe($first->uid)
+    // Newest first at one instant, as log() reads them.
+    expect($page['data'][0]['id'])->toBe($second->uid)
         ->and($page['next_cursor'])->not->toBeNull();
 
+    // A rehash renames both groups. Their order rests on their ids, which
+    // it cannot change, so the cursor's next page is still the older row.
     Storyfeed::axes([
-        Axis::make('repeat')->key(fn ($activity) => $activity->verb === 'zebra' ? 'alpha' : 'middle')->fallback(),
+        Axis::make('repeat')->key(fn ($activity) => $activity->verb === 'middle' ? 'zulu' : 'alpha')->fallback(),
     ], merge: false);
     $this->artisan('storyfeed:curate --rehash')->assertSuccessful();
     $next = Storyfeed::feed()->live()->limit(1)->cursorPaginate(cursor: $page['next_cursor'])->toArray();
-    $fresh = Storyfeed::feed()->live()->cursorPaginate()->toArray();
 
-    expect($next['data'])->toBeEmpty()
-        ->and($next['sync_token'])->not->toBe($page['sync_token'])
-        ->and(array_column($fresh['data'], 'id'))->toContain($first->uid, $unread->uid);
+    expect(array_column($next['data'], 'id'))->toBe([$first->uid])
+        ->and($next['sync_token'])->not->toBe($page['sync_token']);
 });
