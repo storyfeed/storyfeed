@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
+use Storyfeed\Models\Snapshot;
 use Throwable;
 
 /**
@@ -56,6 +57,13 @@ use Throwable;
  * one for every page (NodePresenter::forPage()), for the same reason it
  * takes its feed name by copy rather than setter.
  *
+ * AN INSTANCE IN HAND IS NOT QUERIED FOR. A composed entry or a source item
+ * names its roles with the model itself, so core already holds it; loading
+ * it again would cost a query on a feed that otherwise runs none, and an
+ * unsaved model has no row to load at all. Such an instance is remembered
+ * here and handed back as it is (#138). `with:` and `withCount:` still
+ * apply, across every instance of the class on the page at once.
+ *
  * THE OFF SWITCH. `storyfeed.hydration.enabled = false` makes every call
  * answer null with no query and no exception, for an application that
  * needs a no-queries guarantee on a hot surface. Links degrade; nothing
@@ -77,6 +85,9 @@ final class ModelHydrator
 
     /** @var array<string, array<string, true>> batch key => aggregate names already counted */
     private array $counts = [];
+
+    /** @var array<int, true> spl_object_id => true, the instances already remembered */
+    private array $remembered = [];
 
     /** @var array<string, true> morph aliases whose resolver asked for a model — the seam for the doctor (issue #5) */
     private array $requested = [];
@@ -144,6 +155,93 @@ final class ModelHydrator
         }
 
         return $this->loaded[$key][$id] ?? null;
+    }
+
+    /**
+     * The model a composed entry or source item named a role with, carried
+     * on the snapshot built for it in memory. A stored snapshot carries
+     * none: the database feed hydrates as it always has.
+     *
+     * @internal
+     */
+    public static function carried(?Snapshot $snapshot): ?Model
+    {
+        if ($snapshot === null || $snapshot->exists || ! $snapshot->relationLoaded('model')) {
+            return null;
+        }
+
+        $model = $snapshot->getRelation('model');
+
+        return $model instanceof Model ? $model : null;
+    }
+
+    /**
+     * Hold an instance the page already has, so a relation or count asked
+     * for later loads across every instance of its class in one query. A
+     * saved instance also answers model() for its key, so it is never
+     * loaded again. Answers whether the instance is new to the map.
+     */
+    public function remember(Model $model): bool
+    {
+        if (isset($this->remembered[spl_object_id($model)])) {
+            return false;
+        }
+
+        $this->remembered[spl_object_id($model)] = true;
+        $key = $model::class;
+        $this->loaded[$key] ??= [];
+        $this->collections[$key] ??= new EloquentCollection;
+        $this->collections[$key]->push($model);
+
+        if ($model->exists && $model->getKey() !== null) {
+            $this->loaded[$key][(string) $model->getKey()] ??= $model;
+        }
+
+        return true;
+    }
+
+    /**
+     * The instance a context was built with, handed back as it is: no query
+     * for the model itself, whether or not it was ever saved. Relations and
+     * counts load as they do for a hydrated model, batched across the class;
+     * `withTrashed` is moot for a model already in hand. Null only when
+     * hydration is switched off, as for every other call.
+     *
+     * @param  array<int|string, mixed>  $with  relations to eager load, in the shape Builder::with() accepts
+     * @param  array<int|string, mixed>  $withCount  relations to count, in the shape Builder::withCount() accepts
+     */
+    public function instance(string $type, Model $model, array $with = [], array $withCount = []): ?Model
+    {
+        $this->requested[$type] = true;
+
+        if (! $this->enabled) {
+            return null;
+        }
+
+        $key = $model::class;
+        $late = $this->remember($model);
+
+        try {
+            if ($with !== []) {
+                $this->loadRelations($key, $with);
+
+                // An instance remembered after the class's relations were
+                // loaded missed that batch; this is no query when it did not.
+                $model->loadMissing($with);
+            }
+
+            if ($withCount !== []) {
+                if ($late && $model->exists) {
+                    $model->loadCount($withCount);
+                } elseif (! $late) {
+                    $this->loadCounts($key, $withCount);
+                }
+            }
+        } catch (Throwable $e) {
+            report($e);
+        }
+
+        return $model;
     }
 
     /**
@@ -250,12 +348,15 @@ final class ModelHydrator
             }
         }
 
-        if ($missing === [] || $this->collections[$key]->isEmpty()) {
+        // Only rows can be counted: an unsaved instance has none to count.
+        $models = $this->collections[$key]->filter(fn (Model $model) => $model->exists);
+
+        if ($missing === [] || $models->isEmpty()) {
             return;
         }
 
         try {
-            $this->collections[$key]->loadCount($missing);
+            $models->loadCount($missing);
         } catch (Throwable $e) {
             report($e);
         }

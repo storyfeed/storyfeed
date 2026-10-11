@@ -13,6 +13,7 @@
 ### Fixed
 
 - Saving a Feedable model no longer fails when the `feed_snapshots` table doesn't exist, with or without `withoutStorage()`: the save writes no snapshot (#131). Before, creating a Feedable model on an app without core's tables threw `Table 'feed_snapshots' doesn't exist`.
+- `$context->model()` in a `feedMedia()` resolver returns the model a composed entry or a source item named the role with (#138). It returned `null` for an unsaved model, so a resolver that read the model gave no link or media, and it queried a saved model again on a feed that otherwise runs no query. It now hands back that instance with no query. `with:` and `withCount:` load onto it, batched across the page's instances of the class; `withTrashed:` is moot. Stored activities hydrate from the database as before.
 
 ## v0.20.1 - 2026-10-11
 

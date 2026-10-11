@@ -746,6 +746,11 @@ final class Entry
                 $snapshot->body = [...($snapshot->body ?? []), ...FeedEntity::make(body: $body)->body];
             }
 
+            // The instance rides on the in-memory snapshot, so a resolver's
+            // $context->model() gets it back with no query: a saved model is
+            // not loaded again, and an unsaved one is not lost (#138).
+            $snapshot?->setRelation('model', $value);
+
             return [$value->getMorphClass(), MorphKeyType::value($value->getKey()), $snapshot, $value];
         }
 

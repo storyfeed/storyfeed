@@ -30,6 +30,7 @@ final class ActivityContextFactory
                 feed: $feed,
                 hydrator: $hydrator,
                 routeKey: $snapshot->meta['route_key'] ?? null,
+                model: ModelHydrator::carried($snapshot),
             );
         }
 
