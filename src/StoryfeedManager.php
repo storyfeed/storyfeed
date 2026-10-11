@@ -16,6 +16,8 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
 use LogicException;
+use Storyfeed\Actions\DeleteFromFeed;
+use Storyfeed\Actions\ForceDeleteFromFeed;
 use Storyfeed\Actions\TombstoneEntity;
 use Storyfeed\ActivityStreams\ActivityType;
 use Storyfeed\ActivityStreams\CoreType;
@@ -2369,6 +2371,31 @@ class StoryfeedManager
             : $type;
 
         return (new TombstoneEntity)->missing($alias, is_iterable($ids) ? $ids : [$ids]);
+    }
+
+    /**
+     * Soft-delete every activity involving a model, as the trait's
+     * `deleteFromFeed()` does, for a model registered with `feedable()`:
+     *
+     *     Storyfeed::deleteFromFeed($media);
+     *
+     * Never called automatically: a deleted model leaves a tombstone, and
+     * its activities stay.
+     */
+    public function deleteFromFeed(Model $model): void
+    {
+        (new DeleteFromFeed)($model);
+    }
+
+    /**
+     * Permanently delete every activity involving a model, including those
+     * already soft-deleted, and everything that points at them: erasure, as
+     * the trait's `forceDeleteFromFeed()` does, for a model registered with
+     * `feedable()`. Never called automatically.
+     */
+    public function forceDeleteFromFeed(Model $model): void
+    {
+        (new ForceDeleteFromFeed)($model);
     }
 
     /**

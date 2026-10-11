@@ -66,6 +66,8 @@ use Storyfeed\Testing\StoryfeedFake;
  * @method static array<string, \Storyfeed\ActivityStreams\ObjectType|string> registeredObjectTypes()
  * @method static \Storyfeed\FeedableRegistration<TModel> feedable<TModel of \Illuminate\Database\Eloquent\Model>(class-string<TModel> $class)
  * @method static list<\Storyfeed\Models\FeedTombstone> tombstone(string $type, iterable<int|string>|int|string $ids)
+ * @method static void deleteFromFeed(\Illuminate\Database\Eloquent\Model $model)
+ * @method static void forceDeleteFromFeed(\Illuminate\Database\Eloquent\Model $model)
  * @method static \Storyfeed\StoryfeedManager guessFeedLabelsUsing((\Closure(\Illuminate\Database\Eloquent\Model): ?string)|null $guesser)
  * @method static void resolveActorUsing(\Closure $resolver)
  * @method static \Illuminate\Database\Eloquent\Model|null resolveActor()
