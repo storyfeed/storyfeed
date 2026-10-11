@@ -21,8 +21,8 @@ use Storyfeed\MediaSlot;
  */
 dataset('fluent and named bodies', fn () => [
     'Excerpt' => [
-        fn () => Excerpt::make()->text('Fine by me.')->from('Jasper')->truncated(false),
-        fn () => Excerpt::make('Fine by me.', from: 'Jasper', truncated: false),
+        fn () => Excerpt::make()->text('The fee for each subsequent term…')->from('Harbor Retainer')->truncated(),
+        fn () => Excerpt::make('The fee for each subsequent term…', from: 'Harbor Retainer', truncated: true),
     ],
     'FileAttachment' => [
         fn () => FileAttachment::make()->size(4200)->mediaType('application/zip')->name('archive.zip'),
