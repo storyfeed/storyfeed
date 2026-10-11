@@ -6,6 +6,10 @@
 
 - `ActivityType` no longer implements `FeedVerb` and has no `verb()` or `activityType()` method: it is the Activity Streams vocabulary only (#97). Author with `Act`, which reaches every activity type: `Act::Create` for `ActivityType::Create`, `Act::TentativelyAccept` for `ActivityType::TentativeAccept`. Mapping a verb to an `ActivityType` (`activityType()` on an app enum, `Storyfeed::verbs()`, `->type()`) is unchanged.
 
+### Fixed
+
+- A group whose verb has no group headline no longer reads "added a menu item, items" (#163). When core words a group from the verb's single-activity headline, it swaps a token whose members differ for the plural noun ("Sally uploaded files"). It now leaves a token that comes right after `,` `:` or `(`, or before `'s`, since a plural noun reads wrong there, and the group shows the verb label. Register a group headline to word it.
+
 ## v0.20.4 - 2026-10-11
 
 ### Fixed
