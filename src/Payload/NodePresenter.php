@@ -122,6 +122,13 @@ class NodePresenter
                     $id = $roles["{$role}_id"] ?? null;
                     $hydrator->seed($type, $id);
 
+                    // A composed entry's instance is already in hand: held, not
+                    // queried, so its class's relations batch with the rest.
+                    if (! $activity->exists && $activity->relationLoaded('cached'.ucfirst($role))
+                        && ($model = ModelHydrator::carried($activity->getRelation('cached'.ucfirst($role)))) !== null) {
+                        $hydrator->remember($model);
+                    }
+
                     if ($type === FeedTombstone::MORPH_ALIAS && $id !== null) {
                         $tombstoneIds[(string) $id] = true;
                     }
@@ -783,6 +790,7 @@ class NodePresenter
             feed: $this->feed,
             hydrator: $this->hydrator ?? new ModelHydrator,
             routeKey: $this->snapshotJson($snapshot, 'meta')['route_key'] ?? null,
+            model: ModelHydrator::carried($snapshot),
         ));
 
         $label = $media->label ?? $this->snapshotPlain($snapshot, 'label');

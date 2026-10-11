@@ -16,6 +16,7 @@ use Storyfeed\Exceptions\UnknownStory;
 use Storyfeed\Facades\Story;
 use Storyfeed\Facades\Storyfeed;
 use Storyfeed\Models\Activity;
+use Storyfeed\Models\Batch;
 use Storyfeed\Models\Party;
 use Storyfeed\Models\Snapshot;
 use Storyfeed\PendingActivity;
@@ -99,6 +100,18 @@ it('queues a publish, and the worker publishes it at the time it was queued', fu
         ->and($activity->object_id)->toEqual($delivery->id)
         ->and($activity->published_at->equalTo($queuedAt))->toBeTrue()
         ->and(DB::table('jobs')->count())->toBe(0);
+});
+
+it('carries batch meta to the worker', function () {
+    $ines = User::create(['name' => 'Ines', 'email' => 'ines@example.com']);
+
+    Storyfeed::activity('ship', queuedPublishingDelivery())->actor($ines)->meta(['source' => 'csv'])->queue();
+
+    expect(Batch::query()->count())->toBe(0);
+
+    queuedPublishingWork();
+
+    expect(Batch::sole()->meta)->toBe(['source' => 'csv']);
 });
 
 it('publishes at once on the sync connection', function () {

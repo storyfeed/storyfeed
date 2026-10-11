@@ -21,11 +21,19 @@ use Storyfeed\MediaSlot;
 dataset('rows the previous version wrote', fn () => [
     'Excerpt' => [
         fn () => Excerpt::make('Fine by me.'),
-        1, ['text' => 'Fine by me.', 'from' => null, 'truncated' => true],
+        1, ['text' => 'Fine by me.', 'from' => null, 'truncated' => false],
     ],
-    'Excerpt, whole and attributed' => [
-        fn () => Excerpt::make('Fine by me.', from: 'Jasper', truncated: false),
-        1, ['text' => 'Fine by me.', 'from' => 'Jasper', 'truncated' => false],
+    'Excerpt, cut and attributed' => [
+        fn () => Excerpt::make('The fee for each…', from: 'Harbor Retainer', truncated: true),
+        1, ['text' => 'The fee for each…', 'from' => 'Harbor Retainer', 'truncated' => true],
+    ],
+    'Excerpt, from a v2 row' => [
+        fn () => Excerpt::make('Fine by me.'),
+        2, ['text' => 'Fine by me.', 'truncated' => false],
+    ],
+    'Excerpt, cut, from a v2 row' => [
+        fn () => Excerpt::make('The fee for each…')->truncated(),
+        2, ['text' => 'The fee for each…'],
     ],
     'FileAttachment, empty' => [
         fn () => FileAttachment::make(),
@@ -108,7 +116,7 @@ it('renders a slim row exactly as the full row the previous version wrote', func
 })->with('rows the previous version wrote');
 
 it('writes nothing but the envelope and the data for a body left at its defaults', function () {
-    expect(Excerpt::make('A')->toPayload())->toBe(['$body' => Excerpt::bodyType(), '$v' => 2, 'text' => 'A'])
+    expect(Excerpt::make('A')->toPayload())->toBe(['$body' => Excerpt::bodyType(), '$v' => 3, 'text' => 'A'])
         ->and(FileAttachment::make()->toPayload())->toBe(['$body' => FileAttachment::bodyType(), '$v' => 2])
         ->and(Image::make()->toPayload())->toBe(['$body' => Image::bodyType(), '$v' => 3, 'image' => 'preview'])
         ->and(Component::make('Card')->toPayload())->toBe(['$body' => Component::bodyType(), '$v' => 2, 'name' => 'Card'])

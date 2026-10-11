@@ -16,6 +16,8 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
 use LogicException;
+use Storyfeed\Actions\DeleteFromFeed;
+use Storyfeed\Actions\ForceDeleteFromFeed;
 use Storyfeed\Actions\TombstoneEntity;
 use Storyfeed\ActivityStreams\ActivityType;
 use Storyfeed\ActivityStreams\CoreType;
@@ -30,6 +32,7 @@ use Storyfeed\Contracts\PublishesToFeed;
 use Storyfeed\Diagnostics\Doctor;
 use Storyfeed\Diagnostics\Report;
 use Storyfeed\Exceptions\DottedVerb;
+use Storyfeed\Exceptions\StorageDisabled;
 use Storyfeed\Exceptions\StoryMisconfigured;
 use Storyfeed\Exceptions\StoryNotFound;
 use Storyfeed\Exceptions\StoryObjectMismatch;
@@ -115,6 +118,9 @@ class StoryfeedManager
      * one — the same reason Pulse keeps `$shouldRecord` on its singleton.
      */
     protected ?bool $recording = null;
+
+    /** False once the app declares withoutStorage(): it composes and renders, and has no tables. */
+    protected bool $storage = true;
 
     /** @var array<string, string|Closure|FeedHeadline> */
     protected array $grammar = [];
@@ -523,6 +529,7 @@ class StoryfeedManager
      * @param  Model|string|array<string, mixed>|null  $instrument
      * @param  Model|string|array<string, mixed>|null  $location
      * @param  Model|string|array<string, mixed>|null  $generator
+     * @param  array<string, mixed>  $meta  for the batch the activity joins; see PendingActivity::meta()
      */
     public function record(
         string|FeedVerb|BackedEnum $verb,
@@ -541,6 +548,7 @@ class StoryfeedManager
         DateTimeInterface|string|null $endsAt = null,
         Model|string|array|null $location = null,
         Model|string|array|null $generator = null,
+        array $meta = [],
     ): Activity {
         if ($actor !== null && $anonymous) {
             throw new LogicException('record() was given an actor and anonymous: true; an anonymous activity has no actor.');
@@ -561,6 +569,7 @@ class StoryfeedManager
             ->when($startsAt !== null, fn (PendingActivity $a) => $a->startsAt($startsAt))
             ->when($endsAt !== null, fn (PendingActivity $a) => $a->endsAt($endsAt))
             ->when($anonymous, fn (PendingActivity $a) => $a->anonymously())
+            ->when($meta !== [], fn (PendingActivity $a) => $a->meta($meta))
             ->publish();
     }
 
@@ -571,7 +580,37 @@ class StoryfeedManager
      */
     public function isRecording(): bool
     {
-        return $this->recording ?? (bool) config('storyfeed.recording.enabled', true);
+        return $this->storage && ($this->recording ?? (bool) config('storyfeed.recording.enabled', true));
+    }
+
+    /**
+     * Use Storyfeed to compose and render only, with none of its tables:
+     *
+     *     public function boot(): void
+     *     {
+     *         Storyfeed::withoutStorage();
+     *     }
+     *
+     * Called from a service provider, as `JsonResource::withoutWrapping()`
+     * is. From then on nothing is scheduled, a Feedable model's save and
+     * delete write nothing, and recording an activity throws
+     * StorageDisabled rather than a SQL error about a missing table.
+     * Storyfeed::compose() and every kit still work.
+     *
+     * Process-scoped like the recording switch, so a test can declare it
+     * without leaking into the next one.
+     */
+    public function withoutStorage(): static
+    {
+        $this->storage = false;
+
+        return $this;
+    }
+
+    /** Whether this app stores its feed, false after withoutStorage(). */
+    public function usesStorage(): bool
+    {
+        return $this->storage;
     }
 
     /**
@@ -1403,6 +1442,10 @@ class StoryfeedManager
      */
     public function publish(Story $story): ?Activity
     {
+        if (! $this->storage) {
+            throw StorageDisabled::recording();
+        }
+
         PublishQueuedStory::ensureNotDebounced($story);
 
         if (! $story instanceof ShouldQueue) {
@@ -2334,6 +2377,31 @@ class StoryfeedManager
     }
 
     /**
+     * Soft-delete every activity involving a model, as the trait's
+     * `deleteFromFeed()` does, for a model registered with `feedable()`:
+     *
+     *     Storyfeed::deleteFromFeed($media);
+     *
+     * Never called automatically: a deleted model leaves a tombstone, and
+     * its activities stay.
+     */
+    public function deleteFromFeed(Model $model): void
+    {
+        (new DeleteFromFeed)($model);
+    }
+
+    /**
+     * Permanently delete every activity involving a model, including those
+     * already soft-deleted, and everything that points at them: erasure, as
+     * the trait's `forceDeleteFromFeed()` does, for a model registered with
+     * `feedable()`. Never called automatically.
+     */
+    public function forceDeleteFromFeed(Model $model): void
+    {
+        (new ForceDeleteFromFeed)($model);
+    }
+
+    /**
      * Guess the label of every model whose feed code sets none, app-wide:
      *
      *     Storyfeed::guessFeedLabelsUsing(fn (Model $model) => $model->reference);
@@ -2921,7 +2989,8 @@ class StoryfeedManager
             return $model::make($name);
         }
 
-        return $model::find($name) ?? $this->unsavedParty($name);
+        // Without storage there is no table to find it in.
+        return ($this->storage ? $model::find($name) : null) ?? $this->unsavedParty($name);
     }
 
     protected function unsavedParty(string $name): Party

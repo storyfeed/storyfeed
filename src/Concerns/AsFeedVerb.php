@@ -98,6 +98,7 @@ trait AsFeedVerb
      * @param  Model|string|array<string, mixed>|null  $instrument
      * @param  Model|string|array<string, mixed>|null  $location
      * @param  Model|string|array<string, mixed>|null  $generator
+     * @param  array<string, mixed>  $meta
      */
     public function record(
         Model|string|array|null $object = null,
@@ -114,6 +115,7 @@ trait AsFeedVerb
         DateTimeInterface|string|null $endsAt = null,
         Model|string|array|null $location = null,
         Model|string|array|null $generator = null,
+        array $meta = [],
     ): Activity {
         return storyfeed()->record(
             verb: $this,
@@ -131,6 +133,7 @@ trait AsFeedVerb
             endsAt: $endsAt,
             location: $location,
             generator: $generator,
+            meta: $meta,
         );
     }
 
@@ -362,6 +365,14 @@ trait AsFeedVerb
     public function data(array|Arrayable $data): PendingActivity
     {
         return $this->of()->data($data);
+    }
+
+    /**
+     * @param  array<string, mixed>  $meta
+     */
+    public function meta(array $meta): PendingActivity
+    {
+        return $this->of()->meta($meta);
     }
 
     public function publishedAt(DateTimeInterface|string $date): PendingActivity

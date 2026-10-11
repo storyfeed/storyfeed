@@ -12,6 +12,10 @@ use Storyfeed\Stories\DefinitionsFile;
  * migrate. The analogue of
  * `install:broadcasting` creating `routes/channels.php`.
  *
+ * `--without-storage` is for an app that composes and renders feeds from its
+ * own data: no migrations, no snapshot setting, and the line that declares
+ * the mode, `Storyfeed::withoutStorage()`, to add to a service provider.
+ *
  * IT NEVER OVERWRITES the definitions file. An app may already use
  * `routes/feed.php` for its own RSS or feed-page routes, so an existing file
  * is left alone, and the command says how to point Storyfeed elsewhere.
@@ -22,21 +26,32 @@ use Storyfeed\Stories\DefinitionsFile;
 class InstallCommand extends Command
 {
     protected $signature = 'storyfeed:install
-        {--without-migrations : Publish no migrations}';
+        {--without-migrations : Publish no migrations}
+        {--without-storage : Compose and render only, with no tables or recording}';
 
     protected $description = 'Publish Storyfeed\'s config and migrations, and create routes/feed.php';
 
     public function handle(DefinitionsFile $file, Filesystem $files): int
     {
+        $storage = ! $this->option('without-storage');
+
         $this->callSilently('vendor:publish', ['--tag' => 'storyfeed-config']);
         $this->components->info('Published config/storyfeed.php.');
 
-        if (! $this->option('without-migrations')) {
+        if ($storage && ! $this->option('without-migrations')) {
             $this->callSilently('vendor:publish', ['--tag' => 'storyfeed-migrations']);
             $this->components->info('Published the migrations.');
         }
 
         $this->createDefinitionsFile($file, $files);
+
+        if (! $storage) {
+            $this->components->info('Declare it in AppServiceProvider::boot(), so nothing is scheduled or recorded:');
+            $this->line('  Storyfeed::withoutStorage();');
+
+            return self::SUCCESS;
+        }
+
         $this->writeEnvironment($files);
 
         if (! $this->option('without-migrations')

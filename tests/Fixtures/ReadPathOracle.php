@@ -44,6 +44,7 @@ final class ReadPathOracle extends FeedBuilder
         $bucketColumn = $grammar->wrapTable($groupings).'.'.$grammar->wrap('bucket');
         $hashColumn = $grammar->wrapTable($groupings).'.'.$grammar->wrap('hash');
         $latest = 'max(fa.fa_published)';
+        $lastId = 'max(fa.fa_id)';
 
         $filtered = $this->filteredActivities($now)
             ->when($floor !== null, fn (ActivityBuilder $q) => $q->where("{$activities}.published_at", '>=', $floor))
@@ -56,6 +57,7 @@ final class ReadPathOracle extends FeedBuilder
             ->groupBy("{$groupings}.bucket", "{$groupings}.hash")
             ->select(["{$groupings}.bucket", "{$groupings}.hash"])
             ->selectRaw("{$latest} as latest")
+            ->selectRaw("{$lastId} as last_id")
             ->selectRaw('count(*) as members')
             ->toBase();
 
@@ -63,8 +65,8 @@ final class ReadPathOracle extends FeedBuilder
         // cursor has already consumed every group in that tie.
         if ($cursor !== null && $cursor['rank'] === self::RANK_GROUP) {
             $query->havingRaw(
-                "({$latest} < ? or ({$latest} = ? and ({$bucketColumn} > ? or ({$bucketColumn} = ? and {$hashColumn} > ?))))",
-                [$cursor['latest'], $cursor['latest'], $cursor['axis'], $cursor['axis'], $cursor['hash']],
+                "({$latest} < ? or ({$latest} = ? and ({$lastId} < ? or ({$lastId} = ? and ({$bucketColumn} > ? or ({$bucketColumn} = ? and {$hashColumn} > ?))))))",
+                [$cursor['latest'], $cursor['latest'], $cursor['id'], $cursor['id'], $cursor['axis'], $cursor['axis'], $cursor['hash']],
             );
         } elseif ($cursor !== null) {
             $query->havingRaw("{$latest} < ?", [$cursor['latest']]);
@@ -73,6 +75,7 @@ final class ReadPathOracle extends FeedBuilder
         if ($ceiling === null) {
             return $query
                 ->orderByRaw("{$latest} desc")
+                ->orderByRaw("{$lastId} desc")
                 ->orderBy("{$groupings}.bucket")
                 ->orderBy("{$groupings}.hash")
                 ->limit($this->limit + 1)
@@ -95,6 +98,7 @@ final class ReadPathOracle extends FeedBuilder
             ->fromSub($query, 'windowed')
             ->whereNotExists($newer)
             ->orderBy('latest', 'desc')
+            ->orderBy('last_id', 'desc')
             ->orderBy('bucket')
             ->orderBy('hash')
             ->limit($this->limit + 1)

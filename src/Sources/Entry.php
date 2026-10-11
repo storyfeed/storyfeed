@@ -541,6 +541,12 @@ final class Entry
             }
         }
 
+        // A party name has no pictures at all, and only the object carries
+        // the entry's body.
+        if (is_string($this->object) && $this->body !== null) {
+            InlineEntity::assertSlots('object', FeedEntity::make(body: $this->body)->body, null, party: $this->object);
+        }
+
         if ($this->headline !== null) {
             $unfilled = array_filter(self::roleTokens($this->headline), fn (string $role) => $this->{$role} === null);
 
@@ -569,7 +575,8 @@ final class Entry
         if ($value instanceof Model && ! app(Feedables::class)->isFeedable($value)) {
             throw new InvalidArgumentException(sprintf(
                 'The [%s] role is a %s, which is not Feedable, so it would read with no label. '
-                .'Pass an entity array ([\'type\' => …, \'label\' => …]), or make the model Feedable.',
+                .'Pass an entity array, which carries its own media ([\'type\' => …, \'label\' => …, \'media\' => [\'icon\' => …]]), '
+                .'or make the model Feedable.',
                 $role, $value::class,
             ));
         }
@@ -744,6 +751,11 @@ final class Entry
                 $snapshot ??= self::snapshot($value->getMorphClass(), MorphKeyType::value($value->getKey()), null, [], null);
                 $snapshot->body = [...($snapshot->body ?? []), ...FeedEntity::make(body: $body)->body];
             }
+
+            // The instance rides on the in-memory snapshot, so a resolver's
+            // $context->model() gets it back with no query: a saved model is
+            // not loaded again, and an unsaved one is not lost (#138).
+            $snapshot?->setRelation('model', $value);
 
             return [$value->getMorphClass(), MorphKeyType::value($value->getKey()), $snapshot, $value];
         }

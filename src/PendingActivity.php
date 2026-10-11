@@ -28,6 +28,7 @@ use Storyfeed\Events\ActivityPublished;
 use Storyfeed\Events\Snapshots\ActivitySnapshot;
 use Storyfeed\Exceptions\DottedVerb;
 use Storyfeed\Exceptions\IncompleteActivity;
+use Storyfeed\Exceptions\StorageDisabled;
 use Storyfeed\Exceptions\StoryRoleMismatch;
 use Storyfeed\Exceptions\UnauthoredActivity;
 use Storyfeed\Exceptions\UnknownVerb;
@@ -38,6 +39,7 @@ use Storyfeed\Support\ActivityRoles;
 use Storyfeed\Support\BodySlot;
 use Storyfeed\Support\Chronology;
 use Storyfeed\Support\Feedables;
+use Storyfeed\Support\FreeformMeta;
 use Storyfeed\Support\InlineEntity;
 use Storyfeed\Support\MorphKeyType;
 use Storyfeed\Testing\StoryfeedFake;
@@ -98,6 +100,9 @@ class PendingActivity
     /** @var list<string> roles whose snapshot was taken at dispatch */
     private array $snapshotted = [];
 
+    /** @var array<string, mixed> written to the batch the activity joins (see meta()) */
+    private array $meta = [];
+
     /**
      * Queued: drop the publish when a model it names is gone by the time the
      * worker takes it, as a job's `$deleteWhenMissingModels` does. Null
@@ -110,6 +115,12 @@ class PendingActivity
      */
     public function __construct(string|FeedVerb|BackedEnum|null $verb = null, Model|string|array|null $object = null)
     {
+        // At the first call, before an actor or party is looked up in a
+        // table that an app without storage doesn't have.
+        if (! app(StoryfeedManager::class)->usesStorage()) {
+            throw StorageDisabled::recording();
+        }
+
         $model = config('storyfeed.models.activity', Activity::class);
 
         $this->activity = new $model;
@@ -507,6 +518,37 @@ class PendingActivity
         return $this;
     }
 
+    /**
+     * Metadata for the batch this activity joins, the actor's sitting:
+     * free-form JSON in `feed_batches.meta`, for the app's own use. Keys are
+     * written over the batch's earlier ones, so each activity of a sitting
+     * can add to it, and calling this twice merges too. Top-level keys
+     * starting with `storyfeed.` are reserved, and throw.
+     *
+     *     Storyfeed::activity('import', $order)->meta(['source' => 'csv', 'file' => $name])->publish();
+     *
+     * An activity that joins no batch (an anonymous one, an unbatched verb,
+     * or batching turned off) has nowhere to write it, and it is dropped.
+     *
+     * @param  array<string, mixed>  $meta
+     */
+    public function meta(array $meta): static
+    {
+        $this->meta = array_replace($this->meta, FreeformMeta::assert($meta));
+
+        return $this;
+    }
+
+    /**
+     * @internal
+     *
+     * @return array<string, mixed>
+     */
+    public function batchMeta(): array
+    {
+        return $this->meta;
+    }
+
     public function publishedAt(DateTimeInterface|string $date): static
     {
         $this->activity->published_at = $date instanceof DateTimeInterface
@@ -735,6 +777,7 @@ class PendingActivity
             'entities' => array_map(fn (Model $model) => $this->getSerializedPropertyValue($model), $this->entities),
             'objects' => array_map(fn (Model $model) => $this->getSerializedPropertyValue($model), $this->objects),
             'snapshotted' => $this->snapshotted,
+            'meta' => $this->meta,
         ];
     }
 
@@ -749,6 +792,7 @@ class PendingActivity
         $this->anonymous = (bool) $data['anonymous'];
         $this->activity->withoutDefaultActor($this->anonymous);
         $this->snapshotted = $data['snapshotted'];
+        $this->meta = $data['meta'] ?? [];
 
         foreach ($data['entities'] as $role => $identifier) {
             $this->entities[$role] = $this->getRestoredPropertyValue($identifier);

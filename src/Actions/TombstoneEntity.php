@@ -12,6 +12,7 @@ use Storyfeed\Models\Snapshot;
 use Storyfeed\PendingTombstone;
 use Storyfeed\Support\ActivityRoles;
 use Storyfeed\Support\Feedables;
+use Storyfeed\Support\FreeformMeta;
 use Storyfeed\Support\MorphKeyType;
 use Storyfeed\Support\MorphResolver;
 use Storyfeed\Support\SyncToken;
@@ -65,13 +66,15 @@ class TombstoneEntity
         }
 
         $trashedAt = self::trashedAt($model);
+        [$label, $meta] = $this->asked($model);
 
         return $this->unlessUnnamed($this->reference(
             $model->getMorphClass(),
             $model->getKey(),
             restorable: $trashedAt !== null,
             deletedAt: $trashedAt,
-            label: $this->keptLabel($model),
+            label: $label,
+            meta: $meta,
         ));
     }
 
@@ -86,8 +89,10 @@ class TombstoneEntity
             return null;
         }
 
+        [$label, $meta] = $this->asked($model);
+
         return $this->unlessUnnamed(
-            $this->reference($model->getMorphClass(), $model->getKey(), restorable: false, label: $this->keptLabel($model)),
+            $this->reference($model->getMorphClass(), $model->getKey(), restorable: false, label: $label, meta: $meta),
         );
     }
 
@@ -205,10 +210,14 @@ class TombstoneEntity
      * permanent tombstone never becomes restorable again.
      *
      * `$label` is the model's label, kept on the tombstone when its entity
-     * asked (`keepLabel()`). Once the tombstone is permanent, the activities
-     * it made redundant are deleted where their verb asked
-     * (`->forgetWhenMissing()`), whichever path made it: a model event, a
-     * bulk delete's `Storyfeed::tombstone()`, or the trickle.
+     * asked (`keepLabel()`), and `$meta` the app's metadata for it
+     * (`PendingTombstone::meta()`), written over what it already has.
+     * Once the tombstone is permanent, the activities it made redundant are
+     * deleted where their verb asked (`->forgetWhenMissing()`), whichever
+     * path made it: a model event, a bulk delete's `Storyfeed::tombstone()`,
+     * or the trickle.
+     *
+     * @param  array<string, mixed>  $meta
      */
     public function reference(
         string $alias,
@@ -217,6 +226,7 @@ class TombstoneEntity
         bool $approximate = false,
         ?DateTimeInterface $deletedAt = null,
         ?string $label = null,
+        array $meta = [],
     ): FeedTombstone {
         $model = config('storyfeed.models.tombstone', FeedTombstone::class);
 
@@ -239,6 +249,10 @@ class TombstoneEntity
         // Before the snapshot, which is where the label is read from.
         if ($label !== null && $tombstone->label === null) {
             $tombstone->forceFill(['label' => $label])->save();
+        }
+
+        if ($meta !== []) {
+            $tombstone->forceFill(['meta' => FreeformMeta::merge($tombstone->meta, $meta)])->save();
         }
 
         $snapshot = (new SnapshotEntity)($tombstone);
@@ -264,19 +278,22 @@ class TombstoneEntity
     }
 
     /**
-     * The label the model's entity asked its tombstone to keep
-     * (`FeedEntity::tombstone()` → `keepLabel()`), or null.
+     * What the model's entity asked of its tombstone
+     * (`FeedEntity::tombstone()`): the label to keep, when it asked with
+     * `keepLabel()`, and its `meta()`.
      *
      * A model whose toFeed() fails while it is being deleted (a relation
      * already gone) must not fail the delete, so the failure is reported
      * and the tombstone keeps nothing.
+     *
+     * @return array{string|null, array<string, mixed>} the label, or null, and the meta
      */
-    protected function keptLabel(Model $model): ?string
+    protected function asked(Model $model): array
     {
         $feedables = app(Feedables::class);
 
         if (! $feedables->isFeedable($model)) {
-            return null;
+            return [null, []];
         }
 
         try {
@@ -284,16 +301,16 @@ class TombstoneEntity
         } catch (Throwable $e) {
             report($e);
 
-            return null;
+            return [null, []];
         }
 
         if ($entity->tombstone === null) {
-            return null;
+            return [null, []];
         }
 
         ($entity->tombstone)($pending = new PendingTombstone);
 
-        return $pending->keepsLabel() ? $entity->label : null;
+        return [$pending->keepsLabel() ? $entity->label : null, $pending->tombstoneMeta()];
     }
 
     /**

@@ -97,7 +97,7 @@ it('carries a fallback line in the reserved key, given or derived', function () 
     expect(FeedBodyContract::FALLBACK)->toBe('$fallback')
         ->and(Excerpt::make('A')->toPayload())->not->toHaveKey('$fallback')
         ->and(Excerpt::make('A')->fallback('Jasper quoted the contract')->toPayload())
-        ->toBe(['$body' => Excerpt::bodyType(), '$v' => 2, '$fallback' => 'Jasper quoted the contract', 'text' => 'A'])
+        ->toBe(['$body' => Excerpt::bodyType(), '$v' => 3, '$fallback' => 'Jasper quoted the contract', 'text' => 'A'])
         ->and(ShipmentBody::make('UPS', 'Order #1042')->toPayload()['$fallback'])->toBe('Order #1042')
         ->and(ShipmentBody::make('UPS', 'Order #1042')->fallback('Shipped')->toPayload()['$fallback'])->toBe('Shipped')
         ->and(Excerpt::make('A')->fallback('')->toPayload())->not->toHaveKey('$fallback');
@@ -155,7 +155,7 @@ it('merges app keys into $meta with withMeta(), as Nova does', function () {
         ->and(Excerpt::make('A')->withMeta(['maxHeight' => '16rem'])->toPayload()['$meta'])->toBe(['maxHeight' => '16rem'])
         ->and(Excerpt::make('A')->maxHeight('16rem')->withMeta(['maxHeight' => null])->toPayload())->not->toHaveKey('$meta')
         ->and(Excerpt::make('A')->withMeta(['acme.x' => 1])->fallback('Quoted')->toPayload())
-        ->toBe(['$body' => Excerpt::bodyType(), '$v' => 2, '$fallback' => 'Quoted', '$meta' => ['acme.x' => 1], 'text' => 'A']);
+        ->toBe(['$body' => Excerpt::bodyType(), '$v' => 3, '$fallback' => 'Quoted', '$meta' => ['acme.x' => 1], 'text' => 'A']);
 });
 
 it('validates a core key given through withMeta() as its typed method does', function () {

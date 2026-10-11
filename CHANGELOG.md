@@ -2,6 +2,35 @@
 
 ## Unreleased
 
+## v0.20.3 - 2026-10-11
+
+### Changed
+
+- `Excerpt` is complete by default; call `truncated()` when the text was cut (#152). Most excerpts are whole (a comment, a clause, a note), so apps wrote `truncated(false)` on almost every one, and forgetting it made the kits mark complete text as cut. The body is now v3. Stored rows are not rewritten and keep their meaning: a v2 row without `truncated` still reads as `true`, and a v1 row without it as `false`, as before. A v3 row without it reads as `false`. Renderers that read a body without calling `upgrade()` must apply the new default: an absent `Excerpt.truncated` is `false` from v3. An app that wants an excerpt marked as cut adds `->truncated()`; `->truncated(false)` still works and now writes nothing.
+
+## v0.20.2 - 2026-10-11
+
+### Added
+
+- Composer-and-renderer mode (#131): `Storyfeed::withoutStorage()`, called from a service provider's `boot()`, declares that the app composes and renders feeds from its own data and has none of core's tables. Nothing is scheduled (no `storyfeed:curate`, no `storyfeed:prune --bursts`), a Feedable model's save, delete and restore write nothing, and recording an activity (`Storyfeed::activity()`, the `storyfeed()` helper, a Story class, `Storyfeed::publish()`) throws `Storyfeed\Exceptions\StorageDisabled` instead of a SQL error about a missing table. `Storyfeed::compose()`, named sources, the feed file and every kit work as before. `storyfeed:doctor` reports the mode as `recording.without_storage` and skips its `tables` and `maintenance` checks. `storyfeed:install --without-storage` publishes the config and creates `routes/feed.php`, with no migrations and no `.env` line, and prints the declaration to add.
+- `Storyfeed::deleteFromFeed($model)` and `Storyfeed::forceDeleteFromFeed($model)` (#137): the trait's `deleteFromFeed()` and `forceDeleteFromFeed()` for a model registered with `Storyfeed::feedable()`, which has no trait to call them on. Until now the only way was the `@internal` actions.
+- `->meta([...])` writes an app's own metadata to a batch or a tombstone (#100), stored as free-form JSON in `feed_batches.meta` and `feed_tombstones.meta`. On the activity builder, `record()` (`meta:`) and verb enums it goes to the batch the activity joins, the actor's sitting, and each activity's keys are written over the batch's earlier ones; an activity that joins no batch drops it. A queued activity carries it to the worker. On a tombstone it is `PendingTombstone::meta()`, in the entity's `->tombstone(fn (PendingTombstone $tombstone) => $tombstone->meta([...]))`, and a force delete after a soft delete adds to what the soft delete wrote. Top-level keys starting with `storyfeed.` are reserved for core and throw.
+- `Entity::absent($role)` and `Entity::isAbsent()` on the `Storyfeed\Support` readers: an empty role read as an entity, with no type, label or link, that reads as its fallback words ("Someone"). It is neither degraded nor a tombstone.
+
+### Changed
+
+- The error for a non-Feedable model role on a composed entry or a source item offers an entity array with its own `media` first.
+- Live orders groups that share an instant by their highest member id, descending (#104), where it ordered them by grouping axis and hash. For a group of one that is its activity's id, so Live and `log()` now read same-instant rows in the same order. The full order is: `published_at` descending (a group's newest member's), then groups before solo activities, then id descending (a group's highest member id), then axis and hash. It holds on stored feeds and sources, and it rests on ids a rehash cannot change, so a live cursor keeps its place across `storyfeed:curate --rehash`. Grouped cursors carry the id, so a cursor minted before this can skip groups tied at its own instant once.
+
+### Fixed
+
+- Saving a Feedable model no longer fails when the `feed_snapshots` table doesn't exist, with or without `withoutStorage()`: the save writes no snapshot (#131). Before, creating a Feedable model on an app without core's tables threw `Table 'feed_snapshots' doesn't exist`.
+- `$context->model()` in a `feedMedia()` resolver returns the model a composed entry or a source item named the role with (#138). It returned `null` for an unsaved model, so a resolver that read the model gave no link or media, and it queried a saved model again on a feed that otherwise runs no query. It now hands back that instance with no query. `with:` and `withCount:` load onto it, batched across the page's instances of the class; `withTrashed:` is moot. Stored activities hydrate from the database as before.
+- The Activity Streams document carries the `url` and `media` of an entity with no model behind it (#136). Both reached the JSON payload but not the AS2 output, so its links and pictures were lost there. A link goes out as `url` (as `id` on an actor), and `icon`, `image` and `preview` as Link objects, as a model's `feedMedia()` pictures do.
+- A slot-form `Image` or `MediaObject` body on a party name (`->action('ship', 'Storyfeed')->body(Image::make())`) drew nothing and said nothing (#136). A party name declares no pictures, so it now throws when the entry is added, as an inline entity does, naming the slot and both ways out: pass an entity array that declares the picture in its `media`, or give the body its own.
+- `Headline::toHtml($closure)` draws an empty role through the closure too (#98), as an `Entity::absent()`, so a renderer can put its own element or class on an anonymous actor's "Someone". It used to skip the closure and write the bare words. A closure typed `fn (Entity $entity)` keeps working.
+- `storyfeed:curate` does nothing, and says so, when `storyfeed.grouping.curate` is false (#99). It stamped winners that Live ignores while curation is off, leaving stamps that suggested it was on; `--rehash` and `--rebuild-bursts` are skipped the same way. `--release` still releases dangling composite claims, which render either way, and no longer stamps winners for the members it hands back while curation is off, as prune already did not.
+
 ## v0.20.1 - 2026-10-11
 
 ### Added
@@ -1526,7 +1555,7 @@ Single-activity headlines, anonymous headlines, and icons resolve in this
 order: `type.verb`, `type.*`, `*.verb`, `*.*`. Preserve each rung rather than
 copying a wildcard headline onto every model. A type-qualified group headline
 is used only when the axis pins the object type; otherwise the unqualified
-axis-and-verb entry applies. See [Aggregation](https://docs.storyfeed.dev/deeper/aggregation).
+axis-and-verb entry applies. See [Aggregation](https://docs.storyfeed.dev/shaping/aggregation).
 
 #### Move One Verb
 

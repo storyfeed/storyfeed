@@ -167,3 +167,22 @@ it('omits AS2 links for a party without an external home', function () {
         ->and($document['actor'])->not->toHaveKey('id')
         ->and($document['object'])->not->toHaveKey('url');
 });
+
+it('carries the url and pictures of an entity with no model behind it', function () {
+    $activity = Storyfeed::activity('ship')
+        ->actor(['type' => 'team', 'label' => 'Platform', 'url' => '/teams/platform', 'media' => ['icon' => 'https://cdn.example.com/platform.svg']])
+        ->object(['type' => 'release', 'label' => 'v2.1', 'url' => 'https://example.com/releases/2.1', 'media' => [
+            'image' => ['src' => 'https://cdn.example.com/v2.1.png', 'width' => 1200, 'height' => 630, 'alt' => 'v2.1 banner'],
+        ]])
+        ->publish();
+
+    $document = serialize_one($activity->fresh());
+
+    expect($document['actor']['id'])->toBe(url('/teams/platform'))
+        ->and($document['actor']['icon'])->toBe(['type' => 'Link', 'href' => 'https://cdn.example.com/platform.svg'])
+        ->and($document['object']['url'])->toBe('https://example.com/releases/2.1')
+        ->and($document['object']['image'])->toBe([
+            'type' => 'Link', 'href' => 'https://cdn.example.com/v2.1.png', 'name' => 'v2.1 banner', 'width' => 1200, 'height' => 630,
+        ])
+        ->and($document['object'])->not->toHaveKey('icon');
+});

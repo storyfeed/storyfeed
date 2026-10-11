@@ -58,6 +58,20 @@ class CurateCommand extends Command
 
             return self::FAILURE;
         }
+        // Live reads no winners while curation is off, so stamping them
+        // would be work nothing reads, and stamps that suggest it is on.
+        // Releasing a dangling claim is still a repair: composites render
+        // either way.
+        if (! config('storyfeed.grouping.curate', true)) {
+            if ($this->option('release')) {
+                $this->release();
+            }
+
+            $this->info('Curation is off (storyfeed.grouping.curate is false), so there is nothing to curate: Live reads no winners while it is off.');
+
+            return self::SUCCESS;
+        }
+
         if ($this->option('rebuild-bursts')) {
             if ($window !== null || $this->option('release')) {
                 $this->error('--rebuild-bursts requires all history; run without --window or --release.');
@@ -107,9 +121,7 @@ class CurateCommand extends Command
         }
 
         if ($this->option('release')) {
-            $released = (new ReleaseComposite)->dangling();
-
-            $this->info("Released {$released} composite ".str('member')->plural($released).' whose parent no longer exists.');
+            $this->release();
         }
 
         $model = config('storyfeed.models.activity', Activity::class);
@@ -157,6 +169,13 @@ class CurateCommand extends Command
         $this->info("Curated {$count} activities.");
 
         return self::SUCCESS;
+    }
+
+    protected function release(): void
+    {
+        $released = (new ReleaseComposite)->dangling();
+
+        $this->info("Released {$released} composite ".str('member')->plural($released).' whose parent no longer exists.');
     }
 
     /** @return array<string, string> */

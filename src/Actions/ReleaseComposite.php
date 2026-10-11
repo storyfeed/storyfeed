@@ -157,11 +157,11 @@ class ReleaseComposite
             $this->groupings()->where('bucket', 'composite')->where('hash', $hash)->delete();
 
             $write = new WriteGroupings;
-            $curate = new CurateCluster;
+            $curate = config('storyfeed.grouping.curate', true) ? new CurateCluster : null;
 
             foreach ($this->activities()->whereKey($memberIds)->whereKeyNot($except)->get() as $member) {
                 $write($member);
-                $curate($member);
+                $curate?->__invoke($member);
             }
 
             return $memberIds->count();

@@ -5,6 +5,7 @@ use Storyfeed\Facades\Storyfeed;
 use Storyfeed\Models\Activity;
 use Storyfeed\Models\FeedTombstone;
 use Storyfeed\Models\Grouping;
+use Storyfeed\Tests\Fixtures\Models\Photo;
 use Workbench\App\Models\Customer;
 use Workbench\App\Models\Delivery;
 
@@ -83,4 +84,25 @@ it('erases activities, grouping and participant rows when asked with forceDelete
         ->and(Grouping::query()->whereIn('activity_id', [$live->id, $trashed->id])->count())->toBe(0)
         ->and(DB::table($participants)->whereIn('activity_id', [$live->id, $trashed->id])->count())->toBe(0)
         ->and(Grouping::query()->where('activity_id', $other->id)->count())->toBeGreaterThan(0);
+});
+
+it('removes a feedable() model\'s activities through the facade, as the trait does', function () {
+    Storyfeed::feedable(Photo::class);
+
+    $photo = Photo::create(['file_name' => 'dock.jpg']);
+    $kept = Photo::create(['file_name' => 'gate.jpg']);
+
+    Storyfeed::activity('upload', $photo)->publish();
+    $trashed = Storyfeed::activity('crop', $photo)->publish();
+    $other = Storyfeed::activity('upload', $kept)->publish();
+
+    Storyfeed::deleteFromFeed($photo);
+
+    expect(Activity::query()->pluck('id')->all())->toBe([$other->id])
+        ->and(Activity::query()->withTrashed()->count())->toBe(3)
+        ->and(Activity::query()->withTrashed()->find($trashed->id)->trashed())->toBeTrue();
+
+    Storyfeed::forceDeleteFromFeed($photo);
+
+    expect(Activity::query()->withTrashed()->pluck('id')->all())->toBe([$other->id]);
 });

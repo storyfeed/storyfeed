@@ -28,7 +28,9 @@ class RestoreToFeed
     public function __invoke(Model $model): void
     {
         if (! TombstoneEntity::installed()) {
-            (new SnapshotEntity)($model);
+            if (SnapshotEntity::installed()) {
+                (new SnapshotEntity)($model);
+            }
 
             return;
         }
