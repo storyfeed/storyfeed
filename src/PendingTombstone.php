@@ -3,6 +3,7 @@
 namespace Storyfeed;
 
 use Illuminate\Support\Traits\Conditionable;
+use Storyfeed\Support\FreeformMeta;
 
 /**
  * What a Feedable asks of the tombstone it will leave, configured in its
@@ -34,6 +35,9 @@ final class PendingTombstone
 
     private bool $keepLabel = false;
 
+    /** @var array<string, mixed> */
+    private array $meta = [];
+
     /**
      * Keep the model's label on its tombstone, so its stories go on naming
      * it ("Invoice #1042") instead of "a removed invoice". The name then
@@ -46,9 +50,37 @@ final class PendingTombstone
         return $this;
     }
 
+    /**
+     * Metadata for the tombstone: free-form JSON in `feed_tombstones.meta`,
+     * for the app's own use, such as who deleted the model or why. Keys are
+     * written over the tombstone's earlier ones, so a force delete after a
+     * soft delete adds to what the soft delete wrote. Top-level keys
+     * starting with `storyfeed.` are reserved, and throw.
+     *
+     *     ->tombstone(fn (PendingTombstone $tombstone) => $tombstone->meta(['deleted_by' => auth()->id()]))
+     *
+     * @param  array<string, mixed>  $meta
+     */
+    public function meta(array $meta): self
+    {
+        $this->meta = array_replace($this->meta, FreeformMeta::assert($meta));
+
+        return $this;
+    }
+
     /** @internal */
     public function keepsLabel(): bool
     {
         return $this->keepLabel;
+    }
+
+    /**
+     * @internal
+     *
+     * @return array<string, mixed>
+     */
+    public function tombstoneMeta(): array
+    {
+        return $this->meta;
     }
 }

@@ -10,6 +10,7 @@ use Illuminate\Support\Collection;
 use Storyfeed\Models\Activity;
 use Storyfeed\Models\Batch;
 use Storyfeed\Models\Grouping;
+use Storyfeed\Support\FreeformMeta;
 
 /**
  * Link a just-published activity to its actor's event-time batch — an earlier
@@ -54,9 +55,10 @@ class AssignToBatch
 {
     /**
      * @param  CarbonInterval|null  $window  this verb's window; null is `grouping.batch.quiet_minutes`
+     * @param  array<string, mixed>  $meta  the app's metadata, written over the batch's (PendingActivity::meta())
      * @return Batch|null the batch the activity joined
      */
-    public function __invoke(Activity $activity, ?CarbonInterval $window = null): ?Batch
+    public function __invoke(Activity $activity, ?CarbonInterval $window = null, array $meta = []): ?Batch
     {
         if (! config('storyfeed.grouping.batch.enabled', true)) {
             return null;
@@ -84,6 +86,7 @@ class AssignToBatch
             // Out-of-order members must not move the window backwards.
             'last_activity_at' => $batch->last_activity_at?->max($publishedAt) ?? $publishedAt,
             'closes_at' => $batch->closes_at?->max($closesAt) ?? $closesAt,
+            'meta' => FreeformMeta::merge($batch->meta, $meta),
         ])->save();
 
         return $batch;

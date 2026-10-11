@@ -68,7 +68,7 @@ class Batch
         // Its own transaction: the actor's lock row is held until it commits,
         // which is what makes a second publish by the same actor see this
         // one's batch. Inside the app's own transaction, it is a savepoint.
-        $published->getConnection()->transaction(fn () => (new AssignToBatch)($published, $window));
+        $published->getConnection()->transaction(fn () => (new AssignToBatch)($published, $window, $activity->batchMeta()));
 
         return $published;
     }

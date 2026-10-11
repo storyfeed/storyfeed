@@ -80,6 +80,7 @@ it('has a record parameter for every public builder role and setter', function (
         'by', 'using', 'resulting', 'at', 'in', 'to', 'for', 'from', 'on', 'with', 'into', // Role aliases.
         'when', 'unless', // Conditional composition, not activity fields.
         'hasActor', 'isAnonymous', 'has', // What story middleware reads, not setters.
+        'batchMeta', // What the batch middleware reads.
         // The featured role is one method per role, never a string argument (ruled on #76).
         'featuringObject', 'featuringActor', 'featuringTarget', 'featuringOrigin', 'featuringResult',
         'featuringInstrument', 'featuringLocation', 'featuringGenerator', 'withoutFeature',
