@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Fixed
+
+- `storyfeed:cache`, and so `php artisan optimize`, no longer fails on a Feedable that works out its morph class from its attributes (#151). With a morph map required, it read each discovered Feedable's alias from a blank instance, and a `getMorphClass()` that returns `$this->kind` threw a `TypeError` there. It now prints a line naming the class and the error, and caches. `storyfeed:doctor`'s `surface` check reports the class as `surface.uncheckable` (a warning while a morph map is required, information otherwise) and checks the rest.
+
 ## v0.20.3 - 2026-10-11
 
 ### Changed
