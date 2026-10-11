@@ -112,6 +112,16 @@ it('reads a null actor as Someone, anonymous', function () {
         ->and($item->headline()->toHtml())->toBe('Someone confirmed Delivery #1042');
 });
 
+it('draws an absent role through the closure too, as an absent Entity', function () {
+    $item = headlineActivity(['actor' => null]);
+
+    $html = $item->headline()->toHtml(fn (Entity $entity): string => $entity->isAbsent()
+        ? '<em class="anonymous">'.e($entity->toString()).'</em>'
+        : '<strong>'.e($entity->toString()).'</strong>');
+
+    expect($html)->toBe('<em class="anonymous">Someone</em> confirmed <strong>Delivery #1042</strong>');
+});
+
 it('reads a degraded entity with a placeholder for its role', function () {
     $item = headlineActivity([
         'actor' => headlineEntity('user', null),

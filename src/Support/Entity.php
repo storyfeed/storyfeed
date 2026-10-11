@@ -24,6 +24,10 @@ use Stringable;
  * A reader, never a writer: the array it wraps is the payload's, unchanged,
  * and `toArray()` hands it back as it came.
  *
+ * It is Htmlable, so `{{ $entity }}` echoes the whole link, `<a href…>`, not
+ * the label. Inside a link of your own, echo `{{ $entity->label() }}` or
+ * `{{ $entity->toString() }}`, or the links nest.
+ *
  * The role it was read from (`actor`, `object`, …) chooses its fallback
  * words when it has no label, so a degraded actor reads "Someone" and a
  * degraded object "Something". The words are the package's lang lines
@@ -53,6 +57,16 @@ final class Entity implements Arrayable, ArrayAccess, Htmlable, JsonSerializable
     public static function of(array|Entity $entity, ?string $role = null): self
     {
         return new self($entity instanceof Entity ? $entity->toArray() : $entity, $role ?? ($entity instanceof Entity ? $entity->role() : null));
+    }
+
+    /**
+     * A role the item leaves empty, read as an entity so a renderer can draw
+     * its fallback words ("Someone") the way it draws a name. It has no
+     * type, label or link, and `isAbsent()` says so.
+     */
+    public static function absent(string $role): self
+    {
+        return new self([], $role);
     }
 
     /** The role this entity was read from (`actor`, `object`, …), or null. */
@@ -179,7 +193,16 @@ final class Entity implements Arrayable, ArrayAccess, Htmlable, JsonSerializable
      */
     public function isDegraded(): bool
     {
-        return $this->label() === null && ! $this->isTombstone();
+        return $this->label() === null && ! $this->isTombstone() && ! $this->isAbsent();
+    }
+
+    /**
+     * Whether the role is empty, as an anonymous actor's is: there is no
+     * entity, only the words for one. See {@see absent()}.
+     */
+    public function isAbsent(): bool
+    {
+        return $this->payload === [];
     }
 
     /** Whether the model was deleted and this is what it left behind. */
