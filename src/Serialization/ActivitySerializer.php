@@ -20,6 +20,7 @@ use Storyfeed\StoryfeedManager;
 use Storyfeed\Support\ActivityContextFactory;
 use Storyfeed\Support\ActivityRoles;
 use Storyfeed\Support\LinkResolver;
+use Storyfeed\Support\ModelHydrator;
 use Throwable;
 
 /**
@@ -392,6 +393,7 @@ class ActivitySerializer
             data: $data,
             feed: null,
             routeKey: $snapshot->meta['route_key'] ?? null,
+            model: ModelHydrator::carried($snapshot),
         ));
         $href = $media?->href();
         $absolute = $href === null ? null : url($href);

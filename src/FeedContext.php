@@ -35,6 +35,9 @@ final readonly class FeedContext
      *                                   model() becomes a single lookup
      * @param  string|null  $routeKey  the route key recorded on the snapshot, or
      *                                 null for a row written before it was recorded
+     * @param  Model|null  $model  the instance a composed entry or source item
+     *                             named this entity with; model() hands it back
+     *                             without a query, saved or not
      */
     public function __construct(
         private string $type,
@@ -44,6 +47,7 @@ final readonly class FeedContext
         private ?string $feed = null,
         private ModelHydrator $hydrator = new ModelHydrator,
         private ?string $routeKey = null,
+        private ?Model $model = null,
     ) {}
 
     /**
@@ -207,6 +211,13 @@ final readonly class FeedContext
      * therefore always written its null branch — the same `default =>` arm
      * it already needed for feed().
      *
+     * AN INSTANCE IN HAND IS RETURNED, NOT LOADED. A composed entry or a
+     * source item names its roles with the model itself, and that instance
+     * is what this returns: no query, and an unsaved model built for display
+     * reads the same as a saved one. `with:` and `withCount:` still load onto
+     * it, batched across the page; `withTrashed` is moot. A stored activity
+     * has no instance in hand and hydrates as above.
+     *
      * KNOWN CONSEQUENCE, NOT A BUG. The entity's label comes from its
      * snapshot; a link resolved from the live model comes from now. The two
      * can disagree — a row reading with the name from before a rename while
@@ -222,6 +233,10 @@ final readonly class FeedContext
      */
     public function model(array $with = [], bool $withTrashed = false, array $withCount = []): ?Model
     {
+        if ($this->model !== null) {
+            return $this->hydrator->instance($this->type, $this->model, $with, $withCount);
+        }
+
         return $this->hydrator->model($this->type, $this->key, $with, $withTrashed, $withCount);
     }
 }
