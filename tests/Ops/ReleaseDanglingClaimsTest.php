@@ -123,6 +123,23 @@ describe('storyfeed:curate --release', function () {
             ->and(SyncToken::current())->not->toBe($token);
     });
 
+    it('still releases while curation is off, and stamps no winners', function () {
+        [$parent] = uploadComposite($this->sally);
+        eraseParentWithoutRelease($parent);
+
+        config()->set('storyfeed.grouping.curate', false);
+        Grouping::query()->update(['winner' => null]);
+
+        $this->artisan('storyfeed:curate --release')
+            ->expectsOutputToContain('Released 3 composite members whose parent no longer exists.')
+            ->expectsOutputToContain('Curation is off')
+            ->assertSuccessful();
+
+        expect(Grouping::query()->where('bucket', 'composite')->count())->toBe(0)
+            ->and(Grouping::query()->whereNotNull('winner')->count())->toBe(0)
+            ->and(shown())->toBe(3);
+    });
+
     it('renders a released member solo', function () {
         [$parent, $members] = uploadComposite($this->sally, 2);
         eraseParentWithoutRelease($parent);
