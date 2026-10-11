@@ -9,6 +9,7 @@ use Storyfeed\StoryfeedManager;
 use Storyfeed\Support\Feedables;
 use Storyfeed\Support\SurfaceScanner;
 use Storyfeed\Testing\StoryfeedFake;
+use Throwable;
 
 /**
  * Feed surface that publishes nothing — THE detector for "the feed stopped
@@ -107,6 +108,26 @@ class UnwiredSurface extends Check
         );
     }
 
+    /**
+     * A Feedable whose morph alias can't be read from a blank instance.
+     *
+     * WARNING only while aliases are required, because then an unaliased model
+     * throws on publish and this check couldn't rule that out. Otherwise it's
+     * information: the model may be fine, the check just can't see it.
+     *
+     * @param  class-string<Model>  $model
+     */
+    protected function uncheckable(string $model, Throwable $e): Finding
+    {
+        $message = "Can't check [{$model}]: reading its morph alias from a blank instance threw "
+            .class_basename($e).": {$e->getMessage()}";
+        $subject = ['model' => $model, 'reason' => $e->getMessage()];
+
+        return Relation::requiresMorphMap() || app(Feedables::class)->requiresMorphMap()
+            ? Finding::warning('surface.uncheckable', $message, $subject)
+            : Finding::info('surface.uncheckable', $message, $subject);
+    }
+
     public function run(StoryfeedManager $storyfeed): iterable
     {
         $faked = $storyfeed instanceof StoryfeedFake;
@@ -127,7 +148,16 @@ class UnwiredSurface extends Check
                 continue;
             }
 
-            $alias = app(Feedables::class)->morphAlias(new $model);
+            // A model that works out its morph class from its attributes
+            // can't answer on a blank instance, and one class that can't be
+            // asked must not abort the report on every other.
+            try {
+                $alias = app(Feedables::class)->morphAlias(new $model);
+            } catch (Throwable $e) {
+                yield $this->uncheckable($model, $e);
+
+                continue;
+            }
 
             if ($alias !== null) {
                 $aliases[$model] = $alias;
