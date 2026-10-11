@@ -3,7 +3,7 @@
 Real feed output for the README, from a made-up street fair: every name, booking
 and permit is invented.
 
-`showcase-{light,dark}.svg` is a 16.1-second loop. A made-up street fair's
+`showcase-{light,dark}.svg` is a 16.1-second loop, framed as a macOS-style window. A made-up street fair's
 feed grows, top first: a booking gains its person, a key-value card and a
 photo arrive, three joins fold into one grouped row, and photos arrive live
 and regroup. The camera pulls back: the feed is the picture in "You looked at
