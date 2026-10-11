@@ -3,7 +3,7 @@
 Real feed output for the README, from a made-up street fair: every name, booking
 and permit is invented.
 
-`showcase-{light,dark}.svg` is a 17.8-second loop of one feed growing: a plain
+`showcase-{light,dark}.svg` is a 17.5-second loop of one feed growing: a plain
 row gains its people and bodies, five joins fold into one grouped row, photos
 arrive live and regroup, the feed narrows to one person, then opens out to the
 whole feed as one more booking arrives, holds, and dissolves back into the
