@@ -3,17 +3,17 @@
 Real feed output for the README, from a made-up street fair: every name, booking
 and permit is invented.
 
-- `showcase-{light,dark}.svg`: six scenes on a loop (recording, grouping,
-  bodies, a scoped feed, a live arrival, the three kits). Each scene is the
-  Blade kit's markup and stylesheet inside `foreignObject`, animated by CSS
-  keyframes; nothing runs in it. `showcase-{light,dark}.png` is its last scene,
-  still, for reduced motion.
-- `feed-{light,dark}.png`: a small feed on its own.
-- `record-{light,dark}.png`: the recording call beside the row it draws.
+`showcase-{light,dark}.svg` is an 18.4-second loop of one feed growing: a plain
+row gains its people and bodies, five joins fold into one grouped row, photos
+arrive live and regroup, the feed narrows to one person, and the Blade, Vue and
+React kits render the same feed side by side before it dissolves back into the
+opening row. Every state is a kit's own markup and stylesheet inside
+`foreignObject`, animated by CSS keyframes; nothing runs in it.
+`showcase-{light,dark}.png` is the closing frame, still, for reduced motion.
 
-All of these are generated: run `npm run readme:showcase` in a storyfeed/ui
-checkout beside this one (its `workbench/readme/`). Regenerate them when the
-kits' output changes.
+These are generated: run `npm run readme:showcase` in a storyfeed/ui checkout
+beside this one (its `workbench/readme/`). Regenerate them when the kits'
+output changes.
 
 `../storyfeed-header-{light,dark}.svg` is `../storyfeed-static-{light,dark}.svg`
 cropped to the mark and wordmark, with no background.
