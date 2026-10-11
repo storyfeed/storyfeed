@@ -115,12 +115,15 @@ final class InlineEntity
      * entity declares no picture there: with no model behind it, nothing
      * else could fill the slot, and the body would draw nothing.
      *
+     * A party name (`'Storyfeed'`) declares no pictures at all, so any slot
+     * it is asked to show is empty: pass the name as `$party`.
+     *
      * @param  list<array<string, mixed>>  $body
      * @param  array<string, mixed>|null  $media  the entity's media, from {@see media()}
      *
      * @throws InvalidArgumentException naming the slot and both ways out
      */
-    public static function assertSlots(string $role, array $body, ?array $media): void
+    public static function assertSlots(string $role, array $body, ?array $media, ?string $party = null): void
     {
         foreach ($body as $form) {
             if (! in_array($form[FeedBody::KEY] ?? null, [Image::bodyType(), MediaObject::bodyType()], true)) {
@@ -131,6 +134,14 @@ final class InlineEntity
 
             if ($slot === null || (! str_starts_with($slot, 'slots.') && ($media[$slot] ?? null) !== null)) {
                 continue;
+            }
+
+            if ($party !== null) {
+                throw new InvalidArgumentException(sprintf(
+                    'A %s body on the [%s] party [%s] shows its [%s] picture, but a party name declares no pictures, so it would draw nothing. '
+                    .'Pass an entity array that declares it ([\'type\' => …, \'label\' => %s, \'media\' => [\'%s\' => $url]]), or give the body its own picture (FeedImage::make()->src($url)).',
+                    class_basename($form[FeedBody::KEY]), $role, $party, $slot, var_export($party, true), str_starts_with($slot, 'slots.') ? 'image' : $slot,
+                ));
             }
 
             $custom = str_starts_with($slot, 'slots.');

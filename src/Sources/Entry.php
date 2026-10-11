@@ -541,6 +541,12 @@ final class Entry
             }
         }
 
+        // A party name has no pictures at all, and only the object carries
+        // the entry's body.
+        if (is_string($this->object) && $this->body !== null) {
+            InlineEntity::assertSlots('object', FeedEntity::make(body: $this->body)->body, null, party: $this->object);
+        }
+
         if ($this->headline !== null) {
             $unfilled = array_filter(self::roleTokens($this->headline), fn (string $role) => $this->{$role} === null);
 

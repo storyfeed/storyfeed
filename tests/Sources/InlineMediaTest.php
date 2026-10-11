@@ -113,6 +113,26 @@ it('refuses a slot-form body on an inline entity that declares no picture there'
         ->toThrow(InvalidArgumentException::class, 'shows its [preview] picture');
 });
 
+it('refuses a slot-form body on a party name, which declares no pictures', function () {
+    expect(fn () => Storyfeed::compose()->add(fn (Entry $entry) => $entry->action('ship', 'Storyfeed')->body(Image::make())))
+        ->toThrow(InvalidArgumentException::class, "A Image body on the [object] party [Storyfeed] shows its [preview] picture, but a party name declares no pictures, so it would draw nothing. Pass an entity array that declares it (['type' => …, 'label' => 'Storyfeed', 'media' => ['preview' => \$url]]), or give the body its own picture (FeedImage::make()->src(\$url)).")
+        ->and(fn () => Storyfeed::compose()->add(fn (Entry $entry) => $entry->action('ship', 'Storyfeed')->body(MediaObject::make(subject: 'Storyfeed')->image(MediaSlot::Icon))))
+        ->toThrow(InvalidArgumentException::class, 'A MediaObject body on the [object] party [Storyfeed] shows its [icon] picture')
+        ->and(fn () => Storyfeed::feed()->source(new ArraySource([
+            ['verb' => 'ship', 'published_at' => 'now', 'object' => 'Storyfeed', 'body' => Image::make()],
+        ]))->get())
+        ->toThrow(InvalidArgumentException::class, 'party [Storyfeed] shows its [preview] picture');
+});
+
+it('keeps a body with its own picture on a party name', function () {
+    $object = Storyfeed::compose()
+        ->add(fn (Entry $entry) => $entry->action('ship', 'Storyfeed')->body(Image::make('https://storyfeed.dev/card.png')))
+        ->get()
+        ->toArray()[0]['object'];
+
+    expect($object['body'][0]['src'])->toBe('https://storyfeed.dev/card.png');
+});
+
 it('keeps a slot-form body on an inline entity that declares the picture', function () {
     $object = Storyfeed::compose()
         ->add(fn (Entry $entry) => $entry->action('ship', ['type' => 'product', 'label' => 'Storyfeed', 'media' => ['preview' => 'https://storyfeed.dev/card.png']])->body(Image::make()))
