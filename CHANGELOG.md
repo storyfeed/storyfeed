@@ -1539,7 +1539,7 @@ Single-activity headlines, anonymous headlines, and icons resolve in this
 order: `type.verb`, `type.*`, `*.verb`, `*.*`. Preserve each rung rather than
 copying a wildcard headline onto every model. A type-qualified group headline
 is used only when the axis pins the object type; otherwise the unqualified
-axis-and-verb entry applies. See [Aggregation](https://docs.storyfeed.dev/deeper/aggregation).
+axis-and-verb entry applies. See [Aggregation](https://docs.storyfeed.dev/shaping/aggregation).
 
 #### Move One Verb
 
