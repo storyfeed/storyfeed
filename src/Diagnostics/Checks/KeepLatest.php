@@ -61,25 +61,51 @@ class KeepLatest extends Check
         $query = $model->getConnection()->table("{$table} as superseded");
         $objectType = $this->objectTypeOf($query, 'superseded');
 
-        $rows = $query
+        // Materialize only deleted keys before probing live rows. A correlated
+        // EXISTS lets MySQL reverse the semijoin and start from every live row.
+        $keys = $query
             ->whereNotNull('superseded.deleted_at')
+            ->whereNotNull('superseded.object_type')
             ->whereNotNull('superseded.object_id')
-            ->whereExists(fn (Builder $live) => $live->selectRaw('1')->from("{$table} as live")
-                ->whereNull('live.deleted_at')
-                ->whereColumn('live.object_type', 'superseded.object_type')
-                ->whereColumn('live.object_id', 'superseded.object_id')
-                ->whereColumn('live.verb', 'superseded.verb')
-                ->whereColumn('live.published_at', '>=', 'superseded.published_at'))
-            ->selectRaw("{$objectType} as object_type, superseded.verb, count(*) as aggregate")
-            ->groupByRaw("{$objectType}, superseded.verb")
+            ->select('superseded.object_type', 'superseded.object_id', 'superseded.verb')
+            ->selectRaw("{$objectType} as reported_type")
+            // Keep the database's grouping semantics (including collation)
+            // when combining counts from different stored object keys.
+            ->selectRaw("dense_rank() over (order by superseded.verb, {$objectType}) as reported_group")
+            ->distinct()
             ->orderBy('superseded.verb')->orderByRaw($objectType)
             ->get();
 
-        return $rows->map(fn (object $row) => [
-            'type' => $row->object_type === null ? null : (string) $row->object_type,
-            'verb' => (string) $row->verb,
-            'count' => (int) $row->aggregate,
-        ])->values()->all();
+        $rows = [];
+
+        foreach ($keys as $key) {
+            $onKey = $model->getConnection()->table($table)
+                ->where('object_type', $key->object_type)
+                ->where('object_id', $key->object_id)
+                ->where('verb', $key->verb);
+
+            // One newest live timestamp bounds every superseded row on the
+            // key, including ties, without multiplying it by its successors.
+            $latest = (clone $onKey)->whereNull('deleted_at')
+                ->whereNotNull('published_at')
+                ->orderByDesc('published_at')->limit(1)->select('published_at');
+            $count = (clone $onKey)->whereNotNull('deleted_at')
+                ->where('published_at', '<=', $latest)->count();
+
+            if ($count === 0) {
+                continue;
+            }
+
+            $group = (int) $key->reported_group;
+            $rows[$group] ??= [
+                'type' => $key->reported_type === null ? null : (string) $key->reported_type,
+                'verb' => (string) $key->verb,
+                'count' => 0,
+            ];
+            $rows[$group]['count'] += $count;
+        }
+
+        return array_values($rows);
     }
 
     /**

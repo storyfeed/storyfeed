@@ -211,7 +211,8 @@ it('uses existing activity indexes for every type-only predicate', function () {
     foreach (['actor', 'object', 'target', 'context', 'origin', 'result', 'instrument'] as $role) {
         $query = Activity::query()->{$role.'Type'}(Delivery::class)->published()->select('id')->orderByDesc('published_at')->orderByDesc('id');
         $plan = json_encode(DB::select(($driver === 'sqlite' ? 'EXPLAIN QUERY PLAN ' : 'EXPLAIN ').$query->toSql(), $query->getBindings()), JSON_THROW_ON_ERROR);
-        expect($plan)->toMatch('/feed_activities_'.$role.'_(type_'.$role.'_id|published)_index/');
+        $indexes = $role === 'object' ? 'type_object_id|published|verb_published' : 'type_'.$role.'_id|published';
+        expect($plan)->toMatch('/feed_activities_'.$role.'_('.$indexes.')_index/');
         $plans[$role] = json_decode($plan, true, flags: JSON_THROW_ON_ERROR);
     }
     if ($path = getenv('STORYFEED_ROLE_TYPES_REPORT')) {

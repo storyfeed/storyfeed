@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- `storyfeed:doctor` checks `keep_latest` from the soft-deleted object/verb keys, avoiding a MySQL plan that scanned live history for hours on large feeds (#175). A new activities index on `(object_type, object_id, verb, published_at)` bounds the per-key probes.
+
 ## v0.20.5 - 2026-10-11
 
 ### Changed
