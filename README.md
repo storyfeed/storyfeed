@@ -50,6 +50,16 @@ changes with it.
 - [Jasper Tey](https://github.com/jaspertey) / [Tey Labs](https://teylabs.com)
 - [All Contributors](../../contributors)
 
+### Image presentation metadata
+
+The body envelope's `$meta` carries rendering choices. On an Image body,
+`$meta.size` is one of `thumbnail`, `inline`, `card`, `feature`, or `full`:
+`Image::make($url)->size('card')`, or `->withMeta(['size' => 'card'])`.
+Unknown names throw `InvalidArgumentException` listing the accepted values.
+An absent key means `full` unless the rendering kit supplies a feed default.
+An explicit `full` overrides that default. The kits own the lengths and keep
+pictures uncropped. This is additive metadata; Image stays at payload version 3.
+
 ## License
 
 The MIT License (MIT). Please see [License File](LICENSE.md) for more information.

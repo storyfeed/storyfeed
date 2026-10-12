@@ -2,6 +2,7 @@
 
 namespace Storyfeed\Body;
 
+use InvalidArgumentException;
 use Storyfeed\Body\Concerns\HasImageSlot;
 use Storyfeed\DeferredMedia;
 use Storyfeed\FeedBody;
@@ -36,6 +37,30 @@ class Image extends FeedBody
 {
     use HasImageSlot {
         image as private slot;
+    }
+
+    /** Semantic presentation sizes; lengths belong to the rendering kit. */
+    public const array SIZES = ['thumbnail', 'inline', 'card', 'feature', 'full'];
+
+    public function size(string $size): static
+    {
+        if (! in_array($size, self::SIZES, true)) {
+            throw new InvalidArgumentException('Image::size() takes one of: '.implode(', ', self::SIZES).'; `'.$size.'` given.');
+        }
+
+        $this->meta['size'] = $size;
+
+        return $this;
+    }
+
+    public function withMeta(array $meta): static
+    {
+        if (array_key_exists('size', $meta)) {
+            $this->size(is_string($meta['size']) ? $meta['size'] : throw new InvalidArgumentException('Image::size() takes one of: '.implode(', ', self::SIZES).'; '.get_debug_type($meta['size']).' given.'));
+            unset($meta['size']);
+        }
+
+        return parent::withMeta($meta);
     }
 
     protected ?string $caption = null;
