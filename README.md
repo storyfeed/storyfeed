@@ -21,10 +21,10 @@ as a feed: the pattern behind GitHub's dashboard, Slack's activity and social
 timelines generally, popularized by Facebook's News Feed in 2006.
 
 <picture>
-  <source media="(prefers-reduced-motion: reduce) and (prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/storyfeed/storyfeed/e998471ddc5cd863a2f605480f2ae2504d70dde9/art/samples/showcase-dark.png">
-  <source media="(prefers-reduced-motion: reduce)" srcset="https://raw.githubusercontent.com/storyfeed/storyfeed/e998471ddc5cd863a2f605480f2ae2504d70dde9/art/samples/showcase-light.png">
-  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/storyfeed/storyfeed/e998471ddc5cd863a2f605480f2ae2504d70dde9/art/samples/showcase-dark.svg">
-  <img src="https://raw.githubusercontent.com/storyfeed/storyfeed/e998471ddc5cd863a2f605480f2ae2504d70dde9/art/samples/showcase-light.svg" width="832" alt="A Storyfeed feed growing, top first: a booking, then its person, a key-value card and a photo; three volunteers joining fold into one grouped row; photos arrive live and regroup with thumbnails. The camera pulls back: the whole feed is the picture in a row that reads You looked at Storyfeed's README, above earlier looks by others. Someone else's look arrives above yours, still typing, and the camera dives into its dots, back to the start.">
+  <source media="(prefers-reduced-motion: reduce) and (prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/storyfeed/storyfeed/PIN_TO_MERGE_COMMIT/art/samples/showcase-dark.png">
+  <source media="(prefers-reduced-motion: reduce)" srcset="https://raw.githubusercontent.com/storyfeed/storyfeed/PIN_TO_MERGE_COMMIT/art/samples/showcase-light.png">
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/storyfeed/storyfeed/PIN_TO_MERGE_COMMIT/art/samples/showcase-dark.svg">
+  <img src="https://raw.githubusercontent.com/storyfeed/storyfeed/PIN_TO_MERGE_COMMIT/art/samples/showcase-light.svg" width="800" alt="A Storyfeed feed growing, top first: a booking, then its person, a key-value card and a photo; three volunteers joining fold into one grouped row; photos arrive live and regroup with thumbnails. The camera pulls back: the whole feed is the picture in a row that reads You looked at Storyfeed's README, above earlier looks by others. Someone else's look arrives above yours, still typing, and the camera dives into its typing dots, then cuts back to the opening feed.">
 </picture>
 
 Every frame is real output from activities recorded through this package.
