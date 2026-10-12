@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Fixed
+
+- A model label longer than 255 characters no longer fails its snapshot or tombstone write on PostgreSQL and MySQL (#197). The label is shortened to the column's 255 characters, ending in "…". No migration is needed. To show the full text, put it in the entity's body or `data`.
+
 ## v0.20.10 - 2026-10-12
 
 ### Fixed

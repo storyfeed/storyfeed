@@ -11,6 +11,7 @@ use Storyfeed\Contracts\HasActivityStreamsType;
 use Storyfeed\FeedContext;
 use Storyfeed\FeedEntity;
 use Storyfeed\FeedMedia;
+use Storyfeed\Support\FitsColumn;
 use Storyfeed\Support\MorphKeyType;
 
 /**
@@ -50,6 +51,7 @@ class FeedTombstone extends Model implements Feedable, HasActivityStreamsType
     {
         return [
             'model_id' => MorphKeyType::class,
+            'label' => FitsColumn::class,
             'restorable' => 'boolean',
             'approximate' => 'boolean',
             'deleted_at' => 'datetime',
