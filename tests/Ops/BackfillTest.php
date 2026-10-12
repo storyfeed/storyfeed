@@ -393,3 +393,28 @@ it('declines quietly when the deploy has not run its migrations yet', function (
 
     $this->artisan('storyfeed:cache-snapshots')->assertSuccessful();
 });
+
+it('declines quietly when the activities table has not run its migrations yet', function () {
+    /*
+     * The pass reads activities as well as writing snapshots, so a column
+     * added to activities stops it just the same: v0.19's location and
+     * generator columns failed a Laravel Cloud build, which runs `optimize`
+     * against the production database before the deploy step migrates.
+     *
+     * Assert that it declines, not only that it exits cleanly. SQLite reads a
+     * double-quoted unknown column as a string and carries on, so only the
+     * engines that throw would show the failure.
+     */
+    Storyfeed::activity()->actor($this->ines)
+        ->verb('note', $this->order)
+        ->publish();
+
+    Schema::table(config('storyfeed.tables.activities', 'feed_activities'), function ($table) {
+        $table->dropMorphs('location');
+        $table->dropColumn('cached_location_id');
+    });
+
+    $this->artisan('storyfeed:cache-snapshots')
+        ->doesntExpectOutputToContain('Compiled')
+        ->assertSuccessful();
+});
