@@ -1,6 +1,6 @@
 ## Storyfeed
 
-Storyfeed records activity feeds for Laravel: an app publishes activities explicitly ("who did what to what") and reads them back as a timeline, grouped rows or per-actor summaries, all from one JSON payload contract. Core is headless; `storyfeed/ui` renders it in Blade. Storyfeed is pre-1.0, so check https://docs.storyfeed.dev before relying on a remembered API. The `storyfeed-development` skill covers grouping, bodies and parties in more depth.
+Storyfeed records activity feeds for Laravel: an app publishes activities explicitly ("who did what to what") and reads them back as a timeline, grouped rows or per-actor summaries, all from one JSON payload contract. Core is headless; `storyfeed/ui` renders it in Blade. Storyfeed is pre-1.0, so check https://docs.storyfeed.dev before relying on a remembered API. The `storyfeed-development` skill covers grouping, bodies, parties, composed feeds, `keepLatest()` and testing with `Storyfeed::fake()` in more depth.
 
 ### Conventions
 
@@ -115,7 +115,7 @@ Use `storyfeed/ui` (Tailwind v4 and the Typography plugin) with @verbatim`<x-sto
 
 ### Bodies
 
-An entity can carry bodies (`Storyfeed\Body\Prose`, `KeyValue`, `ItemList`, `Excerpt`, `MediaObject`, `FileAttachment`). Bodies added in `toFeed()` are stored and updated with the model. Bodies added in `feedMedia()` are built from current values each time the feed is read.
+An entity can carry bodies (`Storyfeed\Body\Prose`, `KeyValue`, `ItemList`, `Excerpt`, `MediaObject`, `FileAttachment`, `Image`, `Table`, `CallToAction`, `Component`). An `Image` takes a `size()` of `thumbnail`, `inline`, `card`, `feature` or `full`. Bodies added in `toFeed()` are stored and updated with the model. Bodies added in `feedMedia()` are built from current values each time the feed is read.
 
 @verbatim
 <code-snippet name="Bodies on an entity" lang="php">
