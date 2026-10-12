@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Fixed
+
+- `storyfeed:doctor`'s `hydration` check no longer fails on a Feedable whose `getMorphClass()` can't answer on a blank instance, for example one that returns an attribute (#194). It skips the class, which the `surface` check already reports as `surface.uncheckable`, and checks the rest, as `storyfeed:cache` and `surface` have since #151.
+
 ## v0.20.9 - 2026-10-12
 
 ### Changed
