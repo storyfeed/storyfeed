@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## v0.20.9 - 2026-10-12
+
 ### Changed
 
 - The Boost guideline and the `storyfeed-development` skill are brought up to date with 0.20.x (#187): `Image::size()` and its five sizes, `Table`, `CallToAction` and `Component`, `Storyfeed::compose()`, sources, `withoutStorage()`, entity arrays, `Act`, `keepLatest()` and the doctor's `keep_latest` findings, `Storyfeed::fake()` assertions, named feeds and `actorsOnTarget`. A test now fails when a public `Storyfeed` facade method or a body type is named in neither file, so a release that adds API has to update them.
