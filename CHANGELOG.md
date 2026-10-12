@@ -2,9 +2,11 @@
 
 ## Unreleased
 
+## v0.20.8 - 2026-10-12
+
 ### Fixed
 
-- `storyfeed:doctor`'s `keep_latest` check no longer slows with the square of an object's history (#177). On an object deleted with a large history, where every row is soft-deleted and none is live, the check probed the whole history once per row. It now finds the newest live row on each key once, as a grouped derived table limited to the keys that have soft-deleted rows, and joins it to the soft-deleted rows, in the same single statement. Findings are unchanged, and there is no migration.
+- `storyfeed:doctor`'s `keep_latest` check no longer slows with the square of an object's history (#177). On an object deleted with a large history, where every row is soft-deleted and none is live, the check probed the whole history once per row. It now finds the newest live row on each key once, as a grouped derived table limited to the keys that have soft-deleted rows, and joins it to the soft-deleted rows, in the same single statement. Findings are unchanged, and there is no migration. Measured on the statement alone at 1M activities (994K, with 8,198 soft-deleted on one deleted object): MySQL 8.4 went from about 4 h 43 min before #176 and 13.4 s in v0.20.7 to 0.69 s, and PostgreSQL 18 from 3.5 s in v0.20.7 to 0.47 s, faster than the 0.54 s it took before #176.
 
 ## v0.20.7 - 2026-10-11
 
