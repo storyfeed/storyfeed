@@ -6,6 +6,10 @@
 
 - The Boost guideline and the `storyfeed-development` skill are brought up to date with 0.20.x (#187): `Image::size()` and its five sizes, `Table`, `CallToAction` and `Component`, `Storyfeed::compose()`, sources, `withoutStorage()`, entity arrays, `Act`, `keepLatest()` and the doctor's `keep_latest` findings, `Storyfeed::fake()` assertions, named feeds and `actorsOnTarget`. A test now fails when a public `Storyfeed` facade method or a body type is named in neither file, so a release that adds API has to update them.
 
+### Fixed
+
+- `php artisan optimize` no longer fails on a deploy that runs it before `migrate`, when `feed_activities` hasn't gained a column yet (#190). `storyfeed:cache-snapshots` declined while `feed_snapshots` was behind, but it also reads every role on `feed_activities`, so a Laravel Cloud build upgrading across v0.19.0 failed with "column location_type does not exist". It now declines while any of the package's tables is behind, which the doctor already reports. The snapshots compile on the next `optimize` after `migrate`, and the trickle catches up in the meantime.
+
 ## v0.20.8 - 2026-10-12
 
 ### Fixed

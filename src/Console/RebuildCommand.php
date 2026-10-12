@@ -129,7 +129,16 @@ class RebuildCommand extends Command
                 return false;
             }
 
-            return SchemaState::current('snapshots');
+            // Every table, not only the one it writes: the pass reads activities
+            // by every stored role, so a role column added there (location and
+            // generator, at v0.19) fails it on the deploy that adds it.
+            foreach (array_keys(SchemaState::EXPECTED) as $key) {
+                if (! SchemaState::current($key)) {
+                    return false;
+                }
+            }
+
+            return true;
         } catch (\Throwable) {
             return false;
         }
