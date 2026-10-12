@@ -17,6 +17,7 @@ use Storyfeed\Models\Grouping;
 use Storyfeed\Support\ActivityRoles;
 use Storyfeed\Support\InlineEntity;
 use Storyfeed\Support\MorphKeyType;
+use TypeError;
 
 /**
  * Shared plumbing for the checks — the configured-model queries and the
@@ -136,13 +137,17 @@ abstract class Check implements DiagnosticCheck
      * any of its other models. The class is a fact to report, once, by the
      * check that owns it (`surface.unaliased`) — not a reason to stop looking.
      *
+     * The same goes for a model that works out its morph class from its
+     * attributes and so can't answer on a blank instance (a `string` return
+     * of a null `kind` is a TypeError): `surface.uncheckable` reports it (#151).
+     *
      * @param  class-string<Model>  $class
      */
     protected function aliasFor(string $class): ?string
     {
         try {
             return (new $class)->getMorphClass();
-        } catch (ClassMorphViolationException) {
+        } catch (ClassMorphViolationException|TypeError) {
             return null;
         }
     }

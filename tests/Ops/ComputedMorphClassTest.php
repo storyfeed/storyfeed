@@ -50,3 +50,10 @@ it('reports the class in the surface check and carries on', function (bool $requ
         ->and($report->has('surface.unaliased'))->toBeFalse()
         ->and($report->withCode('surface.uncheckable')->count())->toBe(1);
 })->with([false, true]);
+
+it('leaves the class to the surface check in the hydration check, and carries on', function () {
+    // The surface check reports the class once; hydration must not fail on it.
+    $report = Storyfeed::doctor(['hydration']);
+
+    expect($report->has('doctor.check_failed'))->toBeFalse();
+});
