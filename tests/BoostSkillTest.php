@@ -100,8 +100,6 @@ it('names every public facade method an app would use', function () {
 
     $text = boostText();
 
-    $text = boostText();
-
     // `Storyfeed::name(` is the form an agent copies. The assert helpers live
     // on the fake, so a bare `assertQueued(` counts too.
     $missing = collect(facadeMethods())
