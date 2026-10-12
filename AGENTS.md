@@ -88,6 +88,10 @@ Write it while it's fresh; never reconstruct after the fact. See
   When touching composer constraints, dry-run the combos locally
   (`COMPOSER=composer.citest.json composer update --prefer-lowest --dry-run`).
 
+## Tests stay in their lane
+
+Each package tests only what it implements (Jasper, 2026-10-11): "everyone stays in their lane". Core's tests cover core's output: the payload, storage and commands. They never assert how storyfeed/ui or storyfeed/filament render it, and never read another package's source or class names. A renderer's output is tested in that renderer's repo.
+
 ## Remote agents (orbs) and pull requests
 
 These apply to any agent working from a fresh clone, such as an Amp orb.
