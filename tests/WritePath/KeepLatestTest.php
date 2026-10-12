@@ -14,6 +14,7 @@ use Storyfeed\PendingActivity;
 use Storyfeed\Stories\Story as BaseStory;
 use Storyfeed\Stories\StoryManifest;
 use Storyfeed\Stories\Verb;
+use Storyfeed\Tests\Fixtures\KeepLatestHistory;
 use Workbench\App\Models\Delivery;
 use Workbench\App\Models\User;
 
@@ -367,6 +368,40 @@ describe('the doctor', function () {
         Artisan::call('storyfeed:doctor', ['--only' => ['keep_latest'], '--stubs' => true]);
 
         expect(Artisan::output())->toContain("Story::for(Delivery::class)->verb('save')->keepLatest();");
+    });
+
+    it('counts each superseded row once across keys with several live successors', function () {
+        foreach (['TN-1', 'TN-2'] as $number) {
+            $delivery = Delivery::create(['tracking_number' => $number]);
+            foreach (['08:00:00', '09:00:00', '10:00:00', '11:00:00', '12:00:00'] as $time) {
+                $row = saved($delivery, "2026-09-20 {$time}");
+                if (in_array($time, ['08:00:00', '10:00:00', '12:00:00'])) {
+                    $row->delete();
+                }
+            }
+        }
+
+        // Two deleted rows per key have a successor; the noon deletions do not.
+        $finding = Storyfeed::doctor(['keep_latest'])->withCode('keep_latest.undeclared')->sole();
+        expect($finding->subject)->toBe(['type' => 'delivery', 'verb' => 'save', 'count' => 4]);
+
+        Story::verb('save')->keepLatest();
+        $finding = Storyfeed::doctor(['keep_latest'])->withCode('keep_latest.split')->sole();
+        expect($finding->subject)->toBe(['type' => 'delivery', 'verb' => 'save', 'keys' => 2])
+            ->and(Storyfeed::doctor(['keep_latest'])->has('keep_latest.undeclared'))->toBeFalse();
+    });
+
+    it('checks thousands of deleted keys in one activities query', function () {
+        KeepLatestHistory::seedKeys();
+        DB::enableQueryLog();
+        DB::flushQueryLog();
+
+        $finding = Storyfeed::doctor(['keep_latest'])->withCode('keep_latest.undeclared')->sole();
+        $queries = collect(DB::getQueryLog())->filter(fn (array $query) => preg_match('/from ["`]feed_activities["`]/', $query['query']) === 1);
+        DB::disableQueryLog();
+
+        expect($finding->subject)->toBe(['type' => 'delivery', 'verb' => 'save', 'count' => 5000])
+            ->and($queries)->toHaveCount(1);
     });
 
     it('is quiet once the verb declares it', function () {

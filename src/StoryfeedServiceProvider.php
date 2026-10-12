@@ -66,6 +66,7 @@ class StoryfeedServiceProvider extends PackageServiceProvider
                 'change_feed_references_to_strings',
                 'add_location_and_generator_to_feed_activities_table',
                 'add_featured_to_feed_activities_table',
+                'add_keep_latest_index_to_feed_activities_table',
             ])
             ->hasCommands([
                 Console\CacheSnapshotsCommand::class,

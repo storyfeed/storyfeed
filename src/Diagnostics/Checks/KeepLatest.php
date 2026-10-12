@@ -64,12 +64,13 @@ class KeepLatest extends Check
         $rows = $query
             ->whereNotNull('superseded.deleted_at')
             ->whereNotNull('superseded.object_id')
-            ->whereExists(fn (Builder $live) => $live->selectRaw('1')->from("{$table} as live")
+            // A scalar maximum keeps the deleted rows as the outer scan;
+            // EXISTS can become a semijoin driven from the entire live feed.
+            ->where('superseded.published_at', '<=', fn (Builder $live) => $live->selectRaw('max(live.published_at)')->from("{$table} as live")
                 ->whereNull('live.deleted_at')
                 ->whereColumn('live.object_type', 'superseded.object_type')
                 ->whereColumn('live.object_id', 'superseded.object_id')
-                ->whereColumn('live.verb', 'superseded.verb')
-                ->whereColumn('live.published_at', '>=', 'superseded.published_at'))
+                ->whereColumn('live.verb', 'superseded.verb'))
             ->selectRaw("{$objectType} as object_type, superseded.verb, count(*) as aggregate")
             ->groupByRaw("{$objectType}, superseded.verb")
             ->orderBy('superseded.verb')->orderByRaw($objectType)
