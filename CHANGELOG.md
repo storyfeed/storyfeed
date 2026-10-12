@@ -2,9 +2,11 @@
 
 ## Unreleased
 
+## v0.20.7 - 2026-10-11
+
 ### Added
 
-- `Image::size()` writes a validated semantic display size in `$meta.size`: `thumbnail`, `inline`, `card`, `feature`, or `full`. `withMeta()` validates the same key. An absent size retains full-width rendering; kit feed props can supply a presentation default (#181).
+- An Image body can say how large a feed should draw it (#181): `Image::make($src)->size('inline')`. There are five semantic sizes, named by role rather than pixels: `thumbnail` (a small identifying picture beside the text), `inline` (a supporting picture in an update), `card` (a project or link card), `feature` (the picture the update is about) and `full` (the full column, as today). It's written as `$meta.size`, and `withMeta(['size' => …])` takes it too. An unknown name throws `InvalidArgumentException`, listing the five. Without a size, the picture is drawn full-width as before. The lengths belong to the renderer: storyfeed/ui maps each size to a CSS variable an app can retune, and lets a page set a default for a whole feed.
 
 ## v0.20.6 - 2026-10-11
 
