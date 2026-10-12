@@ -3,16 +3,18 @@
 Real feed output for the README, from a made-up street fair: every name, booking
 and permit is invented.
 
-`showcase-{light,dark}.svg` is a 16.1-second loop, framed as a macOS-style window. A made-up street fair's
-feed grows, top first: a booking gains its person, a key-value card and a
+`showcase-{light,dark}.svg` is a 15.7-second loop on a transparent ground.
+A made-up street fair's feed grows, top first: a booking gains its person, a key-value card and a
 photo arrive, three joins fold into one grouped row, and photos arrive live
 and regroup. The camera pulls back: the feed is the picture in "You looked at
 Storyfeed's README", above earlier looks. The next person's look arrives on
-top, typing, and the camera dives into its dots, landing on the opening frame.
+top, typing for a 3.0-second hold, and the camera dives into its dots, then cuts
+back to the opening feed. The outer feed fades to transparent at the bottom.
 Every row is a kit's own markup and stylesheet inside `foreignObject`,
 animated by CSS keyframes; the typing bubble and the camera are the page's own.
-Nothing runs in it. `showcase-{light,dark}.png` is the closing frame, still,
-for reduced motion.
+Nothing runs in it. `showcase-{light,dark}.png` is a calm frame of the finished
+feed, for reduced motion.
+The SVG shows the same finished feed when reduced motion is requested.
 
 These are generated: run `npm run readme:showcase` in a storyfeed/ui checkout
 beside this one (its `workbench/readme/`). Regenerate them when the kits'
