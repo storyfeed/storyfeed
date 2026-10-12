@@ -72,6 +72,11 @@ Write it while it's fresh; never reconstruct after the fact. See
   Adopted 2026-10-10 after direct pushes broke ui and core main in one night.
   Short-lived `rnd/*` branches for curator experiments
   (experiment in workbench/, throw away freely).
+- A release-prep PR for any version that adds or changes public API also updates
+  the Boost guideline (`resources/boost/guidelines/core.blade.php`) and the skill
+  (`resources/boost/skills/storyfeed-development/SKILL.md`), which agents read
+  instead of the docs. `tests/BoostSkillTest.php` fails when a facade method or
+  body type is named in neither; allow-list only genuine internals, with a reason.
 - Checks before commit: `vendor/bin/pest`, `vendor/bin/phpstan analyse`,
   `vendor/bin/pint`.
 - CI matrix: PHP 8.4/8.5 × Laravel 12/13 × prefer-lowest/stable × **ubuntu and
