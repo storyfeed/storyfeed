@@ -2,9 +2,13 @@
 
 ## Unreleased
 
+## v0.20.6 - 2026-10-11
+
 ### Fixed
 
-- `storyfeed:doctor` checks `keep_latest` in one statement from the soft-deleted rows, avoiding a MySQL plan that scanned live history for hours on large feeds (#175). A new activities index on `(object_type, object_id, verb, published_at)` bounds the per-key probes.
+- `storyfeed:doctor`'s `keep_latest` check no longer runs for hours on MySQL with a large feed (#175). MySQL ran its correlated `EXISTS` as a join that started from every live row and probed each one's object history, which took about 4.7 hours at a million activities. The check now compares each soft-deleted row with the newest live row on its key, in one statement driven from the soft-deleted rows. A new index on `feed_activities` `(object_type, object_id, verb, published_at)` keeps each comparison short: publish and run the additive `add_keep_latest_index_to_feed_activities_table` migration. Findings are unchanged.
+
+  **Known trade-off:** on an object that was deleted with a large history, so that every row on it is soft-deleted and none is live, the check now costs about N² for N activities on that object, on every database. At a million activities with one such object holding about 8,000 rows, the check takes 13 s on MySQL (from hours) and 3.5 s on PostgreSQL (from 0.5 s). This only affects `storyfeed:doctor`, never a feed read. #177 tracks removing it.
 
 ## v0.20.5 - 2026-10-11
 
