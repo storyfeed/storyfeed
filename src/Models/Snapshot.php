@@ -4,6 +4,7 @@ namespace Storyfeed\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
+use Storyfeed\Support\FitsColumn;
 use Storyfeed\Support\MorphKeyType;
 
 /**
@@ -39,6 +40,7 @@ class Snapshot extends Model
     {
         return [
             'model_id' => MorphKeyType::class,
+            'label' => FitsColumn::class,
             'data' => 'array',
             'body' => 'array',
             'meta' => 'array',
