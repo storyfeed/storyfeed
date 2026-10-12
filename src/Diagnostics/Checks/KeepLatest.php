@@ -3,6 +3,7 @@
 namespace Storyfeed\Diagnostics\Checks;
 
 use Illuminate\Database\Query\Builder;
+use Illuminate\Database\Query\JoinClause;
 use Storyfeed\Diagnostics\Finding;
 use Storyfeed\Diagnostics\Fix;
 use Storyfeed\Exceptions\StoryMisconfigured;
@@ -61,16 +62,29 @@ class KeepLatest extends Check
         $query = $model->getConnection()->table("{$table} as superseded");
         $objectType = $this->objectTypeOf($query, 'superseded');
 
+        // The newest live row per key, computed once and only for the keys
+        // that hold a soft-deleted row. A correlated subquery per deleted row
+        // would walk a tombstoned object's whole history for each of them.
+        $newest = $model->getConnection()->table("{$table} as live")
+            ->select('live.object_type', 'live.object_id', 'live.verb')
+            ->selectRaw('max(live.published_at) as published_at')
+            ->whereNull('live.deleted_at')
+            ->whereExists(fn (Builder $gone) => $gone->selectRaw('1')->from("{$table} as gone")
+                ->whereNotNull('gone.deleted_at')
+                ->whereColumn('gone.object_type', 'live.object_type')
+                ->whereColumn('gone.object_id', 'live.object_id')
+                ->whereColumn('gone.verb', 'live.verb'))
+            ->groupBy('live.object_type', 'live.object_id', 'live.verb');
+
         $rows = $query
+            ->joinSub($newest, 'newest', function (JoinClause $join) {
+                $join->on('newest.object_type', '=', 'superseded.object_type')
+                    ->on('newest.object_id', '=', 'superseded.object_id')
+                    ->on('newest.verb', '=', 'superseded.verb')
+                    ->on('superseded.published_at', '<=', 'newest.published_at');
+            })
             ->whereNotNull('superseded.deleted_at')
             ->whereNotNull('superseded.object_id')
-            // A scalar maximum keeps the deleted rows as the outer scan;
-            // EXISTS can become a semijoin driven from the entire live feed.
-            ->where('superseded.published_at', '<=', fn (Builder $live) => $live->selectRaw('max(live.published_at)')->from("{$table} as live")
-                ->whereNull('live.deleted_at')
-                ->whereColumn('live.object_type', 'superseded.object_type')
-                ->whereColumn('live.object_id', 'superseded.object_id')
-                ->whereColumn('live.verb', 'superseded.verb'))
             ->selectRaw("{$objectType} as object_type, superseded.verb, count(*) as aggregate")
             ->groupByRaw("{$objectType}, superseded.verb")
             ->orderBy('superseded.verb')->orderByRaw($objectType)
