@@ -404,6 +404,27 @@ describe('the doctor', function () {
             ->and($queries)->toHaveCount(1);
     });
 
+    it('checks one object deleted with thousands of activities in one activities query', function () {
+        KeepLatestHistory::seedTombstoned();
+        // One superseded row elsewhere, so the check has something to find.
+        $delivery = Delivery::create(['tracking_number' => 'TN-1']);
+        saved($delivery, '2026-09-20 09:00:00')->delete();
+        saved($delivery, '2026-09-21 09:00:00');
+        DB::enableQueryLog();
+        DB::flushQueryLog();
+
+        $findings = Storyfeed::doctor(['keep_latest'])->withCode('keep_latest.undeclared');
+        $queries = collect(DB::getQueryLog())->filter(fn (array $query) => preg_match('/from ["`]feed_activities["`]/', $query['query']) === 1);
+        DB::disableQueryLog();
+
+        // No live row on the tombstoned key, so none of its 3,000 rows is superseded.
+        expect($findings->sole()->subject)->toBe(['type' => 'delivery', 'verb' => 'save', 'count' => 1])
+            ->and($queries)->toHaveCount(1)
+            // The newest live row per key is a derived table joined once, not a subquery per deleted row.
+            ->and($queries->first()['query'])->toMatch('/join \(select .*group by .*\) as ["`]newest["`]/i')
+            ->not->toMatch('/<= \(select/i');
+    });
+
     it('is quiet once the verb declares it', function () {
         Story::verb('save')->keepLatest();
         $delivery = Delivery::create(['tracking_number' => 'TN-1']);

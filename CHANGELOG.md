@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Fixed
+
+- `storyfeed:doctor`'s `keep_latest` check no longer slows with the square of an object's history (#177). On an object deleted with a large history, where every row is soft-deleted and none is live, the check probed the whole history once per row. It now finds the newest live row on each key once, as a grouped derived table limited to the keys that have soft-deleted rows, and joins it to the soft-deleted rows, in the same single statement. Findings are unchanged, and there is no migration.
+
 ## v0.20.7 - 2026-10-11
 
 ### Added
