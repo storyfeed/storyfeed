@@ -35,11 +35,14 @@ jobs:
     # you hunting for a canceller that does not exist. When a run reports
     # cancelled, compare its DURATION to this cap before looking anywhere else.
     # Windows has reached the five-minute cap after successful tests during
-    # cleanup. Allow setup, the full suite and cleanup eight minutes there.
+    # cleanup. Allow setup, the full suite and cleanup twelve minutes there:
+    # eight left Windows cells at about 400 s of 480, and slow runners
+    # cancelled five of them on 2026-10-12. If they creep toward twelve, find
+    # out why Windows is slow rather than raising this again.
     # Real-engine cells build the schema once per worker and truncate between
     # tests (#112): each engine took about four minutes locally with four
     # workers, so 40 minutes is a hang guard. SQLite retains its five-minute cap.
-    timeout-minutes: ${{ matrix.database != 'sqlite' && 40 || matrix.os == 'windows-latest' && 8 || 5 }}
+    timeout-minutes: ${{ matrix.database != 'sqlite' && 40 || matrix.os == 'windows-latest' && 12 || 5 }}
     strategy:
       fail-fast: true
       matrix:
