@@ -64,3 +64,21 @@ it('normalizes malformed and future v3 rows, preferring a stored src over a slot
 
     expect(rendered(Image::make(width: 0, height: -1))['width'])->toBeNull();
 });
+
+it('writes semantic sizes only when set and validates both entry points', function () {
+    expect(Image::make('/a.jpg')->toPayload())->not->toHaveKey('$meta');
+    foreach (Image::SIZES as $size) {
+        $body = Image::make('/a.jpg')->size($size);
+        expect(json_decode(json_encode($body->toPayload()), true)['$meta']['size'])->toBe($size)
+            ->and(Image::make('/a.jpg')->withMeta(['size' => $size, 'maxHeight' => '16rem', 'app.layout' => 'quiet'])->meta())
+            ->toBe(['size' => $size, 'maxHeight' => '16rem', 'app.layout' => 'quiet']);
+    }
+    expect(Image::make()->size('card')->size('full')->meta())->toBe(['size' => 'full']);
+    foreach (['unknown', '', 'CARD'] as $size) {
+        expect(fn () => Image::make()->size($size))->toThrow(InvalidArgumentException::class, implode(', ', Image::SIZES))
+            ->and(fn () => Image::make()->withMeta(['size' => $size]))->toThrow(InvalidArgumentException::class);
+    }
+    foreach ([null, 12, [], false] as $size) {
+        expect(fn () => Image::make()->withMeta(['size' => $size]))->toThrow(InvalidArgumentException::class, implode(', ', Image::SIZES));
+    }
+});

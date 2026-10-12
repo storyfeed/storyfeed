@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Added
+
+- `Image::size()` writes a validated semantic display size in `$meta.size`: `thumbnail`, `inline`, `card`, `feature`, or `full`. `withMeta()` validates the same key. An absent size retains full-width rendering; kit feed props can supply a presentation default (#181).
+
 ## v0.20.6 - 2026-10-11
 
 ### Fixed
