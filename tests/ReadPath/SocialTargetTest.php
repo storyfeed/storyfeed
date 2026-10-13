@@ -82,6 +82,24 @@ it('uses the social threshold before falling back to the person row', function (
     expect($items)->toHaveCount(1)->and($items[0]['axis'])->toBe('actors_target')->and($items[0]['count'])->toBe(5);
 });
 
+it('reads the actors_target threshold and its actor sample at the edge', function () {
+    // Two actors sharing a target stay two singleton rows.
+    foreach ([$this->people[0], $this->people[1]] as $i => $actor) {
+        Storyfeed::activity()->actor($actor)->verb('comment', Customer::create(['name' => "Comment {$i}"]))->target($this->document)->publish();
+    }
+    $items = Storyfeed::feed()->live()->get()->toArray();
+    expect($items)->toHaveCount(2)
+        ->and(collect($items)->pluck('kind')->unique()->all())->toBe(['activity']);
+
+    // A third actor tips them into one group with a three-entry actor sample.
+    Storyfeed::activity()->actor($this->people[2])->verb('comment', Customer::create(['name' => 'Comment 2']))->target($this->document)->publish();
+    $items = Storyfeed::feed()->live()->get()->toArray();
+    expect($items)->toHaveCount(1)
+        ->and($items[0]['axis'])->toBe('actors_target')
+        ->and($items[0]['count'])->toBe(3)
+        ->and($items[0]['sample']['actors'])->toHaveCount(3);
+});
+
 it('keeps target social bursts separate by verb, target, context, quiet gap and ceiling', function () {
     config()->set('storyfeed.grouping.bursts', ['within' => '3 minutes', 'ceiling' => '4 minutes']);
     $publish = fn ($minute, $verb = 'comment', $target = null, $context = null) => Storyfeed::activity()->actor($this->people[$minute % 3])

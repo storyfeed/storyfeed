@@ -198,6 +198,31 @@ describe('what a publish supersedes', function () {
         expect(liveSaves($delivery))->toBe([$morning->id, $noon->id]);
     });
 
+    it('keeps only the latest row for saves 60 seconds apart under a 90-second window', function () {
+        Story::verb('save')->keepLatest(within: '90 seconds');
+        $delivery = Delivery::create(['tracking_number' => 'TN-1']);
+
+        saved($delivery, '2026-09-24 12:00:00');
+        saved($delivery, '2026-09-24 12:01:00');
+        $latest = saved($delivery, '2026-09-24 12:02:00');
+
+        // 60 s apart is inside a 90-second window: each new row supersedes
+        // the one before it, so only the latest stays live.
+        expect(liveSaves($delivery))->toBe([$latest->id]);
+    });
+
+    it('keeps all three saves 60 seconds apart under a 30-second window', function () {
+        Story::verb('save')->keepLatest(within: '30 seconds');
+        $delivery = Delivery::create(['tracking_number' => 'TN-1']);
+
+        $first = saved($delivery, '2026-09-24 12:00:00');
+        $second = saved($delivery, '2026-09-24 12:01:00');
+        $third = saved($delivery, '2026-09-24 12:02:00');
+
+        // 60 s apart is outside a 30-second window, so no row supersedes another.
+        expect(liveSaves($delivery))->toBe([$first->id, $second->id, $third->id]);
+    });
+
     it('soft-deletes superseded rows by default: history is kept, the feed forgets', function () {
         Story::verb('save')->keepLatest();
         $delivery = Delivery::create(['tracking_number' => 'TN-1']);
