@@ -1,10 +1,12 @@
 <?php
 
 use Storyfeed\Facades\Storyfeed;
+use Storyfeed\Grouping\Axis;
 use Storyfeed\Models\Activity;
 use Storyfeed\Payload\GroupSlice;
 use Storyfeed\Payload\NodePresenter;
 use Workbench\App\Models\Delivery;
+use Workbench\App\Models\User;
 
 function sampleLimitSlice(): GroupSlice
 {
@@ -82,4 +84,28 @@ it('shows six composite objects through the feed while retaining pinned roles', 
     expect($capped['sample']['objects'])->toHaveCount(2)
         ->and($capped['distinct']['objects'])->toBe(6)
         ->and($capped['children_truncated'])->toBeTrue();
+});
+
+it('caps the actor sample of an object group at one', function () {
+    config(['storyfeed.grouping.sample_limits.actor' => 1]);
+
+    // An object axis keyed on the object alone (not the actor): three
+    // actors on one object fold into one object group whose actor sample is
+    // the three of them, capped at one.
+    Storyfeed::axes([
+        Axis::make('object')->key('v:oa!:oid!:ta:tid:ca:cid')->eligibleWhenMembers(min: 2),
+        Axis::make('repeat')->key('aa:aid:v:oa:ta:tid:ca:cid')->fallback(),
+    ], merge: false);
+
+    $doc = Delivery::create(['tracking_number' => 'Shared object']);
+    $people = collect(['Ann', 'Bo', 'Cy'])->map(fn ($name) => User::create(['name' => $name, 'email' => strtolower($name).'@example.com']));
+
+    foreach ($people as $person) {
+        Storyfeed::activity()->actor($person)->verb('inspect', $doc)->publish();
+    }
+
+    $node = Storyfeed::feed()->get()->toArray()[0];
+    expect($node['axis'])->toBe('object')
+        ->and($node['sample']['actors'])->toHaveCount(1)
+        ->and($node['distinct']['actors'])->toBe(3);
 });

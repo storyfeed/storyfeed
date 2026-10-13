@@ -498,6 +498,44 @@ it('collapses repeated acts on one object onto the object axis', function () {
         ->and($items[0]['headline_template'])->toBe(':actor made :count revisions to :object');
 });
 
+it('keeps three members on the repeat axis when the object threshold is 4', function () {
+    Story::verb('revise')->grouped(Group::on('object')->headline(':actor made :count revisions to :object'));
+    config()->set('storyfeed.grouping.policy.min_object_members', 4);
+
+    $bob = User::create(['name' => 'Bob Callahan', 'email' => 'bob@example.com']);
+    $doc = Delivery::create(['tracking_number' => 'Below.docx']);
+
+    foreach (range(1, 3) as $i) {
+        Storyfeed::activity()->actor($bob)->verb('revise', $doc)->publish();
+    }
+
+    // Three members on one object are below the threshold of 4, so the object
+    // axis is ineligible and they fall back to the repeat axis.
+    $items = Storyfeed::feed()->get()->toArray();
+    expect($items)->toHaveCount(1)
+        ->and($items[0]['axis'])->toBe('repeat')
+        ->and($items[0]['count'])->toBe(3);
+});
+
+it('folds three members into one object group when the threshold is 3', function () {
+    Story::verb('revise')->grouped(Group::on('object')->headline(':actor made :count revisions to :object'));
+    config()->set('storyfeed.grouping.policy.min_object_members', 3);
+
+    $bob = User::create(['name' => 'Bob Callahan', 'email' => 'bob@example.com']);
+    $doc = Delivery::create(['tracking_number' => 'At.docx']);
+
+    foreach (range(1, 3) as $i) {
+        Storyfeed::activity()->actor($bob)->verb('revise', $doc)->publish();
+    }
+
+    // At the threshold of 3 the same three members fold into one object group.
+    $items = Storyfeed::feed()->get()->toArray();
+    expect($items)->toHaveCount(1)
+        ->and($items[0]['axis'])->toBe('object')
+        ->and($items[0]['count'])->toBe(3)
+        ->and($items[0]['sample']['objects'][0]['label'])->toBe('Delivery #At.docx');
+});
+
 it('fragments a mixed day into precise stories instead of one wrong one', function () {
     $bob = User::create(['name' => 'Bob Callahan', 'email' => 'bob@example.com']);
     $doc = Delivery::create(['tracking_number' => 'Aut Beatae.docx']);
