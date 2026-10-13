@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Added
+
+- `Storyfeed\Body\Code`, source text plus the language it is in when that is known: `Code::make($diff)->language('diff')->title('Migration')`. The language is a name a highlighter takes (`php`, `diff`), not `Prose`'s media type, and null means it was not known. The source is text and only text, and the fallback line is the title, else the first line of the source (#83).
+- `Storyfeed\Body\Callout`, a short note with an intent, after Filament's callout: `Callout::make('This order ships from the backup warehouse.')->title('Split warehouse')->intent('warning')`, with `info()`, `success()`, `warning()` and `danger()` shortcuts. The intent is an open, app-owned word with a glyph intent's rules — core ships no vocabulary and validates none — defaulting to `note`, and the fallback line is the title, else the content (#83).
+
 ## v0.20.11 - 2026-10-12
 
 ### Fixed

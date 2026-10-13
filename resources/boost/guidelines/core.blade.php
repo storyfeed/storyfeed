@@ -115,7 +115,7 @@ Use `storyfeed/ui` (Tailwind v4 and the Typography plugin) with @verbatim`<x-sto
 
 ### Bodies
 
-An entity can carry bodies (`Storyfeed\Body\Prose`, `KeyValue`, `ItemList`, `Excerpt`, `MediaObject`, `FileAttachment`, `Image`, `Table`, `CallToAction`, `Component`). An `Image` takes a `size()` of `thumbnail`, `inline`, `card`, `feature` or `full`. Bodies added in `toFeed()` are stored and updated with the model. Bodies added in `feedMedia()` are built from current values each time the feed is read.
+An entity can carry bodies (`Storyfeed\Body\Prose`, `KeyValue`, `ItemList`, `Excerpt`, `MediaObject`, `FileAttachment`, `Image`, `Table`, `CallToAction`, `Code`, `Callout`, `Component`). An `Image` takes a `size()` of `thumbnail`, `inline`, `card`, `feature` or `full`. A `Code` carries source text and an optional `language()`; a `Callout` a short note with an open, app-defined `intent()` defaulting to `note`, with `info()`, `success()`, `warning()` and `danger()` shortcuts. Bodies added in `toFeed()` are stored and updated with the model. Bodies added in `feedMedia()` are built from current values each time the feed is read.
 
 @verbatim
 <code-snippet name="Bodies on an entity" lang="php">
