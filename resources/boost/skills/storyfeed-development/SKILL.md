@@ -94,7 +94,7 @@ Story::verb('place')->grouped(
 
 ## Bodies
 
-Core bodies: `Prose`, `KeyValue`, `ItemList`, `Excerpt`, `MediaObject`, `FileAttachment`, `Image`, `Table`, `CallToAction`, and `Component` for a renderer-owned component. Links inside bodies use `FeedLink::to($url)` or `FeedLink::toEntity()`.
+Core bodies: `Prose`, `KeyValue`, `ItemList`, `Excerpt`, `MediaObject`, `FileAttachment`, `Image`, `Table`, `CallToAction`, `Code`, `Callout`, and `Component` for a renderer-owned component. Links inside bodies use `FeedLink::to($url)` or `FeedLink::toEntity()`.
 
 ```php
 use Storyfeed\Body\KeyValue;
@@ -109,6 +109,8 @@ FeedEntity::make()
 - `Image::make($url)->alt('...')->size('card')`: the size is one of `thumbnail`, `inline`, `card`, `feature` or `full` (the default), and an unknown name throws. The renderer owns the lengths. `Image::make()` with no argument shows the entity's `preview` picture.
 - `Excerpt` is complete by default; call `truncated()` only when the text was cut.
 - `Table::make($headers, $rows)->title('...')`; `CallToAction::make(subject: '...', content: '...')->action('See it', FeedLink::to($url))`.
+- `Code::make($source)->language('diff')->title('...')`: the language is a name a highlighter takes (`php`, `diff`), or null when unknown; the fallback line is the title, else the first line of the source.
+- `Callout::make('...')->intent('warning')->title('...')`: the intent is an open, app-owned word with a glyph intent's rules, defaulting to `note`, with `info()`, `success()`, `warning()` and `danger()` shortcuts; the fallback line is the title, else the content.
 - Any body takes `fallback('...')` (plain text for renderers that cannot draw it) and `maxHeight('16rem')` or `fullHeight()`.
 - `data()` on the activity is frozen at publication.
 - `body()` in `toFeed()` is stored and updated whenever the model saves.

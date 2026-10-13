@@ -1,6 +1,8 @@
 <?php
 
+use Storyfeed\Body\Callout;
 use Storyfeed\Body\CallToAction;
+use Storyfeed\Body\Code;
 use Storyfeed\Body\Component;
 use Storyfeed\Body\Excerpt;
 use Storyfeed\Body\FileAttachment;
@@ -124,7 +126,7 @@ it('supports when() and unless() on every body type', function () {
     expect($prose->toPayload()['title'])->toBe('Shown')
         ->and(rendered(Component::make('Card')->when(false, fn ($c) => $c->props('x', 1)))['props'])->toBe([]);
 
-    foreach ([Excerpt::class, FileAttachment::class, Image::class, ItemList::class, KeyValue::class, MediaObject::class, Prose::class, Component::class, Table::class, CallToAction::class] as $class) {
+    foreach ([Excerpt::class, FileAttachment::class, Image::class, ItemList::class, KeyValue::class, MediaObject::class, Prose::class, Component::class, Table::class, CallToAction::class, Code::class, Callout::class] as $class) {
         expect(method_exists($class, 'when') && method_exists($class, 'unless'))->toBeTrue();
     }
 });
