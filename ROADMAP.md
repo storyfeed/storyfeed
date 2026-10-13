@@ -101,13 +101,10 @@ titles start with the version they target, such as `[0.17]`. Milestones show
 the current plan: items may be reordered, moved to a later version or dropped as
 the work teaches us, and a dropped item is closed as not planned with its reason.
 
-- [ ] **[v0.21 — Payload and schema freeze](https://github.com/storyfeed/storyfeed/milestone/4).**
-      The open points in the payload contract and the schema are settled,
-      `location` and `generator` join the recorded roles, and Payload v1 is
-      declared stable.
 - [ ] **[v1.0 — Stable](https://github.com/storyfeed/storyfeed/milestone/5).** One
       consolidated schema, a versioning and support policy, and a release
-      candidate before 1.0.0.
+      candidate before 1.0.0. Payload v1 is declared stable with the release
+      candidate; until then the payload may still change.
 
 Curation, which activities group together and when, keeps improving behind the
 stable payload contract and stays labelled experimental.
