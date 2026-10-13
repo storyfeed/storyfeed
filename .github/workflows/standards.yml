@@ -1,0 +1,39 @@
+name: standards
+
+# tey/standards' CI rules (rule 51), checked by the package's standalone CLI.
+# It is installed globally rather than in require-dev, because the package
+# needs illuminate ^13 and this package's matrix also tests Laravel 12. The
+# CLI reads the workflow files and composer.json's extra; it boots nothing.
+on:
+  push:
+    branches: [main, '*.x']
+    paths:
+      - '.github/workflows/**'
+      - 'composer.json'
+  pull_request:
+    paths:
+      - '.github/workflows/**'
+      - 'composer.json'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  ci-rules:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.5'
+          coverage: none
+
+      - name: Install the standards CLI
+        run: composer global require --no-interaction --no-progress tey/standards:^0.6
+
+      - name: Check the CI rules
+        run: |
+          "$(composer global config bin-dir --absolute --quiet)/standards" ci --strict
