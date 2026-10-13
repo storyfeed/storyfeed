@@ -2,6 +2,7 @@ name: run-tests
 
 on:
   push:
+    branches: [main, '*.x']
     paths:
       - 'README.md'
       - 'CHANGELOG.md'

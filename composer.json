@@ -81,6 +81,15 @@
         },
         "branch-alias": {
             "dev-main": "0.21.x-dev"
+        },
+        "tey-standards": {
+            "ci": {
+                "default-branches": [
+                    "main",
+                    "*.x"
+                ],
+                "distribution": "package"
+            }
         }
     },
     "minimum-stability": "dev",
