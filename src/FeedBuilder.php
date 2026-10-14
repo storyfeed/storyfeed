@@ -926,7 +926,7 @@ class FeedBuilder
         };
 
         [$slices, $next] = (new SourceRead(
-            $source, $this->admitsActivity($now), $this->shouldGroup(), $this->limit, $this->cursor, $this->childrenLimit(), $this->offset, $this->keepsOrder(),
+            $source, $this->admitsActivity($now), $this->shouldGroup(), $this->limit, $this->cursor, $this->childrenLimit(), $this->offset, $this->keepsOrder(), $this->groupsByContext(),
         ))->page();
 
         return new FeedPage($slices, $next, $this->presenter());
@@ -973,6 +973,12 @@ class FeedBuilder
     protected function keepsOrder(): bool
     {
         return $this->source instanceof ArraySource && $this->source->inOrder;
+    }
+
+    /** Whether a source read folds the items naming one context into one group. */
+    protected function groupsByContext(): bool
+    {
+        return false;
     }
 
     /** Whether a source read hides items dated in the future, as the database hides scheduled activities. */

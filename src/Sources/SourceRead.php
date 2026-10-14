@@ -30,9 +30,15 @@ use Storyfeed\Support\Chronology;
  * FeedBuilder::selectItems() orders them.
  *
  * An ordered read keeps the items in the order the source gave them, groups
- * nothing, and pages by position. A dateless or verbless item never
- * groups; in a read that is not ordered, dateless items follow every dated
- * one, in the order given.
+ * nothing by verb and time, and pages by position. A dateless or verbless
+ * item never groups by verb and time; in a read that is not ordered,
+ * dateless items follow every dated one, in the order given.
+ *
+ * A read that groups by context folds the admitted items naming one context
+ * into one `context` group, ordered or not, dated or not: the group stands
+ * where its first member does in an ordered read, and at its newest member's
+ * time otherwise. An item with no context, or the only one naming its
+ * context, reads solo.
  *
  * @internal
  */
@@ -41,6 +47,8 @@ final class SourceRead
     protected const RANK_GROUP = 0;
 
     protected const RANK_SOLO = 1;
+
+    protected static ?Axis $contextKey = null;
 
     /**
      * @param  Closure(Activity): bool  $admits  the read's filters
@@ -54,6 +62,7 @@ final class SourceRead
         protected int $childrenLimit,
         protected int $offset = 0,
         protected bool $ordered = false,
+        protected bool $byContext = false,
     ) {}
 
     /**
@@ -122,7 +131,7 @@ final class SourceRead
         if (($after = $this->decodedCursor()) !== null) {
             $candidates = $candidates->filter(fn (array $candidate) => $this->compareToCursor($candidate[0], $after) > 0)->values();
         } elseif ($this->ordered && ($position = $this->decodedPosition()) !== null) {
-            $candidates = $candidates->filter(fn (array $candidate) => $candidate[0]->activity?->getKey() > $position)->values();
+            $candidates = $candidates->filter(fn (array $candidate) => $candidate[0]->id > $position)->values();
         }
 
         $more = $candidates->count() > $this->offset + $this->limit;
@@ -153,9 +162,18 @@ final class SourceRead
     protected function candidates(Collection $admitted, array $winners): Collection
     {
         $groups = [];
+        $contexts = [];
         $candidates = Collection::make();
 
         foreach ($admitted as $activity) {
+            // A context claims its members before any verb-and-time group:
+            // grouping by it was asked for, and a member is read once.
+            if ($this->byContext && ($context = self::context($activity)) !== null) {
+                $contexts[$context][] = $activity;
+
+                continue;
+            }
+
             $winner = $winners[$activity->getKey()] ?? null;
 
             if ($winner === null) {
@@ -179,7 +197,48 @@ final class SourceRead
             ]);
         }
 
+        foreach ($contexts as $hash => $members) {
+            if (count($members) === 1) {
+                $candidates->push([FeedCandidate::solo(self::stamp($members[0]), $members[0]), Collection::make($members)]);
+
+                continue;
+            }
+
+            // In the order the feed reads them, so the first member is the
+            // first in kept order, or the newest.
+            $members = Collection::make($members)
+                ->sort(fn (Activity $a, Activity $b): int => $this->compare(FeedCandidate::solo(self::stamp($a), $a), FeedCandidate::solo(self::stamp($b), $b)))
+                ->values();
+
+            $latest = self::stamp($members->first());
+
+            $candidates->push([
+                FeedCandidate::group(
+                    $latest,
+                    'context',
+                    (string) $hash,
+                    $members->count(),
+                    // Where the group stands among positions (kept order, or
+                    // dateless), else its tiebreak at a shared time.
+                    $this->ordered || $latest === ''
+                        ? $members->min(fn (Activity $member) => $member->getKey())
+                        : $members->max(fn (Activity $member) => $member->getKey()),
+                ),
+                $members,
+            ]);
+        }
+
         return $candidates;
+    }
+
+    /**
+     * The context an activity names, as its group's hash: the `context`
+     * axis's pinned role, keyed the way a recipe keys `ca!:cid!`. Null when
+     * it names none.
+     */
+    public static function context(Activity $activity): ?string
+    {
+        return (self::$contextKey ??= Axis::make('context')->key('ca!:cid!'))->hashFor($activity);
     }
 
     /**
@@ -352,7 +411,7 @@ final class SourceRead
     protected function compare(FeedCandidate $a, FeedCandidate $b): int
     {
         if ($this->ordered || ($a->latest === '' && $b->latest === '')) {
-            return $a->activity?->getKey() <=> $b->activity?->getKey();
+            return $a->id <=> $b->id;
         }
 
         return strcmp($b->latest, $a->latest)
@@ -365,7 +424,7 @@ final class SourceRead
     protected function compareToCursor(FeedCandidate $candidate, array $cursor): int
     {
         if ($cursor['latest'] === '' && $candidate->latest === '') {
-            return $candidate->activity?->getKey() <=> $cursor['id'];
+            return $candidate->id <=> $cursor['id'];
         }
 
         return strcmp($cursor['latest'], $candidate->latest)
@@ -412,7 +471,7 @@ final class SourceRead
     protected function encodeCursor(FeedCandidate $candidate): string
     {
         if ($this->ordered) {
-            return (new Cursor(['position' => $candidate->activity?->getKey()]))->encode();
+            return (new Cursor(['position' => $candidate->id]))->encode();
         }
 
         return (new Cursor([

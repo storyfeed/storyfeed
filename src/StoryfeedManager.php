@@ -2048,6 +2048,12 @@ class StoryfeedManager
                 ->pins(':actor', ':target', ':context'),
             Axis::make('batch')
                 ->rowBacked(),
+            // Declared membership, never inferred: a composed feed's
+            // groupBy(Group::byContext()) folds the entries that name one
+            // context. Pins only the context; nothing curates it.
+            Axis::make('context')
+                ->rowBacked()
+                ->pins(':context'),
         ];
 
         return array_combine(array_column($axes, 'name'), $axes);

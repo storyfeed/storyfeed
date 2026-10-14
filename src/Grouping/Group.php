@@ -71,6 +71,15 @@ final class Group
         return new self('object');
     }
 
+    /**
+     * Many items, one context — "v2.3 shipped 6 changes". A composed feed
+     * groups by it when it asks: `->groupBy(Group::byContext())`.
+     */
+    public static function byContext(): self
+    {
+        return new self('context');
+    }
+
     /** The fallback axis: same actor repeating the same act. */
     public static function repeat(): self
     {

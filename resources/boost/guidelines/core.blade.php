@@ -94,6 +94,24 @@ Story::verb('comment')->grouped(
 </code-snippet>
 @endverbatim
 
+A composed feed (`Storyfeed::compose()`) groups only when it asks: `groupBy(Group::byContext())` folds the entries that name one `context()` into one group node, in kept order (`inOrder()`) and for dateless entries too. The group pins `:context`; entries with no context read solo. Read its members past the first page with `members($node['id'])` on the same composed feed.
+
+@verbatim
+<code-snippet name="Group composed entries by context" lang="php">
+use Storyfeed\Facades\Storyfeed;
+use Storyfeed\Grouping\Group;
+use Storyfeed\Sources\Entry;
+
+Storyfeed::compose()
+    ->addMany($release->changes, fn (Change $change, Entry $entry) => $entry
+        ->action('ship', $change)
+        ->context($release)
+        ->publishedAt($release->published_at))
+    ->groupBy(Group::byContext()->headline(':context shipped :count changes'))
+    ->cursorPaginate();
+</code-snippet>
+@endverbatim
+
 ### Reading the feed
 
 `Storyfeed::feed()` returns a builder. `get()` returns a collection of nodes (`FeedItem` readers); `cursorPaginate()` and `simplePaginate()` return Laravel paginators with the nodes in `data`, plus `payload_version` and `sync_token`. All serialize to JSON, so you can return them from a route; page a feed with `cursorPaginate()`. There is no `paginate()`. The read modes are `live()` (one-action bursts, and the default) and `log()` (one row per activity). `summary()` is retired and throws naming Live. Live closes after 15 quiet minutes or a 4-hour ceiling; configure `grouping.bursts` or a verb's `bursts(within: '15 minutes', ceiling: '4 hours')`. Filter with `involving($model)`, `actor()`, `object()`, `target()` or `context()`.
