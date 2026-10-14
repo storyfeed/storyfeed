@@ -3,6 +3,7 @@
 namespace Storyfeed\Serialization;
 
 use Closure;
+use Illuminate\Support\Collection;
 use Storyfeed\ActivityStreams\ActivityType;
 use Storyfeed\ActivityStreams\Context;
 use Storyfeed\ActivityStreams\CoreType;
@@ -16,9 +17,11 @@ use Storyfeed\Models\Activity;
 use Storyfeed\Models\FeedTombstone;
 use Storyfeed\Models\Grouping;
 use Storyfeed\Models\Snapshot;
+use Storyfeed\Sources\Entry;
 use Storyfeed\StoryfeedManager;
 use Storyfeed\Support\ActivityContextFactory;
 use Storyfeed\Support\ActivityRoles;
+use Storyfeed\Support\Chronology;
 use Storyfeed\Support\LinkResolver;
 use Storyfeed\Support\ModelHydrator;
 use Throwable;
@@ -317,6 +320,30 @@ class ActivitySerializer
             return null;
         }
 
+        $members = $activity->exists ? $this->storedMembers($activity) : $this->composedMembers($activity);
+
+        if ($members === null || $members->isEmpty()) {
+            return null;
+        }
+
+        return [
+            'type' => 'OrderedCollection',
+            'totalItems' => $members->count(),
+            'orderedItems' => $members
+                ->map(fn (Activity $member) => $this->entity($member->object_type, $member->cachedObject, $links, id: $member->object_id))
+                ->filter()
+                ->values()
+                ->all(),
+        ];
+    }
+
+    /**
+     * A recorded composite's members, newest first: its composite rows.
+     *
+     * @return Collection<int, Activity>|null
+     */
+    protected function storedMembers(Activity $activity): ?Collection
+    {
         $grouping = config('storyfeed.models.grouping', Grouping::class);
 
         $memberIds = $grouping::query()
@@ -331,22 +358,37 @@ class ActivitySerializer
 
         $model = config('storyfeed.models.activity', Activity::class);
 
-        $members = $model::query()
+        return $model::query()
             ->whereKey($memberIds)
             ->with('cachedObject')
             ->orderByDesc('published_at')
             ->orderByDesc('id')
             ->get();
+    }
 
-        return [
-            'type' => 'OrderedCollection',
-            'totalItems' => $members->count(),
-            'orderedItems' => $members
-                ->map(fn (Activity $member) => $this->entity($member->object_type, $member->cachedObject, $links, id: $member->object_id))
-                ->filter()
-                ->values()
-                ->all(),
-        ];
+    /**
+     * A composed composite entry's members, held in memory and never queried,
+     * in the order storedMembers() reads a recorded one's.
+     *
+     * @return Collection<int, Activity>|null
+     */
+    protected function composedMembers(Activity $activity): ?Collection
+    {
+        if (! $activity->relationLoaded(Entry::MEMBERS)) {
+            return null;
+        }
+
+        /** @var Collection<int, Activity> $members */
+        $members = $activity->getRelation(Entry::MEMBERS);
+
+        return $members
+            ->sort(fn (Activity $a, Activity $b): int => strcmp(self::stamp($b), self::stamp($a)) ?: $b->getKey() <=> $a->getKey())
+            ->values();
+    }
+
+    private static function stamp(Activity $activity): string
+    {
+        return $activity->published_at === null ? '' : Chronology::stamp($activity->published_at);
     }
 
     /**

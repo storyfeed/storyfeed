@@ -57,6 +57,7 @@ Storyfeed is pre-1.0. When unsure, read the docs at https://docs.storyfeed.dev, 
 | `targets` | one actor across targets | `:actor` |
 | `object` | many actions on one object | `:actor` `:object` |
 | `actorsOnTarget` | many actors, each on their own object, same target | `:target` |
+| `context` | many entries naming one context, in a composed feed's `groupBy()` | `:context` |
 
 ```php
 use Storyfeed\Grouping\GroupBuilder;
@@ -83,7 +84,9 @@ Story::verb('place')->grouped(
 - `query(fn (ActivityBuilder $query) => ...)` adds custom constraints.
 - Named feeds are audience presets: declare them once with `Storyfeed::feeds([...])`, read one with `Storyfeed::feed('name')`.
 - A feed need not come from storage. `Storyfeed::feed()->source('roadmap')` reads a named source from `storyfeed.sources` (an `array` source holds static items; `Storyfeed::source('roadmap')` returns the source itself), and `Storyfeed::extend('github', fn ($app, array $config) => new GitHubSource($config))` registers a driver.
-- `Storyfeed::compose()` builds a feed by hand from data you already have and reads it into the same payload: `->add(fn (Entry $entry) => $entry->by($team)->action('ship', $release)->publishedAt($date))`, `->addMany($items, fn ($item, Entry $entry) => ...)`, and `->inOrder()` to keep your order (it never groups). An entry takes its own `->headline(':actor shipped :object', [...])`. Model roles must be Feedable; use an entity array otherwise.
+- `Storyfeed::compose()` builds a feed by hand from data you already have and reads it into the same payload: `->add(fn (Entry $entry) => $entry->by($team)->action('ship', $release)->publishedAt($date))`, `->addMany($items, fn ($item, Entry $entry) => ...)`, and `->inOrder()` to keep your order (Live never groups it). An entry takes its own `->headline(':actor shipped :object', [...])`. Model roles must be Feedable; use an entity array otherwise.
+- A composed feed groups only when it asks: `->groupBy(Group::byContext()->headline(':context shipped :count changes'))` folds the entries that name one `->context($release)` into one group node, in kept order and for dateless entries too. Entries with no context, or alone in theirs, read solo. `members($node['id'])` on the same composed feed reads a group's members past its `children`. Only `byContext()` is accepted; Live infers the other axes.
+- `Entry::objects($files)` instead of `object()` composes a composite, as `Storyfeed::activity()->objects()` records one: one `composite` group node in every read mode (log, live, kept order), members newest first or in kept order, never curated into Live groups and never folded into a context group. Members may be models, party names or entity arrays; `object()` with `objects()` throws. Its `headline()` is the group's and may not name `:object`. `members($node['id'])` on the same composed feed pages its members.
 - An app that composes and renders without core's tables calls `Storyfeed::withoutStorage()` in a service provider's `boot()`.
 
 ## Rendering

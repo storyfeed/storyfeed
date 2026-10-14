@@ -11,6 +11,7 @@ use Storyfeed\FeedHeadline;
 use Storyfeed\FeedLink;
 use Storyfeed\FeedNoun;
 use Storyfeed\Grouping\Anchor;
+use Storyfeed\Grouping\Group;
 use Storyfeed\Models\Activity;
 use Storyfeed\Models\FeedTombstone;
 use Storyfeed\Models\Snapshot;
@@ -55,6 +56,13 @@ class NodePresenter
     /** @var array<string, true> */
     protected array $roleColumns = [];
 
+    /**
+     * The groups a feed asked for by groupBy(), keyed by axis.
+     *
+     * @var array<string, Group>
+     */
+    protected array $groups = [];
+
     /** @var array<string, bool> */
     protected array $outboundRoleCasts = [];
 
@@ -82,6 +90,21 @@ class NodePresenter
     {
         $presenter = clone $this;
         $presenter->feed = $feed;
+
+        return $presenter;
+    }
+
+    /**
+     * The same presenter, told which groups its feed asked for: a Group's
+     * own headline is its axis's headline in this feed, ahead of the one
+     * the Stories registered. A copy, for the reason forFeed() is.
+     *
+     * @param  array<string, Group>  $groups  keyed by axis
+     */
+    public function withGroups(array $groups): static
+    {
+        $presenter = clone $this;
+        $presenter->groups = $groups;
 
         return $presenter;
     }
@@ -317,7 +340,17 @@ class NodePresenter
             ? $this->objectType($head)
             : null;
 
-        $entry = $this->storyfeed->aggregateTemplate((string) $slice->axis, (string) $head?->verb, $objectType);
+        // A feed's own groupBy() headline, then a composite entry's own,
+        // then the Stories'.
+        $own = $head?->getAttributes()[Entry::COMPOSITE_HEADLINE] ?? null;
+
+        $entry = ($this->groups[(string) $slice->axis] ?? null)?->template()
+            ?? ($slice->axis === 'composite' && is_string($own) ? $own : null)
+            ?? $this->storyfeed->aggregateTemplate((string) $slice->axis, (string) $head?->verb, $objectType);
+
+        if ($entry instanceof FeedHeadline) {
+            $entry = $entry->toTemplate();
+        }
 
         if ($entry === null) {
             return $this->safeSingularFallback($slice, $distinct);

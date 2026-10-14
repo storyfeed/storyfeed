@@ -30,9 +30,17 @@ use Storyfeed\Support\Chronology;
  * FeedBuilder::selectItems() orders them.
  *
  * An ordered read keeps the items in the order the source gave them, groups
- * nothing, and pages by position. A dateless or verbless item never
- * groups; in a read that is not ordered, dateless items follow every dated
- * one, in the order given.
+ * nothing by verb and time, and pages by position. A dateless or verbless
+ * item never groups by verb and time; in a read that is not ordered,
+ * dateless items follow every dated one, in the order given.
+ *
+ * A composite entry (Entry::objects()) reads as one `composite` group in
+ * every read, its members never curated, as a recorded composite does. A
+ * read that groups by context folds the other admitted items naming one
+ * context into one `context` group, ordered or not, dated or not. Either
+ * group stands where its first member does in an ordered read, and at its
+ * newest member's time otherwise. An item with no context, or the only one
+ * naming its context, reads solo.
  *
  * @internal
  */
@@ -42,8 +50,13 @@ final class SourceRead
 
     protected const RANK_SOLO = 1;
 
+    protected static ?Axis $contextKey = null;
+
     /**
      * @param  Closure(Activity): bool  $admits  the read's filters
+     * @param  array{string, string}|null  $membersOf  the [axis, hash] of the
+     *                                                 one group whose members
+     *                                                 alone are read, solo
      */
     public function __construct(
         protected FeedSource $source,
@@ -54,6 +67,8 @@ final class SourceRead
         protected int $childrenLimit,
         protected int $offset = 0,
         protected bool $ordered = false,
+        protected bool $byContext = false,
+        protected ?array $membersOf = null,
     ) {}
 
     /**
@@ -77,15 +92,42 @@ final class SourceRead
             }
 
             $item = Entry::from($item);
-            $uid = $item->identity();
+            $uid = self::uid($item, $uids);
 
-            // Two identical items are two activities, and keep two ids.
-            $uids[$uid] = ($uids[$uid] ?? 0) + 1;
+            if ($item->objects === []) {
+                $activities->push($item->toActivity($position, $uid));
 
-            $activities->push($item->toActivity($position, $uids[$uid] === 1 ? $uid : "{$uid}-{$uids[$uid]}"));
+                continue;
+            }
+
+            // A composite reads as its members, each at its own position, as
+            // a recorded composite's atomics are its timeline.
+            foreach ($item->members() as $index => $member) {
+                $activity = $member->toActivity($index === 0 ? $position : ++$position, self::uid($member, $uids));
+                $activity->setAttribute(Entry::COMPOSITE, $uid);
+
+                if ($item->headline !== null) {
+                    $activity->setAttribute(Entry::COMPOSITE_HEADLINE, $item->headline);
+                }
+
+                $activities->push($activity);
+            }
         }
 
         return $activities;
+    }
+
+    /**
+     * The entry's id: two identical items are two activities, and keep two ids.
+     *
+     * @param  array<string, int>  $uids
+     */
+    protected static function uid(Entry $entry, array &$uids): string
+    {
+        $uid = $entry->identity();
+        $uids[$uid] = ($uids[$uid] ?? 0) + 1;
+
+        return $uids[$uid] === 1 ? $uid : "{$uid}-{$uids[$uid]}";
     }
 
     /**
@@ -109,11 +151,14 @@ final class SourceRead
     public function page(): array
     {
         $activities = self::activities($this->source);
-        $winners = $this->group && ! $this->ordered
-            // Grouping is by verb and time, so a verbless or dateless entry reads solo.
-            ? $this->curate($activities->filter(fn (Activity $activity) => $activity->published_at !== null && $activity->verb !== null))
+        $winners = $this->group && ! $this->ordered && $this->membersOf === null
+            // Grouping is by verb and time, so a verbless or dateless entry
+            // reads solo. A composite's members belong to their composite.
+            ? $this->curate($activities->filter(fn (Activity $activity) => $activity->published_at !== null && $activity->verb !== null && self::composite($activity) === null))
             : [];
-        $admitted = $activities->filter($this->admits)->values();
+        $admitted = $activities->filter($this->admits)
+            ->when($this->membersOf !== null, fn (Collection $admitted) => $admitted->filter(fn (Activity $activity) => $this->claim($activity) === $this->membersOf))
+            ->values();
 
         $candidates = $this->candidates($admitted, $winners)
             ->sort(fn (array $a, array $b): int => $this->compare($a[0], $b[0]))
@@ -122,7 +167,7 @@ final class SourceRead
         if (($after = $this->decodedCursor()) !== null) {
             $candidates = $candidates->filter(fn (array $candidate) => $this->compareToCursor($candidate[0], $after) > 0)->values();
         } elseif ($this->ordered && ($position = $this->decodedPosition()) !== null) {
-            $candidates = $candidates->filter(fn (array $candidate) => $candidate[0]->activity?->getKey() > $position)->values();
+            $candidates = $candidates->filter(fn (array $candidate) => $candidate[0]->id > $position)->values();
         }
 
         $more = $candidates->count() > $this->offset + $this->limit;
@@ -153,9 +198,19 @@ final class SourceRead
     protected function candidates(Collection $admitted, array $winners): Collection
     {
         $groups = [];
+        $claims = [];
         $candidates = Collection::make();
 
         foreach ($admitted as $activity) {
+            // A composite, then a context, claims its members before any
+            // verb-and-time group: both were asked for, and a member is read
+            // once. A members read reads them solo.
+            if ($this->membersOf === null && ($claim = $this->claim($activity)) !== null) {
+                $claims[$claim[0]][$claim[1]][] = $activity;
+
+                continue;
+            }
+
             $winner = $winners[$activity->getKey()] ?? null;
 
             if ($winner === null) {
@@ -179,7 +234,82 @@ final class SourceRead
             ]);
         }
 
+        foreach ($claims as $axis => $claimed) {
+            foreach ($claimed as $hash => $members) {
+                $candidates->push($this->claimed((string) $axis, (string) $hash, $members));
+            }
+        }
+
         return $candidates;
+    }
+
+    /**
+     * One claimed group as a candidate, or the one member it was narrowed to.
+     *
+     * @param  non-empty-list<Activity>  $members
+     * @return array{FeedCandidate, Collection<int, Activity>}
+     */
+    protected function claimed(string $axis, string $hash, array $members): array
+    {
+        if (count($members) === 1) {
+            return [FeedCandidate::solo(self::stamp($members[0]), $members[0]), Collection::make($members)];
+        }
+
+        // In the order the feed reads them, so the first member is the
+        // first in kept order, or the newest.
+        $members = Collection::make($members)
+            ->sort(fn (Activity $a, Activity $b): int => $this->compare(FeedCandidate::solo(self::stamp($a), $a), FeedCandidate::solo(self::stamp($b), $b)))
+            ->values();
+
+        $latest = self::stamp($members->first());
+
+        return [
+            FeedCandidate::group(
+                $latest,
+                $axis,
+                $hash,
+                $members->count(),
+                // Where the group stands among positions (kept order, or
+                // dateless), else its tiebreak at a shared time.
+                $this->ordered || $latest === ''
+                    ? $members->min(fn (Activity $member) => $member->getKey())
+                    : $members->max(fn (Activity $member) => $member->getKey()),
+            ),
+            $members,
+        ];
+    }
+
+    /**
+     * The [axis, hash] of the group that claims an activity: its composite
+     * entry's, else, when the read groups by context, its context's.
+     *
+     * @return array{string, string}|null
+     */
+    protected function claim(Activity $activity): ?array
+    {
+        return match (true) {
+            ($composite = self::composite($activity)) !== null => ['composite', $composite],
+            $this->byContext && ($context = self::context($activity)) !== null => ['context', $context],
+            default => null,
+        };
+    }
+
+    /** The composite entry an activity is a member of, as its group's hash. */
+    protected static function composite(Activity $activity): ?string
+    {
+        $composite = $activity->getAttributes()[Entry::COMPOSITE] ?? null;
+
+        return is_string($composite) ? $composite : null;
+    }
+
+    /**
+     * The context an activity names, as its group's hash: the `context`
+     * axis's pinned role, keyed the way a recipe keys `ca!:cid!`. Null when
+     * it names none.
+     */
+    protected static function context(Activity $activity): ?string
+    {
+        return (self::$contextKey ??= Axis::make('context')->key('ca!:cid!'))->hashFor($activity);
     }
 
     /**
@@ -352,7 +482,7 @@ final class SourceRead
     protected function compare(FeedCandidate $a, FeedCandidate $b): int
     {
         if ($this->ordered || ($a->latest === '' && $b->latest === '')) {
-            return $a->activity?->getKey() <=> $b->activity?->getKey();
+            return $a->id <=> $b->id;
         }
 
         return strcmp($b->latest, $a->latest)
@@ -365,7 +495,7 @@ final class SourceRead
     protected function compareToCursor(FeedCandidate $candidate, array $cursor): int
     {
         if ($cursor['latest'] === '' && $candidate->latest === '') {
-            return $candidate->activity?->getKey() <=> $cursor['id'];
+            return $candidate->id <=> $cursor['id'];
         }
 
         return strcmp($cursor['latest'], $candidate->latest)
@@ -412,7 +542,7 @@ final class SourceRead
     protected function encodeCursor(FeedCandidate $candidate): string
     {
         if ($this->ordered) {
-            return (new Cursor(['position' => $candidate->activity?->getKey()]))->encode();
+            return (new Cursor(['position' => $candidate->id]))->encode();
         }
 
         return (new Cursor([
