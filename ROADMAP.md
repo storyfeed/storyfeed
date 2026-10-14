@@ -101,10 +101,10 @@ titles start with the version they target, such as `[0.17]`. Milestones show
 the current plan: items may be reordered, moved to a later version or dropped as
 the work teaches us, and a dropped item is closed as not planned with its reason.
 
-- [ ] **[v0.21 — Context groups and new bodies](https://github.com/storyfeed/storyfeed/milestone/4).**
+- [ ] **[v0.21 — Context groups, composite entries and new bodies](https://github.com/storyfeed/storyfeed/milestone/4).**
       A composed feed can fold the entries that share a context into one
-      group, such as a release's changes or an album's photos, and code and
-      callout bodies arrive.
+      group, such as a release's changes or an album's photos, and compose a
+      composite entry over many objects. Code and callout bodies arrive.
 - [ ] **[v1.0 — Stable](https://github.com/storyfeed/storyfeed/milestone/5).** One
       consolidated schema, a versioning and support policy, and a release
       candidate before 1.0.0. Payload v1 is declared stable with the release

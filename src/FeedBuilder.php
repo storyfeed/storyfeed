@@ -926,7 +926,7 @@ class FeedBuilder
         };
 
         [$slices, $next] = (new SourceRead(
-            $source, $this->admitsActivity($now), $this->shouldGroup(), $this->limit, $this->cursor, $this->childrenLimit(), $this->offset, $this->keepsOrder(), $this->groupsByContext(),
+            $source, $this->admitsActivity($now), $this->shouldGroup(), $this->limit, $this->cursor, $this->childrenLimit(), $this->offset, $this->keepsOrder(), $this->groupsByContext(), $this->sourceMembersOf(),
         ))->page();
 
         return new FeedPage($slices, $next, $this->presenter());
@@ -979,6 +979,17 @@ class FeedBuilder
     protected function groupsByContext(): bool
     {
         return false;
+    }
+
+    /**
+     * The [axis, hash] of the one group a source read reads the members of,
+     * or null for a feed.
+     *
+     * @return array{string, string}|null
+     */
+    protected function sourceMembersOf(): ?array
+    {
+        return null;
     }
 
     /** Whether a source read hides items dated in the future, as the database hides scheduled activities. */

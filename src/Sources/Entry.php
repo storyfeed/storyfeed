@@ -5,6 +5,7 @@ namespace Storyfeed\Sources;
 use BackedEnum;
 use DateTimeInterface;
 use Illuminate\Contracts\Support\Arrayable;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
@@ -22,6 +23,7 @@ use Storyfeed\Support\Chronology;
 use Storyfeed\Support\Feedables;
 use Storyfeed\Support\InlineEntity;
 use Storyfeed\Support\MorphKeyType;
+use Storyfeed\StoryfeedManager;
 use Stringable;
 
 /**
@@ -66,6 +68,10 @@ use Stringable;
  * The verb and the date are optional. An entry with no verb says only its
  * headline; an entry with no date is dateless, and its node's
  * `published_at` is null.
+ *
+ * An entry with `objects()` instead of `object()` is a composite, as
+ * `Storyfeed::activity()->objects()` records one: "Tomás uploaded 6 files to
+ * Spring Campaign" in one row, in every read mode, with one member per object.
  */
 final class Entry
 {
@@ -83,6 +89,30 @@ final class Entry
      */
     public const HEADLINE = 'entry_headline';
 
+    /**
+     * The attribute a composite entry's members carry its id under: the
+     * composite group's hash, as a recorded composite's is its parent's uid.
+     *
+     * @internal
+     */
+    public const COMPOSITE = 'entry_composite';
+
+    /**
+     * The attribute a composite entry's members carry its headline under,
+     * which is the composite group's.
+     *
+     * @internal
+     */
+    public const COMPOSITE_HEADLINE = 'entry_composite_headline';
+
+    /**
+     * The relation a composite entry's own activity carries its members
+     * under, for the serializer's OrderedCollection.
+     *
+     * @internal
+     */
+    public const MEMBERS = 'entryMembers';
+
     /** Null for an entry with no verb: one that only says its headline. */
     public private(set) ?string $verb = null;
 
@@ -98,6 +128,13 @@ final class Entry
 
     /** @var Model|string|array<string, mixed>|null */
     public private(set) Model|string|array|null $object = null;
+
+    /**
+     * A composite's objects, one member each; empty for any other entry.
+     *
+     * @var list<Model|string|array<string, mixed>>
+     */
+    public private(set) array $objects = [];
 
     /** @var Model|string|array<string, mixed>|null */
     public private(set) Model|string|array|null $target = null;
@@ -327,6 +364,38 @@ final class Entry
     }
 
     /**
+     * A COMPOSITE: one entry whose object is a collection, as
+     * `Storyfeed::activity()->objects()` records one — "Tomás uploaded 6 files
+     * to Spring Campaign". It reads as one composite group node in every read
+     * mode, with one member per object, each a model, a party name or an
+     * entity, as any role takes. Its own headline is the group's, and may
+     * name what every member shares (`:actor`, `:target`, `:context`) and the
+     * plurals (`:objects`, `:count`).
+     *
+     *   ->add(fn (Entry $entry) => $entry->by($tomas)->action('upload')->objects($files)->on($campaign))
+     *
+     * @param  iterable<mixed, Model|string|array<string, mixed>>  $objects
+     */
+    public function objects(iterable $objects): static
+    {
+        if ($this->object !== null) {
+            throw new InvalidArgumentException('An entry takes object() OR objects(), not both.');
+        }
+
+        foreach ($objects as $object) {
+            if (! $object instanceof Model && ! is_string($object) && ! is_array($object)) {
+                throw new InvalidArgumentException(sprintf(
+                    'An object in objects() is a model, a party name or an entity; %s given.', get_debug_type($object),
+                ));
+            }
+
+            $this->objects[] = self::participant('object', $object);
+        }
+
+        return $this;
+    }
+
+    /**
      * @param  Model|string|array<string, mixed>|null  $model  a model, a party name, or an entity with no model behind it
      */
     public function target(Model|string|array|null $model = null): static
@@ -548,7 +617,8 @@ final class Entry
         }
 
         if ($this->headline !== null) {
-            $unfilled = array_filter(self::roleTokens($this->headline), fn (string $role) => $this->{$role} === null);
+            // A composite's objects fill `:objects`.
+            $unfilled = array_filter(self::roleTokens($this->headline), fn (string $role) => $this->{$role} === null && ! ($role === 'object' && $this->objects !== []));
 
             if ($unfilled !== []) {
                 throw new InvalidArgumentException(sprintf(
@@ -556,15 +626,76 @@ final class Entry
                     $this->headline, implode(', :', $unfilled), implode(' or ', $unfilled),
                 ));
             }
+
+            // A composite's headline is its group's, held to the tokens the
+            // composite axis pins, as a Story's composite headline is.
+            if ($this->objects !== [] && ($allowed = app(StoryfeedManager::class)->aggregateTokens('composite')) !== null) {
+                preg_match_all('/:[a-z]+/', (string) preg_replace('/\[[^\[\]]*\]/', '', $this->headline), $matches);
+
+                $roles = array_map(fn (string $role) => ":{$role}", ActivityRoles::STORED);
+
+                foreach (array_diff(array_intersect(array_unique($matches[0]), $roles), $allowed) as $token) {
+                    throw new InvalidArgumentException(sprintf(
+                        'The headline [%s] names [%s], which a composite\'s members do not share. Name what they share (%s), or the plurals, such as :%ss and :count.',
+                        $this->headline, $token, implode(' ', array_intersect($allowed, $roles)), ltrim($token, ':'),
+                    ));
+                }
+            }
+        }
+
+        foreach ($this->objects as $object) {
+            if (is_array($object)) {
+                InlineEntity::assertSlots('object', self::inline($object, null)->body, InlineEntity::media('object', $object['media'] ?? null));
+            }
         }
 
         return $this;
     }
 
     /**
+     * A composite's members: this entry once for each object, with no
+     * headline of its own, since the composite's headline is the group's.
+     *
+     * @internal
+     *
+     * @return list<self>
+     */
+    public function members(): array
+    {
+        return array_map(function (Model|string|array $object): self {
+            $member = clone $this;
+            $member->objects = [];
+            $member->object = $object;
+            $member->headline = null;
+            $member->id = null;
+
+            return $member;
+        }, $this->objects);
+    }
+
+    /**
      * @param  Model|string|array<string, mixed>|null  $value
      */
     protected function role(string $role, Model|string|array|null $value): static
+    {
+        if ($role === 'object' && $value !== null && $this->objects !== []) {
+            throw new InvalidArgumentException('An entry takes object() OR objects(), not both.');
+        }
+
+        $this->{$role} = self::participant($role, $value);
+
+        return $this;
+    }
+
+    /**
+     * A role's value, checked.
+     *
+     * @template TValue of Model|string|array<string, mixed>|null
+     *
+     * @param  TValue  $value
+     * @return TValue
+     */
+    protected static function participant(string $role, Model|string|array|null $value): Model|string|array|null
     {
         if (is_array($value)) {
             InlineEntity::assert($role, $value);
@@ -581,9 +712,7 @@ final class Entry
             ));
         }
 
-        $this->{$role} = $value;
-
-        return $this;
+        return $value;
     }
 
     protected static function date(DateTimeInterface|string|null $date): ?Carbon
@@ -685,6 +814,16 @@ final class Entry
             $activity->setRelation($role, $live);
         }
 
+        // A composite's own activity has no object, as a recorded composite's
+        // parent has none; its members ride along for the OrderedCollection.
+        if ($this->objects !== []) {
+            $activity->setRelation(self::MEMBERS, new EloquentCollection(array_map(
+                fn (self $member, int $position) => $member->toActivity($position + 1, $member->identity()),
+                $this->members(),
+                array_keys($this->objects),
+            )));
+        }
+
         return $activity;
     }
 
@@ -709,7 +848,10 @@ final class Entry
 
         // Fields added since ids were first derived join only when filled,
         // so an entry that never sets them keeps the id it had.
-        $extra = array_filter(['headline' => $this->headline], fn (?string $value) => $value !== null);
+        $extra = array_filter([
+            'headline' => $this->headline,
+            'objects' => $this->objects === [] ? null : array_map(fn (Model|string|array $object) => $this->roleIdentity($object), $this->objects),
+        ], fn (string|array|null $value) => $value !== null);
 
         return substr(hash('sha256', json_encode([
             $this->verb, $this->publishedAt === null ? null : Chronology::stamp($this->publishedAt), $roles, $this->data, ...($extra === [] ? [] : [$extra]),

@@ -340,7 +340,12 @@ class NodePresenter
             ? $this->objectType($head)
             : null;
 
+        // A feed's own groupBy() headline, then a composite entry's own,
+        // then the Stories'.
+        $own = $head?->getAttributes()[Entry::COMPOSITE_HEADLINE] ?? null;
+
         $entry = ($this->groups[(string) $slice->axis] ?? null)?->template()
+            ?? ($slice->axis === 'composite' && is_string($own) ? $own : null)
             ?? $this->storyfeed->aggregateTemplate((string) $slice->axis, (string) $head?->verb, $objectType);
 
         if ($entry instanceof FeedHeadline) {

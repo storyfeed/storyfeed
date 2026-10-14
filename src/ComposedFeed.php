@@ -4,18 +4,15 @@ namespace Storyfeed;
 
 use Closure;
 use Illuminate\Pagination\Cursor;
-use Illuminate\Support\Carbon;
 use InvalidArgumentException;
 use LogicException;
 use Storyfeed\Contracts\FeedSource;
 use Storyfeed\Exceptions\StoryMisconfigured;
 use Storyfeed\Grouping\Anchor;
 use Storyfeed\Grouping\Group;
-use Storyfeed\Models\Activity;
 use Storyfeed\Payload\NodePresenter;
 use Storyfeed\Sources\ArraySource;
 use Storyfeed\Sources\Entry;
-use Storyfeed\Sources\SourceRead;
 
 /**
  * A feed composed by hand rather than read from what was recorded: any
@@ -52,6 +49,11 @@ use Storyfeed\Sources\SourceRead;
  *           ->publishedAt($release->published_at))
  *       ->groupBy(Group::byContext()->headline(':context shipped :count changes'))
  *       ->get();
+ *
+ * An entry with objects() is a composite, and reads as one composite group
+ * node whatever the mode, as a recorded composite does in Live:
+ *
+ *   ->add(fn (Entry $entry) => $entry->by($tomas)->action('upload')->objects($files)->on($campaign))
  */
 class ComposedFeed extends FeedBuilder
 {
@@ -63,8 +65,8 @@ class ComposedFeed extends FeedBuilder
     /** @var array<string, Group> the groups asked for, keyed by axis */
     protected array $groups = [];
 
-    /** The context whose members alone a members() read reads. */
-    protected ?string $memberOf = null;
+    /** @var array{string, string}|null the [axis, hash] of the group a members() read reads */
+    protected ?array $membersOf = null;
 
     public function __construct()
     {
@@ -166,16 +168,18 @@ class ComposedFeed extends FeedBuilder
     }
 
     /**
-     * A context group's members past its `children`, read from the entries
-     * added, as members() reads a stored group: through this feed's filters,
-     * in the order the group's children are in. Compose the same feed to
-     * answer the request, as a composed feed's cursor is answered.
+     * A composite's or a context group's members past its `children`, read
+     * from the entries added, as members() reads a stored group: through
+     * this feed's filters, in the order the group's children are in. Compose
+     * the same feed to answer the request, as a composed feed's cursor is
+     * answered.
      */
     public function members(Anchor|string $group, ?int $perPage = null, string $cursorName = 'cursor', Cursor|string|null $cursor = null): FeedPaginator
     {
         $anchor = $group instanceof Anchor ? $group : Anchor::fromEncoded($group);
+        $axis = $anchor?->parameter('axis');
 
-        if ($anchor === null || $anchor->parameter('axis') !== 'context' || ! isset($this->groups['context'])) {
+        if ($anchor === null || ! ($axis === 'composite' || ($axis === 'context' && isset($this->groups['context'])))) {
             return parent::members($group, $perPage, $cursorName, $cursor);
         }
 
@@ -184,8 +188,7 @@ class ComposedFeed extends FeedBuilder
         }
 
         $members = clone $this;
-        $members->groups = [];
-        $members->memberOf = $anchor->parameter('hash');
+        $members->membersOf = [$axis, $anchor->parameter('hash')];
         $members->mode = 'log';
 
         return $members->cursorPaginate($perPage, $cursorName, $cursor);
@@ -212,15 +215,9 @@ class ComposedFeed extends FeedBuilder
         return isset($this->groups['context']);
     }
 
-    protected function admitsActivity(Carbon $now): Closure
+    protected function sourceMembersOf(): ?array
     {
-        $admits = parent::admitsActivity($now);
-
-        if ($this->memberOf === null) {
-            return $admits;
-        }
-
-        return fn (Activity $activity): bool => SourceRead::context($activity) === $this->memberOf && $admits($activity);
+        return $this->membersOf;
     }
 
     protected function presenter(): NodePresenter
