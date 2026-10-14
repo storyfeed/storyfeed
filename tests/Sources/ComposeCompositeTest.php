@@ -54,18 +54,18 @@ it('reads a composite entry as one composite group node in every read mode', fun
         ->and(array_column($items[1]['children'], 'headline_template'))->toBe([null, null, null])
         ->and(array_column($items[1]['children'], 'verb'))->toBe(['attach', 'attach', 'attach']);
 })->with([
-    'log' => fn () => fn (ComposedFeed $feed) => $feed,
-    'live' => fn () => fn (ComposedFeed $feed) => $feed->live(),
-    'kept order' => fn () => fn (ComposedFeed $feed) => $feed->inOrder(),
-    'grouped by context' => fn () => fn (ComposedFeed $feed) => $feed->groupBy(Group::byContext()),
+    'log' => fn (ComposedFeed $feed) => $feed,
+    'live' => fn (ComposedFeed $feed) => $feed->live(),
+    'kept order' => fn (ComposedFeed $feed) => $feed->inOrder(),
+    'grouped by context' => fn (ComposedFeed $feed) => $feed->groupBy(Group::byContext()),
 ]);
 
 it('reads members in the feed\'s order: kept order as given, otherwise newest first, as a recorded composite\'s', function () {
     $dated = withCampaignUpload()->get()->toArray()[1];
     $kept = withCampaignUpload()->inOrder()->get()->toArray()[1];
 
-    expect(array_column(array_column($dated['children'], 'object'), 'label'))->toBe(['File-3.pdf', 'File-2.pdf', 'File-1.pdf'])
-        ->and(array_column(array_column($kept['children'], 'object'), 'label'))->toBe(['File-1.pdf', 'File-2.pdf', 'File-3.pdf']);
+    expect(array_column(array_column($dated['children'], 'object'), 'label'))->toBe(['Delivery #File-3.pdf', 'Delivery #File-2.pdf', 'Delivery #File-1.pdf'])
+        ->and(array_column(array_column($kept['children'], 'object'), 'label'))->toBe(['Delivery #File-1.pdf', 'Delivery #File-2.pdf', 'Delivery #File-3.pdf']);
 });
 
 it('takes models, party names and entities as members, as any role does', function () {
@@ -131,8 +131,8 @@ it('reads a composite\'s members past its children from the composed entries', f
     $rest = $feed->members($group['id'], 2, cursor: $first->nextCursor());
 
     expect($group['children_truncated'])->toBeTrue()
-        ->and(collect($first->items())->pluck('object.label')->all())->toBe(['File-3.pdf', 'File-2.pdf'])
-        ->and(collect($rest->items())->pluck('object.label')->all())->toBe(['File-1.pdf'])
+        ->and(collect($first->items())->pluck('object.label')->all())->toBe(['Delivery #File-3.pdf', 'Delivery #File-2.pdf'])
+        ->and(collect($rest->items())->pluck('object.label')->all())->toBe(['Delivery #File-1.pdf'])
         ->and(collect($rest->items())->pluck('kind')->all())->toBe(['activity']);
 });
 
@@ -169,9 +169,9 @@ it('serializes a composite entry\'s object as an OrderedCollection', function ()
 it('takes object() or objects(), never both', function (Closure $entry) {
     expect(fn () => $entry(new Entry))->toThrow(InvalidArgumentException::class, 'An entry takes object() OR objects(), not both.');
 })->with([
-    'object, then objects' => fn () => fn (Entry $entry) => $entry->action('attach', ['type' => 'file', 'label' => 'A'])->objects(composedFiles()),
-    'objects, then object' => fn () => fn (Entry $entry) => $entry->objects(composedFiles())->object(['type' => 'file', 'label' => 'A']),
-    'objects, then a headline replacement' => fn () => fn (Entry $entry) => $entry->objects(composedFiles())->headline(':object', ['object' => ['type' => 'file', 'label' => 'A']]),
+    'object, then objects' => fn (Entry $entry) => $entry->action('attach', ['type' => 'file', 'label' => 'A'])->objects(composedFiles()),
+    'objects, then object' => fn (Entry $entry) => $entry->objects(composedFiles())->object(['type' => 'file', 'label' => 'A']),
+    'objects, then a headline replacement' => fn (Entry $entry) => $entry->objects(composedFiles())->headline(':object', ['object' => ['type' => 'file', 'label' => 'A']]),
 ]);
 
 it('holds a composite\'s headline to what its members share', function () {
