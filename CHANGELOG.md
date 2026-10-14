@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## v0.21.0 - 2026-10-14
+
 ### Added
 
 - `Headline::toHtml()` accepts an optional `text` closure to draw authored text only as HTML, never token values, without changing entity or entity-list rendering. Text stays escaped when the closure is omitted; callers supplying one own escaping (#207).
