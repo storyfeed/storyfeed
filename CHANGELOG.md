@@ -4,7 +4,7 @@
 
 ### Added
 
-- `Headline::toHtml()` accepts an optional `text` closure to draw raw text segments as HTML, without changing entity or entity-list rendering. Text stays escaped when the closure is omitted; callers supplying one own escaping (#207)
+- `Headline::toHtml()` accepts an optional `text` closure to draw authored text only as HTML, never token values, without changing entity or entity-list rendering. Text stays escaped when the closure is omitted; callers supplying one own escaping (#207).
 - `Storyfeed\Body\Code`, source text plus the language it is in when that is known: `Code::make($diff)->language('diff')->title('Migration')`. The language is a name a highlighter takes (`php`, `diff`), not `Prose`'s media type, and null means it was not known. The source is text and only text, and the fallback line is the title, else the first line of the source (#83).
 - `Storyfeed\Body\Callout`, a short note with an intent, after Filament's callout: `Callout::make('This order ships from the backup warehouse.')->title('Split warehouse')->intent('warning')`, with `info()`, `success()`, `warning()` and `danger()` shortcuts. The intent is an open, app-owned word with a glyph intent's rules — core ships no vocabulary and validates none — defaulting to `note`, and the fallback line is the title, else the content (#83).
 

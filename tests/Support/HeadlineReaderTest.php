@@ -115,7 +115,7 @@ it('draws only raw text segments through a text closure', function (bool $custom
         ->and($html)->toBe($actor.'<em> confirmed &lt;b&gt;</em>'.$object.'<em>&lt;/b&gt; &amp; more</em>');
 })->with([false, true]);
 
-it('keeps entity lists outside the text closure in group headlines', function (bool $customEntities) {
+it('keeps entity lists and counts outside the text closure in group headlines', function (bool $customEntities) {
     $seen = [];
     $entity = $customEntities ? fn (Entity $entity): string => '<strong>'.e($entity->toString()).'</strong>' : null;
 
@@ -128,9 +128,28 @@ it('keeps entity lists outside the text closure in group headlines', function (b
     $actors = $customEntities ? '<strong>Ana</strong>, <strong>Ben</strong>, <strong>Cy</strong>' : '<a href="/users/2">Ana</a>, Ben, Cy';
     $target = $customEntities ? '<strong>Onboarding Portal</strong>' : '<a href="/projects/7">Onboarding Portal</a>';
 
-    expect($seen)->toBe([' uploaded ', '5', ' files to '])
-        ->and($html)->toBe($actors.' and 2 more<em> uploaded </em><em>5</em><em> files to </em>'.$target);
+    expect($seen)->toBe([' uploaded ', ' files to '])
+        ->and($html)->toBe($actors.' and 2 more<em> uploaded </em>5<em> files to </em>'.$target)
+        ->and(headlineGroup()->headline()->segments()[2])->toBe(['type' => 'text', 'text' => '5', 'token' => 'count']);
 })->with([false, true]);
+
+it('escapes others token values without sending them through the text closure', function () {
+    Lang::addLines(['feed.others' => ':count <others>'], 'en', 'storyfeed');
+    $headline = headlineGroup(['headline_template' => ':others uploaded files'])->headline();
+    $seen = [];
+
+    $html = $headline->toHtml(text: function (string $raw) use (&$seen): string {
+        $seen[] = $raw;
+
+        return '<em>'.e($raw).'</em>';
+    });
+
+    expect($seen)->toBe([' uploaded files'])
+        ->and($html)->toBe('2 &lt;others&gt;<em> uploaded files</em>')
+        ->and($headline->toHtml())->toBe('2 &lt;others&gt; uploaded files')
+        ->and($headline->toString())->toBe('2 <others> uploaded files')
+        ->and($headline->segments()[0])->toBe(['type' => 'text', 'text' => '2 <others>', 'token' => 'others']);
+});
 
 it('reads finished text as one text segment', function () {
     $item = headlineActivity(['headline_template' => null, 'headline' => 'Dana & co. confirmed it']);

@@ -55,7 +55,8 @@ final class Headline implements Htmlable, JsonSerializable, Stringable
      * The sentence in parts, in order. Each part is an array with a `type`
      * and the plain `text` it reads as:
      *
-     * - `text`: connecting words, or a count.
+     * - `text`: connecting words, or a token value. Token-derived text has
+     *   a `token` key (`count` or `others`); authored text has none.
      * - `entity`: one role, with its `role` and `entity` (an Entity, or null
      *   when the role is empty and `text` is the placeholder).
      * - `entities`: a plural role, with its `role`, `entities` (a
@@ -89,9 +90,9 @@ final class Headline implements Htmlable, JsonSerializable, Stringable
      * as an anonymous actor, reaches it too, as an Entity whose
      * `isAbsent()` is true and which reads as its fallback words.
      *
-     * Pass a text closure to draw each raw text segment as HTML instead;
-     * escaping is then your responsibility. Entities and entity lists never
-     * reach it:
+     * Pass a text closure to draw authored template text only as HTML;
+     * escaping is then your responsibility. Token values, entities and
+     * entity lists never reach it; token-derived text stays escaped:
      *
      *     $headline->toHtml(text: fn (string $raw): string => '<em>'.e($raw).'</em>');
      *
@@ -105,7 +106,7 @@ final class Headline implements Htmlable, JsonSerializable, Stringable
         return $this->segments()->map(fn (array $segment): string => match ($segment['type']) {
             'entity' => $draw($segment['entity'] ?? Entity::absent($segment['role'])),
             'entities' => $this->listHtml($segment, $draw),
-            default => $text === null ? e($segment['text']) : $text($segment['text']),
+            default => $text === null || isset($segment['token']) ? e($segment['text']) : $text($segment['text']),
         })->implode('');
     }
 
@@ -139,13 +140,13 @@ final class Headline implements Htmlable, JsonSerializable, Stringable
         $group = $this->item->offsetExists('sample');
 
         if ($token === 'count' && $this->item->offsetExists('count')) {
-            return self::text((string) $this->item->count());
+            return [...self::text((string) $this->item->count()), 'token' => 'count'];
         }
 
         if ($token === 'others' && $group) {
             $others = max(0, $this->item->distinct('actor') - $this->item->actors()->count());
 
-            return self::text(trans_choice('storyfeed::feed.others', $others, ['count' => $others]));
+            return [...self::text(trans_choice('storyfeed::feed.others', $others, ['count' => $others])), 'token' => 'others'];
         }
 
         if (in_array($token, ActivityRoles::PAYLOAD, true)) {
