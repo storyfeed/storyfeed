@@ -374,7 +374,7 @@ final class Entry
      *
      *   ->add(fn (Entry $entry) => $entry->by($tomas)->action('upload')->objects($files)->on($campaign))
      *
-     * @param  iterable<mixed, Model|string|array<string, mixed>>  $objects
+     * @param  iterable<mixed>  $objects  models, party names or entities, each checked
      */
     public function objects(iterable $objects): static
     {
