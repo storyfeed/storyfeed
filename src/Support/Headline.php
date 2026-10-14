@@ -89,16 +89,23 @@ final class Headline implements Htmlable, JsonSerializable, Stringable
      * as an anonymous actor, reaches it too, as an Entity whose
      * `isAbsent()` is true and which reads as its fallback words.
      *
+     * Pass a text closure to draw each raw text segment as HTML instead;
+     * escaping is then your responsibility. Entities and entity lists never
+     * reach it:
+     *
+     *     $headline->toHtml(text: fn (string $raw): string => '<em>'.e($raw).'</em>');
+     *
      * @param  (Closure(Entity): string)|null  $entity
+     * @param  (Closure(string): string)|null  $text
      */
-    public function toHtml(?Closure $entity = null): string
+    public function toHtml(?Closure $entity = null, ?Closure $text = null): string
     {
         $draw = $entity ?? fn (Entity $entity): string => $entity->toHtml();
 
         return $this->segments()->map(fn (array $segment): string => match ($segment['type']) {
             'entity' => $draw($segment['entity'] ?? Entity::absent($segment['role'])),
             'entities' => $this->listHtml($segment, $draw),
-            default => e($segment['text']),
+            default => $text === null ? e($segment['text']) : $text($segment['text']),
         })->implode('');
     }
 

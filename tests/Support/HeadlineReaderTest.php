@@ -95,6 +95,43 @@ it('takes a closure to draw entities your way', function () {
     expect($html)->toBe('<strong>Dana</strong> confirmed <strong>Delivery #1042</strong>');
 });
 
+it('draws only raw text segments through a text closure', function (bool $customEntities) {
+    $headline = headlineActivity([
+        'headline_template' => ':actor confirmed <b>:object</b> & more',
+    ])->headline();
+    $seen = [];
+    $entity = $customEntities ? fn (Entity $entity): string => '<strong>'.e($entity->toString()).'</strong>' : null;
+
+    $html = $headline->toHtml(entity: $entity, text: function (string $raw) use (&$seen): string {
+        $seen[] = $raw;
+
+        return '<em>'.e($raw).'</em>';
+    });
+
+    $actor = $customEntities ? '<strong>Dana</strong>' : '<a href="/users/1">Dana</a>';
+    $object = $customEntities ? '<strong>Delivery #1042</strong>' : 'Delivery #1042';
+
+    expect($seen)->toBe([' confirmed <b>', '</b> & more'])
+        ->and($html)->toBe($actor.'<em> confirmed &lt;b&gt;</em>'.$object.'<em>&lt;/b&gt; &amp; more</em>');
+})->with([false, true]);
+
+it('keeps entity lists outside the text closure in group headlines', function (bool $customEntities) {
+    $seen = [];
+    $entity = $customEntities ? fn (Entity $entity): string => '<strong>'.e($entity->toString()).'</strong>' : null;
+
+    $html = headlineGroup()->headline()->toHtml(entity: $entity, text: function (string $raw) use (&$seen): string {
+        $seen[] = $raw;
+
+        return '<em>'.e($raw).'</em>';
+    });
+
+    $actors = $customEntities ? '<strong>Ana</strong>, <strong>Ben</strong>, <strong>Cy</strong>' : '<a href="/users/2">Ana</a>, Ben, Cy';
+    $target = $customEntities ? '<strong>Onboarding Portal</strong>' : '<a href="/projects/7">Onboarding Portal</a>';
+
+    expect($seen)->toBe([' uploaded ', '5', ' files to '])
+        ->and($html)->toBe($actors.' and 2 more<em> uploaded </em><em>5</em><em> files to </em>'.$target);
+})->with([false, true]);
+
 it('reads finished text as one text segment', function () {
     $item = headlineActivity(['headline_template' => null, 'headline' => 'Dana & co. confirmed it']);
 
