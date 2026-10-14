@@ -18,12 +18,12 @@ use Storyfeed\FeedEntity;
 use Storyfeed\Models\Activity;
 use Storyfeed\Models\Party;
 use Storyfeed\Models\Snapshot;
+use Storyfeed\StoryfeedManager;
 use Storyfeed\Support\ActivityRoles;
 use Storyfeed\Support\Chronology;
 use Storyfeed\Support\Feedables;
 use Storyfeed\Support\InlineEntity;
 use Storyfeed\Support\MorphKeyType;
-use Storyfeed\StoryfeedManager;
 use Stringable;
 
 /**
