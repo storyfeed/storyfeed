@@ -124,3 +124,8 @@ FeedEntity::make()
 - Do not record a null actor for system work. Use a party for a named non-model participant; a null actor means "unknown".
 - Compare morph types with `getMorphClass()`, never `get_class()`.
 - Keep verbs as stable strings. Renaming a verb leaves old rows under the old name.
+
+
+### Optional evidence disclosure
+
+`KeyValue::make($rows)->disclosure('Request evidence')` carries a plain-text label for collapsed details in compatible renderers. All rows remain available; this is not audience authorization or retention. `disclosure(null)` removes the preference. Older renderers may show all rows.

@@ -161,3 +161,6 @@ return FeedEntity::make()
     ->body(KeyValue::make()->items('Station', $this->station));
 </code-snippet>
 @endverbatim
+
+
+Use `KeyValue::make($rows)->disclosure('Request evidence')` for optional progressive evidence. The label is plain text; rows remain in the payload. Disclosure is not access control: authorize and apply retention before emitting the body. Omitting or clearing disclosure preserves the existing presentation.

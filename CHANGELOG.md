@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Add optional labelled disclosure for KeyValue evidence without removing its rows. (#212)
+
+
 ## v0.21.0 - 2026-10-14
 
 ### Added
