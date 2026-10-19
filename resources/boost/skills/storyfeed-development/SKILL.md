@@ -132,6 +132,6 @@ FeedEntity::make()
 
 ### Explicit candidate preference
 
-`Storyfeed::feed()->preferAxis('requests')` selects a registered derived candidate wherever its nullable key applies. Authored composites retain precedence; other activities keep their normal winner/repeat fallback. It deliberately selects candidate membership without curation eligibility thresholds and does not rewrite global curation. `log()` remains atomic. Database/source reads, scoped counts and member paging use the same preference. Reset cursors when changing reading policies.
+`Storyfeed::feed()->preferAxis('requests')` selects a registered derived candidate wherever its nullable key applies. Authored composites retain precedence; other activities keep their normal winner/repeat fallback. It deliberately selects candidate membership without curation eligibility thresholds and does not rewrite global curation. `log()` remains atomic. Database/source reads and scoped counts use the same preference. Database member paging follows it too; source-backed feeds still refuse members(). Reset cursors when changing reading policies.
 
 Declare bounded `bursts()` and include the application's authorization/correlation boundary in the key. Return null for decisions and other milestones. Never describe a request correlation as an identified human session. A new axis does not retroactively stamp historical rows: they remain readable, and any projection rebuild needs a deliberate adoption plan. Unknown and row-backed preferences are rejected.
