@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add per-read candidate axis preference, preserving authored composites, atomic logs and scoped member paging.
+
 - Add optional labelled disclosure for KeyValue evidence without removing its rows. (#212)
 
 

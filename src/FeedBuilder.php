@@ -106,6 +106,8 @@ class FeedBuilder
 
     protected bool $involvingDeep = true;
 
+    protected ?string $preferredAxis = null;
+
     /** @var list<array{types: list<string>, deep: bool}> */
     protected array $involvingTypes = [];
 
@@ -704,6 +706,22 @@ class FeedBuilder
         return $this;
     }
 
+    /**
+     * Read one declared candidate axis before inferred winners/repeats.
+     * Authored composites retain precedence. This does not rewrite curation.
+     * Null keys leave activities on their ordinary read path; log() stays atomic.
+     */
+    public function preferAxis(string $name): static
+    {
+        $axis = app(StoryfeedManager::class)->axis($name);
+        if ($axis === null || $axis->isRowBacked()) {
+            throw new InvalidArgumentException("Preferred axis [{$name}] must be a registered derived axis.");
+        }
+        $this->preferredAxis = $name;
+
+        return $this;
+    }
+
     /** The former per-person digest was retired; Live reads one-action bursts. */
     public function summary(mixed ...$arguments): never
     {
@@ -926,7 +944,7 @@ class FeedBuilder
         };
 
         [$slices, $next] = (new SourceRead(
-            $source, $this->admitsActivity($now), $this->shouldGroup(), $this->limit, $this->cursor, $this->childrenLimit(), $this->offset, $this->keepsOrder(), $this->groupsByContext(), $this->sourceMembersOf(),
+            $source, $this->admitsActivity($now), $this->shouldGroup(), $this->limit, $this->cursor, $this->childrenLimit(), $this->offset, $this->keepsOrder(), $this->groupsByContext(), $this->sourceMembersOf(), $this->preferredAxis,
         ))->page();
 
         return new FeedPage($slices, $next, $this->presenter());
@@ -1655,9 +1673,9 @@ class FeedBuilder
             // MySQL/MariaDB: wide bucket/hash columns across eight axes can
             // exceed the memory temporary-table budget even for a small window.
             if (! config('storyfeed.grouping.curate', true)) {
-                $query->whereIn("{$groupings}.bucket", ['repeat', 'composite']);
+                $query->whereIn("{$groupings}.bucket", array_filter(['repeat', 'composite', $this->preferredAxis]));
             } else {
-                $query->where(fn ($q) => $q->where("{$groupings}.winner", true)->orWhere("{$groupings}.bucket", 'repeat'));
+                $query->where(fn ($q) => $q->where("{$groupings}.winner", true)->orWhereIn("{$groupings}.bucket", array_filter(['repeat', $this->preferredAxis])));
             }
 
             // Materialize membership BEFORE the winner OR. Merely keeping
@@ -1773,6 +1791,31 @@ class FeedBuilder
      */
     protected function winning(?string $bucket = null): Closure
     {
+        $ordinary = $this->ordinaryWinning($bucket);
+        if ($this->preferredAxis === null) {
+            return $ordinary;
+        }
+        $table = $this->groupingModel()->getTable();
+        $probe = $this->groupingModel()->getConnection()->query()
+            ->selectRaw('1')->from("{$table} as preferred_claim")
+            ->whereColumn('preferred_claim.activity_id', "{$table}.activity_id")
+            ->where('preferred_claim.bucket', $this->preferredAxis)->limit(1);
+        $composite = $this->groupingModel()->getConnection()->query()
+            ->selectRaw('1')->from("{$table} as authored_claim")
+            ->whereColumn('authored_claim.activity_id', "{$table}.activity_id")
+            ->where('authored_claim.bucket', 'composite')->where('authored_claim.winner', true)->limit(1);
+
+        return fn ($query) => $query->where(fn ($selected) => $selected
+            ->where("{$table}.bucket", $this->preferredAxis)
+            ->whereRaw('('.$composite->toSql().') is null', $composite->getBindings()))
+            ->orWhere(fn ($fallback) => $fallback->where($ordinary)
+                ->where(fn ($unclaimed) => $unclaimed
+                    ->where("{$table}.bucket", 'composite')
+                    ->orWhereRaw('('.$probe->toSql().') is null', $probe->getBindings())));
+    }
+
+    protected function ordinaryWinning(?string $bucket = null): Closure
+    {
         $groupings = $this->groupingModel()->getTable();
 
         $curate = config('storyfeed.grouping.curate', true);
@@ -1849,6 +1892,7 @@ class FeedBuilder
         $curate = config('storyfeed.grouping.curate', true);
 
         return [
+            ...($this->preferredAxis === null ? [] : [fn (QueryBuilder $sub) => $sub->where("{$groupings}.bucket", $this->preferredAxis)]),
             fn (QueryBuilder $sub) => $sub->where("{$groupings}.winner", true)
                 ->when(! $curate, fn (QueryBuilder $claim) => $claim->where("{$groupings}.bucket", 'composite')),
             fn (QueryBuilder $sub) => $sub->where("{$groupings}.bucket", 'repeat'),

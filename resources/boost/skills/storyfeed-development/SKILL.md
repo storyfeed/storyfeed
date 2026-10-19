@@ -129,3 +129,9 @@ FeedEntity::make()
 ### Optional evidence disclosure
 
 `KeyValue::make($rows)->disclosure('Request evidence')` carries a plain-text label for collapsed details in compatible renderers. All rows remain available; this is not audience authorization or retention. `disclosure(null)` removes the preference. Older renderers may show all rows.
+
+### Explicit candidate preference
+
+`Storyfeed::feed()->preferAxis('requests')` selects a registered derived candidate wherever its nullable key applies. Authored composites retain precedence; other activities keep their normal winner/repeat fallback. It deliberately selects candidate membership without curation eligibility thresholds and does not rewrite global curation. `log()` remains atomic. Database/source reads, scoped counts and member paging use the same preference. Reset cursors when changing reading policies.
+
+Declare bounded `bursts()` and include the application's authorization/correlation boundary in the key. Return null for decisions and other milestones. Never describe a request correlation as an identified human session. A new axis does not retroactively stamp historical rows: they remain readable, and any projection rebuild needs a deliberate adoption plan. Unknown and row-backed preferences are rejected.
