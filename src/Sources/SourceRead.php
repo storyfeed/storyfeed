@@ -69,6 +69,7 @@ final class SourceRead
         protected bool $ordered = false,
         protected bool $byContext = false,
         protected ?array $membersOf = null,
+        protected ?string $preferredAxis = null,
     ) {}
 
     /**
@@ -353,9 +354,9 @@ final class SourceRead
         $winners = [];
 
         foreach ($hashes as $key => $own) {
-            $winner = null;
+            $winner = $this->preferredAxis !== null && isset($own[$this->preferredAxis]) ? $this->preferredAxis : null;
 
-            foreach ($curate ? $manager->aggregateAxes() : [] as $axis) {
+            foreach ($winner === null && $curate ? $manager->aggregateAxes() : [] as $axis) {
                 if (isset($own[$axis]) && ($eligible["{$axis}\0{$own[$axis]}"] ??= $this->eligible($axis, $clusters[$axis][$own[$axis]], $manager))) {
                     $winner = $axis;
 

@@ -96,7 +96,7 @@ it('passes every recorded role and immutable publication time to headline closur
     foreach (array_diff(ActivityRoles::PAYLOAD, [$role]) as $empty) {
         expect($seen->$empty())->toBeNull();
     }
-    $seen->publishedAt()->addDay();
+    expect($seen->publishedAt()->addDay()->equalTo($at->addDay()))->toBeTrue();
     expect($seen->publishedAt()->equalTo($at))->toBeTrue();
 })->with(ActivityRoles::PAYLOAD);
 

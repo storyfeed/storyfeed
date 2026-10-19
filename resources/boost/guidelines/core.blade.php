@@ -161,3 +161,8 @@ return FeedEntity::make()
     ->body(KeyValue::make()->items('Station', $this->station));
 </code-snippet>
 @endverbatim
+
+
+Use `KeyValue::make($rows)->disclosure('Request evidence')` for optional progressive evidence. The label is plain text; rows remain in the payload. Disclosure is not access control: authorize and apply retention before emitting the body. Omitting or clearing disclosure preserves the existing presentation.
+
+For a per-read declared candidate grouping, use `->preferAxis('requests')` after registering that derived axis. Authored composites win; ordinary activities retain their normal winner/repeat fallback, and `log()` remains atomic. Candidate membership is selected regardless of curation thresholds. Keep authorization/correlation boundaries in the key and return null for milestones. Never infer a human session from IP or user agent. Reset cursors when switching reading policies.

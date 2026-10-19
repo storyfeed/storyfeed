@@ -61,6 +61,16 @@ class KeyValue extends FeedBody
 
     protected ?string $defaultPlaceholder = null;
 
+    protected ?string $disclosure = null;
+
+    /** Optional plain-text disclosure label. This changes presentation, never authorization. */
+    public function disclosure(?string $summary): static
+    {
+        $this->disclosure = $summary !== null && trim($summary) !== '' ? $summary : null;
+
+        return $this;
+    }
+
     /**
      * Start the rows. Every argument is optional and has a method of the same name.
      *
@@ -218,6 +228,7 @@ class KeyValue extends FeedBody
 
         return [
             'title' => is_string($title) ? $title : null,
+            ...(is_string($payload['disclosure'] ?? null) && trim($payload['disclosure']) !== '' ? ['disclosure' => $payload['disclosure']] : []),
             'defaultPlaceholder' => $default,
             'items' => array_values(array_map(function (array $row) use ($from, $default): array {
                 $placeholder = array_key_exists('placeholder', $row)
@@ -237,6 +248,7 @@ class KeyValue extends FeedBody
     {
         return [
             'title' => $this->title,
+            ...($this->disclosure !== null ? ['disclosure' => $this->disclosure] : []),
             'defaultPlaceholder' => $this->defaultPlaceholder,
             'items' => array_map(fn (array $row): array => [
                 'key' => $row['key'],
