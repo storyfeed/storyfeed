@@ -8,6 +8,10 @@
 - `Storyfeed::resolveContextUsing(fn (Request $request) => ...)` lets `storyfeed.context` resolve its context without a route parameter, for an app whose tenant is the user's current workspace rather than part of the URL. The middleware calls it when it is given no `:parameter`; a null result runs the request without a context, and with no parameter and no resolver it throws an error naming both fixes. The `storyfeed.context:parameter` form is unchanged. (#216)
 - `KeyValue::disclosure('Request evidence')` carries an optional plain-text label that renderers may use to collapse secondary evidence. Every row stays in the payload, a body without a label is unchanged, and blank or malformed labels in stored bodies read as absent. It is presentation, not authorization or redaction. (#212)
 
+### Fixed
+
+- On MySQL and MariaDB, two publishes that tip one Live group over its threshold at once now curate it as that group, rather than leaving every member on the repeat fallback until the hourly `storyfeed:curate` repaired it. Under InnoDB's REPEATABLE READ, the second publish could not see the first one's row while it curated. Now a publish that joined an open burst curates its activity again after the outermost transaction commits, including an app's own transaction around the publish. PostgreSQL already curated these correctly and is unchanged. (#103)
+
 ## v0.21.0 - 2026-10-14
 
 ### Added

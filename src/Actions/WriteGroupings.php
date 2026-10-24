@@ -20,13 +20,15 @@ class WriteGroupings
     /**
      * @param  bool  $inserted  the activity was inserted by the publish that
      *                          is calling, so no stale bucket can exist yet
+     * @return list<string> the open bursts the activity joined (see CurateCluster::afterCommit())
      */
-    public function __invoke(Activity $activity, bool $inserted = false): void
+    public function __invoke(Activity $activity, bool $inserted = false): array
     {
-        $activity->getConnection()->transaction(fn () => $this->write($activity, $inserted));
+        return $activity->getConnection()->transaction(fn () => $this->write($activity, $inserted));
     }
 
-    private function write(Activity $activity, bool $inserted): void
+    /** @return list<string> */
+    private function write(Activity $activity, bool $inserted): array
     {
         $grouping = config('storyfeed.models.grouping', Grouping::class);
 
@@ -40,13 +42,14 @@ class WriteGroupings
             ->value('hash');
 
         if ($claim !== null && $claim !== $activity->uid) {
-            return;
+            return [];
         }
 
         $strategy = app(config('storyfeed.grouping.strategy', MultiAxisStrategy::class));
 
         $existing = $inserted ? [] : $grouping::query()->where('activity_id', $activity->getKey())->pluck('hash', 'bucket')->all();
-        $hashes = (new AssignGroupingBursts)($activity, self::admitted($strategy->hashes($activity), $claim !== null), $existing);
+        $bursts = new AssignGroupingBursts;
+        $hashes = $bursts($activity, self::admitted($strategy->hashes($activity), $claim !== null), $existing);
 
         // A fresh publish has no rows to update, so every axis goes in one
         // multi-row insert, as many() writes new rows. On Postgres the cost
@@ -62,7 +65,7 @@ class WriteGroupings
                 ));
             }
 
-            return;
+            return $bursts->joined;
         }
 
         foreach ($hashes as $axis => $hash) {
@@ -86,6 +89,8 @@ class WriteGroupings
             ->whereNotIn('bucket', app(StoryfeedManager::class)->rowBackedBuckets())
             ->when($hashes !== [], fn ($query) => $query->whereNotIn('bucket', array_keys($hashes)))
             ->delete();
+
+        return $bursts->joined;
     }
 
     /**
