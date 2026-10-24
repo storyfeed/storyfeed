@@ -12,8 +12,12 @@ class UseContext
 {
     public function __construct(protected StoryfeedManager $storyfeed) {}
 
-    public function handle(Request $request, Closure $next, string $parameter): mixed
+    public function handle(Request $request, Closure $next, ?string $parameter = null): mixed
     {
+        if ($parameter === null) {
+            return $this->resolved($request, $next);
+        }
+
         // Like Laravel's Authorize middleware, resolve the named route parameter.
         $context = $request->route($parameter);
         if (! $context instanceof Model) {
@@ -21,5 +25,24 @@ class UseContext
         }
 
         return $this->storyfeed->context($context, fn () => $next($request));
+    }
+
+    /**
+     * No route parameter: ask the callback from `Storyfeed::resolveContextUsing()`.
+     * Null from it runs the request without a context.
+     */
+    protected function resolved(Request $request, Closure $next): mixed
+    {
+        $resolver = $this->storyfeed->contextResolver();
+
+        if ($resolver === null) {
+            throw new InvalidArgumentException(
+                'storyfeed.context: name a route parameter (`storyfeed.context:workspace`) or register a resolver with Storyfeed::resolveContextUsing().',
+            );
+        }
+
+        $context = $resolver($request);
+
+        return $context === null ? $next($request) : $this->storyfeed->context($context, fn () => $next($request));
     }
 }
