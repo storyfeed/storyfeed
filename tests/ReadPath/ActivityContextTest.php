@@ -96,8 +96,8 @@ it('passes every recorded role and immutable publication time to headline closur
     foreach (array_diff(ActivityRoles::PAYLOAD, [$role]) as $empty) {
         expect($seen->$empty())->toBeNull();
     }
-    $seen->publishedAt()->addDay();
-    expect($seen->publishedAt()->equalTo($at))->toBeTrue();
+    expect($seen->publishedAt()->addDay()->equalTo($at))->toBeFalse()
+        ->and($seen->publishedAt()->equalTo($at))->toBeTrue();
 })->with(ActivityRoles::PAYLOAD);
 
 it('passes a context through every headline registration path', function (string $kind) {
