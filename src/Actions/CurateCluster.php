@@ -75,6 +75,47 @@ class CurateCluster
     }
 
     /**
+     * Curate the activity again once its transaction commits, when it joined
+     * an open burst on MySQL or MariaDB (#103).
+     *
+     * A publish holds its burst rows locked while it curates, so two
+     * publishes into one cluster already take turns. Under PostgreSQL's
+     * READ COMMITTED the second one's reads then see the first one's rows.
+     * Under InnoDB's REPEATABLE READ they do not: its read view was fixed
+     * before it waited for the lock, so a cluster the pair tipped over a
+     * threshold stays on the axis neither could see it earn, until the
+     * scheduled `curate` reaches it.
+     *
+     * The second pass takes the same locks in the same order before its
+     * first read, so its view includes every member committed before it and
+     * it takes turns with publishes still running. A burst this publish
+     * opened has no earlier member to miss, so most publishes skip it.
+     * The publish has committed by then: a pass that fails is reported, and
+     * the scheduled `curate` repairs what it would have.
+     *
+     * @param  list<string>  $bursts  keys of the open bursts it joined
+     */
+    public function afterCommit(Activity $activity, array $bursts): void
+    {
+        $connection = $activity->getConnection();
+
+        if ($bursts === [] || ! in_array($connection->getDriverName(), ['mysql', 'mariadb'], true)) {
+            return;
+        }
+
+        sort($bursts);
+        $table = config('storyfeed.tables.grouping_bursts', 'feed_grouping_bursts');
+
+        $connection->afterCommit(fn () => rescue(fn () => $connection->transaction(function () use ($activity, $bursts, $connection, $table) {
+            foreach ($bursts as $key) {
+                $connection->table($table)->where('key', $key)->lockForUpdate()->first();
+            }
+
+            $this($activity);
+        })));
+    }
+
+    /**
      * A deletion can drop a cluster back below its threshold, so the
      * remaining members must be re-decided — the one case where winners are
      * not monotone.

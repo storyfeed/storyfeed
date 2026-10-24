@@ -1466,7 +1466,7 @@ class PendingActivity
      */
     private function writeGroupings(): void
     {
-        (new WriteGroupings)($this->activity, $this->inserted);
+        $bursts = (new WriteGroupings)($this->activity, $this->inserted);
 
         // The involving index. In the same transaction as the activity, so a
         // participant row can never outlive (or precede) the row it points at.
@@ -1480,7 +1480,9 @@ class PendingActivity
         // inline. Async is a write-latency optimization to reach for when a
         // real number demands it — not a correctness requirement.
         if (config('storyfeed.grouping.curate', true)) {
-            (new CurateCluster)($this->activity);
+            $curate = new CurateCluster;
+            $curate($this->activity);
+            $curate->afterCommit($this->activity, $bursts);
         }
     }
 

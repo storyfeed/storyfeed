@@ -16,6 +16,14 @@ use Storyfeed\Support\Chronology;
 final class AssignGroupingBursts
 {
     /**
+     * Keys of the open bursts the last call joined, whose earlier members
+     * another transaction wrote.
+     *
+     * @var list<string>
+     */
+    public array $joined = [];
+
+    /**
      * @param  array<string, string>  $hashes  logical strategy keys
      * @param  array<string, string>  $existing  the activity's stored memberships
      * @return array<string, string>
@@ -26,6 +34,7 @@ final class AssignGroupingBursts
         $connection = $activity->getConnection();
         $table = config('storyfeed.tables.grouping_bursts', 'feed_grouping_bursts');
         $pending = [];
+        $this->joined = [];
 
         foreach ($hashes as $axis => $logical) {
             if (! $manager->axis($axis)?->usesBursts()) {
@@ -70,6 +79,10 @@ final class AssignGroupingBursts
                 && $at->lessThan($opened->copy()->addSeconds($ceiling));
 
             $hashes[$axis] = $joins ? $state->hash : $prefix.$activity->uid;
+
+            if ($joins) {
+                $this->joined[] = $key;
+            }
 
             // Late arrivals never rewind/merge a closed burst. A late event
             // before the current opening gets its own immutable row; replay
