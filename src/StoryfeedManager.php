@@ -81,6 +81,9 @@ class StoryfeedManager
 
     protected ?Closure $actorResolver = null;
 
+    /** @var (Closure(Request): (Model|string|null))|null */
+    protected ?Closure $contextResolver = null;
+
     /**
      * The innermost Storyfeed::actor() actor as a transportable identity, so a
      * job dispatched inside the scope carries it (see QueuedActor). Null
@@ -2431,6 +2434,28 @@ class StoryfeedManager
     public function resolveActorUsing(Closure $resolver): void
     {
         $this->actorResolver = $resolver;
+    }
+
+    /**
+     * Resolve the context of a request that has no route parameter for it:
+     * what `storyfeed.context` uses when it is given no `:parameter`. Return
+     * null to run the request without a context.
+     *
+     * @param  Closure(Request): (Model|string|null)  $callback
+     */
+    public function resolveContextUsing(Closure $callback): void
+    {
+        $this->contextResolver = $callback;
+    }
+
+    /**
+     * @internal
+     *
+     * @return (Closure(Request): (Model|string|null))|null
+     */
+    public function contextResolver(): ?Closure
+    {
+        return $this->contextResolver;
     }
 
     /**

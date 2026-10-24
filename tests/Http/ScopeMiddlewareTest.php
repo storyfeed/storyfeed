@@ -1,5 +1,6 @@
 <?php
 
+use Illuminate\Http\Request;
 use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Support\Facades\Route;
 use Storyfeed\Exceptions\UndeclaredParty;
@@ -40,4 +41,30 @@ it('restores both scopes when a route throws', function () {
     expect(fn () => $this->get('/scope-throw/1'))->toThrow(RuntimeException::class, 'route failed');
     $outside = Storyfeed::activity('outside')->publish();
     expect($outside->context_id)->toBeNull()->and($outside->actor_id)->toBeNull();
+});
+
+it('resolves the context from a callback when storyfeed.context names no parameter', function () {
+    $user = User::create(['name' => 'Current workspace', 'email' => 'current@example.test']);
+    Storyfeed::resolveContextUsing(fn (Request $request) => User::find($request->header('X-Workspace')));
+    Route::get('/scope-resolved', fn () => ['context' => Storyfeed::activity('resolved-probe')->publish()->context_id])
+        ->middleware('storyfeed.context');
+
+    $this->withHeader('X-Workspace', (string) $user->id)->get('/scope-resolved')->assertOk()->assertJson(['context' => $user->id]);
+    expect(Storyfeed::activity('outside')->publish()->context_id)->toBeNull();
+});
+
+it('runs without a context when the resolver returns null', function () {
+    Storyfeed::resolveContextUsing(fn () => null);
+    Route::get('/scope-unresolved', fn () => ['context' => Storyfeed::activity('resolved-probe')->publish()->context_id])
+        ->middleware('storyfeed.context');
+
+    $this->get('/scope-unresolved')->assertOk()->assertJson(['context' => null]);
+});
+
+it('names both fixes when there is no parameter and no resolver', function () {
+    Route::get('/scope-unconfigured', fn () => 'never')->middleware('storyfeed.context');
+    $this->withoutExceptionHandling();
+
+    expect(fn () => $this->get('/scope-unconfigured'))->toThrow(InvalidArgumentException::class,
+        'name a route parameter (`storyfeed.context:workspace`) or register a resolver with Storyfeed::resolveContextUsing()');
 });

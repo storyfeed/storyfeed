@@ -70,6 +70,7 @@ use Storyfeed\Testing\StoryfeedFake;
  * @method static void forceDeleteFromFeed(\Illuminate\Database\Eloquent\Model $model)
  * @method static \Storyfeed\StoryfeedManager guessFeedLabelsUsing((\Closure(\Illuminate\Database\Eloquent\Model): ?string)|null $guesser)
  * @method static void resolveActorUsing(\Closure $resolver)
+ * @method static void resolveContextUsing(\Closure $callback)
  * @method static \Illuminate\Database\Eloquent\Model|null resolveActor()
  * @method static \Storyfeed\StoryfeedManager axes(array<int, \Storyfeed\Grouping\Axis> $axes, bool $merge = true, ?string $before = null)
  * @method static \Storyfeed\StoryfeedManager bundleables(array<int, string> $aliases, bool $merge = true)
