@@ -530,6 +530,10 @@ return [
     'doctor' => [
         'stale_after' => 30,
 
+        // `keep_latest.never_supersedes` fires for a keepLatest() verb with more
+        // live rows than this and none superseded. Null turns it off.
+        'keep_latest_min_rows' => 50,
+
         // Deliberate grammar gaps: exact code + complete subject from doctor JSON.
         // Each entry is ['code' => 'grammar.missing', 'subject' =>
         // ['type' => 'delivery', 'verb' => 'confirm'], 'reason' => 'Rendered by the app.'].

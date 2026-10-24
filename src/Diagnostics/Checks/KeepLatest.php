@@ -20,6 +20,13 @@ use Storyfeed\StoryfeedManager;
  *    without publishing. The feed shows every live row until the next
  *    publish on the key supersedes them. A verb declared `within:` a window
  *    is skipped, because live rows outside the window are what it keeps.
+ *  - WARNING `keep_latest.never_supersedes`: a verb that keeps the latest per
+ *    object has more live rows than `storyfeed.doctor.keep_latest_min_rows`
+ *    (50; null turns the finding off) and none superseded. Every publish
+ *    has had a new object, so nothing was ever replaced and the feed floods
+ *    silently; `per: 'target'` or `per: 'context'` keys on what repeats. A
+ *    verb declared `within:` a window, or keyed on no object,
+ *    is skipped.
  *  - INFO `keep_latest.undeclared`: superseded rows for a verb with no
  *    declaration, left by the call-site `replace()` that no longer exists.
  *    The fix is the declaration, printed by `--stubs`.
@@ -46,7 +53,75 @@ class KeepLatest extends Check
         $superseded = $this->superseded($storyfeed);
 
         yield from $this->split($storyfeed, $superseded);
+        yield from $this->neverSupersedes($storyfeed, $superseded);
         yield from $this->undeclared($storyfeed, $superseded);
+    }
+
+    /**
+     * Live rows per object type and verb above the floor, the type null for
+     * an object-less row, and a tombstoned row under its former type.
+     *
+     * @return list<array{type: string|null, verb: string, count: int}>
+     */
+    protected function live(int $floor): array
+    {
+        $model = $this->activities()->getModel();
+        $table = $model->getTable();
+        $query = $model->getConnection()->table("{$table} as live");
+        $objectType = $this->objectTypeOf($query, 'live');
+
+        return $query
+            ->whereNull('live.deleted_at')
+            ->whereNotNull('live.object_id')
+            ->selectRaw("{$objectType} as object_type, live.verb, count(*) as aggregate")
+            ->groupByRaw("{$objectType}, live.verb")
+            ->havingRaw('count(*) > ?', [$floor])
+            ->orderBy('live.verb')->orderByRaw($objectType)
+            ->get()
+            ->map(fn (object $row) => [
+                'type' => $row->object_type === null ? null : (string) $row->object_type,
+                'verb' => (string) $row->verb,
+                'count' => (int) $row->aggregate,
+            ])->values()->all();
+    }
+
+    /**
+     * @param  list<array{type: string|null, verb: string, count: int}>  $superseded
+     * @return iterable<Finding>
+     */
+    protected function neverSupersedes(StoryfeedManager $storyfeed, array $superseded): iterable
+    {
+        $floor = config('storyfeed.doctor.keep_latest_min_rows', 50);
+
+        if ($floor === null || $storyfeed->storyKeepLatest() === []) {
+            return;
+        }
+
+        $replaced = [];
+
+        foreach ($superseded as $row) {
+            $replaced[($row['type'] ?? '*').'.'.$row['verb']] = true;
+        }
+
+        foreach ($this->live((int) $floor) as $row) {
+            $declared = $storyfeed->keepLatest($row['type'], $row['verb']);
+
+            if ($declared === null || $declared['within'] !== null || ! in_array('object', $declared['per'], true)
+                || isset($replaced[($row['type'] ?? '*').'.'.$row['verb']])) {
+                continue;
+            }
+
+            $on = $row['type'] === null ? "`{$row['verb']}`" : "`{$row['type']}.{$row['verb']}`";
+
+            yield Finding::warning(
+                'keep_latest.never_supersedes',
+                "{$on} keeps the latest per ".implode(', ', $declared['per']).', but its '.number_format($row['count'])
+                .' live rows have none superseded: each publish has had a new object, so nothing is replaced and '
+                ."the feed floods. Key on what repeats instead, `->keepLatest(per: 'target')` or "
+                ."`->keepLatest(per: 'context')`.",
+                ['type' => $row['type'], 'verb' => $row['verb'], 'count' => $row['count']],
+            );
+        }
     }
 
     /**

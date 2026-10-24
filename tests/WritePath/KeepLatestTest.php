@@ -5,6 +5,7 @@ use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Storyfeed\Actions\SyncParticipants;
+use Storyfeed\Diagnostics\Severity;
 use Storyfeed\Events\ActivityPublished;
 use Storyfeed\Facades\Story;
 use Storyfeed\Facades\Storyfeed;
@@ -457,6 +458,49 @@ describe('the doctor', function () {
         saved($delivery);
 
         expect(Storyfeed::doctor(['keep_latest'])->all())->toBeEmpty();
+    });
+
+    it('warns when a keep-latest verb has many live rows and none superseded', function () {
+        config()->set('storyfeed.doctor.keep_latest_min_rows', 3);
+        Story::verb('save')->keepLatest();
+
+        foreach (range(1, 4) as $number) {
+            saved(Delivery::create(['tracking_number' => "TN-{$number}"]));
+        }
+
+        $finding = Storyfeed::doctor(['keep_latest'])->withCode('keep_latest.never_supersedes')->sole();
+
+        expect($finding->severity)->toBe(Severity::Warning)
+            ->and($finding->subject)->toBe(['type' => 'delivery', 'verb' => 'save', 'count' => 4])
+            ->and($finding->message)->toContain("per: 'target'")->toContain("per: 'context'");
+    });
+
+    it('is quiet about never-superseding when a row was superseded, or below the floor', function () {
+        config()->set('storyfeed.doctor.keep_latest_min_rows', 3);
+        Story::verb('save')->keepLatest();
+
+        foreach (range(1, 3) as $number) {
+            saved(Delivery::create(['tracking_number' => "TN-{$number}"]));
+        }
+
+        expect(Storyfeed::doctor(['keep_latest'])->has('keep_latest.never_supersedes'))->toBeFalse();
+
+        $delivery = Delivery::create(['tracking_number' => 'TN-4']);
+        saved($delivery, '2026-09-20 09:00:00');
+        saved($delivery, '2026-09-21 09:00:00');
+
+        expect(Storyfeed::doctor(['keep_latest'])->has('keep_latest.never_supersedes'))->toBeFalse();
+    });
+
+    it('skips never-superseding for a verb declared within a window', function () {
+        config()->set('storyfeed.doctor.keep_latest_min_rows', 3);
+        Story::verb('save')->keepLatest(within: '10 minutes');
+
+        foreach (range(1, 4) as $number) {
+            saved(Delivery::create(['tracking_number' => "TN-{$number}"]));
+        }
+
+        expect(Storyfeed::doctor(['keep_latest'])->has('keep_latest.never_supersedes'))->toBeFalse();
     });
 
     it('does not mistake a row deleted on its own for a superseded one', function () {

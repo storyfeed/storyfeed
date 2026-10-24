@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Added
+
+- `storyfeed:doctor` warns with `keep_latest.never_supersedes` when a verb that keeps the latest per object has more than `storyfeed.doctor.keep_latest_min_rows` live rows (50 by default; null turns it off) and none superseded, which is what a publish with a new object each time leaves behind. The message suggests `per: 'target'` or `per: 'context'`. A verb declared `within:` is skipped. (#214)
+
 ## v0.21.0 - 2026-10-14
 
 ### Added
