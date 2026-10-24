@@ -11,6 +11,7 @@
 ### Fixed
 
 - On MySQL and MariaDB, two publishes that tip one Live group over its threshold at once now curate it as that group, rather than leaving every member on the repeat fallback until the hourly `storyfeed:curate` repaired it. Under InnoDB's REPEATABLE READ, the second publish could not see the first one's row while it curated. Now a publish that joined an open burst curates its activity again after the outermost transaction commits, including an app's own transaction around the publish. PostgreSQL already curated these correctly and is unchanged. (#103)
+- On PostgreSQL, Live for a quiet entity no longer spends most of its time compiling JIT for the solo stream. As in #161, the planner multiplies the selectivities of `entity_type` and `entity_id`, so five activities read as tens of thousands, and at three million activities the estimated cost cleared PostgreSQL's JIT thresholds: 224ms, 210ms of it JIT. When the window finds no floor, the solo stream is now capped at that depth, which drops nothing: 4ms, no JIT. No schema change. (#162)
 
 ## v0.21.0 - 2026-10-14
 
