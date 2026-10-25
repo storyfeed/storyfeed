@@ -126,7 +126,7 @@ final class ReadPathOracle extends FeedBuilder
         };
     }
 
-    protected function soloStream(Carbon $now, ?array $cursor, ?string $floor = null): Collection
+    protected function soloStream(Carbon $now, ?array $cursor, ?string $floor = null, ?string $ceiling = null, ?int $within = null): Collection
     {
         $activities = $this->activityModel()->getTable();
         $groupings = $this->groupingModel()->getTable();

@@ -1432,7 +1432,7 @@ class FeedBuilder
                     $this->normalizeTimestamp($row->latest), (string) $row->bucket,
                     (string) $row->hash, (int) $row->members, $row->last_id,
                 ));
-            $solos = $this->soloStream($now, $cursor, $floor);
+            $solos = $this->soloStream($now, $cursor, $floor, $floor === null ? $ceiling : null, $depth);
 
             // The PAGE is the merged stream. In a busy Summary day there
             // may be only 24 person groups, but those plus solos already
@@ -1863,7 +1863,7 @@ class FeedBuilder
      * @param  array{latest: string, rank: int, axis: string|null, hash: string|null, id: int|string|null}|null  $cursor
      * @return Collection<int, FeedCandidate>
      */
-    protected function soloStream(Carbon $now, ?array $cursor, ?string $floor = null): Collection
+    protected function soloStream(Carbon $now, ?array $cursor, ?string $floor = null, ?string $ceiling = null, ?int $within = null): Collection
     {
         $activities = $this->activityModel()->getTable();
         [$publishedAt, $id] = $this->timeline();
@@ -1871,6 +1871,20 @@ class FeedBuilder
 
         $query = $this->filteredActivities($now)
             ->when($floor !== null, fn (ActivityBuilder $q) => $q->where($publishedAt, '>=', $floor));
+
+        // The cap groupAggregate() takes, for the same misestimate (#162).
+        // No floor at `$within` means eligible history at or below the
+        // ceiling holds fewer activities than that, so the cap drops nothing;
+        // it only tells PostgreSQL the read is small, which keeps a quiet
+        // entity's 30-row probe under the JIT thresholds. Wrapped in a derived
+        // table because MySQL refuses LIMIT inside IN.
+        if ($floor === null && $within !== null) {
+            $eligible = $this->filteredActivities($now)
+                ->when($ceiling !== null, fn (ActivityBuilder $q) => $q->where($publishedAt, '<=', $ceiling))
+                ->orderBy($publishedAt, 'desc')->orderBy($id, 'desc')->limit($within)
+                ->toBase()->select("{$activities}.id as eligible_id");
+            $query->whereIn("{$activities}.id", fn (QueryBuilder $in) => $in->fromSub($eligible, 'eligible')->select('eligible.eligible_id'));
+        }
 
         // "Has no winning grouping row", SPLIT INTO ONE ANTIJOIN PER DISJUNCT
         // rather than one antijoin over `winning()`. See notSolo() for why the

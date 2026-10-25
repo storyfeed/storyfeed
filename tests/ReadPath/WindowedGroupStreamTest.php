@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Storyfeed\Facades\Storyfeed;
 use Storyfeed\FeedBuilder;
 use Storyfeed\Models\Activity;
@@ -52,6 +53,16 @@ final class WindowedFeedBuilder extends FeedBuilder
         self::$attempts[] = ['floor' => $floor, 'ceiling' => $ceiling, 'within' => $within];
 
         return parent::groupAggregate($now, $cursor, $floor, $ceiling, $within);
+    }
+
+    /** @var list<array{floor: ?string, ceiling: ?string, within: ?int}> */
+    public static array $soloAttempts = [];
+
+    protected function soloStream(Carbon $now, ?array $cursor, ?string $floor = null, ?string $ceiling = null, ?int $within = null): Collection
+    {
+        self::$soloAttempts[] = ['floor' => $floor, 'ceiling' => $ceiling, 'within' => $within];
+
+        return parent::soloStream($now, $cursor, $floor, $ceiling, $within);
     }
 }
 
@@ -155,6 +166,7 @@ function compareWalks(callable $configure, int $limit, array $depths): array
 
     WindowedFeedBuilder::$depths = $depths;
     WindowedFeedBuilder::$attempts = [];
+    WindowedFeedBuilder::$soloAttempts = [];
     $windowed = walkPages(fn () => $configure((new WindowedFeedBuilder)->limit($limit)));
 
     return ['oracle' => $oracle, 'windowed' => $windowed];
@@ -163,6 +175,7 @@ function compareWalks(callable $configure, int $limit, array $depths): array
 afterEach(function () {
     WindowedFeedBuilder::$depths = [null];
     WindowedFeedBuilder::$attempts = [];
+    WindowedFeedBuilder::$soloAttempts = [];
 });
 
 it('pages identically to the unbounded aggregate in every mode', function (string $mode, int $seed) {
@@ -225,6 +238,60 @@ it('caps the unbounded aggregate at a depth eligible history does not reach', fu
 
     expect($walks['windowed'])->toBe($walks['oracle'])
         ->and(WindowedFeedBuilder::$attempts[0])->toBe(['floor' => null, 'ceiling' => null, 'within' => $eligible + 1]);
+});
+
+/**
+ * The entity's activities all made solo, so the oldest eligible activity is
+ * on the solo stream: a cap that drops even one shows up on the page.
+ */
+function soloEntity(int $seed): Customer
+{
+    ['project' => $project] = windowedFixture($seed);
+
+    Grouping::query()->whereIn('activity_id', DB::table('feed_participants')
+        ->where('entity_type', $project->getMorphClass())->where('entity_id', (string) $project->getKey())
+        ->select('activity_id'))->delete();
+
+    return $project;
+}
+
+it('caps the unbounded solo stream at a depth eligible history does not reach', function () {
+    $project = soloEntity(53);
+
+    // As the aggregate's cap above: one more than the eligible activities,
+    // with soft-deleted and future rows still in the participant rows, and
+    // one page holding the whole entity.
+    $eligible = collect(walkPages(fn () => (new FeedBuilder)->log()->involving($project)->limit(100)))
+        ->sum(fn (array $page) => count($page['items']));
+    $walks = compareWalks(fn (FeedBuilder $feed) => $feed->live()->involving($project), limit: 100, depths: [$eligible + 1, null]);
+
+    expect($walks['windowed'])->toBe($walks['oracle'])
+        ->and(collect($walks['oracle'][0]['items'])->where('kind', 'activity')->count())->toBe($eligible)
+        ->and(WindowedFeedBuilder::$soloAttempts[0])->toBe(['floor' => null, 'ceiling' => null, 'within' => $eligible + 1]);
+
+    // The pages cannot tell a cap that drops nothing from no cap at all; the
+    // statement can. Its job is the estimate PostgreSQL plans with (#162).
+    DB::flushQueryLog();
+    DB::enableQueryLog();
+    (new WindowedFeedBuilder)->live()->involving($project)->limit(100)->get();
+    $solo = collect(DB::getQueryLog())->pluck('query')->first(fn (string $sql) => str_contains($sql, 'composite_rows'));
+    DB::disableQueryLog();
+
+    expect($solo)->toContain('limit '.($eligible + 1));
+});
+
+it('caps the solo stream below the cursor on later pages', function () {
+    $project = soloEntity(59);
+
+    // Shallower than the entity, so the first page finds a floor and later
+    // pages, below a ceiling, find none and cap. The cap counts back from the
+    // ceiling; counted from now it would hold only rows already paged past.
+    $walks = compareWalks(fn (FeedBuilder $feed) => $feed->live()->involving($project), limit: 3, depths: [8, null]);
+    $capped = collect(WindowedFeedBuilder::$soloAttempts)->whereNull('floor')->whereNotNull('ceiling')->where('within', 8);
+
+    expect($walks['windowed'])->toBe($walks['oracle'])
+        ->and(count($walks['oracle']))->toBeGreaterThan(3)
+        ->and($capped->count())->toBeGreaterThan(0);
 });
 
 it('reports true member counts, not the windowed ones', function () {
