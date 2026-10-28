@@ -32,6 +32,16 @@ class CacheSnapshotsCommand extends Command
         // By class with a parameter array: the branch of `resolveCommand()`
         // that does not go through name lookup, so the bound arrives as an
         // option rather than as part of a name.
-        return $this->call(RebuildCommand::class, ['--recent' => RebuildCommand::RECENT]);
+        //
+        // The pass reads app models too, whose scopes may name a column the
+        // package's schema guard cannot see (#225). A stale snapshot is a
+        // smaller bug than a failed deploy, so warn and skip.
+        try {
+            return $this->call(RebuildCommand::class, ['--recent' => RebuildCommand::RECENT]);
+        } catch (\Throwable $e) {
+            $this->components->warn('Skipped compiling snapshots: '.$e->getMessage());
+
+            return self::SUCCESS;
+        }
     }
 }
