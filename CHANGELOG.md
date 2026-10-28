@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v0.22.1 - 2026-10-28
+
+### Fixed
+
+- `php artisan optimize` no longer touches the database. It ran `storyfeed:cache-snapshots`, which loads feed participants through their models, so on a host that runs `optimize` in the build step (Laravel Cloud) a release adding a column and a scope that uses it, such as `SoftDeletes`, failed every build until the migration shipped alone. The snapshots now compile after every `php artisan migrate`, including one with nothing to migrate, so a deploy needs no extra step. If the pass fails, it warns and skips instead of failing the command, and the trickle catches up. (#225)
+
 ## v0.22.0 - 2026-10-25
 
 ### Added

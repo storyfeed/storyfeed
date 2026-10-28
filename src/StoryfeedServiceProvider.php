@@ -4,6 +4,8 @@ namespace Storyfeed;
 
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Database\Eloquent\Relations\Relation;
+use Illuminate\Database\Events\MigrationsEnded;
+use Illuminate\Database\Events\NoPendingMigrations;
 use Illuminate\Foundation\Console\AboutCommand;
 use Illuminate\Foundation\Http\Kernel;
 use Illuminate\Queue\Events\JobAttempted;
@@ -232,26 +234,21 @@ class StoryfeedServiceProvider extends PackageServiceProvider
         );
 
         /*
-         * AND COMPILE THE RECENT SNAPSHOTS, the way a deploy compiles assets.
+         * AND COMPILE THE RECENT SNAPSHOTS after `migrate`, the way a deploy
+         * compiles assets.
          *
          * `toFeed()` output is cached, so changing that method leaves every row
          * already written saying what it said before. A consumer edits,
-         * deploys, looks, and sees nothing change — with nothing anywhere
-         * telling them why. This is that gap closed at the moment it opens.
+         * deploys, looks, and sees nothing change. This closes that gap with no
+         * extra build step.
          *
-         * Bounded by activities scanned so the deploy cost is a number the
-         * operator chose, and newest-first so what a reader is about to look at
-         * is correct first. The tail is the trickle's.
-         *
-         * A second key rather than folding it into `storyfeed:cache`: that one
-         * compiles a manifest from CODE and needs no database, and a build
-         * machine routinely runs `optimize` with no connection. Keeping them
-         * separate keeps that one true, and the snapshot pass declines quietly
-         * when the connection is absent.
+         * Not in `optimize`: hosts run it at build time, before migrations,
+         * and the pass reads app models through the database (#225). See
+         * Listeners\WarmSnapshots.
          */
-        $this->optimizes(
-            optimize: 'storyfeed:cache-snapshots',
-            key: 'storyfeed-snapshots',
+        Event::listen(
+            [MigrationsEnded::class, NoPendingMigrations::class],
+            Listeners\WarmSnapshots::class,
         );
 
         // Package-owned aliases must be in Eloquent's map for morphTo() to

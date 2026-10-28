@@ -115,9 +115,10 @@ return [
     |
     | When `toFeed()` output is recompiled, configured like QUEUE_CONNECTION.
     |
-    | `cached` (production): `php artisan optimize` recompiles the snapshots
-    | of the newest 1,000 activities (`storyfeed:cache-snapshots`), and the
-    | trickle catches up the rest.
+    | `cached` (production): every `php artisan migrate` recompiles the
+    | snapshots of the newest 1,000 activities (`storyfeed:cache-snapshots`),
+    | even with nothing to migrate, and the trickle catches up the rest.
+    | `optimize` never touches the database.
     |
     | `sync` (local): set STORYFEED_SNAPSHOTS=sync and `toFeed()` changes show
     | on reload. When a Feedable model or Story class file changes, the next
