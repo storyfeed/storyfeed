@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- Declare Payload v1 stable: its node contract changes additively within payload major 1, independently of the package version. Pin featured tombstone totals, unknown deletion times and group presentation facts with producer tests. (#59)
+
 ## v0.23.0 - 2026-10-29
 
 ### Added

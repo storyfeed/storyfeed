@@ -13,8 +13,9 @@
 [![GitHub Tests Action Status](https://github.com/storyfeed/storyfeed/actions/workflows/run-tests.yml/badge.svg)](https://github.com/storyfeed/storyfeed/actions?query=workflow%3Arun-tests+branch%3Amain)
 [![Total Downloads](https://img.shields.io/packagist/dt/storyfeed/storyfeed.svg?style=flat-square)](https://packagist.org/packages/storyfeed/storyfeed)
 
-> **Pre-1.0.** Method names, class names, config keys, database columns and the
-> docs are subject to change at any time.
+> **Payload v1 is stable.** Its node contract changes additively within payload
+> major 1. The package is pre-1.0: PHP APIs, config keys and database columns
+> may still change. See the [payload reference](https://docs.storyfeed.dev/reference/payload-contract).
 
 Storyfeed records activities from your Laravel application and reads them back
 as a feed: the pattern behind GitHub's dashboard, Slack's activity and social

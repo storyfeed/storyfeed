@@ -80,6 +80,22 @@ it('carries a tombstone\'s kept label', function () {
         ->tombstone->formerType->toBe('delivery');
 });
 
+it('emits a null deletion time when the tombstone has no known date', function () {
+    Storyfeed::activity('confirm', $this->delivery)->by($this->ines)->publish();
+    $this->delivery->delete();
+    FeedTombstone::sole()->forceFill(['deleted_at' => null])->save();
+
+    $node = tombstonedFeedNode();
+
+    expect($node['object']['tombstone'])->toBe([
+        'formerType' => 'delivery',
+        'deleted' => null,
+        'approximate' => false,
+    ])
+        ->and($node['tombstoned'])->toBe(['object'])
+        ->and($node['redundant'])->toBeTrue();
+});
+
 it('marks a deletion the trickle found as approximate', function () {
     $dish = Dish::create(['name' => 'Carrot Soup']);
     Storyfeed::activity()->actor($this->ines)->verb('cook', $dish)->publish();

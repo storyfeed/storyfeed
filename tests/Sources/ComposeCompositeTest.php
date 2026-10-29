@@ -68,6 +68,39 @@ it('reads members in the feed\'s order: kept order as given, otherwise newest fi
         ->and(array_column(array_column($kept['children'], 'object'), 'label'))->toBe(['Delivery #File-1.pdf', 'Delivery #File-2.pdf', 'Delivery #File-3.pdf']);
 });
 
+it('keeps a dateless composite timestamp null and its children in authored order', function () {
+    $node = Storyfeed::compose()
+        ->add(fn (Entry $entry) => $entry->id('release-notes')->action('attach')->objects([
+            ['type' => 'file', 'label' => 'First.pdf'],
+            ['type' => 'file', 'label' => 'Second.pdf'],
+        ]))
+        ->get()->toArray()[0];
+
+    expect($node['kind'])->toBe('group')
+        ->and($node['axis'])->toBe('composite')
+        ->and($node['published_at'])->toBeNull()
+        ->and($node['count'])->toBe(2)
+        ->and($node['children_truncated'])->toBeFalse()
+        ->and(array_column($node['children'], 'published_at'))->toBe([null, null])
+        ->and(array_column(array_column($node['children'], 'object'), 'label'))->toBe(['First.pdf', 'Second.pdf']);
+});
+
+it('keeps a dated composite timestamp when the feed preserves authored order', function () {
+    $entry = fn () => (new Entry)->id('release-files')->action('attach')->objects([
+        ['type' => 'file', 'label' => 'First.pdf'],
+        ['type' => 'file', 'label' => 'Second.pdf'],
+    ])->publishedAt('2026-10-29 12:00:00');
+
+    $dated = Storyfeed::compose()->add($entry())->get()->toArray()[0];
+    $kept = Storyfeed::compose()->add($entry())->inOrder()->get()->toArray()[0];
+
+    expect($dated['published_at'])->toBe('2026-10-29T12:00:00.000000Z')
+        ->and($kept['published_at'])->toBe($dated['published_at'])
+        ->and(array_column($kept['children'], 'published_at'))->toBe(array_column($dated['children'], 'published_at'))
+        ->and(array_column(array_column($dated['children'], 'object'), 'label'))->toBe(['Second.pdf', 'First.pdf'])
+        ->and(array_column(array_column($kept['children'], 'object'), 'label'))->toBe(['First.pdf', 'Second.pdf']);
+});
+
 it('takes models, party names and entities as members, as any role does', function () {
     $items = Storyfeed::compose()
         ->add(fn (Entry $entry) => $entry

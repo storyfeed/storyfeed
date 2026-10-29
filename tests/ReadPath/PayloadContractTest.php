@@ -77,6 +77,7 @@ it('emits the frozen group-node shape', function () {
     // totals (replacing others_count).
     expect(array_keys($item['sample']))->toBe(['actors', 'objects', 'targets', 'contexts', 'origins', 'results', 'instruments', 'locations', 'generators', 'featured']);
     expect(array_keys($item['distinct']))->toBe(['actors', 'objects', 'targets', 'contexts', 'origins', 'results', 'instruments', 'locations', 'generators', 'featured']);
+    expect(array_keys($item['distinct_tombstoned']))->toBe(['actors', 'objects', 'targets', 'contexts', 'origins', 'results', 'instruments', 'locations', 'generators', 'featured']);
     // A group's children are ordinary activity nodes.
     expect(array_keys($item['children'][0]))->toBe([
         'kind', 'id', 'verb', 'published_at', 'starts_at', 'ends_at', 'headline_template', 'headline',

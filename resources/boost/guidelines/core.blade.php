@@ -4,6 +4,8 @@ Storyfeed records activity feeds for Laravel: an app publishes activities explic
 
 ### Conventions
 
+- Payload v1 is stable and evolves additively within payload major 1, independently of the package version. Read the normative contract at https://docs.storyfeed.dev/reference/payload-contract; ignore unknown keys and pass opaque cursors unchanged. A page's `prev_cursor` is null on the first page and points towards newer nodes on later pages.
+
 - Models that appear in activities implement `Storyfeed\Contracts\Feedable` and use `Storyfeed\Concerns\InteractsWithFeed`; `toFeed()` returns a `FeedEntity`.
 - Headlines, icons and group headlines live in `routes/feed.php` (created by `php artisan storyfeed:install`), never inline where the activity is published.
 - Verbs are free-form strings in the base form (`place`, `complete`, `reprice`); the headline turns them into prose.

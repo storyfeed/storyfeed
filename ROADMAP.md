@@ -1,8 +1,8 @@
 # Roadmap
 
-Storyfeed 1.0 means a stable Payload v1 that renderers can build on without
-breaking changes, one audited schema, and a published versioning and support
-policy.
+Payload v1 is stable: renderers can build on its node contract without breaking
+changes within payload major 1. Storyfeed 1.0 also requires one audited schema
+and a published versioning and support policy.
 
 **Versions are milestones, not dates.**
 
@@ -16,7 +16,7 @@ policy.
       renderers need zero domain knowledge).
 - [x] **[v0.3 — Payload contract](https://github.com/storyfeed/storyfeed/milestone/9).** Headline grammar + icon registries, feed events,
       retention (`storyfeed:prune`) and health checks (`storyfeed:doctor`); the feed
-      payload shape documented as a versioned freeze-candidate contract, including
+      payload shape first documented as a versioned contract, including
       grouped-activity nodes ("Bob, Sally, and 3 others uploaded files to Project X").
 - [x] **[v0.4 — Typed recording API](https://github.com/storyfeed/storyfeed/milestone/10).** An autocomplete-friendly write API (no magic
       methods), verbs declarable as enums, and the Activity Streams 2.0 vocabulary
@@ -107,8 +107,8 @@ the work teaches us, and a dropped item is closed as not planned with its reason
       composite entry over many objects. Code and callout bodies arrive.
 - [ ] **[v1.0 — Stable](https://github.com/storyfeed/storyfeed/milestone/5).** One
       consolidated schema, a versioning and support policy, and a release
-      candidate before 1.0.0. Payload v1 is declared stable with the release
-      candidate; until then the payload may still change.
+      candidate before 1.0.0. Payload v1 is already stable; additions preserve
+      existing fields and their meanings.
 
 Curation, which activities group together and when, keeps improving behind the
 stable payload contract and stays labelled experimental.
