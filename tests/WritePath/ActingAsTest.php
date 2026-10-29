@@ -15,7 +15,7 @@ it('attributes everything published inside the scope', function () {
     $activities = Activity::query()->get();
 
     expect($activities)->toHaveCount(2)
-        ->and($activities->pluck('actor_type')->unique()->all())->toBe(['storyfeed.party'])
+        ->and($activities->pluck('actor_type')->unique()->all())->toBe(['storyfeed.entity'])
         ->and(Party::query()->where('key', 'system')->exists())->toBeTrue();
 });
 
@@ -86,6 +86,6 @@ it('lets an explicit actor win inside the scope', function () {
 it('seeds a builder when called without a callback', function () {
     $activity = Storyfeed::actor('System')->verb('sync')->object(Delivery::create(['tracking_number' => 'A']))->publish();
 
-    expect($activity->actor_type)->toBe('storyfeed.party')
+    expect($activity->actor_type)->toBe('storyfeed.entity')
         ->and($activity->cachedActor->label)->toBe('System');
 });

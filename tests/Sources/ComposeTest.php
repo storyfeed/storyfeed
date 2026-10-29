@@ -56,7 +56,7 @@ it('composes a dateless showcase in the order given', function () {
         ->and(array_column($items, 'published_at'))->toBe([null, null, null])
         ->and(array_column($items, 'verb'))->toBe([null, null, null])
         ->and(array_column($items, 'glyph'))->toBe([null, null, null])
-        ->and($items[0]['actor'])->toMatchArray(['type' => 'storyfeed.party', 'id' => 'tey-labs', 'label' => 'Tey Labs'])
+        ->and($items[0]['actor'])->toMatchArray(['type' => 'storyfeed.entity', 'id' => 'tey-labs', 'label' => 'Tey Labs'])
         ->and($items[0]['object'])->toMatchArray(['type' => 'project', 'id' => '1', 'label' => 'InvoiceJam'])
         ->and($items[0]['object']['link']['href'])->toBe('https://teylabs.com/projects/invoicejam')
         ->and($items[0]['object']['body'])->toBe([MediaObject::make(

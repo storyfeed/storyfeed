@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Storyfeed\Facades\Storyfeed;
+use Storyfeed\Models\Party;
 use Storyfeed\Support\SchemaState;
 use Workbench\App\Models\Delivery;
 use Workbench\App\Models\User;
@@ -66,7 +67,7 @@ it('builds exactly the audited indexes', function (string $key, array $expected)
         'primary activity_id,entity_type,entity_id',
         'entity_type,entity_id,published_at,activity_id,distance',
     ]],
-    'parties' => ['parties', ['primary id', 'unique key']],
+    'entities' => ['entities', ['primary id', 'unique key']],
     'snapshots' => ['snapshots', ['primary id', 'unique model_type,model_id', 'model_type,shape']],
     'tombstones' => ['tombstones', ['primary id', 'unique model_type,model_id']],
 ]);
@@ -105,7 +106,7 @@ it('skips every table an install from before the consolidation already has', fun
 
     // The tables the harness built stand in for an existing install: running
     // the republished migrations against them must change nothing.
-    $schema = fn (): array => collect(array_keys(SchemaState::EXPECTED + SchemaState::REFERENCES + ['parties' => [], 'meta' => [], 'grouping_bursts' => []]))
+    $schema = fn (): array => collect(array_keys(SchemaState::EXPECTED + SchemaState::REFERENCES + ['entities' => [], 'meta' => [], 'grouping_bursts' => []]))
         ->mapWithKeys(fn (string $key): array => [$key => [columns($key), indexes($key)]])
         ->all();
     $before = $schema();
@@ -117,4 +118,11 @@ it('skips every table an install from before the consolidation already has', fun
 
     expect($schema())->toBe($before)
         ->and(DB::table(SchemaState::table('meta'))->where('key', 'kept')->exists())->toBeTrue();
+});
+
+it('creates the entities table with a kind that defaults to party', function () {
+    expect(SchemaState::table('entities'))->toBe('feed_entities')
+        ->and(Schema::hasColumn('feed_entities', 'kind'))->toBeTrue()
+        ->and(Party::make('Concur')->fresh()->kind)->toBe('party')
+        ->and(DB::table('feed_entities')->value('kind'))->toBe('party');
 });

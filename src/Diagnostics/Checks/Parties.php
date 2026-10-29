@@ -39,7 +39,7 @@ class Parties extends Check
     {
         yield from $this->declarations($storyfeed);
 
-        if (! $this->hasTable('parties')) {
+        if (! $this->hasTable('entities')) {
             return;
         }
 

@@ -143,7 +143,7 @@ final class World
      */
     public function model(array $entity): WorldModel|Party
     {
-        if ($entity['type'] === 'storyfeed.party') {
+        if ($entity['type'] === 'storyfeed.entity') {
             // Party::make() finds or creates by name; it is not Model::make().
             return Party::make($entity['label']); // @phpstan-ignore larastan.noModelMake
         }

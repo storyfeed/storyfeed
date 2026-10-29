@@ -66,7 +66,7 @@ beforeEach(function () {
         ->map(fn (Activity $activity) => Entry::make(
             verb: $activity->verb,
             publishedAt: $activity->published_at,
-            actor: $activity->actor_type === 'storyfeed.party' ? 'Courier Bot' : $activity->actor,
+            actor: $activity->actor_type === 'storyfeed.entity' ? 'Courier Bot' : $activity->actor,
             object: $activity->object,
             target: $activity->target,
             id: $activity->uid,
@@ -83,7 +83,7 @@ function comparable(array $payload): array
 
     $walk = function (array $node) use (&$walk): array {
         // A stored party is filed under its row id, a source's under its key.
-        if (($node['type'] ?? null) === 'storyfeed.party') {
+        if (($node['type'] ?? null) === 'storyfeed.entity') {
             $node['id'] = 'party';
         }
 

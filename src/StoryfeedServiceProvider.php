@@ -47,7 +47,7 @@ class StoryfeedServiceProvider extends PackageServiceProvider
                 'create_feed_snapshots_table',
                 'create_feed_groupings_table',
                 'create_feed_participants_table',
-                'create_feed_parties_table',
+                'create_feed_entities_table',
                 'create_feed_batches_table',
                 'create_feed_meta_table',
                 'create_feed_tombstones_table',
@@ -240,7 +240,7 @@ class StoryfeedServiceProvider extends PackageServiceProvider
         // enforces its own map keeps these. MorphResolver additionally
         // resolves them independently, covering a non-merging replacement.
         Relation::morphMap([
-            config('storyfeed.morph_alias', 'storyfeed.party') => config('storyfeed.models.party', Party::class),
+            config('storyfeed.morph_alias', 'storyfeed.entity') => config('storyfeed.models.party', Party::class),
         ]);
 
         Relation::morphMap(config('storyfeed.morph_map', []));

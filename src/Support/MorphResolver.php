@@ -109,7 +109,7 @@ class MorphResolver
         $party = config('storyfeed.models.party', Party::class);
 
         return [
-            config('storyfeed.morph_alias', 'storyfeed.party') => $party,
+            config('storyfeed.morph_alias', 'storyfeed.entity') => $party,
             FeedTombstone::MORPH_ALIAS => config('storyfeed.models.tombstone', FeedTombstone::class),
         ];
     }

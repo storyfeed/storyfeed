@@ -42,7 +42,7 @@ describe('declaring', function () {
             ->whereRole('origin', [Courier::class, Customer::class]);
 
         expect(Storyfeed::wheres('delivery', 'ship'))->toBe([
-            'actor' => ['user', 'storyfeed.party'],
+            'actor' => ['user', 'storyfeed.entity'],
             'target' => ['customer'],
             'origin' => ['courier', 'customer'],
         ]);
@@ -51,7 +51,7 @@ describe('declaring', function () {
     it('takes the Party model as the party alias', function () {
         Story::verb('sync')->whereActor(Party::class);
 
-        expect(Storyfeed::wheres(null, 'sync'))->toBe(['actor' => ['storyfeed.party']]);
+        expect(Storyfeed::wheres(null, 'sync'))->toBe(['actor' => ['storyfeed.entity']]);
     });
 
     it('replaces a role said again, as ->where() replaces a parameter\'s pattern', function () {
@@ -86,7 +86,7 @@ describe('declaring', function () {
         Story::verb('sync')->whereRole('actor', User::class)->whereRole('origin', [Courier::class]);
         Story::resources([Courier::class => null], ['only' => ['create'], 'wheres' => ['actor' => 'user']]);
 
-        expect(Storyfeed::wheres('delivery', 'sort'))->toBe(['actor' => ['storyfeed.party']])
+        expect(Storyfeed::wheres('delivery', 'sort'))->toBe(['actor' => ['storyfeed.entity']])
             ->and(Storyfeed::wheres('customer', 'create'))->toBe(['actor' => ['user']])
             ->and(Storyfeed::wheres(null, 'sync'))->toBe(['actor' => ['user'], 'origin' => ['courier']])
             ->and(Storyfeed::wheres('courier', 'create'))->toBe(['actor' => ['user']]);
@@ -125,7 +125,7 @@ describe('publishing', function () {
         Story::for(Delivery::class)->verb('sync')->whereActor(User::class, 'party');
 
         expect(fn () => Storyfeed::activity('ship', aDelivery())->actor('Stripe')->publish())
-            ->toThrow(StoryRoleMismatch::class, "[Given: storyfeed.party]. The verb's ->whereActor() says which types may be its actor; add 'party'")
+            ->toThrow(StoryRoleMismatch::class, "[Given: storyfeed.entity]. The verb's ->whereActor() says which types may be its actor; add 'party'")
             ->and(Storyfeed::activity('sync', aDelivery())->actor('Stripe')->publish()->exists)->toBeTrue();
     });
 
@@ -185,12 +185,12 @@ describe('tooling', function () {
         Artisan::call('storyfeed:list', ['--json' => true]);
         $rows = collect(json_decode(Artisan::output(), true))->keyBy('verb');
 
-        expect($rows['ship']['where'])->toBe(['actor: user, storyfeed.party'])
+        expect($rows['ship']['where'])->toBe(['actor: user, storyfeed.entity'])
             ->and($rows['hold']['where'])->toBe([]);
 
         Artisan::call('storyfeed:list', ['-v' => true]);
 
-        expect(Artisan::output())->toContain('Where')->toContain('actor: user, storyfeed.party');
+        expect(Artisan::output())->toContain('Where')->toContain('actor: user, storyfeed.entity');
     });
 
     it('survives storyfeed:cache and is checked from the manifest', function () {
@@ -216,7 +216,7 @@ describe('tooling', function () {
 
         $finding = Storyfeed::doctor(['role_constraints'])->withCode('role_constraints.violated')->sole();
 
-        expect($finding->message)->toContain('`delivery.ship` allows only user as its actor, but 2 live rows have storyfeed.party')
+        expect($finding->message)->toContain('`delivery.ship` allows only user as its actor, but 2 live rows have storyfeed.entity')
             ->and($finding->subject)->toMatchArray(['type' => 'delivery', 'verb' => 'ship', 'role' => 'actor', 'rows' => 2]);
     });
 });

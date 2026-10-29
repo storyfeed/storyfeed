@@ -26,7 +26,7 @@ it('migrates every app model id column as text while retaining package numeric k
         }
     }
     expect(Schema::getColumnType('feed_tombstones', 'id'))->toContain('int')
-        ->and(Schema::getColumnType('feed_parties', 'id'))->toContain('int');
+        ->and(Schema::getColumnType('feed_entities', 'id'))->toContain('int');
 });
 
 it('snapshots numeric parties and preserves referenced tombstones while purging string roles', function () {

@@ -49,7 +49,7 @@ it('accepts a closure matcher', function () {
 
     Storyfeed::record('sync', object: Delivery::create(['tracking_number' => 'TN-1']), actor: 'Concur');
 
-    Storyfeed::assertPublished(fn (Activity $a) => $a->verb === 'sync' && $a->actor_type === 'storyfeed.party');
+    Storyfeed::assertPublished(fn (Activity $a) => $a->verb === 'sync' && $a->actor_type === 'storyfeed.entity');
 });
 
 it('counts published activities', function () {
@@ -116,7 +116,7 @@ it('takes no side effects: no snapshots, groupings, or parties', function () {
     expect(Snapshot::query()->count())->toBe($snapshots)
         ->and(Grouping::query()->count())->toBe(0)
         ->and(Party::query()->count())->toBe(0)
-        ->and($activity->actor_type)->toBe('storyfeed.party');
+        ->and($activity->actor_type)->toBe('storyfeed.entity');
 });
 
 it('reuses a stubbed party across activities', function () {

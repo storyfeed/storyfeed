@@ -47,7 +47,7 @@ it('reads a named source from config', function () {
 
     expect($items)->toHaveCount(2)
         ->and($items[0]['headline_template'])->toBe(':actor shipped :object')
-        ->and($items[0]['actor'])->toMatchArray(['type' => 'storyfeed.party', 'id' => 'storyfeed', 'label' => 'Storyfeed'])
+        ->and($items[0]['actor'])->toMatchArray(['type' => 'storyfeed.entity', 'id' => 'storyfeed', 'label' => 'Storyfeed'])
         ->and($items[0]['object'])->toMatchArray([
             'type' => 'release', 'id' => '0.18', 'label' => 'v0.18.0', 'link' => null, 'data' => ['notes' => 12],
             'body' => [Prose::make('Feed sources and the array source.')->toArray()],
@@ -156,7 +156,7 @@ it('takes models, party names and entities as roles', function () {
         ->and($items[0]['object'])->toMatchArray(['label' => 'Delivery #TN-1'])
         ->and($items[0]['object']['link']['href'])->toBe('/deliveries/'.$delivery->getKey())
         ->and($items[0]['object']['body'])->toBe([Prose::make('Left the depot.')->toArray()])
-        ->and($items[0]['target'])->toMatchArray(['type' => 'storyfeed.party', 'id' => 'courier-bot', 'label' => 'Courier Bot'])
+        ->and($items[0]['target'])->toMatchArray(['type' => 'storyfeed.entity', 'id' => 'courier-bot', 'label' => 'Courier Bot'])
         ->and(Snapshot::query()->count())->toBe($snapshots);
 });
 

@@ -66,7 +66,7 @@ final class Comparison
         foreach ($shared as $id) {
             foreach ($this->fields($generated[$id], $committed[$id]) as $path => [$new, $old]) {
                 $role = explode('.', $path)[0];
-                if (($generated[$id][$role]['type'] ?? null) === 'storyfeed.party') {
+                if (($generated[$id][$role]['type'] ?? null) === 'storyfeed.entity') {
                     $parties[preg_replace('/^\w+\./', '', $path)][$id] = [$old, $new];
                 } else {
                     $other["{$id} {$path}"] = [$old, $new];

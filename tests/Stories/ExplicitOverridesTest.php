@@ -49,7 +49,7 @@ it('merges supplied cast keys constraint roles and queue options', function (boo
     $package = packageOverrideDefaults();
     $app = Verb::for('delivery', 'ship', 'app.php:20')->override()
         ->casts(['quantity' => 'float', 'reference' => 'string'])
-        ->whereActor('user', 'storyfeed.party')->onQueue('app')->beforeCommit()->delay(0)
+        ->whereActor('user', 'storyfeed.entity')->onQueue('app')->beforeCommit()->delay(0)
         ->forgetWhenMissing(false);
     $second = Verb::for('delivery', 'ship', 'other.php:30')->override()
         ->casts(['note' => 'string'])->whereTarget('customer')->deleteWhenMissingModels(false);
@@ -59,7 +59,7 @@ it('merges supplied cast keys constraint roles and queue options', function (boo
     expect($compiled['casts']['delivery.ship'])->toBe([
         'amount' => 'decimal:2', 'quantity' => 'float', 'reference' => 'string', 'note' => 'string',
     ])->and($compiled['wheres']['delivery.ship'])->toBe([
-        'actor' => ['user', 'storyfeed.party'], 'object' => ['delivery'], 'target' => ['customer'],
+        'actor' => ['user', 'storyfeed.entity'], 'object' => ['delivery'], 'target' => ['customer'],
     ])->and($compiled['queue']['delivery.ship'])->toBe([
         'connection' => 'redis', 'queue' => 'app', 'delay' => 0, 'afterCommit' => false, 'deleteWhenMissingModels' => false,
     ])->and($compiled['forget']['delivery.ship'])->toBeFalse()

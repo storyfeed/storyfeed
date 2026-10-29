@@ -60,7 +60,7 @@ it('resolves package aliases independently of an enforced application morph map'
     Relation::enforceMorphMap(['delivery' => Delivery::class], merge: false);
     $party = Storyfeed::party('Stripe');
     $activity = Storyfeed::activity()->actor($party)->action('inspect', $party)->publish();
-    expect(Activity::query()->objectType('storyfeed.party')->value('uid'))->toBe($activity->uid)
+    expect(Activity::query()->objectType('storyfeed.entity')->value('uid'))->toBe($activity->uid)
         ->and(Storyfeed::feed()->objectType(Party::class)->log()->get()->toArray()[0]['id'])->toBe($activity->uid)
         ->and(Activity::query()->resultType(FeedTombstone::MORPH_ALIAS)->getBindings())->toContain(FeedTombstone::MORPH_ALIAS)
         ->and(Activity::query()->resultType(FeedTombstone::class)->getBindings())->toContain(FeedTombstone::MORPH_ALIAS);

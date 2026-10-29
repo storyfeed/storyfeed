@@ -3014,7 +3014,7 @@ class StoryfeedManager
      * With recording off this must not write either: `->actor('Concur')` and
      * `Storyfeed::actor('System', …)` resolve their party at association time,
      * BEFORE publish() gets to decline, and a muted suite that still inserts
-     * a feed_parties row per string actor is not muted. An existing row is
+     * a feed_entities row per string actor is not muted. An existing row is
      * still found (a read); a missing one comes back as an unsaved model,
      * the way the fake stubs its parties, so the composed no-op Activity
      * carries the role's alias like any other.

@@ -80,7 +80,7 @@ it('takes models, party names and entities as members, as any role does', functi
 
     expect($items)->toHaveCount(1)
         ->and($items[0]['axis'])->toBe('composite')
-        ->and(array_column(array_column($items[0]['children'], 'object'), 'type'))->toBe(['delivery', 'storyfeed.party', 'package'])
+        ->and(array_column(array_column($items[0]['children'], 'object'), 'type'))->toBe(['delivery', 'storyfeed.entity', 'package'])
         ->and(array_column(array_column($items[0]['children'], 'object'), 'label'))->toContain('Tey Labs', 'storyfeed/ui');
 });
 

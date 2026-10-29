@@ -3,12 +3,15 @@
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
+use Storyfeed\Support\SchemaState;
 
 return new class extends Migration
 {
     public function up(): void
     {
-        $name = config('storyfeed.tables.parties', 'feed_parties');
+        // Also reads the pre-0.23 `tables.parties` key, so a config published
+        // then keeps naming the table it has.
+        $name = SchemaState::table('entities');
 
         // An install from v0.22 or earlier already has this table; deleting
         // and republishing the migrations must not fail on it.
@@ -20,7 +23,11 @@ return new class extends Migration
             $table->id();
             $table->string('key')->unique();
             $table->string('name');
+            // AS2 vocabulary (Service, Application, Person...).
             $table->string('type')->default('Service');
+            // A named participant (`party`) or a non-model object (`record`).
+            // Nothing writes `record` yet; a row without it reads as `party`.
+            $table->string('kind', 16)->default('party');
             $table->json('data')->nullable();
             $table->timestamps();
         });
@@ -28,6 +35,6 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::dropIfExists(config('storyfeed.tables.parties', 'feed_parties'));
+        Schema::dropIfExists(SchemaState::table('entities'));
     }
 };

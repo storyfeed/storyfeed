@@ -10,7 +10,15 @@
 
 ### Changed
 
-- The published migrations are consolidated into one `create_*` migration per table, with the schema the index audit on #58 settled: ten indexes fewer, measured at a million activities on MySQL 8.4 and PostgreSQL 18 with no read slower. `feed_participants` is keyed by `(activity_id, entity_type, entity_id)` and has no `id` or timestamps; its entity index gains `distance`, which makes `involvingDirectly()` faster. `feed_groupings` has no timestamps, and `feed_snapshots.component`, which nothing read or wrote, is gone. **Upgrade:** run your existing Storyfeed migrations, then delete the published Storyfeed migrations and publish them again (`php artisan vendor:publish --tag=storyfeed-migrations`). Each new migration skips a table that already exists, so an existing install keeps its tables and works unchanged; a fresh install, or a rebuilt database, gets the consolidated schema. `storyfeed:doctor` now gives that step as the fix for a missing column. (#60)
+- The published migrations are consolidated into one `create_*` migration per table, with the schema the index audit on #58 settled: ten indexes fewer, measured at a million activities on MySQL 8.4 and PostgreSQL 18 with no read slower. `feed_participants` is keyed by `(activity_id, entity_type, entity_id)` and has no `id` or timestamps; its entity index gains `distance`, which makes `involvingDirectly()` faster. `feed_groupings` has no timestamps, and `feed_snapshots.component`, which nothing read or wrote, is gone. (#60)
+- The parties table is now `feed_entities` and its morph alias `storyfeed.entity`, since a row can stand for any participant, not only a person or system. The table key is `storyfeed.tables.entities`; the old `tables.parties` key is still read. The table gains a `kind` column, `party` by default; `record`, for a non-model object, is reserved and nothing writes it yet. The `Party` class keeps its name. (#60)
+
+**Upgrading an existing install: rebuild or keep. There is no converting migration.** Delete the published Storyfeed migrations and publish them again (`php artisan vendor:publish --tag=storyfeed-migrations`), then either:
+
+- **Rebuild:** drop the Storyfeed tables (or run `migrate:fresh`) and migrate. You get the consolidated schema, and history is lost unless you re-record it.
+- **Keep:** run `migrate` against your existing tables. Each new migration skips a table that already exists, so nothing changes and no data moves. Your rows still hold the `storyfeed.party` alias and your table is still `feed_parties`, so pin both in `config/storyfeed.php`: `'morph_alias' => 'storyfeed.party'` and, under `tables`, `'parties' => 'feed_parties'`. A config you published before this release already has both. Without them, party rows stop resolving and `involving()` misses them. A kept install keeps the old indexes and columns, and works unchanged.
+
+Run your existing Storyfeed migrations before deleting them: the columns they add are not added again. `storyfeed:doctor` reports a missing column with this fix.
 
 ## v0.22.1 - 2026-10-28
 

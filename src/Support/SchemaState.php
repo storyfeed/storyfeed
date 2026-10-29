@@ -89,6 +89,12 @@ class SchemaState
 
     public static function table(string $key): string
     {
+        // The entities table was `parties` before 0.23. A config published
+        // then names it under the old key, and keeps that table.
+        if ($key === 'entities') {
+            return config('storyfeed.tables.entities') ?? config('storyfeed.tables.parties') ?? 'feed_entities';
+        }
+
         return config("storyfeed.tables.{$key}", "feed_{$key}");
     }
 

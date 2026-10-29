@@ -271,7 +271,7 @@ it('puts every model on the same contract, package-owned ones included', functio
 
     // Party has no canonical URL and does not use the trait (it keeps its
     // own saved hook and no delete cascade), so it answers null itself.
-    expect(Party::feedMedia(new FeedContext(type: 'storyfeed.party', key: 1)))->toBeNull();
+    expect(Party::feedMedia(new FeedContext(type: 'storyfeed.entity', key: 1)))->toBeNull();
 });
 
 /*

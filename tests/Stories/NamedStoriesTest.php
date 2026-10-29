@@ -132,7 +132,7 @@ it('names a resource over several types for each one, under a group prefix', fun
 it('names a package-owned type by its package alias', function () {
     Story::resource(Party::class)->only('create');
 
-    expect(Storyfeed::storyNames())->toBe(['storyfeed.party.create' => 'storyfeed.party.create']);
+    expect(Storyfeed::storyNames())->toBe(['storyfeed.entity.create' => 'storyfeed.entity.create']);
 });
 
 it('keeps a name a resource action gave its own verb', function () {

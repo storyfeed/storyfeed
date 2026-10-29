@@ -70,7 +70,7 @@ it('reaches the payload on the actor and stays out of the AS2 document', functio
 });
 
 it('degrades a party avatar that is not text', function (array $media) {
-    expect(Party::feedMedia(new FeedContext('storyfeed.party', data: ['$media' => $media])))->toBeNull();
+    expect(Party::feedMedia(new FeedContext('storyfeed.entity', data: ['$media' => $media])))->toBeNull();
 })->with([
     [['initials' => ['A', 'C']]],
     [['color' => 0x438D98]],
@@ -122,7 +122,7 @@ it('gives a party the same rule, by its key', function () {
     Storyfeed::activity('ping')->actor('Courier Bot')->publish();
 
     expect(Storyfeed::feed()->get()->toArray()[0]['actor']['media'])
-        ->toMatchArray(['initials' => 'CB', 'color' => Avatar::color('storyfeed.party', 'courier-bot')]);
+        ->toMatchArray(['initials' => 'CB', 'color' => Avatar::color('storyfeed.entity', 'courier-bot')]);
 });
 
 it('draws a tombstone on the neutral colour with its stored label', function () {

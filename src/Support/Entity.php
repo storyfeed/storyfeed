@@ -75,7 +75,7 @@ final class Entity implements Arrayable, ArrayAccess, Htmlable, JsonSerializable
         return $this->role;
     }
 
-    /** The morph alias: `order`, `storyfeed.party`, `storyfeed.tombstone`. */
+    /** The morph alias: `order`, `storyfeed.entity`, `storyfeed.tombstone`. */
     public function type(): ?string
     {
         return $this->string('type');

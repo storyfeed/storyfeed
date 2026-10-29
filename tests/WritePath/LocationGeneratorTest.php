@@ -50,7 +50,7 @@ it('keeps the derived id of a source item that names neither new role', function
 
     // The id as it was derived before location and generator existed.
     $roles = array_fill_keys(['actor', 'object', 'target', 'context', 'origin', 'result', 'instrument'], null);
-    $roles['actor'] = ['storyfeed.party', 'storyfeed'];
+    $roles['actor'] = ['storyfeed.entity', 'storyfeed'];
     $roles['object'] = ['release', 'v0.20.0'];
     $before = substr(hash('sha256', json_encode(['release', Chronology::stamp($item->publishedAt), $roles, []], JSON_THROW_ON_ERROR)), 0, 26);
 

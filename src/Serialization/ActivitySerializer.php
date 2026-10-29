@@ -457,7 +457,7 @@ class ActivitySerializer
             'attributedTo' => $snapshot?->attributed_to,
             // A party actor also carries its external home as url. The link's
             // modal and attributes are a renderer's, and AS2 has no word for them.
-            Property::Url->value => $actor && $alias !== config('storyfeed.morph_alias', 'storyfeed.party') ? null : $absolute,
+            Property::Url->value => $actor && $alias !== config('storyfeed.morph_alias', 'storyfeed.entity') ? null : $absolute,
             // The remaining slots are AS2's own properties with AS2's own
             // meanings, which is the whole reason FeedMedia names them that
             // way — nothing to translate, only to spell out.
@@ -595,7 +595,7 @@ class ActivitySerializer
      */
     protected function entityType(string $alias, array $data): string
     {
-        if ($alias === config('storyfeed.morph_alias', 'storyfeed.party')) {
+        if ($alias === config('storyfeed.morph_alias', 'storyfeed.entity')) {
             $own = $data['type'] ?? null;
 
             if (is_string($own) && $own !== '') {
