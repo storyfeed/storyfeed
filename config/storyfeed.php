@@ -41,6 +41,9 @@ return [
     | Where a feed's activities come from, named the way filesystem disks are:
     | `Storyfeed::feed()->source('changelog')`. The database is the default
     | and needs no entry. The `array` driver reads static items from config;
+    | the `classes` driver reads one StaticItem class per item, listed under
+    | `items` or discovered from a `path` (with its `namespace`) as Pennant
+    | discovers features;
     | register your own drivers with Storyfeed::extend('github', fn ($app,
     | array $config) => new GitHubSource($config)).
     |
