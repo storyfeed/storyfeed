@@ -1,0 +1,5 @@
+{
+    "require": {
+        "tey/standards": "^0.11.46"
+    }
+}

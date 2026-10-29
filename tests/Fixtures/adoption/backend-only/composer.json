@@ -1,0 +1,7 @@
+{
+  "name": "example/backend-only",
+  "require": {
+    "php": "^8.4",
+    "storyfeed/storyfeed": "^0.23"
+  }
+}
