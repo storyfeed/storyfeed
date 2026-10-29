@@ -32,7 +32,7 @@ function backfillContainer(string $name, ?Model $parent = null): BackfillContain
 
 function backfillRows($activity): array
 {
-    return DB::table(SyncParticipants::table())->where('activity_id', $activity->id)->orderBy('id')->get()->keyBy('id')->toArray();
+    return DB::table(SyncParticipants::table())->where('activity_id', $activity->id)->orderBy('entity_type')->orderBy('entity_id')->get()->keyBy(fn (object $row): string => "{$row->entity_type}:{$row->entity_id}")->toArray();
 }
 
 it('distinguishes explicit null parent declarations in both entity forms', function () {
