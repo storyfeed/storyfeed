@@ -1,0 +1,7 @@
+{
+  "name": "example/migration",
+  "require": {
+    "php": "^8.4",
+    "storyfeed/storyfeed": "^0.23"
+  }
+}

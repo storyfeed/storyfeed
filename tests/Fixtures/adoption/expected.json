@@ -1,0 +1,165 @@
+{
+  "format": 1,
+  "cases": [
+    {
+      "app": "adopted",
+      "surface": "activity.recording",
+      "facts": {
+        "has-feeds": true
+      },
+      "row": "adopted"
+    },
+    {
+      "app": "adopted",
+      "surface": "activity.query",
+      "facts": {
+        "has-feeds": true
+      },
+      "row": "adopted"
+    },
+    {
+      "app": "adopted",
+      "surface": "activity.snapshots",
+      "facts": {
+        "has-feeds": true
+      },
+      "row": "adopted"
+    },
+    {
+      "app": "adopted",
+      "surface": "activity.context",
+      "facts": {
+        "has-feeds": true
+      },
+      "row": "adopted"
+    },
+    {
+      "app": "adopted",
+      "surface": "activity.config",
+      "facts": {
+        "has-feeds": true
+      },
+      "row": "adopted"
+    },
+    {
+      "app": "spatie",
+      "surface": "activity.recording",
+      "facts": {
+        "has-feeds": true
+      },
+      "row": "hand-rolled"
+    },
+    {
+      "app": "spatie",
+      "surface": "activity.query",
+      "facts": {
+        "has-feeds": true
+      },
+      "row": "hand-rolled"
+    },
+    {
+      "app": "spatie",
+      "surface": "activity.snapshots",
+      "facts": {
+        "has-feeds": true
+      },
+      "row": "hand-rolled"
+    },
+    {
+      "app": "spatie",
+      "surface": "activity.context",
+      "facts": {
+        "has-feeds": true
+      },
+      "row": "missing"
+    },
+    {
+      "app": "spatie",
+      "surface": "activity.config",
+      "facts": {
+        "has-feeds": true
+      },
+      "row": "missing"
+    },
+    {
+      "app": "migration",
+      "surface": "activity.recording",
+      "facts": {
+        "has-feeds": true
+      },
+      "row": "hand-rolled"
+    },
+    {
+      "app": "migration",
+      "surface": "activity.query",
+      "facts": {
+        "has-feeds": true
+      },
+      "row": "hand-rolled"
+    },
+    {
+      "app": "migration",
+      "surface": "activity.snapshots",
+      "facts": {
+        "has-feeds": true
+      },
+      "row": "hand-rolled"
+    },
+    {
+      "app": "migration",
+      "surface": "activity.context",
+      "facts": {
+        "has-feeds": true
+      },
+      "row": "hand-rolled"
+    },
+    {
+      "app": "migration",
+      "surface": "activity.config",
+      "facts": {
+        "has-feeds": true
+      },
+      "row": "hand-rolled"
+    },
+    {
+      "app": "no-feeds",
+      "surface": "activity.recording",
+      "facts": {
+        "has-feeds": false
+      },
+      "row": "n/a"
+    },
+    {
+      "app": "no-feeds",
+      "surface": "activity.query",
+      "facts": {
+        "has-feeds": false
+      },
+      "row": "n/a"
+    },
+    {
+      "app": "no-feeds",
+      "surface": "activity.snapshots",
+      "facts": {
+        "has-feeds": false
+      },
+      "row": "n/a"
+    },
+    {
+      "app": "no-feeds",
+      "surface": "activity.context",
+      "facts": {
+        "has-feeds": false
+      },
+      "row": "n/a"
+    },
+    {
+      "app": "no-feeds",
+      "surface": "activity.config",
+      "facts": {
+        "has-feeds": false
+      },
+      "row": "n/a"
+    }
+  ]
+}

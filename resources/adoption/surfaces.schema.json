@@ -1,0 +1,132 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://teylabs.com/schemas/adoption/surfaces-1.json",
+  "title": "Adoption surfaces, format 1",
+  "description": "What a package offers an app, how standards:adoption tells whether an app adopted it, hand-rolled it or doesn't need it, and which app code it replaces. One file per package; standards reads every installed package's file (and, for calibration, the package checkouts). Unknown fields, signal kinds or facts fail closed.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["format", "package", "facts", "surfaces", "nonSurfaces"],
+  "properties": {
+    "format": { "const": 1 },
+    "package": {
+      "description": "The package this file describes, by its composer and (when it ships JS) npm names. Surface ids are scoped to it.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["composer"],
+      "properties": {
+        "composer": { "type": "string", "pattern": "^[a-z0-9-]+/[a-z0-9-]+$" },
+        "npm": { "type": "string" },
+        "alias": { "description": "The import alias apps use, such as \"@kit/ui\".", "type": "string" }
+      }
+    },
+    "facts": {
+      "description": "The closed list of app facts `applies` may name. Standards computes each one; a fact it can't compute fails closed.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "description", "computed"],
+        "properties": {
+          "id": { "$ref": "#/$defs/slug" },
+          "description": { "type": "string" },
+          "computed": {
+            "description": "How standards computes the fact, never assumed: one of its own route and model analyses, or true when any signal fires in app-owned files (an import of the kit component counts as a signal too).",
+            "oneOf": [
+              { "type": "object", "additionalProperties": false, "required": ["analysis"], "properties": { "analysis": { "enum": ["signed-in-pages", "public-pages", "auth-routes", "workspace-model", "mail-notifications", "mcp-server", "settings-routes", "search-route", "destructive-routes"] } } },
+              { "type": "object", "additionalProperties": false, "required": ["signals"], "properties": { "signals": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/signal" } } } }
+            ]
+          }
+        }
+      }
+    },
+    "surfaces": { "type": "array", "items": { "$ref": "#/$defs/surface" } },
+    "nonSurfaces": {
+      "description": "Exports, features or classes that are deliberately not surfaces (helpers, internals). The package's own test fails when something it ships is in neither list.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["ref", "reason"],
+        "properties": {
+          "ref": { "description": "\"<alias>:Name\", \"feature:<id>\" or a PHP class.", "type": "string" },
+          "reason": { "type": "string" }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "slug": { "type": "string", "pattern": "^[a-z][a-z0-9]*([.-][a-z0-9]+)*$" },
+    "scope": { "enum": ["signed-in", "public", "any"], "default": "any" },
+    "surface": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "layer", "group", "label", "feature", "applies", "uses", "handRolled", "docs", "status"],
+      "properties": {
+        "id": { "$ref": "#/$defs/slug" },
+        "layer": { "description": "ui for pages and components; backend for PHP, jobs, mail, config and data.", "enum": ["ui", "backend"] },
+        "group": { "enum": ["layout", "navigation", "action", "form", "data", "feedback", "overlay", "content", "auth", "account", "workspace", "access", "mail", "jobs", "documents", "activity", "modules", "platform"] },
+        "label": { "type": "string" },
+        "feature": { "description": "The package feature that ships it; \"core\" when always installed.", "type": "string" },
+        "applies": { "$ref": "#/$defs/condition" },
+        "uses": {
+          "description": "Evidence of adoption in app-owned files. Any one match counts.",
+          "type": "object",
+          "additionalProperties": false,
+          "minProperties": 1,
+          "properties": {
+            "imports": { "description": "\"<alias>:Name\" named imports.", "type": "array", "items": { "type": "string" } },
+            "components": { "description": "Template tag names.", "type": "array", "items": { "type": "string" } },
+            "files": { "description": "Feature files present in the app (installed by the package).", "type": "array", "items": { "type": "string" } },
+            "classes": { "description": "PHP classes the app extends, implements, uses as a trait or references.", "type": "array", "items": { "type": "string" } },
+            "config": { "description": "Config keys the app sets, as dotted paths.", "type": "array", "items": { "type": "string" } }
+          }
+        },
+        "handRolled": {
+          "description": "Either one rule signal or any number of other signals.",
+          "type": "array",
+          "items": { "$ref": "#/$defs/signal" }
+        },
+        "replaces": {
+          "description": "Direction 2: app code this surface stands in for. An app component or library that matches no surface's `replaces` (and isn't app domain code) becomes a gap row.",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "npm": { "description": "Third-party npm packages, optionally \"pkg#Export\".", "type": "array", "items": { "type": "string" } },
+            "composer": { "description": "Third-party composer packages.", "type": "array", "items": { "type": "string" } },
+            "components": { "description": "App component file-name globs.", "type": "array", "items": { "type": "string" } }
+          }
+        },
+        "docs": { "description": "A docs path in the package repo.", "type": "string" },
+        "status": { "enum": ["stable", "new"] },
+        "since": { "description": "The package version that added it; required when status is new.", "type": "string" }
+      },
+      "if": { "properties": { "status": { "const": "new" } } },
+      "then": { "required": ["since"] }
+    },
+    "condition": {
+      "description": "true, a fact id, or all/any/not over conditions.",
+      "oneOf": [
+        { "const": true },
+        { "$ref": "#/$defs/slug" },
+        { "type": "object", "additionalProperties": false, "required": ["all"], "properties": { "all": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/condition" } } } },
+        { "type": "object", "additionalProperties": false, "required": ["any"], "properties": { "any": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/condition" } } } },
+        { "type": "object", "additionalProperties": false, "required": ["not"], "properties": { "not": { "$ref": "#/$defs/condition" } } }
+      ]
+    },
+    "signal": {
+      "type": "object",
+      "required": ["kind"],
+      "oneOf": [
+        { "additionalProperties": false, "properties": { "kind": { "const": "rule" }, "rule": { "type": "string" }, "scope": { "$ref": "#/$defs/scope" } }, "required": ["kind", "rule"] },
+        { "additionalProperties": false, "properties": { "kind": { "const": "vue-root" }, "tags": { "type": "array", "items": { "type": "string" } }, "requires": { "type": "object", "additionalProperties": false, "properties": { "routes": { "type": "array", "items": { "type": "string" } }, "components": { "type": "array", "items": { "type": "string" } }, "min": { "type": "integer", "minimum": 1 } } }, "scope": { "$ref": "#/$defs/scope" } }, "required": ["kind", "tags"] },
+        { "additionalProperties": false, "properties": { "kind": { "const": "file-name" }, "globs": { "type": "array", "items": { "type": "string" } }, "scope": { "$ref": "#/$defs/scope" } }, "required": ["kind", "globs"] },
+        { "additionalProperties": false, "properties": { "kind": { "const": "import" }, "specifiers": { "type": "array", "items": { "type": "string" } }, "scope": { "$ref": "#/$defs/scope" } }, "required": ["kind", "specifiers"] },
+        { "additionalProperties": false, "properties": { "kind": { "const": "template-tag" }, "tags": { "type": "array", "items": { "type": "string" } }, "min": { "type": "integer", "minimum": 1 }, "where": { "description": "Static attribute values, by attribute name; an element counts when its literal value is listed (where) or is not (except). A bound or missing attribute matches neither.", "type": "object", "additionalProperties": { "type": "array", "items": { "type": "string" }, "minItems": 1 } }, "except": { "description": "Static attribute values, by attribute name; an element counts when its literal value is listed (where) or is not (except). A bound or missing attribute matches neither.", "type": "object", "additionalProperties": { "type": "array", "items": { "type": "string" }, "minItems": 1 } }, "scope": { "$ref": "#/$defs/scope" } }, "required": ["kind", "tags"] },
+        { "additionalProperties": false, "properties": { "kind": { "const": "mail-view" }, "without": { "type": "array", "items": { "type": "string" } }, "scope": { "$ref": "#/$defs/scope" } }, "required": ["kind", "without"] },
+        { "additionalProperties": false, "properties": { "kind": { "const": "php-class" }, "extends": { "type": "array", "items": { "type": "string" } }, "implements": { "type": "array", "items": { "type": "string" } }, "names": { "description": "Class short-name globs.", "type": "array", "items": { "type": "string" } } }, "required": ["kind"] },
+        { "additionalProperties": false, "properties": { "kind": { "const": "composer" }, "packages": { "type": "array", "items": { "type": "string" } } }, "required": ["kind", "packages"] },
+        { "additionalProperties": false, "properties": { "kind": { "const": "migration" }, "tables": { "description": "Table names an app migration creates with Schema::create (never alters). A table recorded in kit_adoptions counts as adopted, not hand-rolled.", "type": "array", "items": { "type": "string" } } }, "required": ["kind", "tables"] }
+      ]
+    }
+  }
+}

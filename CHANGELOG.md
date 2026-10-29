@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Added
+
+- Declare the backend activity-feed adoption surfaces, with explicit applicability signals, entry-point coverage and fixture outcomes checked by `tey/standards`.
+
 ### Changed
 
 - Declare Payload v1 stable: its node contract changes additively within payload major 1, independently of the package version. Pin featured tombstone totals, unknown deletion times and group presentation facts with producer tests. (#59)
