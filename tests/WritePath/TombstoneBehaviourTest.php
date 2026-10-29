@@ -203,3 +203,37 @@ it('supports when() on the configurator', function () {
 
     expect(FeedTombstone::sole()->label)->toBeNull();
 });
+
+it('tombstones a participant whose row survives when forced', function () {
+    $story = Storyfeed::activity()->actor($this->ines)->verb('confirm', $this->delivery)->publish();
+
+    expect(Storyfeed::tombstone(User::class, [$this->ines->id]))->toBe([]);
+
+    $tombstones = Storyfeed::tombstone(User::class, [$this->ines->id], force: true);
+
+    expect($tombstones)->toHaveCount(1)
+        ->and($tombstones[0]->restorable)->toBeFalse()
+        ->and($story->fresh()->actor_type)->toBe((new FeedTombstone)->getMorphClass())
+        ->and(Snapshot::query()->where('model_type', $this->ines->getMorphClass())->where('model_id', (string) $this->ines->id)->exists())->toBeFalse()
+        ->and(User::query()->whereKey($this->ines->id)->exists())->toBeTrue();
+});
+
+it('drops the stored label of a forced inline entity', function () {
+    $story = Storyfeed::activity()
+        ->actor(['type' => 'author', 'id' => '7', 'label' => 'Ada Lovelace', 'url' => 'https://example.com/ada'])
+        ->verb('confirm', $this->delivery)
+        ->publish();
+    $other = Storyfeed::activity()
+        ->actor(['type' => 'author', 'id' => '8', 'label' => 'Grace Hopper'])
+        ->verb('confirm', $this->delivery)
+        ->publish();
+
+    Storyfeed::tombstone('author', ['7'], force: true);
+
+    $story = $story->fresh();
+
+    expect($story->actor_type)->toBe((new FeedTombstone)->getMorphClass())
+        ->and($story->entities)->toBeNull()
+        ->and(json_encode(DB::table('feed_activities')->get()->where('id', $story->id)))->not->toContain('Ada')
+        ->and($other->fresh()->entities['actor']['label'])->toBe('Grace Hopper');
+});

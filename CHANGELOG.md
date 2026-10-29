@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Added
+
+- `Storyfeed::tombstone($type, $ids, force: true)` tombstones a participant whose row survives, such as a user the app anonymised instead of deleting. The tombstone is permanent and the model's snapshot is deleted. For an inline entity it also drops the label, `url`, `data`, `body` and `media` stored in the activities' `entities`, so the name leaves storage. Without `force`, a key whose row exists is still skipped. (#224)
+
 ## v0.22.1 - 2026-10-28
 
 ### Fixed
