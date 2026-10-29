@@ -64,6 +64,9 @@ return [
     | Remap any table if the defaults collide with existing tables in your
     | application, or to point Storyfeed at pre-existing feed tables.
     |
+    | `entities` was `parties` before 0.23 and is still read under that key.
+    | An install that keeps its tables from then sets it to `feed_parties`.
+    |
     */
 
     'tables' => [
@@ -72,7 +75,7 @@ return [
         'groupings' => 'feed_groupings',
         'grouping_bursts' => 'feed_grouping_bursts',
         'participants' => 'feed_participants',
-        'parties' => 'feed_parties',
+        'entities' => 'feed_entities',
         'batches' => 'feed_batches',
         'meta' => 'feed_meta',
         'tombstones' => 'feed_tombstones',
@@ -157,15 +160,17 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Party Morph Alias
+    | Entity Morph Alias
     |--------------------------------------------------------------------------
     |
-    | The morph alias stored for feed parties. Resolved independently of the
-    | application's morph map, so enforceMorphMap() cannot break it.
+    | The morph alias stored for feed entities (Party rows). Resolved
+    | independently of the application's morph map, so enforceMorphMap()
+    | cannot break it. An install that keeps tables from before 0.23 sets
+    | this to `storyfeed.party`, the alias its rows already hold.
     |
     */
 
-    'morph_alias' => 'storyfeed.party',
+    'morph_alias' => 'storyfeed.entity',
 
     /*
     |--------------------------------------------------------------------------

@@ -17,6 +17,7 @@ use Storyfeed\Models\Grouping;
 use Storyfeed\Support\ActivityRoles;
 use Storyfeed\Support\InlineEntity;
 use Storyfeed\Support\MorphKeyType;
+use Storyfeed\Support\SchemaState;
 use TypeError;
 
 /**
@@ -28,7 +29,7 @@ abstract class Check implements DiagnosticCheck
 {
     protected function table(string $key): string
     {
-        return config("storyfeed.tables.{$key}", "feed_{$key}");
+        return SchemaState::table($key);
     }
 
     protected function hasTable(string $key): bool

@@ -123,7 +123,7 @@ describe('config off', function () {
 
         Storyfeed::actor('System', fn () => Storyfeed::activity('ping')->publish());
 
-        expect($activity->actor_type)->toBe('storyfeed.party')
+        expect($activity->actor_type)->toBe('storyfeed.entity')
             ->and($activity->actor_id)->toBeNull()
             ->and(Party::query()->count())->toBe(0);
 

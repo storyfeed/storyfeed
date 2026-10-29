@@ -53,6 +53,14 @@ class SchemaState
     ];
 
     /**
+     * The fix for an install behind either map. The migrations were consolidated
+     * after v0.22, so the steps that add these columns ship only with v0.22:
+     * nothing newer would add them to an existing table.
+     */
+    public const string REMEDY = 'Run the migrations Storyfeed v0.22 publishes first, then delete the published '
+        .'Storyfeed migrations and publish them again (vendor:publish --tag=storyfeed-migrations).';
+
+    /**
      * Reference columns not yet in the MorphKeyType shape, by table name.
      * Tables and columns that don't exist are left to `Tables` and `Columns`.
      *
@@ -81,6 +89,12 @@ class SchemaState
 
     public static function table(string $key): string
     {
+        // The entities table was `parties` before 0.23. A config published
+        // then names it under the old key, and keeps that table.
+        if ($key === 'entities') {
+            return config('storyfeed.tables.entities') ?? config('storyfeed.tables.parties') ?? 'feed_entities';
+        }
+
         return config("storyfeed.tables.{$key}", "feed_{$key}");
     }
 

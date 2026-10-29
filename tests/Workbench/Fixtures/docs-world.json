@@ -20,7 +20,7 @@
         "object": { "type": "order", "id": "1002", "label": "Order #1002", "url": "/orders/1002", "data": null, "body": null, "media": null },
         "target": { "type": "venue", "id": "101", "label": "Scoops Ahoy", "url": "/venues/scoops", "data": null, "body": null, "media": null } },
       { "id": "paid", "at": "2026-07-04T12:10:00Z", "verb": "pay", "data": { "amount": 295 }, "headline": null,
-        "actor": { "type": "storyfeed.party", "id": "101", "label": "Stripe", "url": null, "data": null, "body": null, "media": null },
+        "actor": { "type": "storyfeed.entity", "id": "101", "label": "Stripe", "url": null, "data": null, "body": null, "media": null },
         "object": { "type": "order", "id": "1001", "label": "Order #1001", "url": "/orders/1001", "data": null, "body": null, "media": null } },
       { "id": "removed", "at": "2026-07-04T13:00:00Z", "verb": "remove", "data": null, "headline": null,
         "actor": { "type": "user", "id": "102", "label": "Steve Harrington", "url": "/users/102", "data": null, "body": null, "media": null },

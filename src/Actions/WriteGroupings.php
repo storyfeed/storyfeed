@@ -55,11 +55,9 @@ class WriteGroupings
         // multi-row insert, as many() writes new rows. On Postgres the cost
         // of separate statements includes planning for every axis.
         if ($inserted) {
-            $now = now();
-
             if ($hashes !== []) {
                 $grouping::query()->insert(array_map(
-                    fn (string $axis, string $hash) => ['activity_id' => $activity->getKey(), 'bucket' => $axis, 'hash' => $hash, 'created_at' => $now, 'updated_at' => $now],
+                    fn (string $axis, string $hash) => ['activity_id' => $activity->getKey(), 'bucket' => $axis, 'hash' => $hash],
                     array_keys($hashes),
                     $hashes,
                 ));
@@ -143,7 +141,6 @@ class WriteGroupings
         $updates = [];
         $inserts = [];
         $deletes = [];
-        $now = now();
 
         foreach ($byKey as $id => $activity) {
             $claim = $claims->get($id);
@@ -159,7 +156,7 @@ class WriteGroupings
                 $row = $own->get($bucket);
 
                 if ($row === null) {
-                    $inserts[] = ['activity_id' => $id, 'bucket' => $bucket, 'hash' => $hash, 'created_at' => $now, 'updated_at' => $now];
+                    $inserts[] = ['activity_id' => $id, 'bucket' => $bucket, 'hash' => $hash];
                 } elseif ($row->hash !== $hash) {
                     $updates[$row->{$key}] = $hash;
                 }
@@ -221,9 +218,9 @@ class WriteGroupings
 
             $connection->update(
                 'update '.$grammar->wrapTable($grouping->getTable())
-                ." set {$grammar->wrap('hash')} = case {$key} {$cases} end, {$grammar->wrap('updated_at')} = ?"
+                ." set {$grammar->wrap('hash')} = case {$key} {$cases} end"
                 ." where {$key} in ({$in})",
-                [...$bindings, $grouping->freshTimestampString(), ...array_keys($rows)],
+                [...$bindings, ...array_keys($rows)],
             );
         }
     }

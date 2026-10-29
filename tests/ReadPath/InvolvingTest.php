@@ -158,7 +158,7 @@ it('backfills to exactly what publish-time sync would have written', function ()
     Storyfeed::activity()->actor($user)->verb('upload', $file)->to($project)->publish();
 
     $expected = DB::table(SyncParticipants::table())
-        ->orderBy('id')->get(['activity_id', 'role', 'entity_type', 'entity_id'])->toArray();
+        ->orderBy('activity_id')->orderBy('entity_type')->orderBy('entity_id')->get(['activity_id', 'role', 'entity_type', 'entity_id'])->toArray();
 
     DB::table(SyncParticipants::table())->delete();
     expect(Storyfeed::feed()->involving($project)->get()->toArray())->toBeEmpty();
@@ -166,7 +166,7 @@ it('backfills to exactly what publish-time sync would have written', function ()
     $this->artisan('storyfeed:participants')->assertSuccessful();
 
     $rebuilt = DB::table(SyncParticipants::table())
-        ->orderBy('id')->get(['activity_id', 'role', 'entity_type', 'entity_id'])->toArray();
+        ->orderBy('activity_id')->orderBy('entity_type')->orderBy('entity_id')->get(['activity_id', 'role', 'entity_type', 'entity_id'])->toArray();
 
     expect($rebuilt)->toEqual($expected)
         ->and(Storyfeed::feed()->involving($project)->get()->toArray())->toHaveCount(1);

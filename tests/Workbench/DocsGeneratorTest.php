@@ -56,7 +56,7 @@ it('resolves links and pictures through each model\'s feedMedia()', function () 
         ->and($node['object']['type'])->toBe('order')
         ->and($node['glyph_intent'])->toBe('pending')
         ->and($this->payloads['removed']['object']['body'][0]['content'])->toBe('A sundae.')
-        ->and($this->payloads['paid']['actor']['type'])->toBe('storyfeed.party')
+        ->and($this->payloads['paid']['actor']['type'])->toBe('storyfeed.entity')
         ->and($this->payloads['paid']['data'])->toBe(['amount' => 295]);
 });
 

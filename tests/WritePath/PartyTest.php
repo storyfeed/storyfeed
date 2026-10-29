@@ -41,7 +41,7 @@ it('records a party as the actor', function () {
         ->actor(Party::make('Concur Web Service'))
         ->publish();
 
-    expect($activity->actor_type)->toBe('storyfeed.party')
+    expect($activity->actor_type)->toBe('storyfeed.entity')
         ->and($activity->cached_actor_id)->not->toBeNull();
 });
 
@@ -56,9 +56,9 @@ it('accepts a bare string in every role', function () {
         context: 'Migration',
     );
 
-    expect($activity->object_type)->toBe('storyfeed.party')
-        ->and($activity->target_type)->toBe('storyfeed.party')
-        ->and($activity->context_type)->toBe('storyfeed.party')
+    expect($activity->object_type)->toBe('storyfeed.entity')
+        ->and($activity->target_type)->toBe('storyfeed.entity')
+        ->and($activity->context_type)->toBe('storyfeed.entity')
         ->and(Party::query()->pluck('key')->sort()->values()->all())
         ->toBe(['concur', 'migration', 'q3-import']);
 });
@@ -87,7 +87,7 @@ it('emits a party as a normal payload entity with no url', function () {
     $item = Storyfeed::feed()->get()->toArray()[0];
 
     expect($item['actor'])->toMatchArray([
-        'type' => 'storyfeed.party',
+        'type' => 'storyfeed.entity',
         'label' => 'Concur Web Service',
         'link' => null,
     ])
@@ -194,7 +194,7 @@ it('reads external homes in every role from retired party snapshots without part
         ->and($document['object']['url'])->toBe('https://example.com/studio');
 
     foreach ($queries as $sql) {
-        expect($sql)->not->toContain('feed_parties')
+        expect($sql)->not->toContain('feed_entities')
             ->and($sql)->not->toMatch('/^\s*(insert|update|delete|replace)\b/');
     }
 });

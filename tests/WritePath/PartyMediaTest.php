@@ -29,7 +29,7 @@ it('reads reserved party pictures from snapshots without linking or querying the
 });
 
 it('degrades malformed party media without throwing', function ($value) {
-    expect(Party::feedMedia(new FeedContext('storyfeed.party', data: ['$media' => $value])))->toBeNull();
+    expect(Party::feedMedia(new FeedContext('storyfeed.entity', data: ['$media' => $value])))->toBeNull();
 })->with([
     'null' => [null], 'scalar' => [42], 'bare descriptor string' => ['/image.svg'],
     'empty' => [[]], 'unknown slot' => [['video' => '/v']], 'null slots' => [['icon' => null]],
@@ -41,8 +41,8 @@ it('degrades malformed party media without throwing', function ($value) {
 ]);
 
 it('does not interpret an app media key or an absent reserved key', function () {
-    expect(Party::feedMedia(new FeedContext('storyfeed.party')))->toBeNull()
-        ->and(Party::feedMedia(new FeedContext('storyfeed.party', data: ['media' => ['icon' => '/x']])))->toBeNull();
+    expect(Party::feedMedia(new FeedContext('storyfeed.entity')))->toBeNull()
+        ->and(Party::feedMedia(new FeedContext('storyfeed.entity', data: ['media' => ['icon' => '/x']])))->toBeNull();
 });
 
 it('updates pictures for existing activities when the party snapshot changes', function () {
@@ -63,7 +63,7 @@ it('keeps a party external home alongside pictures', function () {
 });
 
 it('keeps a valid external home when pictures are malformed', function () {
-    $media = Party::feedMedia(new FeedContext('storyfeed.party', data: [
+    $media = Party::feedMedia(new FeedContext('storyfeed.entity', data: [
         '$url' => 'https://example.com',
         '$media' => ['icon' => '/valid.svg', 'preview' => false],
     ]));
@@ -73,9 +73,9 @@ it('keeps a valid external home when pictures are malformed', function () {
 });
 
 it('does not link malformed external homes', function ($url) {
-    expect(Party::feedMedia(new FeedContext('storyfeed.party', data: ['$url' => $url])))->toBeNull();
+    expect(Party::feedMedia(new FeedContext('storyfeed.entity', data: ['$url' => $url])))->toBeNull();
 })->with([[null], [''], ['   '], [42], [false], [['href' => 'https://example.com']]]);
 
 it('does not interpret application data url as an external home', function () {
-    expect(Party::feedMedia(new FeedContext('storyfeed.party', data: ['url' => 'https://example.com'])))->toBeNull();
+    expect(Party::feedMedia(new FeedContext('storyfeed.entity', data: ['url' => 'https://example.com'])))->toBeNull();
 });

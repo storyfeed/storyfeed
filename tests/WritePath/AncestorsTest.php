@@ -3,7 +3,6 @@
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 use Storyfeed\Actions\RebuildAncestors;
 use Storyfeed\Actions\SyncParticipants;
 use Storyfeed\Facades\Storyfeed;
@@ -214,41 +213,6 @@ class ExternalContainer extends Model
 
     protected $guarded = [];
 }
-
-it('upgrades duplicate direct identities and retains the covering lookup plan', function () {
-    $migration = include __DIR__.'/../../database/migrations/add_ancestors_to_feed_participants_table.php.stub';
-    $migration->down();
-    $rows = [];
-    foreach (range(1, 2000) as $id) {
-        $rows[] = ['activity_id' => $id, 'role' => 'object', 'entity_type' => 'container', 'entity_id' => (string) $id, 'published_at' => now()];
-    }
-    foreach (array_chunk($rows, 250) as $chunk) {
-        DB::table(SyncParticipants::table())->insert($chunk);
-    }
-    DB::table(SyncParticipants::table())->insert(['activity_id' => 1, 'role' => 'actor', 'entity_type' => 'container', 'entity_id' => '1', 'published_at' => now()]);
-    $lookup = DB::table(SyncParticipants::table())->select('activity_id')->where('entity_type', 'container')->where('entity_id', '1');
-    $explain = function () use ($lookup): string {
-        $driver = DB::getDriverName();
-        if ($driver === 'pgsql') {
-            DB::statement('vacuum analyze feed_participants');
-        } elseif (in_array($driver, ['mysql', 'mariadb'])) {
-            DB::statement('analyze table feed_participants');
-        }
-
-        return json_encode(DB::select(($driver === 'sqlite' ? 'EXPLAIN QUERY PLAN ' : 'EXPLAIN ').$lookup->toSql(), $lookup->getBindings()), JSON_THROW_ON_ERROR);
-    };
-    $before = $explain();
-    $migration->up();
-    $after = $explain();
-    expect($before)->toContain('feed_participants_entity_published_index')
-        ->and($after)->toContain('feed_participants_entity_published_index')
-        ->and(DB::table(SyncParticipants::table())->where('activity_id', 1)->count())->toBe(1)
-        ->and(DB::table(SyncParticipants::table())->where('distance', 0)->count())->toBe(2000)
-        ->and(collect(Schema::getIndexes(SyncParticipants::table()))->pluck('columns')->flatten()->all())->not->toContain('distance');
-    if ($path = env('STORYFEED_EXPLAIN_REPORT')) {
-        file_put_contents($path, json_encode(['sql' => $lookup->toSql(), 'bindings' => $lookup->getBindings(), 'before' => json_decode($before), 'after' => json_decode($after)], JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR));
-    }
-});
 
 it('preserves recorded ancestry through tombstones while direct roles merge', function () {
     $tenant = nestedContainer('Tenant');

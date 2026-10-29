@@ -54,7 +54,7 @@ it('rejects unknown types and empty lists on both builders', function (string $b
 it('resolves package participant aliases without the application morph map', function () {
     Relation::enforceMorphMap(['delivery' => Delivery::class], merge: false);
     $activity = Storyfeed::activity()->actor('Operator')->action('inspect')->publish();
-    expect(Activity::query()->involvingType('storyfeed.party')->value('uid'))->toBe($activity->uid)
+    expect(Activity::query()->involvingType('storyfeed.entity')->value('uid'))->toBe($activity->uid)
         ->and(Storyfeed::feed()->involvingType(Party::class)->log()->get()->toArray()[0]['id'])->toBe($activity->uid);
 });
 

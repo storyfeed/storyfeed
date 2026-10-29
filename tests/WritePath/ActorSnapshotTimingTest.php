@@ -25,7 +25,7 @@ it('snapshots a fallback party at publish', function () {
 
     $activity = Storyfeed::activity('ping')->publish();
 
-    expect($activity->actor_type)->toBe('storyfeed.party')
+    expect($activity->actor_type)->toBe('storyfeed.entity')
         ->and($activity->cached_actor_id)->not->toBeNull()
         ->and($activity->cachedActor->label)->toBe('System');
 });

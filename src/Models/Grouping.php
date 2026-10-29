@@ -4,7 +4,6 @@ namespace Storyfeed\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Support\Carbon;
 
 /**
  * A candidate grouping hash for an activity along a named axis (`bucket`).
@@ -15,12 +14,12 @@ use Illuminate\Support\Carbon;
  * @property string $hash
  * @property string|null $bucket
  * @property bool|null $winner Curation's stamp; null means never curated
- * @property Carbon|null $created_at
- * @property Carbon|null $updated_at
  */
 class Grouping extends Model
 {
     protected $guarded = [];
+
+    public $timestamps = false;
 
     public function getTable(): string
     {

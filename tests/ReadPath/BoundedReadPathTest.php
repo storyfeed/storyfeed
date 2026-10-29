@@ -1,6 +1,5 @@
 <?php
 
-use Illuminate\Support\Facades\Schema;
 use Storyfeed\FeedBuilder;
 use Storyfeed\Models\Activity;
 use Storyfeed\Models\Grouping;
@@ -37,23 +36,6 @@ it('keeps complete payloads and cursors identical to the previous queries', func
         expect($cursor)->toBeNull();
     }
 })->with([false, true])->with(['live']);
-
-it('adds and removes the covering read indexes idempotently on configured tables', function () {
-    $migration = include __DIR__.'/../../database/migrations/add_read_path_indexes_to_feed_groupings_table.php.stub';
-    $migration->up();
-    expect(Schema::hasIndex('feed_groupings', 'feed_groupings_activity_winner_index'))->toBeTrue()
-        ->and(Schema::hasIndex('feed_groupings', 'feed_groupings_members_index'))->toBeTrue();
-    $migration->down();
-    $migration->down();
-    expect(Schema::hasIndex('feed_groupings', 'feed_groupings_activity_winner_index'))->toBeFalse()
-        ->and(Schema::hasIndex('feed_groupings', 'feed_groupings_members_index'))->toBeFalse();
-    Schema::rename('feed_groupings', 'custom_groupings');
-    config()->set('storyfeed.tables.groupings', 'custom_groupings');
-    $migration->up();
-    $migration->up();
-    expect(Schema::hasIndex('custom_groupings', 'feed_groupings_activity_winner_index'))->toBeTrue()
-        ->and(Schema::hasIndex('custom_groupings', 'feed_groupings_members_index'))->toBeTrue();
-});
 
 it('keeps independent row aliases for duplicate memberships and joined scopes', function () {
     ReadPathHistory::seed(400);

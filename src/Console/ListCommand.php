@@ -31,7 +31,7 @@ use Storyfeed\Support\ManifestClosure;
  * Middleware is shown resolved, as route:list shows it: the `default` group
  * expanded, aliases as their classes with any arguments, exclusions gone. As
  * route:list does, the table shows it with `-v`; `--json` always has it.
- * So are the role constraints (`actor: user, storyfeed.party`), as the
+ * So are the role constraints (`actor: user, storyfeed.entity`), as the
  * types a row stores.
  *
  * It lists DEFINITIONS (lines, resource classes, message classes),
@@ -171,7 +171,7 @@ class ListCommand extends Command
     }
 
     /**
-     * The types each constrained role may be, `actor: user, storyfeed.party`:
+     * The types each constrained role may be, `actor: user, storyfeed.entity`:
      * its own declaration when it made one, and otherwise what the type →
      * verb ladder gives its key, as middleware is shown.
      *

@@ -48,7 +48,7 @@ it('allows aliased models and package-owned aliases', function () {
     Storyfeed::requireFeedableMorphMap();
     Relation::morphMap(['customer' => Customer::class], false);
     $customer = Customer::create(['name' => 'Customer']);
-    expect(Storyfeed::activity('created', $customer)->actor('Importer')->publish()->actor_type)->toBe('storyfeed.party');
+    expect(Storyfeed::activity('created', $customer)->actor('Importer')->publish()->actor_type)->toBe('storyfeed.entity');
     $tombstone = new FeedTombstone;
     $tombstone->id = 123;
     expect(Storyfeed::activity('removed', $tombstone)->publish()->object_type)->toBe('storyfeed.tombstone')

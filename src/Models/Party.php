@@ -2,6 +2,7 @@
 
 namespace Storyfeed\Models;
 
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
 use Storyfeed\Actions\SnapshotEntity;
@@ -12,6 +13,7 @@ use Storyfeed\FeedContext;
 use Storyfeed\FeedEntity;
 use Storyfeed\FeedImage;
 use Storyfeed\FeedMedia;
+use Storyfeed\Support\SchemaState;
 
 /**
  * A named participant that lives only in the feed: an external system, the
@@ -31,6 +33,7 @@ use Storyfeed\FeedMedia;
  * @property string $key
  * @property string $name
  * @property string $type
+ * @property-read 'party'|'record' $kind `party` when the row has none: a table kept from before 0.23 has no column
  * @property array<array-key, mixed>|null $data
  */
 class Party extends Model implements Feedable, HasActivityStreamsType
@@ -44,9 +47,20 @@ class Party extends Model implements Feedable, HasActivityStreamsType
         ];
     }
 
+    /**
+     * Read-only for now: nothing writes `record` yet, and writing `party`
+     * would fail on a table kept from before the column existed.
+     *
+     * @return Attribute<string, never>
+     */
+    protected function kind(): Attribute
+    {
+        return Attribute::get(fn (?string $value): string => $value === 'record' ? 'record' : 'party');
+    }
+
     public function getTable(): string
     {
-        return config('storyfeed.tables.parties', 'feed_parties');
+        return SchemaState::table('entities');
     }
 
     /**
@@ -55,7 +69,7 @@ class Party extends Model implements Feedable, HasActivityStreamsType
      */
     public function getMorphClass(): string
     {
-        return config('storyfeed.morph_alias', 'storyfeed.party');
+        return config('storyfeed.morph_alias', 'storyfeed.entity');
     }
 
     protected static function booted(): void

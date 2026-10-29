@@ -1,7 +1,6 @@
 <?php
 
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 use Storyfeed\Actions\SyncParticipants;
 use Storyfeed\Actions\TrickleSnapshots;
 use Storyfeed\Facades\Story;
@@ -151,22 +150,6 @@ it('refuses an entity it cannot store, naming the role', function (array $entity
     'url not a string' => [['type' => 'vote', 'label' => 'their vote', 'url' => 7], 'must be a string'],
     'id too long' => [['type' => 'vote', 'label' => 'their vote', 'id' => str_repeat('x', 37)], 'up to 36 printable ASCII characters'],
 ]);
-
-it('migrates idempotently in both directions', function () {
-    $migration = include __DIR__.'/../../database/migrations/add_entities_to_feed_activities_table.php.stub';
-
-    $migration->up();
-    $migration->up();
-
-    expect(Schema::hasColumn('feed_activities', 'entities'))->toBeTrue();
-
-    $migration->down();
-    $migration->down();
-
-    expect(Schema::hasColumn('feed_activities', 'entities'))->toBeFalse();
-
-    $migration->up();
-});
 
 it('carries an entity through the queue', function () {
     $pending = Storyfeed::activity('change')->actor($this->attendee)->object(['type' => 'vote', 'label' => 'their vote', 'id' => 'vote-7']);

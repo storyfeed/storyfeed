@@ -9,7 +9,7 @@ use Storyfeed\Support\MorphKeyType;
 
 /**
  * The denormalized read-model snapshot of a Feedable entity: its label,
- * renderer component hint, and cacheable data. One row per entity, refreshed
+ * body and cacheable data. One row per entity, refreshed
  * on save; links are regenerated live from `data` at read time.
  *
  * `meta` holds the package's snapshot extras that are never queried or
@@ -25,7 +25,6 @@ use Storyfeed\Support\MorphKeyType;
  * @property string|null $content
  * @property string|null $media_type
  * @property string|null $attributed_to
- * @property string|null $component
  * @property array<array-key, mixed>|null $data
  * @property list<array<string, mixed>>|null $body
  * @property string|null $source_updated_at UTC source time with microseconds; distinct from snapshot write time

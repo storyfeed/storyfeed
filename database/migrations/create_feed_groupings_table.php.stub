@@ -8,19 +8,28 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create(config('storyfeed.tables.groupings', 'feed_groupings'), function (Blueprint $table) {
+        $name = config('storyfeed.tables.groupings', 'feed_groupings');
+
+        // An install from v0.22 or earlier already has this table; deleting
+        // and republishing the migrations must not fail on it.
+        if (Schema::hasTable($name)) {
+            return;
+        }
+
+        // No timestamps: nothing reads them.
+        Schema::create($name, function (Blueprint $table) {
             $table->id();
-            $table->foreignId('activity_id')->index();
+            $table->foreignId('activity_id');
             $table->string('hash');
             $table->string('bucket')->nullable();
             // Curation's stamp: exactly one true per curated activity; null
             // means "never curated", read as "the repeat axis wins".
             $table->boolean('winner')->nullable();
-            $table->timestamps();
 
+            // Also every lookup by activity alone.
             $table->unique(['activity_id', 'bucket']);
-            $table->index(['bucket', 'hash']);
-            $table->index(['winner', 'bucket', 'hash'], 'feed_groupings_winner_index');
+            $table->index(['activity_id', 'winner', 'bucket'], 'feed_groupings_activity_winner_index');
+            $table->index(['bucket', 'hash', 'activity_id', 'winner'], 'feed_groupings_members_index');
         });
     }
 

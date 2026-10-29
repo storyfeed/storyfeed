@@ -27,7 +27,7 @@ class OverridePackageActions
     {
         return $verb->headline(':actor shipped :object')->icon(OverridePackageProvider::$icon)
             ->casts(['amount' => 'decimal:2', 'quantity' => 'integer'])
-            ->whereActor('user', 'storyfeed.party')->whereObject('delivery')
+            ->whereActor('user', 'storyfeed.entity')->whereObject('delivery')
             ->name('package.ship')->onConnection('redis')->onQueue('package')
             ->groups(
                 Group::repeat()->headline(':actor shipped :count deliveries'),

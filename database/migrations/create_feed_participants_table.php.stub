@@ -9,28 +9,39 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create(config('storyfeed.tables.participants', 'feed_participants'), function (Blueprint $table) {
-            $table->id();
+        $name = config('storyfeed.tables.participants', 'feed_participants');
+
+        // An install from v0.22 or earlier already has this table; deleting
+        // and republishing the migrations must not fail on it.
+        if (Schema::hasTable($name)) {
+            return;
+        }
+
+        // One row per entity an activity involves. No id and no timestamps:
+        // the identity is the key, and nothing reads when a row was written.
+        Schema::create($name, function (Blueprint $table) {
             $table->foreignId('activity_id');
-            // Which slot this entity filled. An activity row holds 0-or-1 of
-            // each, so (activity_id, role) is unique — composite parents carry
-            // no object of their own and members are separate rows.
+            // The slot this entity filled, or `ancestor`. A self-acting
+            // entity filling several roles keeps one row; its roles stay on
+            // the activity.
             $table->string('role', 20);
             $table->string('entity_type');
             MorphKeyType::id($table, 'entity_id');
+            // 0 for a direct role, else how many parents up the entity is.
+            $table->unsignedTinyInteger('distance')->default(0);
             // Denormalized so `involving()` orders and pages from this index
             // alone, without reaching into the activities table to sort — so
             // it carries the activity's precision, or the copy would order
             // ties differently from its source.
             $table->timestamp('published_at', 6)->nullable();
-            $table->timestamps();
 
-            $table->unique(['activity_id', 'role']);
+            $table->primary(['activity_id', 'entity_type', 'entity_id']);
 
             // The involving lookup: one entity, newest first. Covering —
-            // entity identity narrows, published_at orders, activity_id joins.
+            // entity identity narrows, published_at orders, activity_id
+            // joins, and distance answers involvingDirectly() in the index.
             $table->index(
-                ['entity_type', 'entity_id', 'published_at', 'activity_id'],
+                ['entity_type', 'entity_id', 'published_at', 'activity_id', 'distance'],
                 'feed_participants_entity_published_index',
             );
         });

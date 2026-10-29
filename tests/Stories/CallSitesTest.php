@@ -69,7 +69,7 @@ it('throws for an object of another type than the name\'s', function () {
     expect(fn () => story('delivery.ship', Customer::create(['name' => 'Acme'])))
         ->toThrow(StoryObjectMismatch::class, 'Wrong object for [Story: delivery.ship] [Key: delivery.ship] [Given: customer].')
         ->and(fn () => story('delivery.ship', 'Stripe'))
-        ->toThrow(StoryObjectMismatch::class, '[Given: storyfeed.party]');
+        ->toThrow(StoryObjectMismatch::class, '[Given: storyfeed.entity]');
 });
 
 it('takes any object for a name defined for every type', function () {

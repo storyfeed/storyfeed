@@ -28,7 +28,7 @@ it('migrates every app reference as varchar with case sensitive comparison', fun
             }
         }
     }
-    expect(Schema::getColumnType('feed_parties', 'id'))->toContain('int')
+    expect(Schema::getColumnType('feed_entities', 'id'))->toContain('int')
         ->and(Schema::getColumnType('feed_tombstones', 'id'))->toContain('int')
         ->and(Schema::getColumnType('feed_activities', 'cached_object_id'))->toContain('int');
 });

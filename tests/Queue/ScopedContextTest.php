@@ -144,5 +144,5 @@ it('carries a party created while recording is disabled', function () {
 it('applies context to fake publishes too', function () {
     Storyfeed::fake();
     Storyfeed::context('Project', fn () => Storyfeed::activity('probe')->publish());
-    Storyfeed::assertPublished(fn (Activity $activity) => $activity->verb === 'probe' && $activity->context_type === 'storyfeed.party');
+    Storyfeed::assertPublished(fn (Activity $activity) => $activity->verb === 'probe' && $activity->context_type === 'storyfeed.entity');
 });

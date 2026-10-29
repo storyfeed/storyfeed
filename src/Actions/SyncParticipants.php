@@ -67,8 +67,6 @@ class SyncParticipants
                 // binds it at whole seconds and the copy disagrees with its
                 // source inside every second.
                 'published_at' => $activity->published_at === null ? null : Chronology::stamp($activity->published_at),
-                'created_at' => now(),
-                'updated_at' => now(),
             ];
         }
 
@@ -89,7 +87,6 @@ class SyncParticipants
             $rows[$identity] = array_merge($ancestor, [
                 'activity_id' => $key, 'role' => 'ancestor',
                 'published_at' => $activity->published_at === null ? null : Chronology::stamp($activity->published_at),
-                'created_at' => now(), 'updated_at' => now(),
             ]);
         }
 
@@ -138,10 +135,10 @@ class SyncParticipants
         })->delete();
         foreach (self::ROLES as $role) {
             DB::table($participants)->insertOrIgnoreUsing(
-                ['activity_id', 'role', 'entity_type', 'entity_id', 'distance', 'published_at', 'created_at', 'updated_at'],
+                ['activity_id', 'role', 'entity_type', 'entity_id', 'distance', 'published_at'],
                 DB::table($activities)->whereIn('id', $ids)->whereNotNull("{$role}_type")->whereNotNull("{$role}_id")
                     ->select(['id'])->selectRaw('? as role', [$role])->addSelect(["{$role}_type", "{$role}_id"])
-                    ->selectRaw('0 as distance')->addSelect(['published_at', 'created_at', 'updated_at']),
+                    ->selectRaw('0 as distance')->addSelect(['published_at']),
             );
         }
     }

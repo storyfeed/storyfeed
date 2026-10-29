@@ -43,7 +43,7 @@ function directHistory(): array
 it('reads recorded descendants by default and pages only direct roles when requested', function (string $mode, bool $curate) {
     config()->set('storyfeed.grouping.curate', $curate);
     [$client, $project, $list, $task, $activities] = directHistory();
-    $before = DB::table(SyncParticipants::table())->orderBy('id')->get()->toJson();
+    $before = DB::table(SyncParticipants::table())->orderBy('activity_id')->orderBy('entity_type')->orderBy('entity_id')->get()->toJson();
     $token = SyncToken::bump();
 
     foreach ([$client, $project, $list, $task] as $level => $entity) {
@@ -74,7 +74,7 @@ it('reads recorded descendants by default and pages only direct roles when reque
         } while ($cursor !== null);
         expect($seen)->toBe($ids);
     }
-    expect(DB::table(SyncParticipants::table())->orderBy('id')->get()->toJson())->toBe($before);
+    expect(DB::table(SyncParticipants::table())->orderBy('activity_id')->orderBy('entity_type')->orderBy('entity_id')->get()->toJson())->toBe($before);
 })->with(['log', 'live'])->with([true, false]);
 
 it('rejects depth changes in either direction and accepts either direct spelling', function (string $mode, bool $deep) {

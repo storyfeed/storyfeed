@@ -8,7 +8,15 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create(config('storyfeed.tables.meta', 'feed_meta'), function (Blueprint $table) {
+        $name = config('storyfeed.tables.meta', 'feed_meta');
+
+        // An install from v0.22 or earlier already has this table; deleting
+        // and republishing the migrations must not fail on it.
+        if (Schema::hasTable($name)) {
+            return;
+        }
+
+        Schema::create($name, function (Blueprint $table) {
             $table->id();
             $table->string('key')->unique();
             $table->string('value');

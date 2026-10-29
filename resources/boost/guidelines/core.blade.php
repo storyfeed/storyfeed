@@ -8,7 +8,7 @@ Storyfeed records activity feeds for Laravel: an app publishes activities explic
 - Headlines, icons and group headlines live in `routes/feed.php` (created by `php artisan storyfeed:install`), never inline where the activity is published.
 - Verbs are free-form strings in the base form (`place`, `complete`, `reprice`); the headline turns them into prose.
 - Roles follow Activity Streams 2.0: `actor`, `object`, `target`, `context`, `origin`, `result`, `instrument`.
-- An activity with no actor is anonymous (who did it is unknown). A named non-model participant such as Stripe is a party, not a null actor.
+- An activity with no actor is anonymous (who did it is unknown). A named non-model participant such as Stripe is a party, not a null actor. Parties are stored in `feed_entities` under the morph alias `storyfeed.entity` (from `storyfeed.morph_alias`), with a `kind` column (`party`; `record` is reserved for non-model objects and nothing writes it yet). Compare with `$party->getMorphClass()`, never a literal alias: an install that kept its tables from before 0.23 pins `storyfeed.party` and `feed_parties`.
 - Run `php artisan storyfeed:doctor` to check definitions against what is recorded.
 
 ### Feedable models

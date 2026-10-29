@@ -1040,7 +1040,7 @@ final class Verb
             $type = trim($type);
 
             $aliases[] = match (true) {
-                $type === 'party' => (string) config('storyfeed.morph_alias', 'storyfeed.party'),
+                $type === 'party' => (string) config('storyfeed.morph_alias', 'storyfeed.entity'),
                 $type === '' || $type === '*' => throw new InvalidArgumentException(
                     "{$where} was given [{$type}] for the {$role}. Name a model class, a morph alias, or 'party'; to allow any type, leave the {$role} unconstrained.",
                 ),
