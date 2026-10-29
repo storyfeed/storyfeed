@@ -61,8 +61,8 @@ it('validates the adoption inventory against the closed format one contract', fu
             ->and($surface['id'])->toMatch('/^[a-z][a-z0-9]*([.-][a-z0-9]+)*$/')
             ->and($surface['layer'])->toBeIn($def['properties']['layer']['enum'])
             ->and($surface['group'])->toBeIn($def['properties']['group']['enum'])
-            ->and($surface['status'])->toBeIn($def['properties']['status']['enum'])
-            ->and($surface['applies'])->toBeIn(array_column($data['facts'], 'id'));
+            ->and($surface['status'])->toBeIn($def['properties']['status']['enum']);
+        expect(array_diff($surface['applies']['any'], array_column($data['facts'], 'id')))->toBe([]);
         foreach ($surface['handRolled'] as $signal) {
             $checkSignal($signal);
         }
@@ -74,7 +74,7 @@ it('validates the adoption inventory against the closed format one contract', fu
         }
         expect($surface['layer'])->toBe('backend')
             ->and($surface['group'])->toBe('activity')
-            ->and($surface['applies'])->toBe('has-feeds')
+            ->and($surface['applies'])->toBe(['any' => ['has-feeds', 'has-activity-log']])
             ->and($surface['docs'])->toStartWith('https://docs.storyfeed.dev/');
     }
 });
@@ -117,7 +117,7 @@ it('accounts for every shipped PHP entry point and rejects stale inventory refer
 
 it('preserves the shared has-feeds signals and adds Storyfeed PHP evidence', function () {
     $facts = adoptionInventory()['facts'];
-    expect(array_column($facts, 'id'))->toBe(['has-feeds'])
+    expect(array_column($facts, 'id'))->toBe(['has-feeds', 'has-activity-log'])
         ->and($facts[0]['description'])->toBe('An app-owned page renders an activity, history or audit timeline.');
 
     // Frozen from the kit format-one example: changes require coordination, not a second fact.
@@ -142,7 +142,8 @@ it('matches every fixture outcome through the standards adoption CLI', function 
     $expected = json_decode(file_get_contents(__DIR__.'/Fixtures/adoption/expected.json'), true, flags: JSON_THROW_ON_ERROR);
     $cases = array_values(array_filter($expected['cases'], fn ($case) => $case['app'] === $app));
     $explicitChecker = getenv('STORYFEED_ADOPTION_CHECKER');
-    $checker = $explicitChecker ?: $root.'/vendor/bin/standards';
+    $isolatedChecker = $root.'/tools/standards/vendor/bin/standards';
+    $checker = $explicitChecker ?: (is_file($isolatedChecker) ? $isolatedChecker : $root.'/vendor/bin/standards');
     if (! $explicitChecker && ! is_file($checker)) {
         $this->markTestSkipped('Set STORYFEED_ADOPTION_CHECKER to an isolated standards >=0.11.46 executable; its Illuminate 13 constraint excludes the Laravel 12 lane.');
     }
@@ -161,4 +162,4 @@ it('matches every fixture outcome through the standards adoption CLI', function 
         $query = array_values(array_filter($report['rows'], fn ($row) => $row['surface'] === 'activity.query'))[0];
         expect(array_column($query['signals'], 'file'))->toContain('app/Queries/ActivityFeedQuery.php');
     }
-})->with(['adopted', 'spatie', 'migration', 'no-feeds']);
+})->with(['adopted', 'spatie', 'migration', 'no-feeds', 'backend-only']);

@@ -5,7 +5,8 @@
       "app": "adopted",
       "surface": "activity.recording",
       "facts": {
-        "has-feeds": true
+        "has-feeds": true,
+        "has-activity-log": true
       },
       "row": "adopted"
     },
@@ -13,7 +14,8 @@
       "app": "adopted",
       "surface": "activity.query",
       "facts": {
-        "has-feeds": true
+        "has-feeds": true,
+        "has-activity-log": true
       },
       "row": "adopted"
     },
@@ -21,7 +23,8 @@
       "app": "adopted",
       "surface": "activity.snapshots",
       "facts": {
-        "has-feeds": true
+        "has-feeds": true,
+        "has-activity-log": true
       },
       "row": "adopted"
     },
@@ -29,7 +32,8 @@
       "app": "adopted",
       "surface": "activity.context",
       "facts": {
-        "has-feeds": true
+        "has-feeds": true,
+        "has-activity-log": true
       },
       "row": "adopted"
     },
@@ -37,7 +41,8 @@
       "app": "adopted",
       "surface": "activity.config",
       "facts": {
-        "has-feeds": true
+        "has-feeds": true,
+        "has-activity-log": true
       },
       "row": "adopted"
     },
@@ -45,7 +50,8 @@
       "app": "spatie",
       "surface": "activity.recording",
       "facts": {
-        "has-feeds": true
+        "has-feeds": true,
+        "has-activity-log": true
       },
       "row": "hand-rolled"
     },
@@ -53,7 +59,8 @@
       "app": "spatie",
       "surface": "activity.query",
       "facts": {
-        "has-feeds": true
+        "has-feeds": true,
+        "has-activity-log": true
       },
       "row": "hand-rolled"
     },
@@ -61,7 +68,8 @@
       "app": "spatie",
       "surface": "activity.snapshots",
       "facts": {
-        "has-feeds": true
+        "has-feeds": true,
+        "has-activity-log": true
       },
       "row": "hand-rolled"
     },
@@ -69,7 +77,8 @@
       "app": "spatie",
       "surface": "activity.context",
       "facts": {
-        "has-feeds": true
+        "has-feeds": true,
+        "has-activity-log": true
       },
       "row": "missing"
     },
@@ -77,7 +86,8 @@
       "app": "spatie",
       "surface": "activity.config",
       "facts": {
-        "has-feeds": true
+        "has-feeds": true,
+        "has-activity-log": true
       },
       "row": "missing"
     },
@@ -85,7 +95,8 @@
       "app": "migration",
       "surface": "activity.recording",
       "facts": {
-        "has-feeds": true
+        "has-feeds": true,
+        "has-activity-log": true
       },
       "row": "hand-rolled"
     },
@@ -93,7 +104,8 @@
       "app": "migration",
       "surface": "activity.query",
       "facts": {
-        "has-feeds": true
+        "has-feeds": true,
+        "has-activity-log": true
       },
       "row": "hand-rolled"
     },
@@ -101,7 +113,8 @@
       "app": "migration",
       "surface": "activity.snapshots",
       "facts": {
-        "has-feeds": true
+        "has-feeds": true,
+        "has-activity-log": true
       },
       "row": "hand-rolled"
     },
@@ -109,7 +122,8 @@
       "app": "migration",
       "surface": "activity.context",
       "facts": {
-        "has-feeds": true
+        "has-feeds": true,
+        "has-activity-log": true
       },
       "row": "hand-rolled"
     },
@@ -117,7 +131,8 @@
       "app": "migration",
       "surface": "activity.config",
       "facts": {
-        "has-feeds": true
+        "has-feeds": true,
+        "has-activity-log": true
       },
       "row": "hand-rolled"
     },
@@ -125,7 +140,8 @@
       "app": "no-feeds",
       "surface": "activity.recording",
       "facts": {
-        "has-feeds": false
+        "has-feeds": false,
+        "has-activity-log": false
       },
       "row": "n/a"
     },
@@ -133,7 +149,8 @@
       "app": "no-feeds",
       "surface": "activity.query",
       "facts": {
-        "has-feeds": false
+        "has-feeds": false,
+        "has-activity-log": false
       },
       "row": "n/a"
     },
@@ -141,7 +158,8 @@
       "app": "no-feeds",
       "surface": "activity.snapshots",
       "facts": {
-        "has-feeds": false
+        "has-feeds": false,
+        "has-activity-log": false
       },
       "row": "n/a"
     },
@@ -149,7 +167,8 @@
       "app": "no-feeds",
       "surface": "activity.context",
       "facts": {
-        "has-feeds": false
+        "has-feeds": false,
+        "has-activity-log": false
       },
       "row": "n/a"
     },
@@ -157,9 +176,55 @@
       "app": "no-feeds",
       "surface": "activity.config",
       "facts": {
-        "has-feeds": false
+        "has-feeds": false,
+        "has-activity-log": false
       },
       "row": "n/a"
+    },
+    {
+      "app": "backend-only",
+      "surface": "activity.recording",
+      "facts": {
+        "has-feeds": false,
+        "has-activity-log": true
+      },
+      "row": "hand-rolled"
+    },
+    {
+      "app": "backend-only",
+      "surface": "activity.query",
+      "facts": {
+        "has-feeds": false,
+        "has-activity-log": true
+      },
+      "row": "missing"
+    },
+    {
+      "app": "backend-only",
+      "surface": "activity.snapshots",
+      "facts": {
+        "has-feeds": false,
+        "has-activity-log": true
+      },
+      "row": "hand-rolled"
+    },
+    {
+      "app": "backend-only",
+      "surface": "activity.context",
+      "facts": {
+        "has-feeds": false,
+        "has-activity-log": true
+      },
+      "row": "missing"
+    },
+    {
+      "app": "backend-only",
+      "surface": "activity.config",
+      "facts": {
+        "has-feeds": false,
+        "has-activity-log": true
+      },
+      "row": "hand-rolled"
     }
   ]
 }

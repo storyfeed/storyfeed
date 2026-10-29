@@ -9,56 +9,72 @@ classifies adoption statically; it does not prove runtime behaviour.
 Run the coverage and outcome checks with:
 
 ```sh
+composer install -d tools/standards
 vendor/bin/pest tests/AdoptionSurfacesTest.php
 ```
 
-`tey/standards` is deliberately not a dev dependency: version 0.11.46
-requires `illuminate/config ^13.0` and PHP `^8.4.1`, conflicting with core's
-Laravel 12 support. Coverage checks run without it. CLI outcome checks skip
-when the checker is absent; run them with an isolated installation:
+`tools/standards/composer.json` requires only `tey/standards ^0.11.46`.
+Its dependencies stay isolated from core: standards requires Illuminate 13,
+while core also supports Laravel 12. The tests prefer the isolated executable
+when present, then fall back to `vendor/bin/standards`. CLI cases skip when
+neither exists. To select another isolated installation explicitly:
 
 ```sh
 STORYFEED_ADOPTION_CHECKER=/path/to/isolated/vendor/bin/standards \
     vendor/bin/pest tests/AdoptionSurfacesTest.php
 ```
 
-The four app trees live in `tests/Fixtures/adoption`. `expected.json` contains
-all five outcomes for each app. The test runs `vendor/bin/standards adoption
---base <app> --inventory resources/adoption/surfaces.json --json` and compares
-the facts and rows. The compatibility apps install Storyfeed but retain their
-own implementation: standards reports an absent package as `missing` even
-when hand-rolled signals fire. They include an activity timeline to establish
-the shared `has-feeds` fact independently of their backend implementation.
+The separate **Adoption fixtures (PHP 8.4)** CI job installs the isolated
+checker and explicitly selects it, so a missing binary fails instead of
+skipping the five CLI cases. The test runs
+`tools/standards/vendor/bin/standards adoption --base <app>
+--inventory resources/adoption/surfaces.json --json` for each app and compares
+all five surfaces' facts and rows with `tests/Fixtures/adoption/expected.json`.
 
-## Shared applicability
+The five app trees cover adopted Storyfeed APIs, Spatie with a timeline,
+custom migration/query code with a timeline, no feed or log, and a backend-only
+activity-log migration with no feed page. Compatibility apps install Storyfeed
+but retain their own implementation: standards reports an absent package as
+`missing` even when hand-rolled signals fire. The backend-only app reports
+`has-feeds: false` and `has-activity-log: true`; recording, snapshots and storage
+configuration are `hand-rolled`, while query and context are `missing`.
 
-`has-feeds` retains the kit's id, description and computed frontend signals.
-Storyfeed additionally contributes PHP classes extending `Story` or `Feed`,
-or implementing `Feedable` or `PublishesToFeed`, as evidence of the same need.
-The fact is declared here because standards keys facts by package. No fact
-reads another package's inventory and no exemption is used.
+## Applicability
+
+`has-feeds` is unchanged: it retains the kit's id, description and computed
+frontend signals, plus the existing Storyfeed PHP evidence (classes extending
+`Story` or `Feed`, or implementing `Feedable` or `PublishesToFeed`).
+
+The separate `has-activity-log` fact detects activity/audit dependencies
+(Spatie Activitylog or Laravel Auditing), activity-log PHP class declarations,
+or app-owned migrations creating `activity_log`, `activities` or `events`.
+It also includes the existing ActivityStream import and Storyfeed declaration
+signals, so adopting the package continues to establish the need. Merely
+installing Storyfeed does not make the fact true.
+
+All five backend surfaces apply when **either** fact holds. A backend-only log
+therefore establishes applicability without broadening the shared page fact.
+Facts are declared here because standards keys them by package. No fact reads
+another package's inventory and no exemption is used.
 
 ## Format 1 limits
 
 - `import` signals inspect frontend imports. PHP facts can detect a class's
-  parent or implemented interfaces, but cannot detect a lone facade import or
-  a `story()` / `storyfeed()` call. PHP classes using only those entry points
-  still need one of the shared frontend signals to establish `has-feeds`.
+  parent, implemented interfaces or short name, but cannot detect a lone facade
+  import or a `story()` / `storyfeed()` call. Those calls alone do not establish
+  applicability without another recognised feed or log signal.
 - `uses.classes` detects references, not individual calls. A `Feed` reference
   is evidence for querying and context partitioning, not proof of a context
   constraint. Explicit `FeedBuilder::context()` scoping remains app-owned;
   this is not automatic tenant isolation or an authorization check.
-- The shared fact establishes feed need for all five surfaces. It cannot
-  separately establish whether an app needs tenant partitions or customised
-  storage configuration. No overlapping applicability fact is invented here.
+- Feed or activity-log need applies to all five surfaces. Neither fact separately
+  establishes whether an app needs tenant partitions or customised storage.
 - `file-name` signals inspect frontend and Blade files. PHP custom query
   detection therefore uses `php-class.names` (`*ActivityFeed*`, `*Timeline*`).
   Widget patterns match the kit's `feed.activity` hand-rolled patterns.
-- The shared frontend signals do not by themselves detect a backend-only
-  Spatie dependency or activity-log migration. Such an app can read `n/a`
-  without a recognised page or Storyfeed PHP declaration. Broadening this
-  shared fact requires coordination with the kit rather than a local fork.
 - Table signals detect literal `Schema::create` calls for `activity_log`,
   `activities` or `events`; arbitrary names and runtime-created tables are
-  outside their static evidence. A domain table called `events` may need
-  review. Schema signals do not prove snapshot semantics.
+  outside their static evidence. A domain table called `events` or a matching
+  PHP class name may need review. Schema signals do not prove snapshot semantics.
+- Applicability evidence is separate from each surface's hand-rolled signals.
+  Recognising an audit dependency does not prove how it implements each surface.

@@ -39,3 +39,6 @@ testbench.yaml
 
 # Local agent worktrees — never shared.
 .claude/worktrees/
+
+# Isolated adoption checker
+/tools/standards/vendor

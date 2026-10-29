@@ -39,6 +39,73 @@
           }
         ]
       }
+    },
+    {
+      "id": "has-activity-log",
+      "description": "An app records an activity log or audit history, with or without a feed page.",
+      "computed": {
+        "signals": [
+          {
+            "kind": "composer",
+            "packages": [
+              "spatie/laravel-activitylog",
+              "owen-it/laravel-auditing"
+            ]
+          },
+          {
+            "kind": "php-class",
+            "names": [
+              "*ActivityLog*",
+              "*AuditLog*",
+              "*ActivityFeed*",
+              "*Timeline*"
+            ]
+          },
+          {
+            "kind": "php-class",
+            "extends": [
+              "Spatie\\Activitylog\\Models\\Activity",
+              "OwenIt\\Auditing\\Models\\Audit"
+            ]
+          },
+          {
+            "kind": "migration",
+            "tables": [
+              "activity_log",
+              "activities",
+              "events"
+            ]
+          },
+          {
+            "kind": "import",
+            "specifiers": [
+              "@/components/Kit#ActivityStream"
+            ]
+          },
+          {
+            "kind": "file-name",
+            "globs": [
+              "resources/js/**/*Timeline*.vue",
+              "resources/js/**/*Activity*.vue",
+              "resources/js/**/*AuditLog*.vue"
+            ]
+          },
+          {
+            "kind": "php-class",
+            "extends": [
+              "Storyfeed\\Stories\\Story",
+              "Storyfeed\\Feed"
+            ]
+          },
+          {
+            "kind": "php-class",
+            "implements": [
+              "Storyfeed\\Contracts\\Feedable",
+              "Storyfeed\\Contracts\\PublishesToFeed"
+            ]
+          }
+        ]
+      }
     }
   ],
   "surfaces": [
@@ -48,7 +115,12 @@
       "group": "activity",
       "label": "Record events through PublishesToFeed, Story classes and the recording API",
       "feature": "core",
-      "applies": "has-feeds",
+      "applies": {
+        "any": [
+          "has-feeds",
+          "has-activity-log"
+        ]
+      },
       "uses": {
         "classes": [
           "Storyfeed\\Contracts\\PublishesToFeed",
@@ -90,7 +162,12 @@
       "group": "activity",
       "label": "Retrieve a feed through FeedBuilder in Log or Live mode",
       "feature": "core",
-      "applies": "has-feeds",
+      "applies": {
+        "any": [
+          "has-feeds",
+          "has-activity-log"
+        ]
+      },
       "uses": {
         "classes": [
           "Storyfeed\\FeedBuilder",
@@ -133,7 +210,12 @@
       "group": "activity",
       "label": "Describe participant snapshots through Feedable and FeedEntity",
       "feature": "core",
-      "applies": "has-feeds",
+      "applies": {
+        "any": [
+          "has-feeds",
+          "has-activity-log"
+        ]
+      },
       "uses": {
         "classes": [
           "Storyfeed\\Contracts\\Feedable",
@@ -167,7 +249,12 @@
       "group": "activity",
       "label": "Partition feed activities with explicit context and scoped Feed definitions",
       "feature": "core",
-      "applies": "has-feeds",
+      "applies": {
+        "any": [
+          "has-feeds",
+          "has-activity-log"
+        ]
+      },
       "uses": {
         "classes": [
           "Storyfeed\\Http\\Middleware\\UseContext",
@@ -192,7 +279,12 @@
       "group": "activity",
       "label": "Configure Storyfeed storage tables and the participant morph alias",
       "feature": "core",
-      "applies": "has-feeds",
+      "applies": {
+        "any": [
+          "has-feeds",
+          "has-activity-log"
+        ]
+      },
       "uses": {
         "config": [
           "storyfeed.morph_alias",
