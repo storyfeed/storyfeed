@@ -2,6 +2,7 @@
 
 namespace Storyfeed\Tests\Ops;
 
+use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use PHPUnit\Framework\Attributes\Test;
@@ -33,10 +34,27 @@ class KeptPartiesTableTest extends TestCase
     {
         parent::setUp();
 
-        // The table it kept was created before `kind` existed.
-        if (Schema::hasColumn('feed_parties', 'kind')) {
-            Schema::table('feed_parties', fn ($table) => $table->dropColumn('kind'));
-        }
+        // The table that install kept, created before `kind` existed. Built
+        // here, not by the migrations: on a real engine the harness reuses
+        // the schema an earlier test built (feed_entities, no feed_parties)
+        // and only empties its tables, whatever this test's config says.
+        Schema::dropIfExists('feed_parties');
+        Schema::create('feed_parties', function (Blueprint $table) {
+            $table->id();
+            $table->string('key')->unique();
+            $table->string('name');
+            $table->string('type')->default('Service');
+            $table->json('data')->nullable();
+            $table->timestamps();
+        });
+    }
+
+    protected function tearDown(): void
+    {
+        // So the next test finds the schema the harness built.
+        Schema::dropIfExists('feed_parties');
+
+        parent::tearDown();
     }
 
     #[Test]
@@ -44,7 +62,7 @@ class KeptPartiesTableTest extends TestCase
     {
         $this->assertSame('feed_parties', SchemaState::table('entities'));
         $this->assertSame('feed_parties', (new Party)->getTable());
-        $this->assertFalse(Schema::hasTable('feed_entities'));
+        $this->assertFalse(Schema::hasColumn('feed_parties', 'kind'));
     }
 
     #[Test]
