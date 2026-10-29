@@ -111,6 +111,18 @@ class SourceManager
         return new ArraySource($config['items'] ?? [], (bool) ($config['in_order'] ?? false));
     }
 
+    /** @param  array<string, mixed>  $config */
+    public function createClassesDriver(array $config): ClassSource
+    {
+        return new ClassSource(
+            $this->app,
+            $config['items'] ?? [],
+            $config['path'] ?? null,
+            $config['namespace'] ?? null,
+            (bool) ($config['in_order'] ?? false),
+        );
+    }
+
     /** @return array<string, mixed> */
     protected function getConfig(string $name): array
     {

@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Added
+
+- A `classes` source driver reads static feed items as classes, one per item: each implements `Storyfeed\Contracts\StaticItem` and returns an `Entry` or array from `entry()`. Classes are listed under `items` or discovered from a `path`, with a `namespace` (default: the app namespace plus the path under `app_path()`), as Pennant discovers feature classes. They resolve from the container when the source is read. (#72)
+
 ## v0.22.1 - 2026-10-28
 
 ### Fixed
