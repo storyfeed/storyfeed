@@ -5,6 +5,7 @@
 ### Added
 
 - `Storyfeed::tombstone($type, $ids, force: true)` tombstones a participant whose row survives, such as a user the app anonymised instead of deleting. The tombstone is permanent and the model's snapshot is deleted. For an inline entity it also drops the label, `url`, `data`, `body` and `media` stored in the activities' `entities`, so the name leaves storage. Without `force`, a key whose row exists is still skipped. (#224)
+- A `classes` source driver reads static feed items as classes, one per item: each implements `Storyfeed\Contracts\StaticItem` and returns an `Entry` or array from `entry()`. Classes are listed under `items` or discovered from a `path`, with a `namespace` (default: the app namespace plus the path under `app_path()`), as Pennant discovers feature classes. They resolve from the container when the source is read. (#72)
 
 ## v0.22.1 - 2026-10-28
 
