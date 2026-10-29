@@ -147,7 +147,7 @@ final class SourceRead
         return $item;
     }
 
-    /** @return array{Collection<int, GroupSlice>, string|null} */
+    /** @return array{Collection<int, GroupSlice>, string|null, string|null} slices, next cursor, previous cursor */
     public function page(): array
     {
         $activities = self::activities($this->source);
@@ -164,15 +164,38 @@ final class SourceRead
             ->sort(fn (array $a, array $b): int => $this->compare($a[0], $b[0]))
             ->values();
 
-        if (($after = $this->decodedCursor()) !== null) {
-            $candidates = $candidates->filter(fn (array $candidate) => $this->compareToCursor($candidate[0], $after) > 0)->values();
+        $before = false;
+        $anchored = true;
+
+        if (($from = $this->decodedCursor()) !== null) {
+            $before = $from['before'];
+            $candidates = $candidates->filter(fn (array $candidate) => $before
+                ? $this->compareToCursor($candidate[0], $from) < 0
+                : $this->compareToCursor($candidate[0], $from) > 0)->values();
         } elseif ($this->ordered && ($position = $this->decodedPosition()) !== null) {
-            $candidates = $candidates->filter(fn (array $candidate) => $candidate[0]->id > $position)->values();
+            $before = $position['before'];
+            $candidates = $candidates->filter(fn (array $candidate) => $before
+                ? $candidate[0]->id < $position['id']
+                : $candidate[0]->id > $position['id'])->values();
+        } else {
+            $anchored = false;
+        }
+
+        // Backward, count from the cursor: the nearest items make the page.
+        if ($before) {
+            $candidates = $candidates->reverse()->values();
         }
 
         $more = $candidates->count() > $this->offset + $this->limit;
         $page = $candidates->slice($this->offset, $this->limit)->values();
-        $next = $more ? $this->encodeCursor($page->last()[0]) : null;
+
+        if ($before) {
+            $page = $page->reverse()->values();
+        }
+
+        $at = fn (bool $back): ?string => $page->isEmpty() ? null : $this->encodeCursor($back ? $page->first()[0] : $page->last()[0], $back);
+        $next = $before || $more ? $at(false) : null;
+        $prev = $before ? ($more ? $at(true) : null) : ($anchored ? $at(true) : null);
 
         $slices = $page->map(fn (array $candidate): GroupSlice => $candidate[0]->isGroup()
             ? GroupSlice::group(
@@ -184,7 +207,7 @@ final class SourceRead
             )
             : GroupSlice::solo($candidate[0]->activity));
 
-        return [$slices, $next];
+        return [$slices, $next, $prev];
     }
 
     /**
@@ -509,14 +532,15 @@ final class SourceRead
         return $candidate->isGroup() ? self::RANK_GROUP : self::RANK_SOLO;
     }
 
-    /** @return array{latest: string, rank: int, axis: string|null, hash: string|null, id: int|string|null}|null */
+    /** @return array{latest: string, rank: int, axis: string|null, hash: string|null, id: int|string|null, before: bool}|null */
     protected function decodedCursor(): ?array
     {
         if ($this->ordered) {
             return null;
         }
 
-        $parameters = $this->cursor === null ? null : Cursor::fromEncoded($this->cursor)?->toArray();
+        $cursor = $this->cursor === null ? null : Cursor::fromEncoded($this->cursor);
+        $parameters = $cursor?->toArray();
 
         if (! isset($parameters['latest'], $parameters['rank'])) {
             return null;
@@ -528,21 +552,30 @@ final class SourceRead
             'axis' => $parameters['axis'] ?? null,
             'hash' => $parameters['hash'] ?? null,
             'id' => $parameters['id'] ?? null,
+            'before' => $cursor->pointsToPreviousItems(),
         ];
     }
 
-    /** Where an ordered read's cursor left off: the last item's position. */
-    protected function decodedPosition(): ?int
+    /**
+     * Where an ordered read's cursor left off: the position of the item it
+     * was minted at.
+     *
+     * @return array{id: int, before: bool}|null
+     */
+    protected function decodedPosition(): ?array
     {
-        $parameters = $this->cursor === null ? null : Cursor::fromEncoded($this->cursor)?->toArray();
+        $cursor = $this->cursor === null ? null : Cursor::fromEncoded($this->cursor);
+        $parameters = $cursor?->toArray();
 
-        return isset($parameters['position']) && is_int($parameters['position']) ? $parameters['position'] : null;
+        return isset($parameters['position']) && is_int($parameters['position'])
+            ? ['id' => $parameters['position'], 'before' => $cursor->pointsToPreviousItems()]
+            : null;
     }
 
-    protected function encodeCursor(FeedCandidate $candidate): string
+    protected function encodeCursor(FeedCandidate $candidate, bool $before = false): string
     {
         if ($this->ordered) {
-            return (new Cursor(['position' => $candidate->id]))->encode();
+            return (new Cursor(['position' => $candidate->id], ! $before))->encode();
         }
 
         return (new Cursor([
@@ -551,7 +584,7 @@ final class SourceRead
             'axis' => $candidate->axis,
             'hash' => $candidate->hash,
             'id' => $candidate->id,
-        ]))->encode();
+        ], ! $before))->encode();
     }
 
     /** The activity's sort stamp; empty for a dateless one, which sorts last. */

@@ -31,8 +31,9 @@ it('resolves request cursors and follows every page without duplicates', functio
         $page = $builder->cursorPaginate(2, $cursorName);
         expect($page)->toBeInstanceOf(CursorPaginatorContract::class)
             ->and($page->perPage())->toBe(2)
-            ->and($page->previousCursor())->toBeNull()
-            ->and($page->previousPageUrl())->toBeNull();
+            // Laravel's own rule: nothing before the first page, something before every later one.
+            ->and($page->previousCursor() === null)->toBe($url === 'https://example.test/feed')
+            ->and($page->previousPageUrl() === null)->toBe($url === 'https://example.test/feed');
         array_push($seen, ...$page->toArray()['data']);
         $url = $page->nextPageUrl();
         if ($url !== null) {
@@ -43,7 +44,7 @@ it('resolves request cursors and follows every page without duplicates', functio
 
     expect($seen)->toBe($all)
         ->and($page->hasMorePages())->toBeFalse()
-        ->and($page->hasPages())->toBeFalse()
+        ->and($page->hasPages())->toBeTrue()
         ->and($page->onLastPage())->toBeTrue();
 })->with(['cursor', 'feed_cursor']);
 
@@ -74,7 +75,7 @@ it('renders Laravel pagination views and honours the application default view', 
     $this->app->instance('request', Request::create($page->nextPageUrl()));
     $second = Storyfeed::feed()->log()->cursorPaginate(2);
     expect(Blade::render('{{ $page->links() }}', ['page' => $second]))
-        ->toContain('rel="next"')->not->toContain('rel="prev"');
+        ->toContain('rel="next"')->toContain('rel="prev"');
 
     $original = Paginator::$defaultSimpleView;
     try {
@@ -174,7 +175,7 @@ it('returns an empty final page without pagination links', function () {
     expect($page->isEmpty())->toBeTrue()
         ->and($page->isNotEmpty())->toBeFalse()
         ->and($page->nextCursor())->toBeNull()
-        ->and($page->hasPages())->toBeFalse()
+        ->and($page->hasPages())->toBeTrue()
         ->and(trim((string) $page->links()))->toBe('');
 });
 

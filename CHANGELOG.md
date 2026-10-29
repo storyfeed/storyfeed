@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Added
+
+- A feed page fills `prev_cursor` and `prev_page_url` the way Laravel's `CursorPaginator` does: `null` on the first page, a cursor from the second page on, so a reader can page backward towards newer activities from a deep link or a jump-to-date. A backward page is the same merged stream read the other way and aggregated over all of each group's members, so it holds exactly the nodes the forward pass produced for those rows, a group spanning a page boundary included. It applies to `cursorPaginate()` and `members()`, in `log` and `live`, and to in-memory sources. A backward read is not windowed, so it costs a full group aggregate. `FeedPaginator::onFirstPage()` and `hasPages()` now follow Laravel's. (#96)
+
 ## v0.22.1 - 2026-10-28
 
 ### Fixed

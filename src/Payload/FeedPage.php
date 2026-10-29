@@ -27,6 +27,7 @@ final class FeedPage
         protected ?string $nextCursor,
         protected NodePresenter $presenter,
         protected ?string $syncToken = null,
+        protected ?string $prevCursor = null,
     ) {}
 
     /**
@@ -62,6 +63,12 @@ final class FeedPage
     public function nextCursor(): ?string
     {
         return $this->nextCursor;
+    }
+
+    /** The cursor that pages backward from the first item, or null on a feed's first page. */
+    public function prevCursor(): ?string
+    {
+        return $this->prevCursor;
     }
 
     /**

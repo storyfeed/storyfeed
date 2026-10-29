@@ -23,6 +23,8 @@ class FeedPaginator extends CursorPaginator
 
     protected ?FeedCursor $nextFeedCursor;
 
+    protected ?FeedCursor $prevFeedCursor;
+
     // Keep feed resolution separate from Eloquent's parameter-decoding resolver.
     protected static ?Closure $feedCursorResolver = null;
 
@@ -30,7 +32,13 @@ class FeedPaginator extends CursorPaginator
     public function __construct(FeedPage $page, int $perPage, ?Cursor $cursor = null, string $cursorName = 'cursor')
     {
         $this->nextFeedCursor = FeedCursor::fromEncoded($page->nextCursor());
+        $this->prevFeedCursor = FeedCursor::fromEncoded($page->prevCursor());
         $this->syncToken = $page->syncToken();
+
+        // The page is already in reading order; a backward cursor would make Laravel turn it round again.
+        if ($cursor?->pointsToPreviousItems()) {
+            $cursor = new FeedCursor($cursor->encode());
+        }
 
         parent::__construct($page->collect(), $perPage, $cursor, [
             'path' => Paginator::resolveCurrentPath(),
@@ -59,10 +67,10 @@ class FeedPaginator extends CursorPaginator
         return $this->nextFeedCursor;
     }
 
-    /** Null until backward paging exists (#96). */
+    /** Null on the first page; from the second on, the cursor that pages back towards newer items. */
     public function previousCursor(): ?Cursor
     {
-        return null;
+        return $this->prevFeedCursor;
     }
 
     public function hasMorePages(): bool
