@@ -1,0 +1,8 @@
+{
+  "name": "example/spatie",
+  "require": {
+    "php": "^8.4",
+    "spatie/laravel-activitylog": "^4.0",
+    "storyfeed/storyfeed": "^0.23"
+  }
+}

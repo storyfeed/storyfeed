@@ -1,0 +1,6 @@
+{
+  "name": "example/no-feeds",
+  "require": {
+    "php": "^8.4"
+  }
+}

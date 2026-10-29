@@ -1,0 +1,1286 @@
+{
+  "format": 1,
+  "package": {
+    "composer": "storyfeed/storyfeed"
+  },
+  "facts": [
+    {
+      "id": "has-feeds",
+      "description": "An app-owned page renders an activity, history or audit timeline.",
+      "computed": {
+        "signals": [
+          {
+            "kind": "import",
+            "specifiers": [
+              "@/components/Kit#ActivityStream"
+            ]
+          },
+          {
+            "kind": "file-name",
+            "globs": [
+              "resources/js/**/*Timeline*.vue",
+              "resources/js/**/*Activity*.vue",
+              "resources/js/**/*AuditLog*.vue"
+            ]
+          },
+          {
+            "kind": "php-class",
+            "extends": [
+              "Storyfeed\\Stories\\Story",
+              "Storyfeed\\Feed"
+            ]
+          },
+          {
+            "kind": "php-class",
+            "implements": [
+              "Storyfeed\\Contracts\\Feedable",
+              "Storyfeed\\Contracts\\PublishesToFeed"
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "surfaces": [
+    {
+      "id": "activity.recording",
+      "layer": "backend",
+      "group": "activity",
+      "label": "Record events through PublishesToFeed, Story classes and the recording API",
+      "feature": "core",
+      "applies": "has-feeds",
+      "uses": {
+        "classes": [
+          "Storyfeed\\Contracts\\PublishesToFeed",
+          "Storyfeed\\Stories\\Story",
+          "Storyfeed\\Stories\\Verb",
+          "Storyfeed\\Facades\\Story",
+          "Storyfeed\\Facades\\Storyfeed",
+          "Storyfeed\\PendingActivity",
+          "Storyfeed\\Act"
+        ]
+      },
+      "handRolled": [
+        {
+          "kind": "composer",
+          "packages": [
+            "spatie/laravel-activitylog"
+          ]
+        },
+        {
+          "kind": "migration",
+          "tables": [
+            "activity_log",
+            "activities",
+            "events"
+          ]
+        }
+      ],
+      "docs": "https://docs.storyfeed.dev/basics/recording-activities",
+      "status": "stable",
+      "replaces": {
+        "composer": [
+          "spatie/laravel-activitylog"
+        ]
+      }
+    },
+    {
+      "id": "activity.query",
+      "layer": "backend",
+      "group": "activity",
+      "label": "Retrieve a feed through FeedBuilder in Log or Live mode",
+      "feature": "core",
+      "applies": "has-feeds",
+      "uses": {
+        "classes": [
+          "Storyfeed\\FeedBuilder",
+          "Storyfeed\\Feed",
+          "Storyfeed\\ComposedFeed",
+          "Storyfeed\\FeedPaginator",
+          "Storyfeed\\FeedSimplePaginator"
+        ]
+      },
+      "handRolled": [
+        {
+          "kind": "php-class",
+          "names": [
+            "*ActivityFeed*",
+            "*Timeline*"
+          ]
+        },
+        {
+          "kind": "file-name",
+          "globs": [
+            "resources/js/**/*Timeline*.vue",
+            "resources/js/**/*Activity*.vue",
+            "resources/js/**/*History*.vue"
+          ]
+        }
+      ],
+      "docs": "https://docs.storyfeed.dev/retrieving/retrieving-feeds",
+      "status": "stable",
+      "replaces": {
+        "components": [
+          "*Timeline*",
+          "*ActivityLog*",
+          "*AuditLog*"
+        ]
+      }
+    },
+    {
+      "id": "activity.snapshots",
+      "layer": "backend",
+      "group": "activity",
+      "label": "Describe participant snapshots through Feedable and FeedEntity",
+      "feature": "core",
+      "applies": "has-feeds",
+      "uses": {
+        "classes": [
+          "Storyfeed\\Contracts\\Feedable",
+          "Storyfeed\\Concerns\\InteractsWithFeed",
+          "Storyfeed\\FeedEntity",
+          "Storyfeed\\FeedableRegistration"
+        ]
+      },
+      "handRolled": [
+        {
+          "kind": "composer",
+          "packages": [
+            "spatie/laravel-activitylog"
+          ]
+        },
+        {
+          "kind": "migration",
+          "tables": [
+            "activity_log",
+            "activities",
+            "events"
+          ]
+        }
+      ],
+      "docs": "https://docs.storyfeed.dev/basics/feedable-models",
+      "status": "stable"
+    },
+    {
+      "id": "activity.context",
+      "layer": "backend",
+      "group": "activity",
+      "label": "Partition feed activities with explicit context and scoped Feed definitions",
+      "feature": "core",
+      "applies": "has-feeds",
+      "uses": {
+        "classes": [
+          "Storyfeed\\Http\\Middleware\\UseContext",
+          "Storyfeed\\Feed"
+        ]
+      },
+      "handRolled": [
+        {
+          "kind": "php-class",
+          "names": [
+            "*ActivityFeed*",
+            "*Timeline*"
+          ]
+        }
+      ],
+      "docs": "https://docs.storyfeed.dev/recording/containers-and-context",
+      "status": "stable"
+    },
+    {
+      "id": "activity.config",
+      "layer": "backend",
+      "group": "activity",
+      "label": "Configure Storyfeed storage tables and the participant morph alias",
+      "feature": "core",
+      "applies": "has-feeds",
+      "uses": {
+        "config": [
+          "storyfeed.morph_alias",
+          "storyfeed.tables"
+        ]
+      },
+      "handRolled": [
+        {
+          "kind": "migration",
+          "tables": [
+            "activity_log",
+            "activities",
+            "events"
+          ]
+        }
+      ],
+      "docs": "https://docs.storyfeed.dev/reference/configuration",
+      "status": "stable"
+    }
+  ],
+  "nonSurfaces": [
+    {
+      "ref": "Storyfeed\\Actions\\AssignGroupingBursts",
+      "reason": "Maintenance and write-path implementation behind the recording and snapshot APIs."
+    },
+    {
+      "ref": "Storyfeed\\Actions\\AssignToBatch",
+      "reason": "Maintenance and write-path implementation behind the recording and snapshot APIs."
+    },
+    {
+      "ref": "Storyfeed\\Actions\\BackfillAncestors",
+      "reason": "Maintenance and write-path implementation behind the recording and snapshot APIs."
+    },
+    {
+      "ref": "Storyfeed\\Actions\\BundleComposites",
+      "reason": "Maintenance and write-path implementation behind the recording and snapshot APIs."
+    },
+    {
+      "ref": "Storyfeed\\Actions\\CloseBatch",
+      "reason": "Maintenance and write-path implementation behind the recording and snapshot APIs."
+    },
+    {
+      "ref": "Storyfeed\\Actions\\CloseBatches",
+      "reason": "Maintenance and write-path implementation behind the recording and snapshot APIs."
+    },
+    {
+      "ref": "Storyfeed\\Actions\\CurateCluster",
+      "reason": "Maintenance and write-path implementation behind the recording and snapshot APIs."
+    },
+    {
+      "ref": "Storyfeed\\Actions\\DeleteFromFeed",
+      "reason": "Maintenance and write-path implementation behind the recording and snapshot APIs."
+    },
+    {
+      "ref": "Storyfeed\\Actions\\ForceDeleteFromFeed",
+      "reason": "Maintenance and write-path implementation behind the recording and snapshot APIs."
+    },
+    {
+      "ref": "Storyfeed\\Actions\\ForgetActivities",
+      "reason": "Maintenance and write-path implementation behind the recording and snapshot APIs."
+    },
+    {
+      "ref": "Storyfeed\\Actions\\PruneActivities",
+      "reason": "Maintenance and write-path implementation behind the recording and snapshot APIs."
+    },
+    {
+      "ref": "Storyfeed\\Actions\\PurgeActivities",
+      "reason": "Maintenance and write-path implementation behind the recording and snapshot APIs."
+    },
+    {
+      "ref": "Storyfeed\\Actions\\RebuildAncestors",
+      "reason": "Maintenance and write-path implementation behind the recording and snapshot APIs."
+    },
+    {
+      "ref": "Storyfeed\\Actions\\RebuildGroupingBursts",
+      "reason": "Maintenance and write-path implementation behind the recording and snapshot APIs."
+    },
+    {
+      "ref": "Storyfeed\\Actions\\RebuildSnapshots",
+      "reason": "Maintenance and write-path implementation behind the recording and snapshot APIs."
+    },
+    {
+      "ref": "Storyfeed\\Actions\\ReleaseComposite",
+      "reason": "Maintenance and write-path implementation behind the recording and snapshot APIs."
+    },
+    {
+      "ref": "Storyfeed\\Actions\\ReplayGroupingBursts",
+      "reason": "Maintenance and write-path implementation behind the recording and snapshot APIs."
+    },
+    {
+      "ref": "Storyfeed\\Actions\\RepointReferences",
+      "reason": "Maintenance and write-path implementation behind the recording and snapshot APIs."
+    },
+    {
+      "ref": "Storyfeed\\Actions\\RestoreToFeed",
+      "reason": "Maintenance and write-path implementation behind the recording and snapshot APIs."
+    },
+    {
+      "ref": "Storyfeed\\Actions\\SnapshotEntity",
+      "reason": "Maintenance and write-path implementation behind the recording and snapshot APIs."
+    },
+    {
+      "ref": "Storyfeed\\Actions\\SweepGroupingBursts",
+      "reason": "Maintenance and write-path implementation behind the recording and snapshot APIs."
+    },
+    {
+      "ref": "Storyfeed\\Actions\\SyncParticipants",
+      "reason": "Maintenance and write-path implementation behind the recording and snapshot APIs."
+    },
+    {
+      "ref": "Storyfeed\\Actions\\TombstoneEntity",
+      "reason": "Maintenance and write-path implementation behind the recording and snapshot APIs."
+    },
+    {
+      "ref": "Storyfeed\\Actions\\TrickleSnapshots",
+      "reason": "Maintenance and write-path implementation behind the recording and snapshot APIs."
+    },
+    {
+      "ref": "Storyfeed\\Actions\\WriteGroupings",
+      "reason": "Maintenance and write-path implementation behind the recording and snapshot APIs."
+    },
+    {
+      "ref": "Storyfeed\\ActivityContext",
+      "reason": "Value, resource or manager supporting the recording and query APIs; not a separate app adoption requirement."
+    },
+    {
+      "ref": "Storyfeed\\ActivityStreams\\ActivityType",
+      "reason": "Serialization vocabulary and helpers supporting the payload contract, not a separate feed adoption requirement."
+    },
+    {
+      "ref": "Storyfeed\\ActivityStreams\\Concerns\\IsVocabularyTerm",
+      "reason": "Serialization vocabulary and helpers supporting the payload contract, not a separate feed adoption requirement."
+    },
+    {
+      "ref": "Storyfeed\\ActivityStreams\\Context",
+      "reason": "Serialization vocabulary and helpers supporting the payload contract, not a separate feed adoption requirement."
+    },
+    {
+      "ref": "Storyfeed\\ActivityStreams\\CoreType",
+      "reason": "Serialization vocabulary and helpers supporting the payload contract, not a separate feed adoption requirement."
+    },
+    {
+      "ref": "Storyfeed\\ActivityStreams\\Extension\\ExtensionTerm",
+      "reason": "Serialization vocabulary and helpers supporting the payload contract, not a separate feed adoption requirement."
+    },
+    {
+      "ref": "Storyfeed\\ActivityStreams\\ObjectType",
+      "reason": "Serialization vocabulary and helpers supporting the payload contract, not a separate feed adoption requirement."
+    },
+    {
+      "ref": "Storyfeed\\ActivityStreams\\Property",
+      "reason": "Serialization vocabulary and helpers supporting the payload contract, not a separate feed adoption requirement."
+    },
+    {
+      "ref": "Storyfeed\\ActivityStreams\\VocabularyTerm",
+      "reason": "Serialization vocabulary and helpers supporting the payload contract, not a separate feed adoption requirement."
+    },
+    {
+      "ref": "Storyfeed\\Body\\CallToAction",
+      "reason": "Content authoring types consumed by the recording API; an app chooses the bodies its activities need."
+    },
+    {
+      "ref": "Storyfeed\\Body\\Callout",
+      "reason": "Content authoring types consumed by the recording API; an app chooses the bodies its activities need."
+    },
+    {
+      "ref": "Storyfeed\\Body\\Code",
+      "reason": "Content authoring types consumed by the recording API; an app chooses the bodies its activities need."
+    },
+    {
+      "ref": "Storyfeed\\Body\\Component",
+      "reason": "Content authoring types consumed by the recording API; an app chooses the bodies its activities need."
+    },
+    {
+      "ref": "Storyfeed\\Body\\Concerns\\HasContent",
+      "reason": "Content authoring types consumed by the recording API; an app chooses the bodies its activities need."
+    },
+    {
+      "ref": "Storyfeed\\Body\\Concerns\\HasFiles",
+      "reason": "Content authoring types consumed by the recording API; an app chooses the bodies its activities need."
+    },
+    {
+      "ref": "Storyfeed\\Body\\Concerns\\HasFootnote",
+      "reason": "Content authoring types consumed by the recording API; an app chooses the bodies its activities need."
+    },
+    {
+      "ref": "Storyfeed\\Body\\Concerns\\HasImageSlot",
+      "reason": "Content authoring types consumed by the recording API; an app chooses the bodies its activities need."
+    },
+    {
+      "ref": "Storyfeed\\Body\\Concerns\\HasTitle",
+      "reason": "Content authoring types consumed by the recording API; an app chooses the bodies its activities need."
+    },
+    {
+      "ref": "Storyfeed\\Body\\Excerpt",
+      "reason": "Content authoring types consumed by the recording API; an app chooses the bodies its activities need."
+    },
+    {
+      "ref": "Storyfeed\\Body\\FileAttachment",
+      "reason": "Content authoring types consumed by the recording API; an app chooses the bodies its activities need."
+    },
+    {
+      "ref": "Storyfeed\\Body\\Image",
+      "reason": "Content authoring types consumed by the recording API; an app chooses the bodies its activities need."
+    },
+    {
+      "ref": "Storyfeed\\Body\\ItemList",
+      "reason": "Content authoring types consumed by the recording API; an app chooses the bodies its activities need."
+    },
+    {
+      "ref": "Storyfeed\\Body\\KeyValue",
+      "reason": "Content authoring types consumed by the recording API; an app chooses the bodies its activities need."
+    },
+    {
+      "ref": "Storyfeed\\Body\\MediaObject",
+      "reason": "Content authoring types consumed by the recording API; an app chooses the bodies its activities need."
+    },
+    {
+      "ref": "Storyfeed\\Body\\Prose",
+      "reason": "Content authoring types consumed by the recording API; an app chooses the bodies its activities need."
+    },
+    {
+      "ref": "Storyfeed\\Body\\Table",
+      "reason": "Content authoring types consumed by the recording API; an app chooses the bodies its activities need."
+    },
+    {
+      "ref": "Storyfeed\\Concerns\\AsFeedVerb",
+      "reason": "Shared implementation trait behind the public feed APIs."
+    },
+    {
+      "ref": "Storyfeed\\Concerns\\CarriesFeedKeys",
+      "reason": "Shared implementation trait behind the public feed APIs."
+    },
+    {
+      "ref": "Storyfeed\\Concerns\\FiltersRoleTypes",
+      "reason": "Shared implementation trait behind the public feed APIs."
+    },
+    {
+      "ref": "Storyfeed\\Concerns\\HasPayload",
+      "reason": "Shared implementation trait behind the public feed APIs."
+    },
+    {
+      "ref": "Storyfeed\\Concerns\\ReadsPayloadArray",
+      "reason": "Shared implementation trait behind the public feed APIs."
+    },
+    {
+      "ref": "Storyfeed\\Console\\BundleCommand",
+      "reason": "Package installation, diagnostics, generation or maintenance command; operational tooling rather than an app feed surface."
+    },
+    {
+      "ref": "Storyfeed\\Console\\CacheCommand",
+      "reason": "Package installation, diagnostics, generation or maintenance command; operational tooling rather than an app feed surface."
+    },
+    {
+      "ref": "Storyfeed\\Console\\CacheSnapshotsCommand",
+      "reason": "Package installation, diagnostics, generation or maintenance command; operational tooling rather than an app feed surface."
+    },
+    {
+      "ref": "Storyfeed\\Console\\ClearCommand",
+      "reason": "Package installation, diagnostics, generation or maintenance command; operational tooling rather than an app feed surface."
+    },
+    {
+      "ref": "Storyfeed\\Console\\CloseBatchesCommand",
+      "reason": "Package installation, diagnostics, generation or maintenance command; operational tooling rather than an app feed surface."
+    },
+    {
+      "ref": "Storyfeed\\Console\\CurateCommand",
+      "reason": "Package installation, diagnostics, generation or maintenance command; operational tooling rather than an app feed surface."
+    },
+    {
+      "ref": "Storyfeed\\Console\\DoctorCommand",
+      "reason": "Package installation, diagnostics, generation or maintenance command; operational tooling rather than an app feed surface."
+    },
+    {
+      "ref": "Storyfeed\\Console\\FeedMakeCommand",
+      "reason": "Package installation, diagnostics, generation or maintenance command; operational tooling rather than an app feed surface."
+    },
+    {
+      "ref": "Storyfeed\\Console\\HealCommand",
+      "reason": "Package installation, diagnostics, generation or maintenance command; operational tooling rather than an app feed surface."
+    },
+    {
+      "ref": "Storyfeed\\Console\\InstallCommand",
+      "reason": "Package installation, diagnostics, generation or maintenance command; operational tooling rather than an app feed surface."
+    },
+    {
+      "ref": "Storyfeed\\Console\\ListCommand",
+      "reason": "Package installation, diagnostics, generation or maintenance command; operational tooling rather than an app feed surface."
+    },
+    {
+      "ref": "Storyfeed\\Console\\ParticipantsCommand",
+      "reason": "Package installation, diagnostics, generation or maintenance command; operational tooling rather than an app feed surface."
+    },
+    {
+      "ref": "Storyfeed\\Console\\PruneCommand",
+      "reason": "Package installation, diagnostics, generation or maintenance command; operational tooling rather than an app feed surface."
+    },
+    {
+      "ref": "Storyfeed\\Console\\RebuildCommand",
+      "reason": "Package installation, diagnostics, generation or maintenance command; operational tooling rather than an app feed surface."
+    },
+    {
+      "ref": "Storyfeed\\Console\\StoriesCommand",
+      "reason": "Package installation, diagnostics, generation or maintenance command; operational tooling rather than an app feed surface."
+    },
+    {
+      "ref": "Storyfeed\\Console\\StoryMakeCommand",
+      "reason": "Package installation, diagnostics, generation or maintenance command; operational tooling rather than an app feed surface."
+    },
+    {
+      "ref": "Storyfeed\\Console\\TrickleCommand",
+      "reason": "Package installation, diagnostics, generation or maintenance command; operational tooling rather than an app feed surface."
+    },
+    {
+      "ref": "Storyfeed\\Console\\VerbsCommand",
+      "reason": "Package installation, diagnostics, generation or maintenance command; operational tooling rather than an app feed surface."
+    },
+    {
+      "ref": "Storyfeed\\Contracts\\Bundleable",
+      "reason": "Extension contract behind the feed APIs; implementing every extension is not an app adoption requirement."
+    },
+    {
+      "ref": "Storyfeed\\Contracts\\DiagnosticCheck",
+      "reason": "Extension contract behind the feed APIs; implementing every extension is not an app adoption requirement."
+    },
+    {
+      "ref": "Storyfeed\\Contracts\\FeedBody",
+      "reason": "Extension contract behind the feed APIs; implementing every extension is not an app adoption requirement."
+    },
+    {
+      "ref": "Storyfeed\\Contracts\\FeedHealer",
+      "reason": "Extension contract behind the feed APIs; implementing every extension is not an app adoption requirement."
+    },
+    {
+      "ref": "Storyfeed\\Contracts\\FeedSource",
+      "reason": "Extension contract behind the feed APIs; implementing every extension is not an app adoption requirement."
+    },
+    {
+      "ref": "Storyfeed\\Contracts\\FeedVerb",
+      "reason": "Extension contract behind the feed APIs; implementing every extension is not an app adoption requirement."
+    },
+    {
+      "ref": "Storyfeed\\Contracts\\GroupingStrategy",
+      "reason": "Extension contract behind the feed APIs; implementing every extension is not an app adoption requirement."
+    },
+    {
+      "ref": "Storyfeed\\Contracts\\HasActivityStreamsType",
+      "reason": "Extension contract behind the feed APIs; implementing every extension is not an app adoption requirement."
+    },
+    {
+      "ref": "Storyfeed\\Contracts\\HasFeedShapeVersion",
+      "reason": "Extension contract behind the feed APIs; implementing every extension is not an app adoption requirement."
+    },
+    {
+      "ref": "Storyfeed\\Contracts\\StaticItem",
+      "reason": "Extension contract behind the feed APIs; implementing every extension is not an app adoption requirement."
+    },
+    {
+      "ref": "Storyfeed\\DeferredMedia",
+      "reason": "Value, resource or manager supporting the recording and query APIs; not a separate app adoption requirement."
+    },
+    {
+      "ref": "Storyfeed\\Diagnostics\\Acknowledgments",
+      "reason": "Diagnostic implementation and report types; not an app feed surface."
+    },
+    {
+      "ref": "Storyfeed\\Diagnostics\\Checks\\ActorlessCoverage",
+      "reason": "Diagnostic implementation and report types; not an app feed surface."
+    },
+    {
+      "ref": "Storyfeed\\Diagnostics\\Checks\\AggregateCoverage",
+      "reason": "Diagnostic implementation and report types; not an app feed surface."
+    },
+    {
+      "ref": "Storyfeed\\Diagnostics\\Checks\\AggregateTokens",
+      "reason": "Diagnostic implementation and report types; not an app feed surface."
+    },
+    {
+      "ref": "Storyfeed\\Diagnostics\\Checks\\Ancestors",
+      "reason": "Diagnostic implementation and report types; not an app feed surface."
+    },
+    {
+      "ref": "Storyfeed\\Diagnostics\\Checks\\Backlog",
+      "reason": "Diagnostic implementation and report types; not an app feed surface."
+    },
+    {
+      "ref": "Storyfeed\\Diagnostics\\Checks\\Body",
+      "reason": "Diagnostic implementation and report types; not an app feed surface."
+    },
+    {
+      "ref": "Storyfeed\\Diagnostics\\Checks\\Check",
+      "reason": "Diagnostic implementation and report types; not an app feed surface."
+    },
+    {
+      "ref": "Storyfeed\\Diagnostics\\Checks\\Columns",
+      "reason": "Diagnostic implementation and report types; not an app feed surface."
+    },
+    {
+      "ref": "Storyfeed\\Diagnostics\\Checks\\Coverage",
+      "reason": "Diagnostic implementation and report types; not an app feed surface."
+    },
+    {
+      "ref": "Storyfeed\\Diagnostics\\Checks\\Dangling",
+      "reason": "Diagnostic implementation and report types; not an app feed surface."
+    },
+    {
+      "ref": "Storyfeed\\Diagnostics\\Checks\\DanglingClaims",
+      "reason": "Diagnostic implementation and report types; not an app feed surface."
+    },
+    {
+      "ref": "Storyfeed\\Diagnostics\\Checks\\Entities",
+      "reason": "Diagnostic implementation and report types; not an app feed surface."
+    },
+    {
+      "ref": "Storyfeed\\Diagnostics\\Checks\\FeedCoverage",
+      "reason": "Diagnostic implementation and report types; not an app feed surface."
+    },
+    {
+      "ref": "Storyfeed\\Diagnostics\\Checks\\FeedStale",
+      "reason": "Diagnostic implementation and report types; not an app feed surface."
+    },
+    {
+      "ref": "Storyfeed\\Diagnostics\\Checks\\GuessedLabels",
+      "reason": "Diagnostic implementation and report types; not an app feed surface."
+    },
+    {
+      "ref": "Storyfeed\\Diagnostics\\Checks\\HashLengths",
+      "reason": "Diagnostic implementation and report types; not an app feed surface."
+    },
+    {
+      "ref": "Storyfeed\\Diagnostics\\Checks\\Hydration",
+      "reason": "Diagnostic implementation and report types; not an app feed surface."
+    },
+    {
+      "ref": "Storyfeed\\Diagnostics\\Checks\\InheritedDeletes",
+      "reason": "Diagnostic implementation and report types; not an app feed surface."
+    },
+    {
+      "ref": "Storyfeed\\Diagnostics\\Checks\\KeepLatest",
+      "reason": "Diagnostic implementation and report types; not an app feed surface."
+    },
+    {
+      "ref": "Storyfeed\\Diagnostics\\Checks\\Links",
+      "reason": "Diagnostic implementation and report types; not an app feed surface."
+    },
+    {
+      "ref": "Storyfeed\\Diagnostics\\Checks\\Maintenance",
+      "reason": "Diagnostic implementation and report types; not an app feed surface."
+    },
+    {
+      "ref": "Storyfeed\\Diagnostics\\Checks\\ManifestStale",
+      "reason": "Diagnostic implementation and report types; not an app feed surface."
+    },
+    {
+      "ref": "Storyfeed\\Diagnostics\\Checks\\MediaSlots",
+      "reason": "Diagnostic implementation and report types; not an app feed surface."
+    },
+    {
+      "ref": "Storyfeed\\Diagnostics\\Checks\\Participants",
+      "reason": "Diagnostic implementation and report types; not an app feed surface."
+    },
+    {
+      "ref": "Storyfeed\\Diagnostics\\Checks\\Parties",
+      "reason": "Diagnostic implementation and report types; not an app feed surface."
+    },
+    {
+      "ref": "Storyfeed\\Diagnostics\\Checks\\Recording",
+      "reason": "Diagnostic implementation and report types; not an app feed surface."
+    },
+    {
+      "ref": "Storyfeed\\Diagnostics\\Checks\\References",
+      "reason": "Diagnostic implementation and report types; not an app feed surface."
+    },
+    {
+      "ref": "Storyfeed\\Diagnostics\\Checks\\ReflexiveRoles",
+      "reason": "Diagnostic implementation and report types; not an app feed surface."
+    },
+    {
+      "ref": "Storyfeed\\Diagnostics\\Checks\\RemovalVerbs",
+      "reason": "Diagnostic implementation and report types; not an app feed surface."
+    },
+    {
+      "ref": "Storyfeed\\Diagnostics\\Checks\\RequestActions",
+      "reason": "Diagnostic implementation and report types; not an app feed surface."
+    },
+    {
+      "ref": "Storyfeed\\Diagnostics\\Checks\\Retention",
+      "reason": "Diagnostic implementation and report types; not an app feed surface."
+    },
+    {
+      "ref": "Storyfeed\\Diagnostics\\Checks\\RoleConstraints",
+      "reason": "Diagnostic implementation and report types; not an app feed surface."
+    },
+    {
+      "ref": "Storyfeed\\Diagnostics\\Checks\\SingularTokens",
+      "reason": "Diagnostic implementation and report types; not an app feed surface."
+    },
+    {
+      "ref": "Storyfeed\\Diagnostics\\Checks\\SnapshotCompile",
+      "reason": "Diagnostic implementation and report types; not an app feed surface."
+    },
+    {
+      "ref": "Storyfeed\\Diagnostics\\Checks\\SnapshotShapes",
+      "reason": "Diagnostic implementation and report types; not an app feed surface."
+    },
+    {
+      "ref": "Storyfeed\\Diagnostics\\Checks\\Tables",
+      "reason": "Diagnostic implementation and report types; not an app feed surface."
+    },
+    {
+      "ref": "Storyfeed\\Diagnostics\\Checks\\Ungrouped",
+      "reason": "Diagnostic implementation and report types; not an app feed surface."
+    },
+    {
+      "ref": "Storyfeed\\Diagnostics\\Checks\\UnwiredSurface",
+      "reason": "Diagnostic implementation and report types; not an app feed surface."
+    },
+    {
+      "ref": "Storyfeed\\Diagnostics\\Checks\\VerbDrift",
+      "reason": "Diagnostic implementation and report types; not an app feed surface."
+    },
+    {
+      "ref": "Storyfeed\\Diagnostics\\Checks\\VerblessAxis",
+      "reason": "Diagnostic implementation and report types; not an app feed surface."
+    },
+    {
+      "ref": "Storyfeed\\Diagnostics\\Doctor",
+      "reason": "Diagnostic implementation and report types; not an app feed surface."
+    },
+    {
+      "ref": "Storyfeed\\Diagnostics\\Finding",
+      "reason": "Diagnostic implementation and report types; not an app feed surface."
+    },
+    {
+      "ref": "Storyfeed\\Diagnostics\\Fix",
+      "reason": "Diagnostic implementation and report types; not an app feed surface."
+    },
+    {
+      "ref": "Storyfeed\\Diagnostics\\Reachability",
+      "reason": "Diagnostic implementation and report types; not an app feed surface."
+    },
+    {
+      "ref": "Storyfeed\\Diagnostics\\Report",
+      "reason": "Diagnostic implementation and report types; not an app feed surface."
+    },
+    {
+      "ref": "Storyfeed\\Diagnostics\\Severity",
+      "reason": "Diagnostic implementation and report types; not an app feed surface."
+    },
+    {
+      "ref": "Storyfeed\\Events\\ActivityDeleted",
+      "reason": "Package lifecycle notification or event snapshot; not a separate adoption requirement."
+    },
+    {
+      "ref": "Storyfeed\\Events\\ActivityPublished",
+      "reason": "Package lifecycle notification or event snapshot; not a separate adoption requirement."
+    },
+    {
+      "ref": "Storyfeed\\Events\\BatchClosed",
+      "reason": "Package lifecycle notification or event snapshot; not a separate adoption requirement."
+    },
+    {
+      "ref": "Storyfeed\\Events\\Snapshots\\ActivitySnapshot",
+      "reason": "Package lifecycle notification or event snapshot; not a separate adoption requirement."
+    },
+    {
+      "ref": "Storyfeed\\Events\\Snapshots\\BatchSnapshot",
+      "reason": "Package lifecycle notification or event snapshot; not a separate adoption requirement."
+    },
+    {
+      "ref": "Storyfeed\\Events\\Snapshots\\PlainData",
+      "reason": "Package lifecycle notification or event snapshot; not a separate adoption requirement."
+    },
+    {
+      "ref": "Storyfeed\\Exceptions\\DottedVerb",
+      "reason": "Failure type raised by a public API or its implementation."
+    },
+    {
+      "ref": "Storyfeed\\Exceptions\\FeedMisconfigured",
+      "reason": "Failure type raised by a public API or its implementation."
+    },
+    {
+      "ref": "Storyfeed\\Exceptions\\FeedableMorphMapViolation",
+      "reason": "Failure type raised by a public API or its implementation."
+    },
+    {
+      "ref": "Storyfeed\\Exceptions\\IncompleteActivity",
+      "reason": "Failure type raised by a public API or its implementation."
+    },
+    {
+      "ref": "Storyfeed\\Exceptions\\IncompleteFeedValue",
+      "reason": "Failure type raised by a public API or its implementation."
+    },
+    {
+      "ref": "Storyfeed\\Exceptions\\StorageDisabled",
+      "reason": "Failure type raised by a public API or its implementation."
+    },
+    {
+      "ref": "Storyfeed\\Exceptions\\StoryMisconfigured",
+      "reason": "Failure type raised by a public API or its implementation."
+    },
+    {
+      "ref": "Storyfeed\\Exceptions\\StoryNotFound",
+      "reason": "Failure type raised by a public API or its implementation."
+    },
+    {
+      "ref": "Storyfeed\\Exceptions\\StoryObjectMismatch",
+      "reason": "Failure type raised by a public API or its implementation."
+    },
+    {
+      "ref": "Storyfeed\\Exceptions\\StoryRoleMismatch",
+      "reason": "Failure type raised by a public API or its implementation."
+    },
+    {
+      "ref": "Storyfeed\\Exceptions\\UnauthoredActivity",
+      "reason": "Failure type raised by a public API or its implementation."
+    },
+    {
+      "ref": "Storyfeed\\Exceptions\\UndeclaredParty",
+      "reason": "Failure type raised by a public API or its implementation."
+    },
+    {
+      "ref": "Storyfeed\\Exceptions\\UnknownFeed",
+      "reason": "Failure type raised by a public API or its implementation."
+    },
+    {
+      "ref": "Storyfeed\\Exceptions\\UnknownStory",
+      "reason": "Failure type raised by a public API or its implementation."
+    },
+    {
+      "ref": "Storyfeed\\Exceptions\\UnknownVerb",
+      "reason": "Failure type raised by a public API or its implementation."
+    },
+    {
+      "ref": "Storyfeed\\FeedBody",
+      "reason": "Value, resource or manager supporting the recording and query APIs; not a separate app adoption requirement."
+    },
+    {
+      "ref": "Storyfeed\\FeedCandidate",
+      "reason": "Value, resource or manager supporting the recording and query APIs; not a separate app adoption requirement."
+    },
+    {
+      "ref": "Storyfeed\\FeedContext",
+      "reason": "Value, resource or manager supporting the recording and query APIs; not a separate app adoption requirement."
+    },
+    {
+      "ref": "Storyfeed\\FeedDefinition",
+      "reason": "Value, resource or manager supporting the recording and query APIs; not a separate app adoption requirement."
+    },
+    {
+      "ref": "Storyfeed\\FeedHeadline",
+      "reason": "Value, resource or manager supporting the recording and query APIs; not a separate app adoption requirement."
+    },
+    {
+      "ref": "Storyfeed\\FeedImage",
+      "reason": "Value, resource or manager supporting the recording and query APIs; not a separate app adoption requirement."
+    },
+    {
+      "ref": "Storyfeed\\FeedLink",
+      "reason": "Value, resource or manager supporting the recording and query APIs; not a separate app adoption requirement."
+    },
+    {
+      "ref": "Storyfeed\\FeedMedia",
+      "reason": "Value, resource or manager supporting the recording and query APIs; not a separate app adoption requirement."
+    },
+    {
+      "ref": "Storyfeed\\FeedNoun",
+      "reason": "Value, resource or manager supporting the recording and query APIs; not a separate app adoption requirement."
+    },
+    {
+      "ref": "Storyfeed\\FeedResource",
+      "reason": "Value, resource or manager supporting the recording and query APIs; not a separate app adoption requirement."
+    },
+    {
+      "ref": "Storyfeed\\Grouping\\Anchor",
+      "reason": "Curation authoring and implementation behind Live queries; policy is optional per feed."
+    },
+    {
+      "ref": "Storyfeed\\Grouping\\Axis",
+      "reason": "Curation authoring and implementation behind Live queries; policy is optional per feed."
+    },
+    {
+      "ref": "Storyfeed\\Grouping\\Field",
+      "reason": "Curation authoring and implementation behind Live queries; policy is optional per feed."
+    },
+    {
+      "ref": "Storyfeed\\Grouping\\Group",
+      "reason": "Curation authoring and implementation behind Live queries; policy is optional per feed."
+    },
+    {
+      "ref": "Storyfeed\\Grouping\\GroupBuilder",
+      "reason": "Curation authoring and implementation behind Live queries; policy is optional per feed."
+    },
+    {
+      "ref": "Storyfeed\\Grouping\\MultiAxisStrategy",
+      "reason": "Curation authoring and implementation behind Live queries; policy is optional per feed."
+    },
+    {
+      "ref": "Storyfeed\\Grouping\\NullStrategy",
+      "reason": "Curation authoring and implementation behind Live queries; policy is optional per feed."
+    },
+    {
+      "ref": "Storyfeed\\Grouping\\Period",
+      "reason": "Curation authoring and implementation behind Live queries; policy is optional per feed."
+    },
+    {
+      "ref": "Storyfeed\\Healing\\ActivityRetirement",
+      "reason": "Maintenance implementation behind the package commands."
+    },
+    {
+      "ref": "Storyfeed\\Healing\\HealFeed",
+      "reason": "Maintenance implementation behind the package commands."
+    },
+    {
+      "ref": "Storyfeed\\Healing\\HealOutcome",
+      "reason": "Maintenance implementation behind the package commands."
+    },
+    {
+      "ref": "Storyfeed\\Healing\\HealResult",
+      "reason": "Maintenance implementation behind the package commands."
+    },
+    {
+      "ref": "Storyfeed\\Http\\ActivityStreamsController",
+      "reason": "Activity Streams transport or actor middleware supporting the feed APIs."
+    },
+    {
+      "ref": "Storyfeed\\Http\\Middleware\\UseActor",
+      "reason": "Activity Streams transport or actor middleware supporting the feed APIs."
+    },
+    {
+      "ref": "Storyfeed\\Listeners\\PublishFeedActivity",
+      "reason": "Package-owned event wiring for recording and snapshot refresh."
+    },
+    {
+      "ref": "Storyfeed\\Listeners\\WarmSnapshots",
+      "reason": "Package-owned event wiring for recording and snapshot refresh."
+    },
+    {
+      "ref": "Storyfeed\\MediaSlot",
+      "reason": "Value, resource or manager supporting the recording and query APIs; not a separate app adoption requirement."
+    },
+    {
+      "ref": "Storyfeed\\Middleware\\Batch",
+      "reason": "Batching support for the recording API."
+    },
+    {
+      "ref": "Storyfeed\\Models\\Activity",
+      "reason": "Package storage model or builder behind the feed APIs; app code need not use it directly."
+    },
+    {
+      "ref": "Storyfeed\\Models\\Batch",
+      "reason": "Package storage model or builder behind the feed APIs; app code need not use it directly."
+    },
+    {
+      "ref": "Storyfeed\\Models\\Builders\\ActivityBuilder",
+      "reason": "Package storage model or builder behind the feed APIs; app code need not use it directly."
+    },
+    {
+      "ref": "Storyfeed\\Models\\FeedTombstone",
+      "reason": "Package storage model or builder behind the feed APIs; app code need not use it directly."
+    },
+    {
+      "ref": "Storyfeed\\Models\\Grouping",
+      "reason": "Package storage model or builder behind the feed APIs; app code need not use it directly."
+    },
+    {
+      "ref": "Storyfeed\\Models\\Meta",
+      "reason": "Package storage model or builder behind the feed APIs; app code need not use it directly."
+    },
+    {
+      "ref": "Storyfeed\\Models\\Party",
+      "reason": "Package storage model or builder behind the feed APIs; app code need not use it directly."
+    },
+    {
+      "ref": "Storyfeed\\Models\\Snapshot",
+      "reason": "Package storage model or builder behind the feed APIs; app code need not use it directly."
+    },
+    {
+      "ref": "Storyfeed\\PHPStan\\FeedMakeArityRule",
+      "reason": "Development-time checks for consumers, not a runtime app surface."
+    },
+    {
+      "ref": "Storyfeed\\PHPStan\\StoryNameRule",
+      "reason": "Development-time checks for consumers, not a runtime app surface."
+    },
+    {
+      "ref": "Storyfeed\\Payload\\FeedPage",
+      "reason": "Payload assembly supporting the query API and stable payload contract."
+    },
+    {
+      "ref": "Storyfeed\\Payload\\GroupSlice",
+      "reason": "Payload assembly supporting the query API and stable payload contract."
+    },
+    {
+      "ref": "Storyfeed\\Payload\\NodePresenter",
+      "reason": "Payload assembly supporting the query API and stable payload contract."
+    },
+    {
+      "ref": "Storyfeed\\PendingTombstone",
+      "reason": "Value, resource or manager supporting the recording and query APIs; not a separate app adoption requirement."
+    },
+    {
+      "ref": "Storyfeed\\PublishQueuedActivity",
+      "reason": "Value, resource or manager supporting the recording and query APIs; not a separate app adoption requirement."
+    },
+    {
+      "ref": "Storyfeed\\Serialization\\ActivitySerializer",
+      "reason": "Activity Streams serialization behind the feed APIs."
+    },
+    {
+      "ref": "Storyfeed\\Serialization\\CollectionSerializer",
+      "reason": "Activity Streams serialization behind the feed APIs."
+    },
+    {
+      "ref": "Storyfeed\\Serialization\\Reader",
+      "reason": "Activity Streams serialization behind the feed APIs."
+    },
+    {
+      "ref": "Storyfeed\\Sources\\ArraySource",
+      "reason": "Alternative feed source implementation and entry data behind the query API."
+    },
+    {
+      "ref": "Storyfeed\\Sources\\ClassSource",
+      "reason": "Alternative feed source implementation and entry data behind the query API."
+    },
+    {
+      "ref": "Storyfeed\\Sources\\DatabaseSource",
+      "reason": "Alternative feed source implementation and entry data behind the query API."
+    },
+    {
+      "ref": "Storyfeed\\Sources\\Entry",
+      "reason": "Alternative feed source implementation and entry data behind the query API."
+    },
+    {
+      "ref": "Storyfeed\\Sources\\SourceManager",
+      "reason": "Alternative feed source implementation and entry data behind the query API."
+    },
+    {
+      "ref": "Storyfeed\\Sources\\SourceRead",
+      "reason": "Alternative feed source implementation and entry data behind the query API."
+    },
+    {
+      "ref": "Storyfeed\\Stories\\BoundStory",
+      "reason": "Story compilation and registration supporting the recording API."
+    },
+    {
+      "ref": "Storyfeed\\Stories\\CompileStories",
+      "reason": "Story compilation and registration supporting the recording API."
+    },
+    {
+      "ref": "Storyfeed\\Stories\\CreatesRoleConstraints",
+      "reason": "Story compilation and registration supporting the recording API."
+    },
+    {
+      "ref": "Storyfeed\\Stories\\DefinitionsFile",
+      "reason": "Story compilation and registration supporting the recording API."
+    },
+    {
+      "ref": "Storyfeed\\Stories\\PendingGroup",
+      "reason": "Story compilation and registration supporting the recording API."
+    },
+    {
+      "ref": "Storyfeed\\Stories\\PendingResource",
+      "reason": "Story compilation and registration supporting the recording API."
+    },
+    {
+      "ref": "Storyfeed\\Stories\\PublishQueuedStory",
+      "reason": "Story compilation and registration supporting the recording API."
+    },
+    {
+      "ref": "Storyfeed\\Stories\\Registrar",
+      "reason": "Story compilation and registration supporting the recording API."
+    },
+    {
+      "ref": "Storyfeed\\Stories\\ResourceClass",
+      "reason": "Story compilation and registration supporting the recording API."
+    },
+    {
+      "ref": "Storyfeed\\Stories\\StoryManifest",
+      "reason": "Story compilation and registration supporting the recording API."
+    },
+    {
+      "ref": "Storyfeed\\StoryfeedManager",
+      "reason": "Value, resource or manager supporting the recording and query APIs; not a separate app adoption requirement."
+    },
+    {
+      "ref": "Storyfeed\\StoryfeedServiceProvider",
+      "reason": "Value, resource or manager supporting the recording and query APIs; not a separate app adoption requirement."
+    },
+    {
+      "ref": "Storyfeed\\Support\\About",
+      "reason": "Internal helper or payload reader behind the feed APIs."
+    },
+    {
+      "ref": "Storyfeed\\Support\\ActivityContextFactory",
+      "reason": "Internal helper or payload reader behind the feed APIs."
+    },
+    {
+      "ref": "Storyfeed\\Support\\ActivityRoles",
+      "reason": "Internal helper or payload reader behind the feed APIs."
+    },
+    {
+      "ref": "Storyfeed\\Support\\Ancestors",
+      "reason": "Internal helper or payload reader behind the feed APIs."
+    },
+    {
+      "ref": "Storyfeed\\Support\\Avatar",
+      "reason": "Internal helper or payload reader behind the feed APIs."
+    },
+    {
+      "ref": "Storyfeed\\Support\\BodySlot",
+      "reason": "Internal helper or payload reader behind the feed APIs."
+    },
+    {
+      "ref": "Storyfeed\\Support\\BurstRebuildLock",
+      "reason": "Internal helper or payload reader behind the feed APIs."
+    },
+    {
+      "ref": "Storyfeed\\Support\\CarryFailures",
+      "reason": "Internal helper or payload reader behind the feed APIs."
+    },
+    {
+      "ref": "Storyfeed\\Support\\Chronology",
+      "reason": "Internal helper or payload reader behind the feed APIs."
+    },
+    {
+      "ref": "Storyfeed\\Support\\CurationWindow",
+      "reason": "Internal helper or payload reader behind the feed APIs."
+    },
+    {
+      "ref": "Storyfeed\\Support\\DataCasts",
+      "reason": "Internal helper or payload reader behind the feed APIs."
+    },
+    {
+      "ref": "Storyfeed\\Support\\Entity",
+      "reason": "Internal helper or payload reader behind the feed APIs."
+    },
+    {
+      "ref": "Storyfeed\\Support\\FeedCursor",
+      "reason": "Internal helper or payload reader behind the feed APIs."
+    },
+    {
+      "ref": "Storyfeed\\Support\\FeedItem",
+      "reason": "Internal helper or payload reader behind the feed APIs."
+    },
+    {
+      "ref": "Storyfeed\\Support\\Feedables",
+      "reason": "Internal helper or payload reader behind the feed APIs."
+    },
+    {
+      "ref": "Storyfeed\\Support\\FitsColumn",
+      "reason": "Internal helper or payload reader behind the feed APIs."
+    },
+    {
+      "ref": "Storyfeed\\Support\\FreeformMeta",
+      "reason": "Internal helper or payload reader behind the feed APIs."
+    },
+    {
+      "ref": "Storyfeed\\Support\\Headline",
+      "reason": "Internal helper or payload reader behind the feed APIs."
+    },
+    {
+      "ref": "Storyfeed\\Support\\IgnoredParties",
+      "reason": "Internal helper or payload reader behind the feed APIs."
+    },
+    {
+      "ref": "Storyfeed\\Support\\InlineEntity",
+      "reason": "Internal helper or payload reader behind the feed APIs."
+    },
+    {
+      "ref": "Storyfeed\\Support\\InvolvingLookup",
+      "reason": "Internal helper or payload reader behind the feed APIs."
+    },
+    {
+      "ref": "Storyfeed\\Support\\LinkResolver",
+      "reason": "Internal helper or payload reader behind the feed APIs."
+    },
+    {
+      "ref": "Storyfeed\\Support\\MaintenanceHistory",
+      "reason": "Internal helper or payload reader behind the feed APIs."
+    },
+    {
+      "ref": "Storyfeed\\Support\\ManifestClosure",
+      "reason": "Internal helper or payload reader behind the feed APIs."
+    },
+    {
+      "ref": "Storyfeed\\Support\\MiddlewareNameResolver",
+      "reason": "Internal helper or payload reader behind the feed APIs."
+    },
+    {
+      "ref": "Storyfeed\\Support\\ModelHydrator",
+      "reason": "Internal helper or payload reader behind the feed APIs."
+    },
+    {
+      "ref": "Storyfeed\\Support\\MorphKeyType",
+      "reason": "Internal helper or payload reader behind the feed APIs."
+    },
+    {
+      "ref": "Storyfeed\\Support\\MorphResolver",
+      "reason": "Internal helper or payload reader behind the feed APIs."
+    },
+    {
+      "ref": "Storyfeed\\Support\\QueuedActor",
+      "reason": "Internal helper or payload reader behind the feed APIs."
+    },
+    {
+      "ref": "Storyfeed\\Support\\QueuedContext",
+      "reason": "Internal helper or payload reader behind the feed APIs."
+    },
+    {
+      "ref": "Storyfeed\\Support\\RoleTypes",
+      "reason": "Internal helper or payload reader behind the feed APIs."
+    },
+    {
+      "ref": "Storyfeed\\Support\\SchemaState",
+      "reason": "Internal helper or payload reader behind the feed APIs."
+    },
+    {
+      "ref": "Storyfeed\\Support\\ShapeSignature",
+      "reason": "Internal helper or payload reader behind the feed APIs."
+    },
+    {
+      "ref": "Storyfeed\\Support\\SnapshotCompiler",
+      "reason": "Internal helper or payload reader behind the feed APIs."
+    },
+    {
+      "ref": "Storyfeed\\Support\\StoryName",
+      "reason": "Internal helper or payload reader behind the feed APIs."
+    },
+    {
+      "ref": "Storyfeed\\Support\\SurfaceScanner",
+      "reason": "Internal helper or payload reader behind the feed APIs."
+    },
+    {
+      "ref": "Storyfeed\\Support\\SyncToken",
+      "reason": "Internal helper or payload reader behind the feed APIs."
+    },
+    {
+      "ref": "Storyfeed\\Support\\TombstoneRules",
+      "reason": "Internal helper or payload reader behind the feed APIs."
+    },
+    {
+      "ref": "Storyfeed\\Support\\VerbFilter",
+      "reason": "Internal helper or payload reader behind the feed APIs."
+    },
+    {
+      "ref": "Storyfeed\\Testing\\FeedAudience",
+      "reason": "Consumer test support, not a runtime app feed surface."
+    },
+    {
+      "ref": "Storyfeed\\Testing\\HeadlineCoverage",
+      "reason": "Consumer test support, not a runtime app feed surface."
+    },
+    {
+      "ref": "Storyfeed\\Testing\\RecordsStories",
+      "reason": "Consumer test support, not a runtime app feed surface."
+    },
+    {
+      "ref": "Storyfeed\\Testing\\StorySurface",
+      "reason": "Consumer test support, not a runtime app feed surface."
+    },
+    {
+      "ref": "Storyfeed\\Testing\\StoryfeedFake",
+      "reason": "Consumer test support, not a runtime app feed surface."
+    },
+    {
+      "ref": "Storyfeed\\Testing\\WithoutRecording",
+      "reason": "Consumer test support, not a runtime app feed surface."
+    },
+    {
+      "ref": "function:storyfeed",
+      "reason": "Convenience entry to the recording and query manager; class-reference signals cannot distinguish calls to this helper."
+    },
+    {
+      "ref": "function:story",
+      "reason": "Convenience entry to named story recording; class-reference signals cannot distinguish calls to this helper."
+    },
+    {
+      "ref": "feature:workbench",
+      "reason": "Development and demonstration host; never an application adoption requirement."
+    },
+    {
+      "ref": "feature:database",
+      "reason": "Package migrations and factories implement storage behind activity.config."
+    },
+    {
+      "ref": "feature:resources",
+      "reason": "Boost guidance, generator stubs and the adoption inventory support development and installation."
+    }
+  ]
+}
