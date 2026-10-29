@@ -7,8 +7,10 @@
 <<<<<<< HEAD
 - `Storyfeed::tombstone($type, $ids, force: true)` tombstones a participant whose row survives, such as a user the app anonymised instead of deleting. The tombstone is permanent and the model's snapshot is deleted. For an inline entity it also drops the label, `url`, `data`, `body` and `media` stored in the activities' `entities`, so the name leaves storage. Without `force`, a key whose row exists is still skipped. (#224)
 =======
-- A `classes` source driver reads static feed items as classes, one per item: each implements `Storyfeed\Contracts\StaticItem` and returns an `Entry` or array from `entry()`. Classes are listed under `items` or discovered from a `path`, with a `namespace` (default: the app namespace plus the path under `app_path()`), as Pennant discovers feature classes. They resolve from the container when the source is read. (#72)
+- A feed page fills `prev_cursor` and `prev_page_url` the way Laravel's `CursorPaginator` does: `null` on the first page, a cursor from the second page on, so a reader can page backward towards newer activities from a deep link or a jump-to-date. A backward page is the same merged stream read the other way and aggregated over all of each group's members, so it holds exactly the nodes the forward pass produced for those rows, a group spanning a page boundary included. It applies to `cursorPaginate()` and `members()`, in `log` and `live`, and to in-memory sources. A backward read is not windowed, so it costs a full group aggregate. `FeedPaginator::onFirstPage()` and `hasPages()` now follow Laravel's. (#96)
+
 >>>>>>> origin/main
+- A `classes` source driver reads static feed items as classes, one per item: each implements `Storyfeed\Contracts\StaticItem` and returns an `Entry` or array from `entry()`. Classes are listed under `items` or discovered from a `path`, with a `namespace` (default: the app namespace plus the path under `app_path()`), as Pennant discovers feature classes. They resolve from the container when the source is read. (#72)
 
 ## v0.22.1 - 2026-10-28
 

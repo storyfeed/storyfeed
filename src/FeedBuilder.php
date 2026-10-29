@@ -925,11 +925,11 @@ class FeedBuilder
             default => null,
         };
 
-        [$slices, $next] = (new SourceRead(
+        [$slices, $next, $prev] = (new SourceRead(
             $source, $this->admitsActivity($now), $this->shouldGroup(), $this->limit, $this->cursor, $this->childrenLimit(), $this->offset, $this->keepsOrder(), $this->groupsByContext(), $this->sourceMembersOf(),
         ))->page();
 
-        return new FeedPage($slices, $next, $this->presenter());
+        return new FeedPage($slices, $next, $this->presenter(), prevCursor: $prev);
     }
 
     /**
@@ -1083,14 +1083,17 @@ class FeedBuilder
 
         try {
             for ($hop = 0; ; $hop++) {
-                [$slices, $next] = $this->groupedSlices($now);
+                [$slices, $next, $prev] = $this->groupedSlices($now);
 
-                if ($slices->isNotEmpty() || $next === null || $hop === self::MAX_EMPTY_HOPS) {
-                    return new FeedPage($slices, $next, $this->presenter(), SyncToken::current());
+                // Reading backward, the empty page is skipped towards newer items.
+                $onward = $this->readsBackward() ? $prev : $next;
+
+                if ($slices->isNotEmpty() || $onward === null || $hop === self::MAX_EMPTY_HOPS) {
+                    return new FeedPage($slices, $next, $this->presenter(), SyncToken::current(), $prev);
                 }
 
                 // The cursor already stands past the skipped items.
-                $this->cursor = $next;
+                $this->cursor = $onward;
                 $this->offset = 0;
             }
         } finally {
@@ -1103,7 +1106,7 @@ class FeedBuilder
     /**
      * One read: phase 1 selects the page, phase 2 hydrates it.
      *
-     * @return array{Collection<int, GroupSlice>, string|null}
+     * @return array{Collection<int, GroupSlice>, string|null, string|null} slices, next cursor, previous cursor
      */
     protected function groupedSlices(Carbon $now): array
     {
@@ -1120,13 +1123,46 @@ class FeedBuilder
         $more = $candidates->count() > $this->offset + $this->limit;
         $candidates = $candidates->slice($this->offset, $this->limit)->values();
 
-        $next = $more ? $this->encodeCursor($candidates->last()) : null;
+        // A backward read arrives nearest first; the page reads newest first.
+        $before = $this->readsBackward();
+
+        if ($before) {
+            $candidates = $candidates->reverse()->values();
+        }
+
+        [$next, $prev] = $this->pageCursors(
+            $before, $more,
+            fn (bool $back) => $this->encodeCursor($back ? $candidates->first() : $candidates->last(), $back),
+        );
 
         $groups = $candidates->filter(fn (FeedCandidate $candidate) => $candidate->isGroup())->values();
 
         $slices = $this->groupSlices($now, $candidates, $groups);
 
-        return [$slices, $next];
+        return [$slices, $next, $prev];
+    }
+
+    /** Whether the cursor in hand pages towards newer items. */
+    protected function readsBackward(): bool
+    {
+        return $this->decodedCursor()?->pointsToPreviousItems() ?? false;
+    }
+
+    /**
+     * The cursors around a page, as Laravel's CursorPaginator sets them:
+     * a page read forward from a cursor can go back; a page read backward
+     * can always go forward again, having come from there.
+     *
+     * @param  Closure(bool): ?string  $at  the cursor at the page's first (`true`) or last (`false`) item
+     * @return array{?string, ?string} next, previous
+     */
+    protected function pageCursors(bool $before, bool $more, Closure $at): array
+    {
+        if ($before) {
+            return [$at(false), $more ? $at(true) : null];
+        }
+
+        return [$more ? $at(false) : null, $this->decodedCursor() === null ? null : $at(true)];
     }
 
     /**
@@ -1266,24 +1302,27 @@ class FeedBuilder
 
     /**
      * Newest first, after the cursor's (published_at, id), one row past the
-     * page so its end is known.
+     * page so its end is known. A backward cursor reads the mirror image.
      *
      * @param  ActivityBuilder<Activity>  $query
-     * @param  array{published_at: string, id: int|string}|null  $cursor
+     * @param  array{published_at: string, id: int|string, before: bool}|null  $cursor
      * @param  array{string, string}|null  $timeline  the (published_at, id) columns; the activity's own by default
      */
     protected function keysetPage(ActivityBuilder $query, string $activities, ?array $cursor, ?array $timeline = null): void
     {
         [$publishedAt, $id] = $timeline ?? ["{$activities}.published_at", "{$activities}.id"];
 
+        // Backward: the rows before the cursor, nearest first (activityPage() turns them round).
+        $before = $cursor['before'] ?? false;
+
         $query
             ->when($cursor !== null, fn (ActivityBuilder $q) => $q->where(fn (ActivityBuilder $after) => $after
-                ->where($publishedAt, '<', $cursor['published_at'])
+                ->where($publishedAt, $before ? '>' : '<', $cursor['published_at'])
                 ->orWhere(fn (ActivityBuilder $tie) => $tie
                     ->where($publishedAt, '=', $cursor['published_at'])
-                    ->where($id, '<', $cursor['id']))))
-            ->orderBy($publishedAt, 'desc')
-            ->orderBy($id, 'desc')
+                    ->where($id, $before ? '>' : '<', $cursor['id']))))
+            ->orderBy($publishedAt, $before ? 'asc' : 'desc')
+            ->orderBy($id, $before ? 'asc' : 'desc')
             ->when($this->offset > 0, fn (ActivityBuilder $q) => $q->offset($this->offset))
             ->limit($this->limit + 1);
     }
@@ -1336,29 +1375,37 @@ class FeedBuilder
     {
         $more = $rows->count() > $this->limit;
         $page = $rows->take($this->limit);
+        $cursor = $this->logCursorState($activities);
+        $before = $cursor['before'] ?? false;
+
+        // A backward read arrives nearest first; the page reads newest first.
+        if ($before) {
+            $page = $page->reverse()->values();
+        }
+
         $this->loadSnapshots($page);
 
         $slices = $page->map(fn (Activity $activity) => GroupSlice::solo($activity));
 
-        /** @var Activity|null $last */
-        $last = $page->last();
+        [$next, $prev] = $this->pageCursors($before, $more, function (bool $back) use ($page, $activities) {
+            /** @var Activity|null $row */
+            $row = $back ? $page->first() : $page->last();
 
-        $next = $more && $last !== null
-            ? (new Cursor([
-                "{$activities}.published_at" => $this->normalizeTimestamp($last->published_at),
-                "{$activities}.id" => $last->getKey(),
+            return $row === null ? null : (new Cursor([
+                "{$activities}.published_at" => $this->normalizeTimestamp($row->published_at),
+                "{$activities}.id" => $row->getKey(),
                 ...$this->cursorScope(),
-            ]))->encode()
-            : null;
+            ], ! $back))->encode();
+        });
 
-        return new FeedPage(Collection::make($slices->all()), $next, $this->presenter(), SyncToken::current());
+        return new FeedPage(Collection::make($slices->all()), $next, $this->presenter(), SyncToken::current(), $prev);
     }
 
     /**
      * The flat timeline's cursor: the keyset `cursorPaginate()` minted, read
      * back under the same names. Not contract — see cursorState().
      *
-     * @return array{published_at: string, id: int|string}|null
+     * @return array{published_at: string, id: int|string, before: bool}|null
      */
     protected function logCursorState(string $activities): ?array
     {
@@ -1377,6 +1424,7 @@ class FeedBuilder
         return [
             'published_at' => $this->normalizeTimestamp($parameters["{$activities}.published_at"]),
             'id' => $parameters["{$activities}.id"],
+            'before' => $cursor->pointsToPreviousItems(),
         ];
     }
 
@@ -1424,6 +1472,11 @@ class FeedBuilder
     protected function selectItems(Carbon $now): Collection
     {
         $cursor = $this->cursorState();
+
+        if ($cursor['before'] ?? false) {
+            return $this->itemsBefore($now, $cursor);
+        }
+
         $ceiling = $cursor['latest'] ?? null;
         foreach ($this->windowDepths() as $depth) {
             $floor = $depth === null ? null : $this->windowFloor($now, $ceiling, $depth);
@@ -1460,6 +1513,33 @@ class FeedBuilder
         return $candidates;
     }
 
+    /**
+     * The items before a cursor in the merged order, NEAREST FIRST: the
+     * forward comparator, reversed. Unwindowed — the window is an
+     * optimisation of the forward read's cheap common case, and a backward
+     * page is a deep link or a jump, not the hot path. Every group is
+     * aggregated over all its eligible members, so a group that spans the
+     * cursor is the node the forward pass produced, at the same position.
+     *
+     * @param  array{latest: string, rank: int, axis: string|null, hash: string|null, id: int|string|null, before: bool}  $cursor
+     * @return Collection<int, FeedCandidate>
+     */
+    protected function itemsBefore(Carbon $now, array $cursor): Collection
+    {
+        $groups = $this->groupAggregate($now, $cursor, null, null)
+            ->map(fn (object $row) => FeedCandidate::group(
+                $this->normalizeTimestamp($row->latest), (string) $row->bucket,
+                (string) $row->hash, (int) $row->members, $row->last_id,
+            ));
+
+        return $groups
+            ->concat($this->soloStream($now, $cursor))
+            ->sort(fn (FeedCandidate $a, FeedCandidate $b): int => strcmp($a->latest, $b->latest)
+                ?: ($this->rank($b) <=> $this->rank($a))
+                ?: $this->compareTiebreak($b, $a))
+            ->values();
+    }
+
     protected function rank(FeedCandidate $candidate): int
     {
         return $candidate->isGroup() ? self::RANK_GROUP : self::RANK_SOLO;
@@ -1488,7 +1568,7 @@ class FeedBuilder
     }
 
     /**
-     * @param  array{latest: string, rank: int, axis: string|null, hash: string|null, id: int|string|null}|null  $cursor
+     * @param  array{latest: string, rank: int, axis: string|null, hash: string|null, id: int|string|null, before?: bool}|null  $cursor
      * @return Collection<int, FeedCandidate>
      */
     protected function groupStream(Carbon $now, ?array $cursor): Collection
@@ -1614,7 +1694,7 @@ class FeedBuilder
      * Only the uncursored read can cap: under a cursor the aggregate also
      * counts members above the ceiling, which the floor did not.
      *
-     * @param  array{latest: string, rank: int, axis: string|null, hash: string|null, id: int|string|null}|null  $cursor
+     * @param  array{latest: string, rank: int, axis: string|null, hash: string|null, id: int|string|null, before?: bool}|null  $cursor
      * @return Collection<int, \stdClass> rows of bucket, hash, latest, members
      */
     protected function groupAggregate(Carbon $now, ?array $cursor, ?string $floor, ?string $ceiling, ?int $within = null): Collection
@@ -1684,21 +1764,30 @@ class FeedBuilder
 
         // Groups rank before solos at an identical timestamp, so a solo
         // cursor has already consumed every group in that tie.
+        // A backward read (`before`) is the mirror image: the groups the
+        // forward predicate would NOT have returned after this cursor, taken
+        // nearest first. Unwindowed, so the caller passes no floor or ceiling.
+        $before = $cursor['before'] ?? false;
+
         if ($cursor !== null && $cursor['rank'] === self::RANK_GROUP) {
             $query->havingRaw(
-                "({$latest} < ? or ({$latest} = ? and ({$lastId} < ? or ({$lastId} = ? and ({$bucketColumn} > ? or ({$bucketColumn} = ? and {$hashColumn} > ?))))))",
+                $before
+                    ? "({$latest} > ? or ({$latest} = ? and ({$lastId} > ? or ({$lastId} = ? and ({$bucketColumn} < ? or ({$bucketColumn} = ? and {$hashColumn} < ?))))))"
+                    : "({$latest} < ? or ({$latest} = ? and ({$lastId} < ? or ({$lastId} = ? and ({$bucketColumn} > ? or ({$bucketColumn} = ? and {$hashColumn} > ?))))))",
                 [$cursor['latest'], $cursor['latest'], $cursor['id'], $cursor['id'], $cursor['axis'], $cursor['axis'], $cursor['hash']],
             );
         } elseif ($cursor !== null) {
-            $query->havingRaw("{$latest} < ?", [$cursor['latest']]);
+            // A solo cursor has consumed the groups at its timestamp, so
+            // going back, they are all still ahead of it.
+            $query->havingRaw($before ? "{$latest} >= ?" : "{$latest} < ?", [$cursor['latest']]);
         }
 
         if ($ceiling === null) {
             return $query
-                ->orderByRaw("{$latest} desc")
-                ->orderByRaw("{$lastId} desc")
-                ->orderBy("{$groupings}.bucket")
-                ->orderBy("{$groupings}.hash")
+                ->orderByRaw($before ? "{$latest} asc" : "{$latest} desc")
+                ->orderByRaw($before ? "{$lastId} asc" : "{$lastId} desc")
+                ->orderBy("{$groupings}.bucket", $before ? 'desc' : 'asc')
+                ->orderBy("{$groupings}.hash", $before ? 'desc' : 'asc')
                 ->limit($this->limit + 1)
                 ->get();
         }
@@ -1860,7 +1949,7 @@ class FeedBuilder
      * or awaiting the trickle). Their presence here is what keeps graceful
      * degradation true: the read path never hides an activity.
      *
-     * @param  array{latest: string, rank: int, axis: string|null, hash: string|null, id: int|string|null}|null  $cursor
+     * @param  array{latest: string, rank: int, axis: string|null, hash: string|null, id: int|string|null, before?: bool}|null  $cursor
      * @return Collection<int, FeedCandidate>
      */
     protected function soloStream(Carbon $now, ?array $cursor, ?string $floor = null, ?string $ceiling = null, ?int $within = null): Collection
@@ -1914,23 +2003,28 @@ class FeedBuilder
             ->where('composite_rows.bucket', 'composite')
             ->limit(1);
 
+        // Backward (`before`): the mirror image, nearest first, unwindowed.
+        $before = $cursor['before'] ?? false;
+        $direction = $before ? 'asc' : 'desc';
+
         $query
             // Composite parents and members are never solo: the parent is
             // told by its cluster node, the members by their composite.
             ->whereRaw('('.$composites->toSql().') is null', $composites->getBindings())
-            ->orderBy($publishedAt, 'desc')
-            ->orderBy($id, 'desc')
+            ->orderBy($publishedAt, $direction)
+            ->orderBy($id, $direction)
             ->limit($this->limit + 1);
 
         if ($cursor !== null && $cursor['rank'] === self::RANK_SOLO) {
             $query->where(fn (ActivityBuilder $q) => $q
-                ->where($publishedAt, '<', $cursor['latest'])
+                ->where($publishedAt, $before ? '>' : '<', $cursor['latest'])
                 ->orWhere(fn (ActivityBuilder $tie) => $tie
                     ->where($publishedAt, '=', $cursor['latest'])
-                    ->where($id, '<', $cursor['id'])));
+                    ->where($id, $before ? '>' : '<', $cursor['id'])));
         } elseif ($cursor !== null) {
             // Every group at this timestamp is spent; solos in the tie remain.
-            $query->where($publishedAt, '<=', $cursor['latest']);
+            // Going back, the solos at it come after the group, so only the newer ones precede it.
+            $query->where($publishedAt, $before ? '>' : '<=', $cursor['latest']);
         }
 
         return $query->get()->map(fn (Activity $activity) => FeedCandidate::solo(
@@ -2305,7 +2399,7 @@ class FeedBuilder
      * Cursor internals are NOT contract (docs/payload.md) — they encode the
      * position in the merged item stream, not a row offset.
      *
-     * @return array{latest: string, rank: int, axis: string|null, hash: string|null, id: int|string|null}|null
+     * @return array{latest: string, rank: int, axis: string|null, hash: string|null, id: int|string|null, before: bool}|null
      */
     protected function cursorState(): ?array
     {
@@ -2331,10 +2425,12 @@ class FeedBuilder
             'axis' => $parameters['axis'] ?? null,
             'hash' => $parameters['hash'] ?? null,
             'id' => $parameters['id'] ?? null,
+            'before' => $cursor->pointsToPreviousItems(),
         ];
     }
 
-    protected function encodeCursor(?FeedCandidate $candidate): ?string
+    /** A cursor at the candidate; `$before` makes it page backward from there, as Laravel's does. */
+    protected function encodeCursor(?FeedCandidate $candidate, bool $before = false): ?string
     {
         if ($candidate === null) {
             return null;
@@ -2347,7 +2443,7 @@ class FeedBuilder
             'hash' => $candidate->hash,
             'id' => $candidate->id,
             ...$this->cursorScope(),
-        ]))->encode();
+        ], ! $before))->encode();
     }
 
     /**
