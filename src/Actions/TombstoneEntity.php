@@ -13,6 +13,7 @@ use Storyfeed\PendingTombstone;
 use Storyfeed\Support\ActivityRoles;
 use Storyfeed\Support\Feedables;
 use Storyfeed\Support\FreeformMeta;
+use Storyfeed\Support\InlineEntity;
 use Storyfeed\Support\MorphKeyType;
 use Storyfeed\Support\MorphResolver;
 use Storyfeed\Support\SyncToken;
@@ -158,10 +159,15 @@ class TombstoneEntity
      * Existence is checked WITHOUT GLOBAL SCOPES, so a row hidden by a tenant
      * scope is never mistaken for a deleted one.
      *
+     * `$force` tombstones every key whether or not its row exists, for a
+     * person the app anonymised instead of deleting: the tombstone is
+     * permanent, and the label an inline entity was recorded with is
+     * dropped from the activities' `entities`, so no name stays in storage.
+     *
      * @param  iterable<int|string>  $ids
      * @return list<FeedTombstone>
      */
-    public function missing(string $alias, iterable $ids, bool $approximate = false): array
+    public function missing(string $alias, iterable $ids, bool $approximate = false, bool $force = false): array
     {
         $ids = array_values(array_unique(array_map(fn ($id) => (string) $id, [...$ids])));
 
@@ -187,8 +193,13 @@ class TombstoneEntity
             $row = $rows[$id] ?? null;
             $trashedAt = $row === null ? null : self::trashedAt($row);
 
-            if ($row !== null && $trashedAt === null) {
+            if ($row !== null && $trashedAt === null && ! $force) {
                 continue;
+            }
+
+            if ($force) {
+                $trashedAt = null;
+                $this->scrubInline($alias, $id);
             }
 
             // A trashed row knows exactly when it went.
@@ -202,6 +213,46 @@ class TombstoneEntity
         }
 
         return $tombstones;
+    }
+
+    /**
+     * Drop the stored inline entity of every role naming the alias and key,
+     * trashed activities included, so its label, `url`, `data`, `body` and
+     * `media` don't outlive the tombstone. The role's columns keep naming it
+     * until the repoint, which follows; the role then reads from the
+     * tombstone's snapshot.
+     */
+    protected function scrubInline(string $alias, string $id): void
+    {
+        if (! InlineEntity::installed(new (config('storyfeed.models.activity', Activity::class)))) {
+            return;
+        }
+
+        $id = MorphKeyType::value($id);
+
+        foreach (ActivityRoles::STORED as $role) {
+            DeleteFromFeed::query()->withTrashed()
+                ->where("{$role}_type", $alias)->where("{$role}_id", $id)
+                ->whereNotNull('entities')
+                ->chunkById(self::scrubChunk(), function ($activities) use ($role) {
+                    foreach ($activities as $activity) {
+                        $entities = $activity->entities;
+
+                        if (! is_array($entities) || ! array_key_exists($role, $entities)) {
+                            continue;
+                        }
+
+                        unset($entities[$role]);
+                        $activity->entities = $entities === [] ? null : $entities;
+                        $activity->saveQuietly();
+                    }
+                });
+        }
+    }
+
+    private static function scrubChunk(): int
+    {
+        return RepointReferences::CHUNK;
     }
 
     /**

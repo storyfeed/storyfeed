@@ -2372,17 +2372,24 @@ class StoryfeedManager
      * are never restorable. Without this call the trickle finds the deletions
      * later, and marks their time as approximate.
      *
+     * `force: true` tombstones a key whose row survives, for a person the
+     * app anonymised instead of deleting. The tombstone is permanent, the
+     * model's snapshot is deleted, and an inline entity recorded under the
+     * key loses its stored label, `url`, `data`, `body` and `media`, so the
+     * name leaves storage with the tombstone. Saving a Feedable model again
+     * snapshots it again, so don't, or stop it feeding.
+     *
      * @param  class-string<Model>|string  $type
      * @param  iterable<int|string>|int|string  $ids
      * @return list<FeedTombstone>
      */
-    public function tombstone(string $type, iterable|int|string $ids): array
+    public function tombstone(string $type, iterable|int|string $ids, bool $force = false): array
     {
         $alias = class_exists($type) && is_a($type, Model::class, true)
             ? (new $type)->getMorphClass()
             : $type;
 
-        return (new TombstoneEntity)->missing($alias, is_iterable($ids) ? $ids : [$ids]);
+        return (new TombstoneEntity)->missing($alias, is_iterable($ids) ? $ids : [$ids], force: $force);
     }
 
     /**
