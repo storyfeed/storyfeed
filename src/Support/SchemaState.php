@@ -53,6 +53,14 @@ class SchemaState
     ];
 
     /**
+     * The fix for an install behind either map. The migrations were consolidated
+     * after v0.22, so the steps that add these columns ship only with v0.22:
+     * nothing newer would add them to an existing table.
+     */
+    public const string REMEDY = 'Run the migrations Storyfeed v0.22 publishes first, then delete the published '
+        .'Storyfeed migrations and publish them again (vendor:publish --tag=storyfeed-migrations).';
+
+    /**
      * Reference columns not yet in the MorphKeyType shape, by table name.
      * Tables and columns that don't exist are left to `Tables` and `Columns`.
      *

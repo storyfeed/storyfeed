@@ -1,9 +1,6 @@
 <?php
 
-use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 use Storyfeed\Facades\Storyfeed;
 use Storyfeed\Payload\NodePresenter;
 use Storyfeed\Serialization\Reader;
@@ -121,27 +118,4 @@ it('reads startTime and endTime back from its own document', function () {
 
     expect($parsed['starts_at']?->utc()->toDateTimeString())->toBe('2026-09-20 09:30:00')
         ->and($parsed['ends_at']?->utc()->toDateTimeString())->toBe('2026-10-09 12:00:00');
-});
-
-it('adds nullable range columns on upgrade, idempotently and without a backfill', function () {
-    $table = 'legacy_range_activities';
-    config(['storyfeed.tables.activities' => $table]);
-
-    Schema::create($table, function (Blueprint $blueprint) {
-        $blueprint->id();
-        $blueprint->string('verb');
-    });
-    DB::table($table)->insert(['id' => 1, 'verb' => 'historical']);
-    $before = (array) DB::table($table)->first();
-    $migration = include __DIR__.'/../../database/migrations/add_time_range_to_feed_activities_table.php.stub';
-
-    $migration->up();
-    $migration->up();
-
-    expect((array) DB::table($table)->first())->toBe([...$before, 'starts_at' => null, 'ends_at' => null]);
-
-    $migration->down();
-    $migration->down();
-
-    expect((array) DB::table($table)->first())->toBe($before);
 });

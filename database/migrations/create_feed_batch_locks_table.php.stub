@@ -2,7 +2,6 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Storyfeed\Support\MorphKeyType;
 
@@ -10,13 +9,19 @@ return new class extends Migration
 {
     public function up(): void
     {
-        $locks = config('storyfeed.tables.batch_locks', 'feed_batch_locks');
+        $name = config('storyfeed.tables.batch_locks', 'feed_batch_locks');
+
+        // An install from v0.22 or earlier already has this table; deleting
+        // and republishing the migrations must not fail on it.
+        if (Schema::hasTable($name)) {
+            return;
+        }
 
         // One row per actor that has ever been batched. Publish upserts it
         // before deciding which batch to join, so two first publishes by the
         // same actor queue on this row instead of each opening a batch. It
         // holds nothing the feed reads.
-        Schema::create($locks, function (Blueprint $table) {
+        Schema::create($name, function (Blueprint $table) {
             $table->string('actor_type');
             // The same app-key storage as the batch actor reference.
             MorphKeyType::id($table, 'actor_id');
@@ -28,27 +33,6 @@ return new class extends Migration
 
             $table->primary(['actor_type', 'actor_id']);
         });
-
-        // An existing install already has open batches, and publish finds
-        // them only through this list.
-        $batches = config('storyfeed.tables.batches', 'feed_batches');
-
-        if (! Schema::hasTable($batches)) {
-            return;
-        }
-
-        DB::table($batches)
-            ->whereNull('closed_at')
-            ->whereNotNull('actor_type')
-            ->whereNotNull('actor_id')
-            ->orderBy('id')
-            ->get(['id', 'actor_type', 'actor_id'])
-            ->groupBy(fn ($batch) => $batch->actor_type."\0".$batch->actor_id)
-            ->each(fn ($open) => DB::table($locks)->insert([
-                'actor_type' => $open->firstOrFail()->actor_type,
-                'actor_id' => (string) $open->firstOrFail()->actor_id,
-                'open_batches' => json_encode($open->pluck('id')->map(fn ($id) => (int) $id)->all()),
-            ]));
     }
 
     public function down(): void

@@ -67,7 +67,6 @@ final class BackfillAncestors
                     $rows[$identity] = array_merge($ancestor, [
                         'activity_id' => $activity->getKey(), 'role' => 'ancestor',
                         'published_at' => $activity->published_at === null ? null : Chronology::stamp($activity->published_at),
-                        'created_at' => now(), 'updated_at' => now(),
                     ]);
                 }
             }

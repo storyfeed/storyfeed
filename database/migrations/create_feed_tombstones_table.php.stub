@@ -9,7 +9,15 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create(config('storyfeed.tables.tombstones', 'feed_tombstones'), function (Blueprint $table) {
+        $name = config('storyfeed.tables.tombstones', 'feed_tombstones');
+
+        // An install from v0.22 or earlier already has this table; deleting
+        // and republishing the migrations must not fail on it.
+        if (Schema::hasTable($name)) {
+            return;
+        }
+
+        Schema::create($name, function (Blueprint $table) {
             $table->id();
             // The deleted model's morph alias and key, as a case-sensitive string.
             $table->string('model_type');

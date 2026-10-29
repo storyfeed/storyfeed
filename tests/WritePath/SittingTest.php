@@ -1,6 +1,5 @@
 <?php
 
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Storyfeed\Events\BatchClosed;
 use Storyfeed\Facades\Story;
@@ -212,18 +211,4 @@ it('closes an open batch that has no closes_at where it always would have', func
     $this->artisan('storyfeed:close-batches')->assertSuccessful();
 
     expect(Batch::query()->sole()->isOpen())->toBeFalse();
-});
-
-it('backfills closes_at on open batches when the migration runs', function () {
-    $table = config('storyfeed.tables.batches', 'feed_batches');
-
-    $open = Batch::query()->create(['actor_type' => 'user', 'actor_id' => 1, 'opened_at' => now()->subMinutes(30), 'last_activity_at' => now()->subMinutes(5)]);
-    $fresh = Batch::query()->create(['actor_type' => 'user', 'actor_id' => 2, 'opened_at' => now()->subMinutes(3)]);
-    $closed = Batch::query()->create(['actor_type' => 'user', 'actor_id' => 3, 'opened_at' => now()->subHour(), 'closed_at' => now()->subMinutes(40)]);
-
-    (include __DIR__.'/../../database/migrations/add_closes_at_to_feed_batches_table.php.stub')->up();
-
-    expect($open->fresh()->closes_at->equalTo($open->last_activity_at->copy()->addMinutes(10)))->toBeTrue()
-        ->and($fresh->fresh()->closes_at->equalTo($fresh->opened_at->copy()->addMinutes(10)))->toBeTrue()
-        ->and(DB::table($table)->where('id', $closed->id)->value('closes_at'))->toBeNull();
 });

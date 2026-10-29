@@ -9,24 +9,60 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create(config('storyfeed.tables.activities', 'feed_activities'), function (Blueprint $table) {
+        $name = config('storyfeed.tables.activities', 'feed_activities');
+
+        // An install from v0.22 or earlier already has this table; deleting
+        // and republishing the migrations must not fail on it.
+        if (Schema::hasTable($name)) {
+            return;
+        }
+
+        Schema::create($name, function (Blueprint $table) {
             $table->id();
             $table->ulid('uid')->unique();
+            // Kept for the rare-verb reads, which a fixture of common verbs
+            // can't show.
             $table->string('verb')->index();
-            MorphKeyType::nullableMorphs($table, 'actor');
-            MorphKeyType::nullableMorphs($table, 'object');
-            MorphKeyType::nullableMorphs($table, 'target');
-            MorphKeyType::nullableMorphs($table, 'context');
-            $table->foreignId('cached_actor_id')->nullable()->index();
-            $table->foreignId('cached_object_id')->nullable()->index();
-            $table->foreignId('cached_target_id')->nullable()->index();
-            $table->foreignId('cached_context_id')->nullable()->index();
+
+            // The four primary roles carry no short morph index: the
+            // *_published indexes below lead with the same pair and cover
+            // every query shape.
+            foreach (['actor', 'object', 'target', 'context'] as $role) {
+                $table->string($role.'_type')->nullable();
+                MorphKeyType::id($table, $role.'_id')->nullable();
+            }
+
+            // The AS2 roles. The morph index serves rebuild's distinct
+            // identities and identity-filtered updates; involving() uses
+            // participants, so they need no paging index.
+            foreach (['origin', 'result', 'instrument', 'location', 'generator'] as $role) {
+                MorphKeyType::nullableMorphs($table, $role);
+            }
+
+            foreach (['actor', 'object', 'target', 'context'] as $role) {
+                $table->foreignId('cached_'.$role.'_id')->nullable()->index();
+            }
+
+            // Snapshot loads use the snapshot's primary key, so these need no index.
+            foreach (['origin', 'result', 'instrument', 'location', 'generator'] as $role) {
+                $table->foreignId('cached_'.$role.'_id')->nullable();
+            }
+
             $table->json('data')->nullable();
+            // Roles recorded with no model behind them
+            // (`->object(['type' => 'vote', 'label' => 'their vote'])`).
+            $table->json('entities')->nullable();
+            // The role whose entity a row draws as its body; null draws none.
+            // No index: nothing reads by it.
+            $table->string('featured', 16)->nullable()->default('object');
+
             // Microseconds, or two activities published milliseconds apart
             // are tied in storage and the tiebreak decides their order. The
-            // model's $dateFormat is what fills the extra width; all four
-            // date columns share it, so all four are widened together.
+            // model's $dateFormat is what fills the extra width, and a model
+            // has one format, so every date column here shares it.
             $table->timestamp('published_at', 6)->nullable();
+            $table->timestamp('starts_at', 6)->nullable();
+            $table->timestamp('ends_at', 6)->nullable();
             $table->timestamps(6);
             $table->softDeletes('deleted_at', 6);
 
@@ -35,6 +71,8 @@ return new class extends Migration
             $table->index(['object_type', 'object_id', 'published_at', 'id'], 'feed_activities_object_published_index');
             $table->index(['target_type', 'target_id', 'published_at', 'id'], 'feed_activities_target_published_index');
             $table->index(['context_type', 'context_id', 'published_at', 'id'], 'feed_activities_context_published_index');
+            // keep_latest: an object's newest row of a verb.
+            $table->index(['object_type', 'object_id', 'verb', 'published_at'], 'feed_activities_object_verb_published_index');
         });
     }
 

@@ -75,49 +75,6 @@ it('still finds an earlier open window for a late arrival, through the list', fu
         ->and(listedBatches('user', $sally->id))->toBe($batches->pluck('id')->sort()->values()->all());
 });
 
-it('lists the open batches an existing install already has when the migration runs', function () {
-    $sally = User::create(['name' => 'Sally', 'email' => 'sally@example.com']);
-    $open = ['actor_type' => 'user', 'actor_id' => $sally->id, 'closed_at' => null, 'activities_count' => 1];
-    DB::table('feed_batches')->insert([
-        ['uid' => 'A', ...$open, 'opened_at' => now()->subMinutes(2), 'last_activity_at' => now()->subMinutes(2)],
-        ['uid' => 'B', ...$open, 'opened_at' => now()->subHour(), 'last_activity_at' => now()->subHour()],
-        ['uid' => 'C', ...$open, 'opened_at' => now()->subDay(), 'last_activity_at' => now()->subDay(), 'closed_at' => now()->subDay()],
-        ['uid' => 'D', ...$open, 'actor_id' => $sally->id + 1, 'opened_at' => now()->subDay(), 'last_activity_at' => now()->subDay(), 'closed_at' => now()->subDay()],
-    ]);
-    $migration = include __DIR__.'/../../database/migrations/create_feed_batch_locks_table.php.stub';
-    $migration->down();
-    $migration->up();
-
-    $ids = DB::table('feed_batches')->whereIn('uid', ['A', 'B'])->orderBy('id')->pluck('id')->all();
-
-    expect(DB::table('feed_batch_locks')->count())->toBe(1)
-        ->and(listedBatches('user', $sally->id))->toBe($ids);
-
-    // So the first publish after the upgrade joins the window it already had.
-    Storyfeed::activity()->actor($sally)->verb('ping')->publish();
-
-    expect(Batch::query()->count())->toBe(4)
-        ->and(Batch::query()->where('uid', 'A')->value('activities_count'))->toBe(2);
-});
-
-it('skips typed actors with null ids when backfilling batch locks', function () {
-    DB::table('feed_batches')->insert([
-        ['uid' => 'missing-id', 'actor_type' => 'user', 'actor_id' => null, 'opened_at' => now()],
-        ['uid' => 'valid-actor', 'actor_type' => 'user', 'actor_id' => 1, 'opened_at' => now()],
-    ]);
-
-    $migration = include __DIR__.'/../../database/migrations/create_feed_batch_locks_table.php.stub';
-    $migration->down();
-    $migration->up();
-
-    $validId = DB::table('feed_batches')->where('uid', 'valid-actor')->value('id');
-
-    // An empty string is not a valid comparison for integer keys on PostgreSQL.
-    // Exactly one lock, belonging to the valid actor, also rules out an extra row.
-    expect(DB::table('feed_batch_locks')->count())->toBe(1)
-        ->and(listedBatches('user', 1))->toBe([(int) $validId]);
-});
-
 it('still rewrites groupings and participants when an activity is re-synced', function () {
     $sally = User::create(['name' => 'Sally', 'email' => 'sally@example.com']);
     $delivery = Delivery::create(['tracking_number' => 'TN-1']);

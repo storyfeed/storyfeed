@@ -31,8 +31,7 @@ class References extends Check
             yield Finding::error(
                 'references.shape',
                 "Table `{$table}` stores {$list} in the pre-0.13 shape, not varchar(36), and PostgreSQL can't "
-                .'compare them with package keys. Publish and run the package migrations '
-                .'(vendor:publish --tag=storyfeed-migrations) to convert them.',
+                .'compare them with package keys. '.SchemaState::REMEDY,
                 ['table' => $table, 'columns' => implode(',', $columns)],
             );
         }

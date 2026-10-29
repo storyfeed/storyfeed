@@ -93,7 +93,7 @@ final class ReplayGroupingBursts
                 unset($logical);
                 $rehashed += (int) $hasBurst;
                 foreach ($hashes as $bucket => $hash) {
-                    $inserts[] = ['activity_id' => $id, 'bucket' => $bucket, 'hash' => $hash, 'winner' => null, 'created_at' => $now, 'updated_at' => $now];
+                    $inserts[] = ['activity_id' => $id, 'bucket' => $bucket, 'hash' => $hash, 'winner' => null];
                 }
                 foreach ($existing->get($id) ?? [] as $row) {
                     if ($row->bucket !== null && ! isset($hashes[$row->bucket]) && ! in_array($row->bucket, $manager->rowBackedBuckets(), true)) {
@@ -119,7 +119,7 @@ final class ReplayGroupingBursts
     }
 
     /**
-     * @param  list<array{activity_id: int|string, bucket: string, hash: string, winner: null, created_at: string, updated_at: string}>  $inserts
+     * @param  list<array{activity_id: int|string, bucket: string, hash: string, winner: null}>  $inserts
      * @param  list<int|string>  $deletes
      */
     private function flush(array &$inserts, array &$deletes): void
@@ -127,7 +127,7 @@ final class ReplayGroupingBursts
         $grouping = config('storyfeed.models.grouping', Grouping::class);
         foreach (array_chunk($inserts, 100) as $rows) {
             // Existing nonburst memberships keep their winner, as updateOrCreate does.
-            $grouping::query()->upsert($rows, ['activity_id', 'bucket'], ['hash', 'updated_at']);
+            $grouping::query()->upsert($rows, ['activity_id', 'bucket'], ['hash']);
         }
         foreach (array_chunk($deletes, 500) as $ids) {
             $grouping::query()->whereKey($ids)->delete();

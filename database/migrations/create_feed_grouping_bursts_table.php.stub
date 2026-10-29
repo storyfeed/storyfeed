@@ -9,6 +9,8 @@ return new class extends Migration
     public function up(): void
     {
         $name = config('storyfeed.tables.grouping_bursts', 'feed_grouping_bursts');
+        // An install from v0.22 or earlier already has this table; deleting
+        // and republishing the migrations must not fail on it.
         if (Schema::hasTable($name)) {
             return;
         }

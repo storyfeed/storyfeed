@@ -2,7 +2,6 @@
 
 use Storyfeed\Actions\SnapshotEntity;
 use Storyfeed\FeedEntity;
-use Storyfeed\Models\Snapshot;
 use Workbench\App\Models\Delivery;
 
 it('does not regress a newer snapshot when an older model copy arrives last', function () {
@@ -88,20 +87,4 @@ it('orders custom source timestamps in UTC with subsecond precision and protects
 
     expect($result->fresh()->only(['label', 'data', 'content', 'media_type', 'attributed_to', 'shape', 'source_updated_at']))
         ->toBe($newer->fresh()->only(['label', 'data', 'content', 'media_type', 'attributed_to', 'shape', 'source_updated_at']));
-});
-
-it('adds a nullable source timestamp to existing snapshots without a backfill', function () {
-    $migration = include __DIR__.'/../../database/migrations/add_source_updated_at_to_feed_snapshots_table.php.stub';
-    $delivery = Delivery::create(['tracking_number' => 'TN-1']);
-    $migration->down();
-    $migration->down();
-    $migration->up();
-    $migration->up();
-
-    $snapshot = Snapshot::query()->sole();
-    expect($snapshot->source_updated_at)->toBeNull()
-        ->and($snapshot->label)->toBe('Delivery #TN-1');
-
-    $delivery->tracking_number = 'TN-2';
-    expect((new SnapshotEntity)($delivery)->label)->toBe('Delivery #TN-2');
 });

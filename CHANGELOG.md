@@ -8,6 +8,10 @@
 - A feed page fills `prev_cursor` and `prev_page_url` the way Laravel's `CursorPaginator` does: `null` on the first page, a cursor from the second page on, so a reader can page backward towards newer activities from a deep link or a jump-to-date. A backward page is the same merged stream read the other way and aggregated over all of each group's members, so it holds exactly the nodes the forward pass produced for those rows, a group spanning a page boundary included. It applies to `cursorPaginate()` and `members()`, in `log` and `live`, and to in-memory sources. A backward read is not windowed, so it costs a full group aggregate. `FeedPaginator::onFirstPage()` and `hasPages()` now follow Laravel's. (#96)
 - A `classes` source driver reads static feed items as classes, one per item: each implements `Storyfeed\Contracts\StaticItem` and returns an `Entry` or array from `entry()`. Classes are listed under `items` or discovered from a `path`, with a `namespace` (default: the app namespace plus the path under `app_path()`), as Pennant discovers feature classes. They resolve from the container when the source is read. (#72)
 
+### Changed
+
+- The published migrations are consolidated into one `create_*` migration per table, with the schema the index audit on #58 settled: ten indexes fewer, measured at a million activities on MySQL 8.4 and PostgreSQL 18 with no read slower. `feed_participants` is keyed by `(activity_id, entity_type, entity_id)` and has no `id` or timestamps; its entity index gains `distance`, which makes `involvingDirectly()` faster. `feed_groupings` has no timestamps, and `feed_snapshots.component`, which nothing read or wrote, is gone. **Upgrade:** run your existing Storyfeed migrations, then delete the published Storyfeed migrations and publish them again (`php artisan vendor:publish --tag=storyfeed-migrations`). Each new migration skips a table that already exists, so an existing install keeps its tables and works unchanged; a fresh install, or a rebuilt database, gets the consolidated schema. `storyfeed:doctor` now gives that step as the fix for a missing column. (#60)
+
 ## v0.22.1 - 2026-10-28
 
 ### Fixed

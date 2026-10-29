@@ -9,9 +9,19 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create(config('storyfeed.tables.batches', 'feed_batches'), function (Blueprint $table) {
+        $name = config('storyfeed.tables.batches', 'feed_batches');
+
+        // An install from v0.22 or earlier already has this table; deleting
+        // and republishing the migrations must not fail on it.
+        if (Schema::hasTable($name)) {
+            return;
+        }
+
+        Schema::create($name, function (Blueprint $table) {
             $table->id();
             $table->ulid('uid')->unique();
+            // The (actor_type, actor_id) index serves publish's open-batch
+            // lookup on its own.
             MorphKeyType::nullableMorphs($table, 'actor');
             $table->timestamp('opened_at');
             // Null = open. Lifecycle is expressed by timestamps, not a
@@ -25,9 +35,7 @@ return new class extends Migration
             $table->json('meta')->nullable();
             $table->timestamps();
 
-            $table->index(['actor_type', 'actor_id', 'closed_at'], 'feed_batches_open_actor_index');
             $table->index('closed_at');
-            $table->index(['closed_at', 'closes_at'], 'feed_batches_closes_at_index');
         });
     }
 

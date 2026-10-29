@@ -9,17 +9,34 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create(config('storyfeed.tables.snapshots', 'feed_snapshots'), function (Blueprint $table) {
+        $name = config('storyfeed.tables.snapshots', 'feed_snapshots');
+
+        // An install from v0.22 or earlier already has this table; deleting
+        // and republishing the migrations must not fail on it.
+        if (Schema::hasTable($name)) {
+            return;
+        }
+
+        Schema::create($name, function (Blueprint $table) {
             $table->id();
             $table->string('model_type');
             MorphKeyType::id($table, 'model_id');
             $table->string('label')->nullable();
-            $table->string('component')->nullable();
             $table->json('data')->nullable();
             // The entity's shape fingerprint at write time — how stale
-            // toFeed() output is detected (null = pre-shape row, treated
-            // as stale; the trickle converges it).
+            // toFeed() output is detected (null = treated as stale; the
+            // trickle converges it).
             $table->string('shape', 40)->nullable();
+            // The entity body.
+            $table->text('content')->nullable();
+            $table->text('media_type')->nullable();
+            $table->text('attributed_to')->nullable();
+            $table->json('body')->nullable();
+            // The package's snapshot extras, never queried or indexed
+            // (the route key lives here). The app's values stay in `data`.
+            $table->json('meta')->nullable();
+            // UTC source-model time, not the snapshot's own updated_at.
+            $table->dateTime('source_updated_at', 6)->nullable();
             $table->timestamps();
 
             $table->unique(['model_type', 'model_id']);

@@ -38,7 +38,7 @@ class Columns extends Check
                     yield Finding::error(
                         'columns.missing',
                         "Table `{$table}` is missing the `{$column}` column — writes touching it will throw at "
-                        .'runtime. Publish and run the package migrations (vendor:publish --tag=storyfeed-migrations).',
+                        .'runtime. '.SchemaState::REMEDY,
                         ['table' => $table, 'column' => $column],
                     );
                 }
