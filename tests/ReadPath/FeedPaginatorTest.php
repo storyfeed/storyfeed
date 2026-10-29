@@ -175,7 +175,7 @@ it('returns an empty final page without pagination links', function () {
     expect($page->isEmpty())->toBeTrue()
         ->and($page->isNotEmpty())->toBeFalse()
         ->and($page->nextCursor())->toBeNull()
-        ->and($page->hasPages())->toBeTrue()
+        ->and($page->hasPages())->toBeFalse()
         ->and(trim((string) $page->links()))->toBe('');
 });
 
