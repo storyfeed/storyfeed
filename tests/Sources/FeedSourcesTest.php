@@ -11,6 +11,9 @@ use Storyfeed\Sources\ArraySource;
 use Storyfeed\Sources\DatabaseSource;
 use Storyfeed\Sources\Entry;
 use Storyfeed\Sources\SourceManager;
+use Workbench\App\Feed\Changelog\Nested\ReleaseTwo;
+use Workbench\App\Feed\Changelog\NotAnItem;
+use Workbench\App\Feed\Changelog\ReleaseOne;
 use Workbench\App\Models\Delivery;
 use Workbench\App\Models\User;
 
@@ -216,3 +219,33 @@ it('keeps a named array source in order with in_order', function () {
     expect($feed->get()->pluck('object.label')->all())->toBe(['v0.17.0', 'v0.18.0'])
         ->and(fn () => $feed->live()->get())->toThrow(InvalidArgumentException::class, 'The [changelog] feed is kept in order, so it cannot read live()');
 });
+
+it('discovers static items from a directory of classes', function () {
+    config()->set('storyfeed.sources.changelog', [
+        'driver' => 'classes',
+        'path' => dirname(__DIR__, 2).'/workbench/app/Feed/Changelog',
+        'namespace' => 'Workbench\App\Feed\Changelog',
+    ]);
+
+    $items = Storyfeed::feed()->source('changelog')->get()->toArray();
+
+    expect(array_column(array_column($items, 'object'), 'label'))->toBe(['v2.0.0', 'v1.0.0']);
+});
+
+it('lists static item classes and keeps them in order', function () {
+    config()->set('storyfeed.sources.changelog', [
+        'driver' => 'classes',
+        'in_order' => true,
+        'items' => [ReleaseTwo::class, ReleaseOne::class],
+    ]);
+
+    $items = Storyfeed::feed()->source('changelog')->get()->toArray();
+
+    expect(array_column(array_column($items, 'object'), 'label'))->toBe(['v2.0.0', 'v1.0.0']);
+});
+
+it('refuses a listed class that is not a static item', function () {
+    config()->set('storyfeed.sources.changelog', ['driver' => 'classes', 'items' => [NotAnItem::class]]);
+
+    iterator_to_array(Storyfeed::source('changelog')->items());
+})->throws(InvalidArgumentException::class, 'must implement');
