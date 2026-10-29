@@ -12,7 +12,7 @@ use Storyfeed\Support\FeedCursor;
 use Storyfeed\Support\FeedItem;
 
 /**
- * Laravel cursor pagination over a forward-only feed: the nodes in `data`,
+ * Laravel cursor pagination in both directions: the nodes in `data`,
  * plus `payload_version` and `sync_token`.
  *
  * @extends CursorPaginator<int, FeedItem>

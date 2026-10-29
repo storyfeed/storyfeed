@@ -150,6 +150,32 @@ it('features nothing on the group when members disagree', function () {
         ->and($node['distinct']['featured'])->toBe(12);
 });
 
+it('counts repeated featured tombstones across members beyond the children cap', function () {
+    config(['storyfeed.grouping.children_limit' => 2]);
+
+    featuredGroup($this->sally, 8, fn ($pending, int $i) => $i === 1
+        ? $pending->withoutFeature()
+        : $pending->featuringActor());
+    $this->sally->delete();
+
+    $node = Storyfeed::feed()->get()->toArray()[0];
+    $tile = $node['sample']['featured'][0];
+
+    expect($node['kind'])->toBe('group')
+        ->and($node['count'])->toBe(8)
+        ->and($node['children'])->toHaveCount(2)
+        ->and($node['children_truncated'])->toBeTrue()
+        ->and($node['featured'])->toBeNull()
+        ->and($tile['type'])->toBe('storyfeed.tombstone')
+        ->and($node['sample']['featured'])->toBe([$tile, $tile])
+        ->and($node['distinct']['actors'])->toBe(1)
+        ->and($node['distinct_tombstoned']['actors'])->toBe(1)
+        // Featured counters count member occurrences, not distinct identities
+        // or the loaded children. The oldest member features nothing.
+        ->and($node['distinct']['featured'])->toBe(7)
+        ->and($node['distinct_tombstoned']['featured'])->toBe(7);
+});
+
 it('takes no entry from a member that features nothing', function () {
     $node = featuredGroup($this->sally, 4, fn ($pending, int $i) => $i % 2 === 0 ? $pending->withoutFeature() : $pending);
 

@@ -10,7 +10,8 @@ boundary.
 ## Key documents (gitignored — local only until milestones publish them)
 
 - `SPEC.md` — the design spec; settled decisions live here
-- `docs/payload.md` — the Payload v1 contract (freezes at v0.3)
+- `docs/payload.md` — historical payload notes; the stable Payload v1 contract
+  is https://docs.storyfeed.dev/reference/payload-contract
 - `docs/stories.md` — the Story layer (shipped; no longer experimental)
 - `docs/grouping.md` — curation, the remaining R&D track (explicitly unsettled)
 - `docs/verbs.md` — the verb ladder (strings → FeedVerb enum → Story classes)
@@ -31,8 +32,8 @@ Write it while it's fresh; never reconstruct after the fact. See
 
 ## Hard rules
 
-- The payload contract (`docs/payload.md`) is the product boundary: no
-  breaking changes once frozen; cursors stay opaque; group-node shape is
+- The stable Payload v1 contract (the public payload reference) is the product boundary: no
+  breaking changes within payload major 1; cursors stay opaque; group-node shape is
   contract, curation policy is not.
 - Core stays headless — no view/UI dependencies (arch-test enforced). Route
   "basic component" energy to a plain Blade example in docs, never into src/.

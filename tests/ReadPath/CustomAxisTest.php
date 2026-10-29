@@ -87,6 +87,28 @@ it('treats registration order as curation priority', function () {
     expect($axes)->toContain('object');
 });
 
+it('uses the newest member verb on a custom axis that groups different verbs', function () {
+    Storyfeed::axes([
+        Axis::make('scene')->key('ca!:cid!:d')->eligibleWhenMembers(2),
+    ], merge: false);
+
+    $context = Customer::create(['name' => 'Release']);
+    $first = Storyfeed::activity('open', 'Checklist')->context($context)
+        ->publishedAt(now()->subMinutes(2))->publish();
+    $latest = Storyfeed::activity('approve', 'Checklist')->context($context)
+        ->publishedAt(now()->subMinute())->publish();
+
+    $node = Storyfeed::feed()->get()->toArray()[0];
+
+    expect($node['kind'])->toBe('group')
+        ->and($node['axis'])->toBe('scene')
+        ->and($node['count'])->toBe(2)
+        ->and($node['verb'])->toBe('approve')
+        ->and($node['published_at'])->toBe($latest->published_at->toISOString())
+        ->and(array_column($node['children'], 'id'))->toBe([$latest->uid, $first->uid])
+        ->and(array_column($node['children'], 'verb'))->toBe(['approve', 'open']);
+});
+
 it('inserts custom axes at an explicit priority with before:', function () {
     Storyfeed::axes([
         Axis::make('scene')->key('v:ca!:cid!:d')->eligibleWhenDistinct('actor', min: 2),

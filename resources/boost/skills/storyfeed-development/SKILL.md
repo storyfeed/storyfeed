@@ -9,6 +9,8 @@ Storyfeed is pre-1.0. When unsure, read the docs at https://docs.storyfeed.dev, 
 
 ## Workflow
 
+Payload v1 is stable and evolves additively within payload major 1. The normative contract is https://docs.storyfeed.dev/reference/payload-contract. Ignore unknown keys, skip unknown node kinds, and pass cursors unchanged. Cursor pages carry both directions: `prev_cursor` is null on the first page and points towards newer nodes on later pages.
+
 1. **Make every participating model Feedable**: implement `Storyfeed\Contracts\Feedable`, use `Storyfeed\Concerns\InteractsWithFeed`, and return `FeedEntity::make()->label(...)` from `toFeed()`. Without `toFeed()`, a default label comes from attributes such as `name`.
 2. **Publish where the action happens**, in a controller, action or listener:
 
