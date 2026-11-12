@@ -533,6 +533,7 @@ class StoryfeedManager
      * @param  Model|string|array<string, mixed>|null  $location
      * @param  Model|string|array<string, mixed>|null  $generator
      * @param  array<string, mixed>  $meta  for the batch the activity joins; see PendingActivity::meta()
+     * @param  array<string, string|int|float|\Stringable>  $bind  literal headline values, name => value; see PendingActivity::bind()
      */
     public function record(
         string|FeedVerb|BackedEnum $verb,
@@ -552,6 +553,7 @@ class StoryfeedManager
         Model|string|array|null $location = null,
         Model|string|array|null $generator = null,
         array $meta = [],
+        array $bind = [],
     ): Activity {
         if ($actor !== null && $anonymous) {
             throw new LogicException('record() was given an actor and anonymous: true; an anonymous activity has no actor.');
@@ -573,6 +575,11 @@ class StoryfeedManager
             ->when($endsAt !== null, fn (PendingActivity $a) => $a->endsAt($endsAt))
             ->when($anonymous, fn (PendingActivity $a) => $a->anonymously())
             ->when($meta !== [], fn (PendingActivity $a) => $a->meta($meta))
+            ->when($bind !== [], function (PendingActivity $a) use ($bind): void {
+                foreach ($bind as $name => $value) {
+                    $a->bind((string) $name, $value);
+                }
+            })
             ->publish();
     }
 

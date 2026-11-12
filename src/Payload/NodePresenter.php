@@ -20,6 +20,7 @@ use Storyfeed\StoryfeedManager;
 use Storyfeed\Support\ActivityContextFactory;
 use Storyfeed\Support\ActivityRoles;
 use Storyfeed\Support\Avatar;
+use Storyfeed\Support\Bindings;
 use Storyfeed\Support\Chronology;
 use Storyfeed\Support\LinkResolver;
 use Storyfeed\Support\ModelHydrator;
@@ -199,6 +200,11 @@ class NodePresenter
             'ends_at' => Chronology::iso($activity->ends_at),
             'headline_template' => $template,
             'headline' => $headline,
+            // Additive (2026-11-12): literal values for the template's bound
+            // tokens (`->bind('recipient', $name)`), name => text, or null.
+            // A renderer draws each as plain text, exactly as given, and
+            // never tokenizes it. `headline` already has them filled in.
+            'bindings' => self::bindingsField(Bindings::of($activity)),
             // Renamed from `icon` (2026-09-07, pre-freeze): a verb-resolved GLYPH
             // token, not Activity Streams' `icon` — which is an image and lives at
             // `entity.media.icon`. One word must not mean two things in one
@@ -297,7 +303,7 @@ class NodePresenter
             }
 
             if (! FeedHeadline::hasRoleTokens($entry)) {
-                return [null, $entry];
+                return [null, Bindings::fill($entry, Bindings::of($activity))];
             }
         }
 
@@ -392,6 +398,12 @@ class NodePresenter
         }
 
         $pinned = $this->storyfeed->aggregateTokens((string) $slice->axis) ?? [];
+
+        // A bound token every member fills with the same text is shared, as
+        // a pinned role is; one they differ on is left unpinned, and refused.
+        foreach (array_keys($this->groupBindings($slice)) as $name) {
+            $pinned[] = ":{$name}";
+        }
 
         preg_match_all('/:[a-z]+/', $entry, $matches);
 
@@ -559,6 +571,31 @@ class NodePresenter
             && preg_match('/'.$quoted.'(?![a-z])[\'’]s\b/u', $entry) !== 1;
     }
 
+    /**
+     * The bindings a group can name for all its members: those every member
+     * holds with the same text. A slice that does not carry all of its
+     * members cannot know that, and names none.
+     *
+     * @return array<string, string>
+     */
+    protected function groupBindings(GroupSlice $slice): array
+    {
+        if ($slice->members->count() < $slice->count) {
+            return [];
+        }
+
+        return Bindings::common($slice->members);
+    }
+
+    /**
+     * @param  array<string, string>  $bindings
+     * @return array<string, string>|null
+     */
+    protected static function bindingsField(array $bindings): ?array
+    {
+        return $bindings === [] ? null : $bindings;
+    }
+
     /** role => [plural sample key, snapshot relation] */
     protected const GROUP_ROLES = [
         'actor' => ['actors', 'cachedActor'],
@@ -650,6 +687,9 @@ class NodePresenter
             'published_at' => Chronology::iso($first->published_at),
             'headline_template' => $template,
             'headline' => $headline,
+            // Additive (2026-11-12): the bindings every member holds with
+            // the same value, or null. See activityNode().
+            'bindings' => self::bindingsField($this->groupBindings($slice)),
             'glyph' => $this->storyfeed->icon($this->objectType($first), $verb),
             'glyph_intent' => $this->storyfeed->glyphIntent($this->objectType($first), $verb),
             ...$singulars,

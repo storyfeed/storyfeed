@@ -139,6 +139,15 @@ final class Headline implements Htmlable, JsonSerializable, Stringable
         $token = substr($part, 1);
         $group = $this->item->offsetExists('sample');
 
+        // A bound value is text exactly as given (`->bind()`): never a
+        // token, a segment or markup, and escaped by toHtml() like any
+        // token-derived text.
+        $bindings = $this->item->bindings();
+
+        if (isset($bindings[$token])) {
+            return [...self::text($bindings[$token]), 'token' => 'binding', 'binding' => $token];
+        }
+
         if ($token === 'count' && $this->item->offsetExists('count')) {
             return [...self::text((string) $this->item->count()), 'token' => 'count'];
         }

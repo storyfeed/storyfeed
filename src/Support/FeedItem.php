@@ -127,6 +127,21 @@ final class FeedItem implements Arrayable, ArrayAccess, JsonSerializable
         return $this->string('glyph');
     }
 
+    /**
+     * The headline's literal values, name => text, as recorded with
+     * `->bind()`. Draw each as plain text; never read tokens from it.
+     *
+     * @return array<string, string>
+     */
+    public function bindings(): array
+    {
+        $bindings = $this->get('bindings');
+
+        return is_array($bindings)
+            ? array_filter($bindings, fn (mixed $value, mixed $name): bool => is_string($name) && is_string($value), ARRAY_FILTER_USE_BOTH)
+            : [];
+    }
+
     /** The glyph's intent, your app's word, such as `success`. */
     public function intent(): ?string
     {

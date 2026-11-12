@@ -6,6 +6,15 @@ includes:
 
 parameters:
     level: 6
+    ignoreErrors:
+        # Laravel 13.42 types Arrayable::toArray() as array<TKey, TValue>, and
+        # its paginators implement Arrayable<TKey, TValue> while returning the
+        # keyed page (`data`, `path`, …), as ours do. The page is honestly
+        # array<string, mixed>; the interface's item typing does not describe it.
+        -
+            identifier: method.childReturnType
+            path: src/Concerns/CarriesFeedKeys.php
+            count: 2
     paths:
         - src
         - config

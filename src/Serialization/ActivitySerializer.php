@@ -21,6 +21,7 @@ use Storyfeed\Sources\Entry;
 use Storyfeed\StoryfeedManager;
 use Storyfeed\Support\ActivityContextFactory;
 use Storyfeed\Support\ActivityRoles;
+use Storyfeed\Support\Bindings;
 use Storyfeed\Support\Chronology;
 use Storyfeed\Support\LinkResolver;
 use Storyfeed\Support\ModelHydrator;
@@ -245,13 +246,17 @@ class ActivitySerializer
             // Finished text; a result naming a role token is a template and
             // is interpolated below, like the payload's headline_template.
             if (! FeedHeadline::hasRoleTokens($entry)) {
+                $entry = Bindings::fill($entry, Bindings::of($activity));
+
                 return $entry === '' ? null : e($entry);
             }
         }
 
         $entry = FeedHeadline::resolveSegments($entry, fn (string $role): bool => $activity->{"{$role}_type"} !== null);
 
-        $labels = [];
+        // Bound values first: a binding name never names a role, so the two
+        // cannot collide, and both are filled in the same single pass.
+        $labels = Bindings::of($activity);
         foreach (ActivityRoles::PAYLOAD as $role) {
             $labels[$role] = $activity->{'cached'.ucfirst($role)}?->label;
         }

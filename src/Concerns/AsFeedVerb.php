@@ -9,6 +9,7 @@ use Storyfeed\ActivityStreams\ActivityType;
 use Storyfeed\Models\Activity;
 use Storyfeed\PendingActivity;
 use Storyfeed\StoryfeedManager;
+use Stringable;
 
 /**
  * Turns a backed string enum into a feed verb that can start a recording.
@@ -373,6 +374,11 @@ trait AsFeedVerb
     public function meta(array $meta): PendingActivity
     {
         return $this->of()->meta($meta);
+    }
+
+    public function bind(string $name, string|int|float|Stringable $value): PendingActivity
+    {
+        return $this->of()->bind($name, $value);
     }
 
     public function publishedAt(DateTimeInterface|string $date): PendingActivity

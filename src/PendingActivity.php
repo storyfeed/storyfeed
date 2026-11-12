@@ -36,6 +36,7 @@ use Storyfeed\Models\Activity;
 use Storyfeed\Models\Grouping;
 use Storyfeed\Models\Party;
 use Storyfeed\Support\ActivityRoles;
+use Storyfeed\Support\Bindings;
 use Storyfeed\Support\BodySlot;
 use Storyfeed\Support\Chronology;
 use Storyfeed\Support\Feedables;
@@ -43,6 +44,7 @@ use Storyfeed\Support\FreeformMeta;
 use Storyfeed\Support\InlineEntity;
 use Storyfeed\Support\MorphKeyType;
 use Storyfeed\Testing\StoryfeedFake;
+use Stringable;
 use UnexpectedValueException;
 
 /**
@@ -514,6 +516,28 @@ class PendingActivity
         // that shows up months later in rows nobody can regenerate. The entity
         // half was fixed on 2026-09-15 and this one was missed.
         $this->activity->data = BodySlot::data($data);
+
+        return $this;
+    }
+
+    /**
+     * Bind a literal value to a headline token: `':actor sent the invoice to
+     * :recipient'` with `->bind('recipient', $name)`.
+     *
+     * The value prints exactly as given, wherever the headline is drawn: no
+     * optional segments, no tokens, no markup and no link are read from it.
+     * It is stored with the activity, in the `bindings` column, and travels
+     * in the payload's `bindings` beside the template, which keeps the token.
+     *
+     * The name is a token of lowercase letters that is not already one: a
+     * role (`actor`, `objects`, …), `count`, `others` or `verb` throws.
+     */
+    public function bind(string $name, string|int|float|Stringable $value): static
+    {
+        $this->activity->bindings = [
+            ...(Bindings::of($this->activity)),
+            Bindings::name($name) => Bindings::value($value),
+        ];
 
         return $this;
     }

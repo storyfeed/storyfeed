@@ -34,6 +34,10 @@ it('adds only nullable role keys to baseline payload and event bytes without cha
             expect($payload)->toHaveKey('featured', 'object');
             unset($payload['featured']);
 
+            // Literal headline bindings: null when none are bound.
+            expect($payload)->toHaveKey('bindings', null);
+            unset($payload['bindings']);
+
             foreach (['starts_at', 'ends_at'] as $key) {
                 expect($payload)->toHaveKey($key, null);
                 unset($payload[$key]);
