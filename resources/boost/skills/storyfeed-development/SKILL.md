@@ -44,6 +44,7 @@ Payload v1 is stable and evolves additively within payload major 1. The normativ
    ```
 
    - A headline can be a closure that receives `Storyfeed\ActivityContext` and returns a template.
+   - Never concatenate user-entered text into a headline: `[...]` and `:word` in it would be read as segments and tokens. Name a token and bind the value when recording: headline `':actor sent :object to :recipient'` with `->bind('recipient', $name)` (or `record(..., bind: ['recipient' => $name])`). The value prints exactly as entered; the payload keeps `:recipient` in `headline_template` and carries the text in `bindings`, and `FeedItem::bindings()` reads it. A binding named after a role, `count`, `others` or `verb` throws. Existing installs publish and run the `add_bindings_to_feed_activities_table` migration first.
    - `Story::resource(Model::class)` defines create, update, delete and restore in one call.
    - `Story::verb('sync')->keepLatest()` keeps only the newest live row per object; pass `per: ['actor', 'object']` to keep one per actor and object, or `within: '1 hour'` to limit it to a window; older rows are soft-deleted and leave every feed. Never declare it on a timeline that needs every row. `keepFor()` and `keepForever()` set retention for `storyfeed:prune`.
 4. **Read the feed**: `Storyfeed::feed()->get()`, or `->cursorPaginate(15)->withQueryString()` for pages.

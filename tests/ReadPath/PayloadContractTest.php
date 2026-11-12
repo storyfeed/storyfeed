@@ -32,7 +32,7 @@ it('emits the same payload shape as before the recording API change', function (
     // get() is the nodes and nothing else.
     expect(Storyfeed::feed()->get()->toArray())->toBe($payload['data']);
     expect(array_keys($payload['data'][0]))->toBe([
-        'kind', 'id', 'verb', 'published_at', 'starts_at', 'ends_at', 'headline_template', 'headline',
+        'kind', 'id', 'verb', 'published_at', 'starts_at', 'ends_at', 'headline_template', 'headline', 'bindings',
         'glyph', 'glyph_intent', 'actor', 'object', 'target', 'context', 'origin', 'result', 'instrument', 'location', 'generator', 'featured', 'data',
         'tombstoned', 'redundant', 'missing_headline_template', 'missing_headline',
     ]);
@@ -58,7 +58,7 @@ it('emits the frozen group-node shape', function () {
     expect($item['kind'])->toBe('group');
     expect(array_keys($item))->toBe([
         'kind', 'id', 'axis', 'count', 'verb', 'published_at', 'headline_template',
-        'headline', 'glyph', 'glyph_intent', 'actor', 'object', 'target', 'context', 'origin', 'result', 'instrument',
+        'headline', 'bindings', 'glyph', 'glyph_intent', 'actor', 'object', 'target', 'context', 'origin', 'result', 'instrument',
         'location', 'generator', 'featured', 'sample', 'distinct', 'children', 'children_truncated',
         'tombstoned', 'redundant', 'distinct_tombstoned',
     ]);
@@ -80,7 +80,7 @@ it('emits the frozen group-node shape', function () {
     expect(array_keys($item['distinct_tombstoned']))->toBe(['actors', 'objects', 'targets', 'contexts', 'origins', 'results', 'instruments', 'locations', 'generators', 'featured']);
     // A group's children are ordinary activity nodes.
     expect(array_keys($item['children'][0]))->toBe([
-        'kind', 'id', 'verb', 'published_at', 'starts_at', 'ends_at', 'headline_template', 'headline',
+        'kind', 'id', 'verb', 'published_at', 'starts_at', 'ends_at', 'headline_template', 'headline', 'bindings',
         'glyph', 'glyph_intent', 'actor', 'object', 'target', 'context', 'origin', 'result', 'instrument', 'location', 'generator', 'featured', 'data',
         'tombstoned', 'redundant', 'missing_headline_template', 'missing_headline',
     ]);

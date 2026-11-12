@@ -1195,6 +1195,10 @@
       "reason": "Internal helper or payload reader behind the feed APIs."
     },
     {
+      "ref": "Storyfeed\\Support\\Bindings",
+      "reason": "Internal helper or payload reader behind the feed APIs."
+    },
+    {
       "ref": "Storyfeed\\Support\\BodySlot",
       "reason": "Internal helper or payload reader behind the feed APIs."
     },

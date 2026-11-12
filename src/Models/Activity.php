@@ -63,6 +63,7 @@ use Storyfeed\Support\MorphKeyType;
  * @property string|null $featured the role whose entity the row draws; 'object' by default, null for none
  * @property array<array-key, mixed>|null $data
  * @property array<string, array<string, mixed>>|null $entities roles with no model behind them, by role (see Support\InlineEntity)
+ * @property array<string, string>|null $bindings literal headline values, by token name (see PendingActivity::bind())
  * @property Carbon|null $published_at
  * @property Carbon|null $starts_at
  * @property Carbon|null $ends_at
@@ -109,6 +110,7 @@ class Activity extends Model
             'generator_id' => MorphKeyType::class,
             'data' => 'array',
             'entities' => 'array',
+            'bindings' => 'array',
             'published_at' => 'datetime',
             'starts_at' => 'datetime',
             'ends_at' => 'datetime',

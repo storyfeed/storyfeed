@@ -52,6 +52,9 @@ return new class extends Migration
             // Roles recorded with no model behind them
             // (`->object(['type' => 'vote', 'label' => 'their vote'])`).
             $table->json('entities')->nullable();
+            // Literal headline values (`->bind('recipient', $name)`), printed
+            // exactly as given.
+            $table->json('bindings')->nullable();
             // The role whose entity a row draws as its body; null draws none.
             // No index: nothing reads by it.
             $table->string('featured', 16)->nullable()->default('object');
