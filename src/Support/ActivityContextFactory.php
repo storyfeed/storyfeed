@@ -19,11 +19,11 @@ final class ActivityContextFactory
         $roles = [];
 
         foreach (ActivityRoles::PAYLOAD as $role) {
-            $type = $activity->{"{$role}_type"};
+            $roleType = $activity->{"{$role}_type"};
             /** @var Snapshot|null $snapshot */
-            $snapshot = $type === null ? null : $activity->{'cached'.ucfirst($role)};
-            $roles[$role] = $type === null ? null : new FeedContext(
-                type: $type,
+            $snapshot = $roleType === null ? null : $activity->{'cached'.ucfirst($role)};
+            $roles[$role] = $roleType === null ? null : new FeedContext(
+                type: $roleType,
                 key: $activity->{"{$role}_id"},
                 label: $snapshot?->label,
                 data: $snapshot->data ?? [],
