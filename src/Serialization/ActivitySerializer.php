@@ -231,9 +231,13 @@ class ActivitySerializer
             return null;
         }
 
+        // Stored bindings, then a closure's render-time ones, which win.
+        $bindings = Bindings::of($activity);
+
         if ($entry instanceof Closure) {
             try {
                 $result = $entry(ActivityContextFactory::make($activity, type: $type));
+                $bindings = $result instanceof FeedHeadline ? [...$bindings, ...$result->bindings()] : $bindings;
                 $entry = $result instanceof FeedHeadline ? $result->toTemplate() : (string) $result;
             } catch (Throwable $e) {
                 // Same posture as the payload presenter: an authoring bug is
@@ -246,7 +250,7 @@ class ActivitySerializer
             // Finished text; a result naming a role token is a template and
             // is interpolated below, like the payload's headline_template.
             if (! FeedHeadline::hasRoleTokens($entry)) {
-                $entry = Bindings::fill($entry, Bindings::of($activity));
+                $entry = Bindings::fill($entry, $bindings);
 
                 return $entry === '' ? null : e($entry);
             }
@@ -256,7 +260,7 @@ class ActivitySerializer
 
         // Bound values first: a binding name never names a role, so the two
         // cannot collide, and both are filled in the same single pass.
-        $labels = Bindings::of($activity);
+        $labels = $bindings;
         foreach (ActivityRoles::PAYLOAD as $role) {
             $labels[$role] = $activity->{'cached'.ucfirst($role)}?->label;
         }

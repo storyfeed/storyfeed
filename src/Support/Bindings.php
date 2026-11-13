@@ -80,10 +80,20 @@ final class Bindings
      */
     public static function common(Collection $members): array
     {
+        return self::intersect($members->map(fn (Activity $member): array => self::of($member)));
+    }
+
+    /**
+     * The name => text pairs every map holds alike.
+     *
+     * @param  iterable<array<string, string>>  $maps
+     * @return array<string, string>
+     */
+    public static function intersect(iterable $maps): array
+    {
         $common = null;
 
-        foreach ($members as $member) {
-            $bindings = self::of($member);
+        foreach ($maps as $bindings) {
             $common = $common === null ? $bindings : array_intersect_assoc($common, $bindings);
 
             if ($common === []) {

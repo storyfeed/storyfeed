@@ -1427,7 +1427,7 @@ final class Verb
             return match (true) {
                 $value === null => '',
                 $value instanceof Closure => ManifestClosure::fingerprint($value),
-                $value instanceof FeedHeadline => "trans:{$value->key}",
+                $value instanceof FeedHeadline => $value->describe(),
                 $value instanceof FeedNoun => 'noun:'.($value->translated ? 't:' : '').$value->value,
                 $value instanceof BackedEnum => (string) $value->value,
                 $value instanceof Group => json_encode([$value->axis, $describe($value->template()), $value->parentTemplate()]) ?: '',

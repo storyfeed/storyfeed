@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.25.0 - 2026-11-13
+
+### Added
+
+- Render-time headline bindings: a headline closure may return `FeedHeadline::make(':actor sent :object to :recipient')->bind('recipient', $name)`, supplying a literal value when the feed is read and storing nothing. Render-time values merge with an activity's stored bindings, and a render-time value wins on a name conflict. They reach the payload `bindings` (unchanged and additive), the resolved `headline`, the PHP `Headline` reader and the Activity Streams `summary` exactly as stored values do, so renderers draw them with no change. A group carries only the values every member shares. The #237 name rules apply. `FeedHeadline::make()` is a literal template, and a registered `FeedHeadline` may carry bindings too. (#238)
+
 ## v0.24.0 - 2026-11-12
 
 ### Added
