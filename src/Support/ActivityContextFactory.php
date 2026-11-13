@@ -3,6 +3,7 @@
 namespace Storyfeed\Support;
 
 use Carbon\CarbonImmutable;
+use Illuminate\Database\Eloquent\Model;
 use Storyfeed\ActivityContext;
 use Storyfeed\FeedContext;
 use Storyfeed\Models\Activity;
@@ -12,7 +13,8 @@ use Storyfeed\StoryfeedManager;
 /** @internal Builds headline contexts from the read path's loaded snapshots. */
 final class ActivityContextFactory
 {
-    /** @param  string|null  $type  the object type the headline was resolved for (a tombstoned object's former type) */
+    /**
+     * @param  string|null  $type  the object type the headline was resolved for (a tombstoned object's former type) */
     public static function make(Activity $activity, ?string $feed = null, ?ModelHydrator $hydrator = null, ?string $type = null): ActivityContext
     {
         $hydrator ??= new ModelHydrator;
@@ -39,6 +41,8 @@ final class ActivityContextFactory
             data: $activity->data ?? [],
             verb: $activity->verb,
             publishedAt: $activity->published_at === null ? null : CarbonImmutable::instance($activity->published_at),
+            feed: $feed,
+            viewing: $viewing,
             casts: app(StoryfeedManager::class)->dataCasts($type ?? $activity->object_type, $activity->verb),
         );
     }

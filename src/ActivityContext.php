@@ -3,6 +3,7 @@
 namespace Storyfeed;
 
 use Carbon\CarbonImmutable;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Traits\InteractsWithData;
 use Storyfeed\Support\DataCasts;
@@ -43,6 +44,8 @@ final readonly class ActivityContext
         private array $casts = [],
         private ?FeedContext $location = null,
         private ?FeedContext $generator = null,
+        private ?string $feed = null,
+        private ?Model $viewing = null,
     ) {}
 
     /**
@@ -169,5 +172,58 @@ final readonly class ActivityContext
     public function generator(): ?FeedContext
     {
         return $this->generator;
+    }
+
+    /**
+     * The registered name of the feed being read, or null, exactly as
+     * FeedContext::feed() reports it: declared, never sniffed. Null for an
+     * ad-hoc builder and for the AS2 serializer, which has no surface.
+     */
+    public function feed(): ?string
+    {
+        return $this->feed;
+    }
+
+    /**
+     * The model the feed being read is scoped to, or null.
+     *
+     * A feed is scoped to the model it was read for: `involving()`, which is
+     * what `$model->storyfeed()` and a Feed class's `scope()` usually bind,
+     * or failing that `context()`. A named party is its Party model. A feed
+     * scoped to neither, a feed scoped by type alone, and the AS2 serializer
+     * report null, so the default wording is the `null` arm.
+     *
+     * Render-time only, like FeedHeadline::bind(): it changes the headline a
+     * page reads and nothing stored.
+     */
+    public function viewing(): ?Model
+    {
+        return $this->viewing;
+    }
+
+    /**
+     * Whether the feed being read is scoped to this entity, so a headline
+     * can leave it unnamed or name it shorter on its own page:
+     *
+     *     fn (ActivityContext $c) => $c->isViewing($c->context())
+     *         ? FeedHeadline::make(':actor sent :object to :target')
+     *         : FeedHeadline::make(':actor sent :object in :context to :target');
+     *
+     * Compared by morph alias and key, never by class. False for null, and
+     * always false when the feed is scoped to nothing.
+     */
+    public function isViewing(FeedContext|Model|null $entity): bool
+    {
+        if ($entity === null || $this->viewing === null) {
+            return false;
+        }
+
+        [$type, $key] = $entity instanceof Model
+            ? [$entity->getMorphClass(), $entity->getKey()]
+            : [$entity->type(), $entity->key()];
+
+        return $key !== null
+            && $type === $this->viewing->getMorphClass()
+            && (string) $key === (string) $this->viewing->getKey();
     }
 }

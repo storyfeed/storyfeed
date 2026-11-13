@@ -87,6 +87,7 @@ class NodePresenter
         protected ?string $feed = null,
         protected ?ModelHydrator $hydrator = null,
         protected ?LinkResolver $links = null,
+        protected ?Model $viewing = null,
     ) {}
 
     /**
@@ -102,6 +103,24 @@ class NodePresenter
     {
         $presenter = clone $this;
         $presenter->feed = $feed;
+        $presenter->headlines = null;
+        $presenter->groupBound = null;
+
+        return $presenter;
+    }
+
+    /**
+     * The same presenter, told which model its feed is scoped to: what a
+     * headline closure reads as ActivityContext::viewing(). A copy, for the
+     * reason forFeed() is, and with its own headline memo, since the same
+     * activity reads differently on its subject's feed and on any other.
+     */
+    public function forViewing(?Model $viewing): static
+    {
+        $presenter = clone $this;
+        $presenter->viewing = $viewing;
+        $presenter->headlines = null;
+        $presenter->groupBound = null;
 
         return $presenter;
     }
@@ -176,6 +195,8 @@ class NodePresenter
         $presenter->links = new LinkResolver;
         $presenter->tombstones = self::loadTombstones(array_keys($tombstoneIds));
         $presenter->snapshotFields = new WeakMap;
+        $presenter->headlines = null;
+        $presenter->groupBound = null;
 
         return $presenter;
     }
@@ -321,7 +342,7 @@ class NodePresenter
 
         if ($entry instanceof Closure) {
             try {
-                $result = $entry(ActivityContextFactory::make($activity, $this->feed, $this->hydrator, $type));
+                $result = $entry(ActivityContextFactory::make($activity, $this->feed, $this->hydrator, $type, $this->viewing));
                 $bound = $result instanceof FeedHeadline ? $result->bindings() : [];
                 $entry = $result instanceof FeedHeadline ? $result->toTemplate() : (string) $result;
             } catch (Throwable $e) {

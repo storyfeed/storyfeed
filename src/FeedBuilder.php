@@ -1264,7 +1264,11 @@ class FeedBuilder
      */
     protected function presenter(): NodePresenter
     {
-        return app(NodePresenter::class)->forFeed($this->feed);
+        $subject = $this->involving ?? $this->roles['context'] ?? null;
+
+        return app(NodePresenter::class)
+            ->forFeed($this->feed)
+            ->forViewing($subject === null ? null : $this->resolve($subject));
     }
 
     protected function logPage(Carbon $now): FeedPage
