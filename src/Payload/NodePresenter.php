@@ -68,6 +68,17 @@ class NodePresenter
     protected array $outboundRoleCasts = [];
 
     /**
+     * Each activity's resolved headline, so a closure runs once per page
+     * though a group reads its members' render-time bindings too.
+     *
+     * @var WeakMap<Activity, array{0: string|null, 1: string|null, 2: array<string, string>}>|null
+     */
+    private ?WeakMap $headlines = null;
+
+    /** @var WeakMap<GroupSlice, array<string, string>>|null a group headline closure's render-time bindings */
+    private ?WeakMap $groupBound = null;
+
+    /**
      * @param  string|null  $feed  the registered name of the feed this page was
      *                             read through, or null for an ad-hoc builder
      */
@@ -180,12 +191,12 @@ class NodePresenter
     /** @return array<string, mixed> */
     public function activityNode(Activity $activity): array
     {
-        [$template, $headline] = $this->headline($activity);
+        [$template, $headline, $bound] = $this->headline($activity);
         [$tombstoned, $redundant] = $this->tombstoneFact($activity);
         $type = $this->objectType($activity);
-        [$missingTemplate, $missingHeadline] = $redundant && $activity->verb !== null
+        [$missingTemplate, $missingHeadline, $missingBound] = $redundant && $activity->verb !== null
             ? $this->render($this->storyfeed->missingTemplate($type, $activity->verb), $activity, $type)
-            : [null, null];
+            : [null, null, []];
 
         return [
             'kind' => 'activity',
@@ -204,7 +215,9 @@ class NodePresenter
             // tokens (`->bind('recipient', $name)`), name => text, or null.
             // A renderer draws each as plain text, exactly as given, and
             // never tokenizes it. `headline` already has them filled in.
-            'bindings' => self::bindingsField(Bindings::of($activity)),
+            // Render-time bindings (a closure's `FeedHeadline::bind()`)
+            // merge in, and win on a name conflict; nothing is stored.
+            'bindings' => self::bindingsField([...Bindings::of($activity), ...$missingBound, ...$bound]),
             // Renamed from `icon` (2026-09-07, pre-freeze): a verb-resolved GLYPH
             // token, not Activity Streams' `icon` — which is an image and lives at
             // `entity.media.icon`. One word must not mean two things in one
@@ -260,9 +273,20 @@ class NodePresenter
      * activity's roles, so the template that reaches the payload never
      * contains a bracket.
      *
-     * @return array{0: string|null, 1: string|null}
+     * The third element is the render-time bindings a closure returned with
+     * its FeedHeadline, name => text, stored nowhere.
+     *
+     * @return array{0: string|null, 1: string|null, 2: array<string, string>}
      */
     protected function headline(Activity $activity): array
+    {
+        $this->headlines ??= new WeakMap;
+
+        return $this->headlines[$activity] ??= $this->resolveHeadline($activity);
+    }
+
+    /** @return array{0: string|null, 1: string|null, 2: array<string, string>} */
+    private function resolveHeadline(Activity $activity): array
     {
         // A composed or source item's own headline wins over the feed file.
         if (is_string($own = $activity->getAttributes()[Entry::HEADLINE] ?? null)) {
@@ -270,7 +294,7 @@ class NodePresenter
         }
 
         if ($activity->verb === null) {
-            return [null, null];
+            return [null, null, []];
         }
 
         // Inspect recorded identity, not the relation: an unresolved/deleted
@@ -286,34 +310,39 @@ class NodePresenter
 
     /**
      * [template, finished text] for one grammar entry and one activity: a
-     * closure runs, and optional segments resolve against its roles.
+     * closure runs, and optional segments resolve against its roles. The
+     * third element is the closure's render-time bindings.
      *
-     * @return array{0: string|null, 1: string|null}
+     * @return array{0: string|null, 1: string|null, 2: array<string, string>}
      */
     protected function render(string|Closure|null $entry, Activity $activity, ?string $type = null): array
     {
+        $bound = [];
+
         if ($entry instanceof Closure) {
             try {
                 $result = $entry(ActivityContextFactory::make($activity, $this->feed, $this->hydrator, $type));
+                $bound = $result instanceof FeedHeadline ? $result->bindings() : [];
                 $entry = $result instanceof FeedHeadline ? $result->toTemplate() : (string) $result;
             } catch (Throwable $e) {
                 report($e);
 
-                return [null, null];
+                return [null, null, []];
             }
 
             if (! FeedHeadline::hasRoleTokens($entry)) {
-                return [null, Bindings::fill($entry, Bindings::of($activity))];
+                return [null, Bindings::fill($entry, [...Bindings::of($activity), ...$bound]), $bound];
             }
         }
 
         if ($entry === null) {
-            return [null, null];
+            return [null, null, []];
         }
 
         return [
             FeedHeadline::resolveSegments(FeedHeadline::forCount($entry, 1), fn (string $role): bool => $activity->{"{$role}_type"} !== null),
             null,
+            $bound,
         ];
     }
 
@@ -364,7 +393,19 @@ class NodePresenter
 
         if ($entry instanceof Closure) {
             try {
-                return [null, (string) $entry($slice)];
+                $result = $entry($slice);
+
+                if ($result instanceof FeedHeadline) {
+                    $this->groupBound ??= new WeakMap;
+                    $this->groupBound[$slice] = $result->bindings();
+                    $text = $result->toTemplate();
+
+                    return FeedHeadline::hasRoleTokens($text)
+                        ? [$text, null]
+                        : [null, Bindings::fill($text, [...$this->groupBindings($slice), ...$result->bindings()])];
+                }
+
+                return [null, (string) $result];
             } catch (Throwable $e) {
                 report($e);
 
@@ -584,7 +625,11 @@ class NodePresenter
             return [];
         }
 
-        return Bindings::common($slice->members);
+        // Each member's own bindings: stored, then its headline's
+        // render-time values, which win, as on the member's node.
+        return Bindings::intersect($slice->members->map(
+            fn (Activity $member): array => [...Bindings::of($member), ...$this->headline($member)[2]],
+        ));
     }
 
     /**
@@ -689,7 +734,8 @@ class NodePresenter
             'headline' => $headline,
             // Additive (2026-11-12): the bindings every member holds with
             // the same value, or null. See activityNode().
-            'bindings' => self::bindingsField($this->groupBindings($slice)),
+            // A group headline closure's own render-time bindings win.
+            'bindings' => self::bindingsField([...$this->groupBindings($slice), ...($this->groupBound[$slice] ?? [])]),
             'glyph' => $this->storyfeed->icon($this->objectType($first), $verb),
             'glyph_intent' => $this->storyfeed->glyphIntent($this->objectType($first), $verb),
             ...$singulars,

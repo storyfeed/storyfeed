@@ -36,7 +36,7 @@ class Order extends Model implements Feedable
 
 ### Publishing activities
 
-`by()` sets the actor (defaulting to the signed-in user), `action($verb, $object)` sets the verb and object, and `to()` sets the target. `data()` stores values frozen at publication. Put user-entered text in a headline with `bind()`, never by concatenating it into the template: `->bind('recipient', $name)` fills `:recipient` exactly as entered, with no segments, tokens or markup read from it, and travels in the payload's `bindings`.
+`by()` sets the actor (defaulting to the signed-in user), `action($verb, $object)` sets the verb and object, and `to()` sets the target. `data()` stores values frozen at publication. Put user-entered text in a headline with `bind()`, never by concatenating it into the template: `->bind('recipient', $name)` fills `:recipient` exactly as entered, with no segments, tokens or markup read from it, and travels in the payload's `bindings`. For a value known only when the feed is read (nothing stored), return `FeedHeadline::make(':actor sent :object to :recipient')->bind('recipient', $name)` from a headline closure; render-time values merge with stored ones and win on a name conflict.
 
 @verbatim
 <code-snippet name="Publish an activity" lang="php">

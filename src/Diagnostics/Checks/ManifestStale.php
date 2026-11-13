@@ -109,7 +109,7 @@ class ManifestStale extends Check
         return array_map(
             fn (mixed $value) => match (true) {
                 $value instanceof \BackedEnum => (string) $value->value,
-                $value instanceof FeedHeadline => "trans:{$value->key}",
+                $value instanceof FeedHeadline => $value->describe(),
                 $value instanceof FeedNoun => ($value->translated ? 'trans:' : '').$value->value,
                 // A deserialised closure keeps its code, not its file.
                 $value instanceof \Closure => ManifestClosure::fingerprint($value),

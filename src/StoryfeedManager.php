@@ -1245,10 +1245,15 @@ class StoryfeedManager
     /**
      * A registry value as the read path uses it: a FeedHeadline becomes its
      * template in the CURRENT locale, which is the reader's once the locale
-     * middleware has run.
+     * middleware has run. One that carries bindings takes the closure path,
+     * which is where render-time bindings are read.
      */
     private static function headlineEntry(string|Closure|FeedHeadline|null $entry): string|Closure|null
     {
+        if ($entry instanceof FeedHeadline && $entry->bindings() !== []) {
+            return fn (): FeedHeadline => $entry;
+        }
+
         return $entry instanceof FeedHeadline ? $entry->toTemplate() : $entry;
     }
 
