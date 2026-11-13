@@ -20,6 +20,7 @@ use Storyfeed\Tests\Fixtures\DataCasts\Cents;
 use Storyfeed\Tests\Fixtures\DataCasts\LineItem;
 use Storyfeed\Tests\Fixtures\DataCasts\OrderSummary;
 use Workbench\App\Enums\ActivityVerb;
+use Workbench\App\Models\Customer;
 use Workbench\App\Models\Delivery;
 
 /*
@@ -70,6 +71,24 @@ it('reads a data key through every kind of Eloquent cast', function () {
         ->and($activity->get('paid_at')->equalTo('2026-09-26 10:00:00'))->toBeTrue()
         ->and($activity->get('count'))->toBe(3)
         ->and($activity->get('tip'))->toBe('$3.50');
+});
+
+it('casts by the object type when the generator is another type', function () {
+    $seen = null;
+    Story::for(Delivery::class)->verb('pay')->casts(['count' => 'integer'])
+        ->headline(function (ActivityContext $activity) use (&$seen) {
+            $seen = $activity->get('count');
+
+            return 'Paid';
+        });
+
+    Storyfeed::activity('pay', Delivery::create(['tracking_number' => 'ROLES']))
+        ->generator(Customer::create(['name' => 'Ada']))
+        ->data(['count' => '3'])
+        ->publish();
+    Storyfeed::feed()->get()->toArray();
+
+    expect($seen)->toBe(3);
 });
 
 it('keeps all() and the typed helpers on the recorded values', function () {

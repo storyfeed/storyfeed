@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- A headline closure's data casts now come from the object type (or a tombstoned object's former type) when the activity has a generator; they were looked up by the generator's type and skipped.
+
 ## v0.25.0 - 2026-11-13
 
 ### Added
