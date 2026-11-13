@@ -9,6 +9,7 @@ use Illuminate\Support\Collection;
 use Storyfeed\FeedContext;
 use Storyfeed\FeedHeadline;
 use Storyfeed\FeedLink;
+use Storyfeed\FeedMedia;
 use Storyfeed\FeedNoun;
 use Storyfeed\Grouping\Anchor;
 use Storyfeed\Grouping\Group;
@@ -77,6 +78,23 @@ class NodePresenter
 
     /** @var WeakMap<GroupSlice, array<string, string>>|null a group headline closure's render-time bindings */
     private ?WeakMap $groupBound = null;
+
+    /**
+     * Each entity's decoration (#242): the resolver's media, its link, its
+     * media slots and its resolved body, built once per page however many
+     * places the entity appears in. Null off a page, where nothing is shared.
+     *
+     * @var array<string, array{media: FeedMedia|null, link: array<string, mixed>|null, slots: array<string, mixed>, body: array<int, mixed>|null, ref: string, key: string|null}>|null
+     */
+    private ?array $decorations = null;
+
+    /**
+     * The page's media map (#242): each distinct `{link, media}` pair, keyed
+     * by the `media_ref` its entities carry. Null off a page.
+     *
+     * @var array<string, array{link: array<string, mixed>|null, media: array<string, mixed>}>|null
+     */
+    private ?array $mediaMap = null;
 
     /**
      * @param  string|null  $feed  the registered name of the feed this page was
@@ -176,6 +194,8 @@ class NodePresenter
         $presenter->links = new LinkResolver;
         $presenter->tombstones = self::loadTombstones(array_keys($tombstoneIds));
         $presenter->snapshotFields = new WeakMap;
+        $presenter->decorations = [];
+        $presenter->mediaMap = [];
 
         return $presenter;
     }
@@ -919,23 +939,12 @@ class NodePresenter
         }
 
         $data = $this->snapshotJson($snapshot, 'data') ?? [];
+        $snapshotLabel = $this->snapshotPlain($snapshot, 'label');
+        $meta = $this->snapshotJson($snapshot, 'meta');
 
-        // No snapshot ⇒ no link regeneration: the contract promises degraded
-        // entities arrive with link: null, and calling the app's resolver
-        // with empty data makes every naive implementation warn.
-        $links = $this->links ?? new LinkResolver;
-        $media = $snapshot === null ? null : $links->resolve(new FeedContext(
-            type: $type,
-            key: $id,
-            label: $this->snapshotPlain($snapshot, 'label'),
-            data: $data,
-            feed: $this->feed,
-            hydrator: $this->hydrator ?? new ModelHydrator,
-            routeKey: $this->snapshotJson($snapshot, 'meta')['route_key'] ?? null,
-            model: ModelHydrator::carried($snapshot),
-        ));
-
-        $label = $media->label ?? $this->snapshotPlain($snapshot, 'label');
+        $decoration = $this->decorate($type, $id, $snapshot, $snapshotLabel, $data, $meta);
+        $media = $decoration['media'];
+        $label = $media->label ?? $snapshotLabel;
         $id = $id === null ? null : (string) $id;
 
         return [
@@ -946,7 +955,7 @@ class NodePresenter
             // FeedLink owns the place a tap goes. An entity with no model
             // behind it (a source's lightweight `['type', 'label', 'url']`)
             // carries its href in the snapshot.
-            'link' => self::link($media?->link, $this->snapshotJson($snapshot, 'meta')),
+            'link' => $decoration['link'],
             'data' => $data,
             // Additive (2026-09-05): the typed image slots. Never null since
             // #92: every entity has an avatar, declared or derived.
@@ -954,11 +963,12 @@ class NodePresenter
             // too, not the row id the database gave it.
             // An entity with no model behind it carries the media it declared
             // in the snapshot, as it carries its href.
-            'media' => Avatar::fill(
-                $media?->media() ?? self::storedMedia($this->snapshotJson($snapshot, 'meta')), $type,
-                $type === Entry::partyAlias() && is_string($data['key'] ?? null) ? $data['key'] : $id,
-                $label, tombstone: $type === FeedTombstone::MORPH_ALIAS,
-            ),
+            'media' => $decoration['slots'],
+            // Additive (2026-11-13, #242): the key of this entity's `{link,
+            // media}` pair in the page's top-level `media` map, or null off a
+            // page. Identical decorations share one key, so a renderer that
+            // reads the map builds each distinct picture once.
+            'media_ref' => $this->mediaMap === null ? null : $decoration['ref'],
             // Omit only absent body fields: old snapshots keep their shape,
             // while an explicitly empty string remains authored content. The
             // body: what the snapshot stored, then what the resolver resolved.
@@ -968,7 +978,7 @@ class NodePresenter
             // and a renderer that draws them another way is not wrong. A
             // resolved body that throws is reported and left out; the stored
             // body and the rest of the entity still arrive.
-            'body' => self::bodyOrNull([...($this->snapshotJson($snapshot, 'body') ?? []), ...$links->body($media, $type)]),
+            'body' => self::bodyOrNull([...($this->snapshotJson($snapshot, 'body') ?? []), ...$this->decoratedBody($decoration, $type)]),
             // Additive (2026-09-23): what a deleted entity left behind, or
             // null. Distinct from DEGRADED (a live entity with no snapshot
             // yet: `label: null`, `tombstone: null`) and from ANONYMOUS (no
@@ -982,6 +992,107 @@ class NodePresenter
                 'attributedTo' => $this->snapshotPlain($snapshot, 'attributed_to'),
             ], fn ($value) => $value !== null),
         ];
+    }
+
+    /**
+     * The entity's decoration: the app's resolver, then the link, slots and
+     * resolved body it yields. On a page each distinct entity is decorated
+     * once (#242), so a picture signed for the group preview is not signed
+     * again for its sample, its child row or the next group that names it.
+     * The key is everything the resolver is handed, so two snapshots of one
+     * entity at different versions stay two decorations.
+     *
+     * @param  array<array-key, mixed>  $data
+     * @param  array<array-key, mixed>|null  $meta
+     * @return array{media: FeedMedia|null, link: array<string, mixed>|null, slots: array<string, mixed>, body: array<int, mixed>|null, ref: string, key: string|null}
+     */
+    private function decorate(string $type, int|string|null $id, ?Snapshot $snapshot, ?string $label, array $data, ?array $meta): array
+    {
+        $key = null;
+        if ($this->decorations !== null) {
+            $key = json_encode([$type, $id === null ? null : (string) $id, $snapshot === null, $label, $data, $meta], JSON_PARTIAL_OUTPUT_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE);
+            if (isset($this->decorations[$key])) {
+                return $this->decorations[$key];
+            }
+        }
+
+        // No snapshot ⇒ no link regeneration: the contract promises degraded
+        // entities arrive with link: null, and calling the app's resolver
+        // with empty data makes every naive implementation warn.
+        $links = $this->links ?? new LinkResolver;
+        $media = $snapshot === null ? null : $links->resolve(new FeedContext(
+            type: $type,
+            key: $id,
+            label: $label,
+            data: $data,
+            feed: $this->feed,
+            hydrator: $this->hydrator ?? new ModelHydrator,
+            routeKey: $meta['route_key'] ?? null,
+            model: ModelHydrator::carried($snapshot),
+        ));
+
+        $link = self::link($media?->link, $meta);
+        $resolvedLabel = $media->label ?? $label;
+        $slots = Avatar::fill(
+            $media?->media() ?? self::storedMedia($meta), $type,
+            $type === Entry::partyAlias() && is_string($data['key'] ?? null) ? $data['key'] : $id,
+            $resolvedLabel, tombstone: $type === FeedTombstone::MORPH_ALIAS,
+        );
+
+        $ref = '';
+        if ($this->mediaMap !== null) {
+            $entry = ['link' => $link, 'media' => $slots];
+            $ref = 'm'.substr(hash('xxh128', (string) json_encode($entry, JSON_PARTIAL_OUTPUT_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE)), 0, 16);
+            $this->mediaMap[$ref] ??= $entry;
+        }
+
+        $decoration = [
+            'media' => $media,
+            'link' => $link,
+            'slots' => $slots,
+            'body' => null,
+            'ref' => $ref,
+            'key' => $key,
+        ];
+
+        if ($key !== null) {
+            $this->decorations[$key] = $decoration;
+        }
+
+        return $decoration;
+    }
+
+    /**
+     * The resolver's body for a decoration, resolved where the entity reads
+     * it (after the stored body) and once per page for each decoration.
+     *
+     * @param  array{media: FeedMedia|null, body: array<int, mixed>|null, key: string|null}  $decoration
+     * @return array<int, mixed>
+     */
+    private function decoratedBody(array $decoration, string $type): array
+    {
+        if ($decoration['body'] !== null) {
+            return $decoration['body'];
+        }
+
+        $body = ($this->links ?? new LinkResolver)->body($decoration['media'], $type);
+
+        if ($decoration['key'] !== null && isset($this->decorations[$decoration['key']])) {
+            $this->decorations[$decoration['key']]['body'] = $body;
+        }
+
+        return $body;
+    }
+
+    /**
+     * The page's media map (#242), keyed by `media_ref`: every distinct
+     * `{link, media}` pair the presented nodes carry. Empty off a page.
+     *
+     * @return array<string, array{link: array<string, mixed>|null, media: array<string, mixed>}>
+     */
+    public function mediaMap(): array
+    {
+        return $this->mediaMap ?? [];
     }
 
     /**

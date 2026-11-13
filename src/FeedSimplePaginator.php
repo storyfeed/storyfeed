@@ -21,8 +21,9 @@ class FeedSimplePaginator extends Paginator
     public function __construct(FeedPage $page, int $perPage, int $currentPage, string $pageName = 'page')
     {
         $this->syncToken = $page->syncToken();
+        $this->mediaMap = $page->media();
 
-        parent::__construct($page->collect(), $perPage, $currentPage, [
+        parent::__construct(collect($page->transported())->map(FeedItem::of(...)), $perPage, $currentPage, [
             'path' => Paginator::resolveCurrentPath(),
             'pageName' => $pageName,
         ]);

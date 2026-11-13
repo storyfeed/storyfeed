@@ -108,10 +108,11 @@ it('returns the live model to a resolver, batched: one query per class however m
     $both = queries_during($page);
 
     // 8 customer objects + 12 customer targets ask; one query answers them
-    // all. 12 deliveries ask; one more query.
+    // all. 12 deliveries ask; one more query. Each of the 8 distinct
+    // customers is decorated once per page (#242), however often it appears.
     expect($customersOnly)->toBe($baseline + 1)
         ->and($both)->toBe($baseline + 2)
-        ->and(Customer::$hydrated)->toHaveCount(20)
+        ->and(Customer::$hydrated)->toHaveCount(8)
         ->and(Customer::$hydrated)->each->toBeInstanceOf(Customer::class);
 
     $items = $page();
@@ -128,10 +129,13 @@ it('serves one instance per entity for the whole build — the identity map, not
 
     Customer::$hydrates = true;
 
-    Storyfeed::feed()->log()->get()->toArray();
+    $page = Storyfeed::feed()->log()->get()->toArray();
 
-    expect(Customer::$hydrated)->toHaveCount(2)
-        ->and(Customer::$hydrated[0])->toBe(Customer::$hydrated[1]);
+    // The entity is decorated once per page (#242), so the resolver asks once
+    // and both rows carry what it built.
+    expect(Customer::$hydrated)->toHaveCount(1)
+        ->and(Customer::$hydrated[0])->toBeInstanceOf(Customer::class)
+        ->and($page[0]['object']['link'])->toBe($page[1]['object']['link']);
 });
 
 it('loads relations named in with: on the same batch, so nested access costs nothing more', function () {
@@ -382,7 +386,7 @@ it('counts a relation on the same batch: one query for the whole class, not one 
     // withCount() is a subquery on the batch's own select, so counting twenty
     // asking entities costs nothing beyond the one query that loads the class.
     expect($withCount)->toBe($withoutCount)
-        ->and(Customer::$hydrated)->toHaveCount(20);
+        ->and(Customer::$hydrated)->toHaveCount(8);
 
     $counts = collect(Customer::$hydrated)->map(fn (?Model $model) => $model?->deliveries_count)->unique()->sort()->values();
 
@@ -430,7 +434,8 @@ it('does not recount an aggregate a second resolver asks for again', function ()
 
     $queries = queries_during(fn () => Storyfeed::feed()->log()->get()->toArray());
 
-    expect(Customer::$hydrated)->toHaveCount(3)
+    // One distinct entity, decorated once per page (#242).
+    expect(Customer::$hydrated)->toHaveCount(1)
         ->and(collect(Customer::$hydrated)->filter()->every(fn (Model $m) => $m->deliveries_count === 1))->toBeTrue();
 
     // Three entities asked for the same count; the class is loaded once and
