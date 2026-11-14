@@ -17,7 +17,8 @@ use Workbench\App\Models\User;
  * that signs picture URLs that was 368 signed links for 105 pictures, built
  * one by one. Now each distinct entity is decorated once per page, and a
  * paginated page carries a top-level `media` map, keyed by the `media_ref`
- * each entity names it by. The inline copies stay unless an app opts out.
+ * each entity names it by. The inline copies stay unless an app opts out,
+ * and while they stay the transported map is empty so nothing travels twice.
  */
 
 class MediaMapPhoto extends Customer
@@ -75,7 +76,10 @@ function mediaMapEntities(mixed $value): array
 it('maps each distinct picture once, and every reference resolves to the inline copy', function () {
     mediaMapFeed();
 
-    $payload = Storyfeed::feed()->cursorPaginate(20)->toArray();
+    $paginator = Storyfeed::feed()->cursorPaginate(20);
+    $payload = $paginator->toArray();
+    // The paginator still offers the full map to an app that wants it.
+    $payload['media'] = $paginator->media();
     $entities = mediaMapEntities($payload['data']);
     $photos = array_filter($entities, fn (array $e) => $e['type'] === 'media_map_photo');
     $distinct = array_unique(array_map(fn (array $e) => $e['type'].':'.$e['id'], $entities));
@@ -114,6 +118,28 @@ it('signs each distinct picture once per page, however many places show it', fun
     expect(MediaMapPhoto::$signed)->toBe(6);
 });
 
+it('sends no map alongside the inline copies by default, so nothing travels twice', function () {
+    mediaMapFeed();
+
+    foreach ([Storyfeed::feed()->cursorPaginate(20), Storyfeed::feed()->simplePaginate(20)] as $paginator) {
+        $payload = $paginator->toArray();
+        $entities = mediaMapEntities($payload['data']);
+
+        expect($payload)->toHaveKey('media')
+            ->and($payload['media'])->toBe([])
+            ->and($paginator->media())->not->toBeEmpty()
+            ->and($entities)->not->toBeEmpty();
+
+        foreach ($entities as $entity) {
+            expect($entity)->toHaveKey('media')
+                ->and($entity)->toHaveKey('link')
+                ->and($entity['media_ref'])->toBeString();
+        }
+
+        expect(json_encode($payload))->toContain('"media":[]');
+    }
+});
+
 it('leaves the inline copies out of a paginator when the app opts out', function () {
     mediaMapFeed();
     config(['storyfeed.payload.inline_media' => false]);
@@ -121,7 +147,8 @@ it('leaves the inline copies out of a paginator when the app opts out', function
     $payload = Storyfeed::feed()->cursorPaginate(20)->toArray();
     $entities = mediaMapEntities($payload['data']);
 
-    expect($entities)->not->toBeEmpty();
+    expect($entities)->not->toBeEmpty()
+        ->and($payload['media'])->not->toBeEmpty();
 
     foreach ($entities as $entity) {
         expect($entity)->not->toHaveKey('media')
