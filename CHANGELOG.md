@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.26.1 - 2026-11-14
+
+### Fixed
+
+- Paginated pages fill the top-level `media` map only when `storyfeed.payload.inline_media` is `false`. With the default (`true`), the map is empty (`[]`) and entities keep their inline `link` and `media`, so pages no longer carry every picture twice. v0.26.0 pages were larger than v0.25's by default. `media_ref` stays on every entity, each entity's media is still built once per page, and `$paginator->media()` still returns the full map. (#242)
+
 ## v0.26.0 - 2026-11-13
 
 ### Added

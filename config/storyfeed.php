@@ -357,15 +357,15 @@ return [
     | Payload transport
     |--------------------------------------------------------------------------
     |
-    | A paginated page carries a top-level `media` map: each distinct
-    | entity `{link, media}` pair once, keyed by the `media_ref` every entity
-    | names it by. Each distinct picture is resolved once per page, however
-    | many groups, samples and child rows show it.
+    | Every entity on a page names a `media_ref`, and each distinct picture is
+    | resolved once per page, however many groups, samples and child rows
+    | show it.
     |
     | The entities keep their inline `link` and `media` copies by default, so
-    | renderers that do not read the map work unchanged. Turn inline_media
+    | renderers that do not read a map work unchanged; the page's top-level
+    | `media` map is then empty, so nothing is sent twice. Turn inline_media
     | off once your renderer reads `media[entity.media_ref]`: a paginator's
-    | entities then leave both keys out, and the page shrinks accordingly.
+    | entities then leave both keys out and the page carries the map instead.
     | get() and FeedItem readers outside a paginator always keep them.
     |
     */

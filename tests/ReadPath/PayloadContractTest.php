@@ -41,8 +41,10 @@ it('emits the same payload shape as before the recording API change', function (
         'type', 'id', 'label', 'link', 'data', 'media', 'media_ref', 'body', 'tombstone',
     ]);
     // The page media map (#242): every entity's `{link, media}` once, keyed
-    // by the `media_ref` the entity carries.
-    expect($payload['media'][$payload['data'][0]['object']['media_ref']])->toBe([
+    // by the `media_ref` the entity carries. It travels only when the inline
+    // copies don't, so by default the key is present and empty.
+    expect($payload['media'])->toBe([]);
+    expect(Storyfeed::feed()->cursorPaginate()->media()[$payload['data'][0]['object']['media_ref']])->toBe([
         'link' => $payload['data'][0]['object']['link'],
         'media' => $payload['data'][0]['object']['media'],
     ]);

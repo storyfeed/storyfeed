@@ -44,9 +44,10 @@ trait CarriesFeedKeys
             ...parent::toArray(),
             'payload_version' => 1,
             'sync_token' => $this->syncToken,
-            // Additive (2026-11-13, #242). A page with no entities has an
-            // empty map, which JSON writes as `[]`, as Laravel does elsewhere.
-            'media' => $this->mediaMap,
+            // Additive (2026-11-13, #242). Filled only when inline_media is
+            // off: with the inline copies on, the map would duplicate them.
+            // Empty otherwise, which JSON writes as `[]`; the key stays.
+            'media' => config('storyfeed.payload.inline_media', true) === false ? $this->mediaMap : [],
         ];
     }
 }
