@@ -34,13 +34,14 @@ class FeedPaginator extends CursorPaginator
         $this->nextFeedCursor = FeedCursor::fromEncoded($page->nextCursor());
         $this->prevFeedCursor = FeedCursor::fromEncoded($page->prevCursor());
         $this->syncToken = $page->syncToken();
+        $this->mediaMap = $page->media();
 
         // The page is already in reading order; a backward cursor would make Laravel turn it round again.
         if ($cursor?->pointsToPreviousItems()) {
             $cursor = new FeedCursor($cursor->encode());
         }
 
-        parent::__construct($page->collect(), $perPage, $cursor, [
+        parent::__construct(collect($page->transported())->map(FeedItem::of(...)), $perPage, $cursor, [
             'path' => Paginator::resolveCurrentPath(),
             'cursorName' => $cursorName,
         ]);

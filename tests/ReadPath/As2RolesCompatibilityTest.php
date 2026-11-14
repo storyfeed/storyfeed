@@ -48,6 +48,10 @@ it('adds only nullable role keys to baseline payload and event bytes without cha
             foreach (['actor', 'object', 'target', 'context'] as $role) {
                 expect($payload[$role]['media'])->toMatchArray(['icon' => null, 'initials' => Avatar::initials($payload[$role]['label'])]);
                 $payload[$role]['media'] = null;
+
+                // The page media map's reference (#242): null off a page.
+                expect($payload[$role])->toHaveKey('media_ref', null);
+                unset($payload[$role]['media_ref']);
             }
         }
         $observed[$kind] = json_encode($payload, JSON_THROW_ON_ERROR);

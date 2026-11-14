@@ -13,6 +13,20 @@ trait CarriesFeedKeys
 {
     protected ?string $syncToken = null;
 
+    /** @var array<string, array{link: array<string, mixed>|null, media: array<string, mixed>}> */
+    protected array $mediaMap = [];
+
+    /**
+     * The page's media map (#242): each distinct `{link, media}` pair, keyed
+     * by the `media_ref` the page's entities carry.
+     *
+     * @return array<string, array{link: array<string, mixed>|null, media: array<string, mixed>}>
+     */
+    public function media(): array
+    {
+        return $this->mediaMap;
+    }
+
     /**
      * Opaque, cursor-grained: store it; when a later page's token differs,
      * settled history was rewritten — drop ALL accumulated nodes and
@@ -30,6 +44,9 @@ trait CarriesFeedKeys
             ...parent::toArray(),
             'payload_version' => 1,
             'sync_token' => $this->syncToken,
+            // Additive (2026-11-13, #242). A page with no entities has an
+            // empty map, which JSON writes as `[]`, as Laravel does elsewhere.
+            'media' => $this->mediaMap,
         ];
     }
 }

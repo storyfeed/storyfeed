@@ -96,7 +96,7 @@ it('is Laravel\'s cursor paginator JSON plus the two feed keys, and iterates Fee
 
     expect(array_keys($payload))->toBe([
         'data', 'path', 'per_page', 'next_cursor', 'next_page_url', 'prev_cursor', 'prev_page_url',
-        'payload_version', 'sync_token',
+        'payload_version', 'sync_token', 'media',
     ])
         ->and($payload['data'])->toBe($plain->toArray())
         ->and($payload['payload_version'])->toBe(1)

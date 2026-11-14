@@ -19,6 +19,9 @@ final class FeedPage
     /** @var array<int, array<string, mixed>>|null */
     protected ?array $presentedItems = null;
 
+    /** @var array<string, array{link: array<string, mixed>|null, media: array<string, mixed>}> */
+    protected array $mediaMap = [];
+
     /**
      * @param  Collection<int, GroupSlice>  $slices  page items, already ordered
      */
@@ -44,10 +47,61 @@ final class FeedPage
         // once. Each page builds once; distinct pages never share models.
         $presenter = $this->presenter->forPage($this->slices);
 
-        return $this->presentedItems = $this->slices
+        $this->presentedItems = $this->slices
             ->map(fn (GroupSlice $slice) => $presenter->node($slice))
             ->values()
             ->all();
+        $this->mediaMap = $presenter->mediaMap();
+
+        return $this->presentedItems;
+    }
+
+    /**
+     * The page's media map (#242): each distinct `{link, media}` pair its
+     * entities carry, keyed by the `media_ref` they name it by.
+     *
+     * @return array<string, array{link: array<string, mixed>|null, media: array<string, mixed>}>
+     */
+    public function media(): array
+    {
+        $this->items();
+
+        return $this->mediaMap;
+    }
+
+    /**
+     * The page's items as they travel in a paginator: with the inline `link`
+     * and `media` copies, or, when `storyfeed.payload.inline_media` is off,
+     * without them on every entity whose `media_ref` names them in the map.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function transported(): array
+    {
+        $items = $this->items();
+
+        return config('storyfeed.payload.inline_media', true) === false
+            ? array_map(self::strip(...), $items)
+            : $items;
+    }
+
+    /**
+     * @param  array<array-key, mixed>  $value
+     * @return array<array-key, mixed>
+     */
+    private static function strip(array $value): array
+    {
+        if (is_string($value['media_ref'] ?? null) && array_key_exists('media', $value) && array_key_exists('type', $value)) {
+            unset($value['link'], $value['media']);
+        }
+
+        foreach ($value as $key => $child) {
+            if (is_array($child)) {
+                $value[$key] = self::strip($child);
+            }
+        }
+
+        return $value;
     }
 
     /**
