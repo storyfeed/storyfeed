@@ -76,6 +76,14 @@ class NodePresenter
     protected ?int $sampleCap = null;
 
     /**
+     * The most members a group presents as `children` for this feed (#251),
+     * or null for every loaded member. A presentation cap: the members are
+     * still loaded and read for counts, samples and the headline; only the
+     * dropped ones are never presented.
+     */
+    protected ?int $childrenCap = null;
+
+    /**
      * Each activity's resolved headline, so a closure runs once per page
      * though a group reads its members' render-time bindings too.
      *
@@ -148,6 +156,19 @@ class NodePresenter
     {
         $presenter = clone $this;
         $presenter->sampleCap = $cap;
+
+        return $presenter;
+    }
+
+    /**
+     * The same presenter, presenting at most $cap of each group's members
+     * as `children` (#251), or every loaded member when null. A copy, for
+     * the reason forFeed() is.
+     */
+    public function withChildren(?int $cap): static
+    {
+        $presenter = clone $this;
+        $presenter->childrenCap = $cap;
 
         return $presenter;
     }
@@ -763,7 +784,10 @@ class NodePresenter
         $common = $this->commonFeatured($slice);
         $featured = $common !== null && ($singulars[$common] ?? null) !== null ? $common : null;
 
-        $children = $members->map(fn (Activity $a) => $this->activityNode($a))->values()->all();
+        // A feed that draws fewer children than it loaded (#251) presents
+        // only those it sends: the dropped members are never decorated.
+        $presented = $this->childrenCap === null ? $members : $members->take($this->childrenCap);
+        $children = $presented->map(fn (Activity $a) => $this->activityNode($a))->values()->all();
 
         // A feed that draws fewer samples than it was dealt (#247): cut the
         // lists, never the keys. Group-node shape is contract, so a capped
@@ -772,7 +796,7 @@ class NodePresenter
             $sample = array_map(fn (array $entities): array => array_slice($entities, 0, $this->sampleCap), $sample);
         }
 
-        [$tombstoned, $redundant] = $this->groupTombstoneFact($slice, $children, $distinct, $distinctTombstoned);
+        [$tombstoned, $redundant] = $this->groupTombstoneFact($slice, $distinct, $distinctTombstoned);
 
         // Every inferred Live row names one verb.
         $verb = $first->verb;
@@ -1338,12 +1362,14 @@ class NodePresenter
      * constitutive role is tombstoned for EVERY distinct entity it holds,
      * which the true counts can vouch for beyond the loaded members.
      *
-     * @param  list<array<string, mixed>>  $children
+     * Read from every loaded member, never from the presented children, so
+     * a children cap (#251) cannot change it.
+     *
      * @param  array<string, int>  $distinct
      * @param  array<string, int>  $distinctTombstoned
      * @return array{0: list<string>, 1: bool}
      */
-    protected function groupTombstoneFact(GroupSlice $slice, array $children, array $distinct, array $distinctTombstoned): array
+    protected function groupTombstoneFact(GroupSlice $slice, array $distinct, array $distinctTombstoned): array
     {
         $tombstoned = [];
 
@@ -1353,7 +1379,8 @@ class NodePresenter
             }
         }
 
-        if ($tombstoned === [] || $children === [] || in_array(false, array_column($children, 'redundant'), true)) {
+        if ($tombstoned === [] || $slice->members->isEmpty()
+            || $slice->members->contains(fn (Activity $member): bool => ! $this->tombstoneFact($member)[1])) {
             return [$tombstoned, false];
         }
 
