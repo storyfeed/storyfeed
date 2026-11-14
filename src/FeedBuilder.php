@@ -149,6 +149,9 @@ class FeedBuilder
     /** The most sample entities a group carries per role (#247), or null for the config. */
     protected ?int $samples = null;
 
+    /** The most members a group presents as `children` (#251), or null for every loaded one. */
+    protected ?int $children = null;
+
     /** Where the activities come from; null is the database. */
     protected ?FeedSource $source = null;
 
@@ -690,6 +693,26 @@ class FeedBuilder
         }
 
         $this->samples = $limit;
+
+        return $this;
+    }
+
+    /**
+     * Cap every group's presented `children` at $limit members, for a
+     * surface that never draws them: `children(0)` sends none. A
+     * presentation cap: the members are still read, so `count`, `distinct`,
+     * the headline, pinned roles and samples are unchanged, and the
+     * dropped members are never presented. `children` stays a list, `[]`
+     * at 0, and `children_truncated` is true when the cap dropped any.
+     * Call it in a named feed's definition or per read.
+     */
+    public function children(int $limit): static
+    {
+        if ($limit < 0) {
+            throw new InvalidArgumentException("children() takes 0 or more, got {$limit}.");
+        }
+
+        $this->children = $limit;
 
         return $this;
     }
@@ -1285,7 +1308,7 @@ class FeedBuilder
      */
     protected function presenter(): NodePresenter
     {
-        return app(NodePresenter::class)->forFeed($this->feed)->withSamples($this->samples);
+        return app(NodePresenter::class)->forFeed($this->feed)->withSamples($this->samples)->withChildren($this->children);
     }
 
     protected function logPage(Carbon $now): FeedPage

@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.28.0 - 2026-11-14
+
+### Added
+
+- `children($limit)` on a feed builder caps every group's presented `children` at `$limit` members, for a surface that never draws them; `children(0)` sends none. Call it in a named feed's definition or per read. It is a presentation cap: members are still loaded up to `grouping.children_limit`, so `count`, `distinct`, the headline, pinned roles and samples are unchanged, and the members it drops are never presented. `children` stays a list (`[]` at 0), and `children_truncated` is true when the cap dropped any. (#251)
+
 ## v0.27.0 - 2026-11-14
 
 ### Added
