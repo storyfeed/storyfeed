@@ -146,6 +146,9 @@ class FeedBuilder
 
     protected int $limit = 30;
 
+    /** The most sample entities a group carries per role (#247), or null for the config. */
+    protected ?int $samples = null;
+
     /** Where the activities come from; null is the database. */
     protected ?FeedSource $source = null;
 
@@ -669,6 +672,24 @@ class FeedBuilder
     public function limit(int $limit): static
     {
         $this->limit = $limit;
+
+        return $this;
+    }
+
+    /**
+     * Cap every group's sample lists (`sample.actors`, `sample.objects`, …,
+     * `sample.featured`) at $limit entities, for a surface that draws fewer
+     * than it is dealt: `samples(0)` sends none. Each list stays, empty when
+     * capped to nothing; `count`, `distinct`, the headline and pinned roles
+     * are unchanged. Call it in a named feed's definition or per read.
+     */
+    public function samples(int $limit): static
+    {
+        if ($limit < 0) {
+            throw new InvalidArgumentException("samples() takes 0 or more, got {$limit}.");
+        }
+
+        $this->samples = $limit;
 
         return $this;
     }
@@ -1264,7 +1285,7 @@ class FeedBuilder
      */
     protected function presenter(): NodePresenter
     {
-        return app(NodePresenter::class)->forFeed($this->feed);
+        return app(NodePresenter::class)->forFeed($this->feed)->withSamples($this->samples);
     }
 
     protected function logPage(Carbon $now): FeedPage

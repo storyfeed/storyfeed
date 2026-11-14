@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- `samples($limit)` on a feed builder caps every group's sample lists (`sample.actors`, `sample.objects`, …, `sample.featured`) at `$limit` entities, for a surface that never draws them; `samples(0)` sends none. Call it in a named feed's definition or per read. Each list stays, as `[]` when capped to nothing, so the group-node shape is unchanged; `count`, `distinct`, the headline and pinned roles are read before the cap. (#247)
+
 ## v0.26.1 - 2026-11-14
 
 ### Fixed
