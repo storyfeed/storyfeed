@@ -52,6 +52,8 @@ it('adds only nullable role keys to baseline payload and event bytes without cha
                 // The page media map's reference (#242): null off a page.
                 expect($payload[$role])->toHaveKey('media_ref', null);
                 unset($payload[$role]['media_ref']);
+                expect($payload[$role])->toHaveKey('entity_ref', null);
+                unset($payload[$role]['entity_ref']);
             }
         }
         $observed[$kind] = json_encode($payload, JSON_THROW_ON_ERROR);

@@ -1,10 +1,11 @@
 # Changelog
 
-## Unreleased
+## v0.27.0 - 2026-11-14
 
 ### Added
 
 - `samples($limit)` on a feed builder caps every group's sample lists (`sample.actors`, `sample.objects`, …, `sample.featured`) at `$limit` entities, for a surface that never draws them; `samples(0)` sends none. Call it in a named feed's definition or per read. Each list stays, as `[]` when capped to nothing, so the group-node shape is unchanged; `count`, `distinct`, the headline and pinned roles are read before the cap. (#247)
+- Paginators (`cursorPaginate()`, `simplePaginate()`) gain an additive top-level `entities` map, `{entity_ref: entity}`, holding each distinct entity on the page once, whole, and every entity on a page gains an additive `entity_ref` naming its entry (null off a page). The ref is a content hash over everything the entity serializes. By default the map is empty (`[]`) and entities stay inline, so pages are unchanged apart from the ref. Once a renderer reads the map, set `storyfeed.payload.inline_entities` to `false` (env `STORYFEED_INLINE_ENTITIES`): paginated entities then travel as `{type, id, entity_ref}` stubs, so a page grows with its distinct entities rather than items × roles. Map entries keep their `link` and `media`, so in this mode the `media` map is empty and `inline_media` does not apply. `get()` always keeps entities inline; `$paginator->entities()` returns the full map in both modes. (#246)
 
 ## v0.26.1 - 2026-11-14
 

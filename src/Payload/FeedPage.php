@@ -22,6 +22,9 @@ final class FeedPage
     /** @var array<string, array{link: array<string, mixed>|null, media: array<string, mixed>}> */
     protected array $mediaMap = [];
 
+    /** @var array<string, array<string, mixed>> */
+    protected array $entityMap = [];
+
     /**
      * @param  Collection<int, GroupSlice>  $slices  page items, already ordered
      */
@@ -52,6 +55,7 @@ final class FeedPage
             ->values()
             ->all();
         $this->mediaMap = $presenter->mediaMap();
+        $this->entityMap = $presenter->entityMap();
 
         return $this->presentedItems;
     }
@@ -70,9 +74,25 @@ final class FeedPage
     }
 
     /**
-     * The page's items as they travel in a paginator: with the inline `link`
-     * and `media` copies, or, when `storyfeed.payload.inline_media` is off,
-     * without them on every entity whose `media_ref` names them in the map.
+     * The page's entity map (#246): each distinct entity, whole, keyed by
+     * the `entity_ref` its inline copies carry.
+     *
+     * @return array<string, array<string, mixed>>
+     */
+    public function entities(): array
+    {
+        $this->items();
+
+        return $this->entityMap;
+    }
+
+    /**
+     * The page's items as they travel in a paginator. By default every
+     * entity is inline and whole. With `storyfeed.payload.inline_entities`
+     * off, each is a `{type, id, entity_ref}` stub and the page's `entities`
+     * map holds it whole, its `link` and `media` included, so the media map
+     * has nothing left to carry. Otherwise, with `inline_media` off, each
+     * entity leaves out the `link` and `media` its `media_ref` names.
      *
      * @return array<int, array<string, mixed>>
      */
@@ -80,9 +100,44 @@ final class FeedPage
     {
         $items = $this->items();
 
-        return config('storyfeed.payload.inline_media', true) === false
-            ? array_map(self::strip(...), $items)
-            : $items;
+        if (! self::inlineEntities()) {
+            return array_map(self::stub(...), $items);
+        }
+
+        return self::inlineMedia()
+            ? $items
+            : array_map(self::strip(...), $items);
+    }
+
+    /** @internal whether a paginator's entities travel whole (#246) */
+    public static function inlineEntities(): bool
+    {
+        return config('storyfeed.payload.inline_entities', true) !== false;
+    }
+
+    /** @internal whether a paginator's entities carry `link` and `media` (#242) */
+    public static function inlineMedia(): bool
+    {
+        return config('storyfeed.payload.inline_media', true) !== false;
+    }
+
+    /**
+     * @param  array<array-key, mixed>  $value
+     * @return array<array-key, mixed>
+     */
+    private static function stub(array $value): array
+    {
+        if (is_string($value['entity_ref'] ?? null) && array_key_exists('type', $value)) {
+            return ['type' => $value['type'], 'id' => $value['id'] ?? null, 'entity_ref' => $value['entity_ref']];
+        }
+
+        foreach ($value as $key => $child) {
+            if (is_array($child)) {
+                $value[$key] = self::stub($child);
+            }
+        }
+
+        return $value;
     }
 
     /**

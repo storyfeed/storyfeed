@@ -27,7 +27,7 @@ it('emits the same payload shape as before the recording API change', function (
     // the first settled-history rewrite ever.
     expect(array_keys($payload))->toBe([
         'data', 'path', 'per_page', 'next_cursor', 'next_page_url', 'prev_cursor', 'prev_page_url',
-        'payload_version', 'sync_token', 'media',
+        'payload_version', 'sync_token', 'media', 'entities',
     ]);
     // get() is the nodes and nothing else.
     expect(Storyfeed::feed()->get()->toArray())->toBe($payload['data']);
@@ -38,8 +38,14 @@ it('emits the same payload shape as before the recording API change', function (
     ]);
     // `url`, `attributes` and `modal` became one `link` (2026-10-09, #79).
     expect(array_keys($payload['data'][0]['object']))->toBe([
-        'type', 'id', 'label', 'link', 'data', 'media', 'media_ref', 'body', 'tombstone',
+        'type', 'id', 'label', 'link', 'data', 'media', 'media_ref', 'entity_ref', 'body', 'tombstone',
     ]);
+    // The page entity map (#246): each distinct entity once, whole, keyed by
+    // its `entity_ref`. Like the media map, it travels only when the inline
+    // copies don't.
+    expect($payload['entities'])->toBe([]);
+    expect(Storyfeed::feed()->cursorPaginate()->entities()[$payload['data'][0]['object']['entity_ref']])
+        ->toBe($payload['data'][0]['object']);
     // The page media map (#242): every entity's `{link, media}` once, keyed
     // by the `media_ref` the entity carries. It travels only when the inline
     // copies don't, so by default the key is present and empty.

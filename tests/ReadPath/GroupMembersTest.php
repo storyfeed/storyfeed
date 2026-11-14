@@ -70,7 +70,7 @@ it('returns a Laravel cursor paginator of activity nodes', function () {
         ->and($page->toArray()['data'])->each->toHaveKey('kind', 'activity')
         ->and(array_keys($page->toArray()))->toBe([
             'data', 'path', 'per_page', 'next_cursor', 'next_page_url', 'prev_cursor', 'prev_page_url',
-            'payload_version', 'sync_token', 'media',
+            'payload_version', 'sync_token', 'media', 'entities',
         ]);
 
     $this->app->instance('request', Request::create($page->nextPageUrl()));

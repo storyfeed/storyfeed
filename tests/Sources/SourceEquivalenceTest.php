@@ -86,6 +86,10 @@ function comparable(array $payload): array
         if (($node['type'] ?? null) === 'storyfeed.entity') {
             $node['id'] = 'party';
         }
+        // A content hash over the entity, its id included (#246).
+        if (array_key_exists('entity_ref', $node)) {
+            $node['entity_ref'] = 'ref';
+        }
 
         return array_map(fn ($value) => is_array($value) ? $walk($value) : $value, $node);
     };

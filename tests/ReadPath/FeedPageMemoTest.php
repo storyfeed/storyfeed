@@ -10,6 +10,7 @@ it('presents each node once across repeated page readers', function () {
     $presenter = Mockery::mock(NodePresenter::class);
     $presenter->shouldReceive('forPage')->andReturnSelf();
     $presenter->shouldReceive('mediaMap')->andReturn([]);
+    $presenter->shouldReceive('entityMap')->andReturn([]);
     $presenter->shouldReceive('node')->with($slice)->andReturnUsing(function () use (&$calls) {
         $calls++;
 
