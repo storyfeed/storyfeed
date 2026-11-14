@@ -69,6 +69,13 @@ class NodePresenter
     protected array $outboundRoleCasts = [];
 
     /**
+     * The most entities a group's sample lists carry for this feed (#247),
+     * or null for `grouping.sample_limits`. Applied after the headline and
+     * pinned roles are read, so counts, names and headlines are unchanged.
+     */
+    protected ?int $sampleCap = null;
+
+    /**
      * Each activity's resolved headline, so a closure runs once per page
      * though a group reads its members' render-time bindings too.
      *
@@ -120,6 +127,19 @@ class NodePresenter
     {
         $presenter = clone $this;
         $presenter->feed = $feed;
+
+        return $presenter;
+    }
+
+    /**
+     * The same presenter, capping every group's sample lists at $cap
+     * entities (#247), or at `grouping.sample_limits` when null. A copy, for
+     * the reason forFeed() is.
+     */
+    public function withSamples(?int $cap): static
+    {
+        $presenter = clone $this;
+        $presenter->sampleCap = $cap;
 
         return $presenter;
     }
@@ -735,6 +755,13 @@ class NodePresenter
         $featured = $common !== null && ($singulars[$common] ?? null) !== null ? $common : null;
 
         $children = $members->map(fn (Activity $a) => $this->activityNode($a))->values()->all();
+
+        // A feed that draws fewer samples than it was dealt (#247): cut the
+        // lists, never the keys. Group-node shape is contract, so a capped
+        // role is an empty list, and `distinct` still counts every entity.
+        if ($this->sampleCap !== null) {
+            $sample = array_map(fn (array $entities): array => array_slice($entities, 0, $this->sampleCap), $sample);
+        }
 
         [$tombstoned, $redundant] = $this->groupTombstoneFact($slice, $children, $distinct, $distinctTombstoned);
 
