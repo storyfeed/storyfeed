@@ -104,6 +104,14 @@ class NodePresenter
     private ?array $mediaMap = null;
 
     /**
+     * The page's entity map (#246): each distinct entity, whole, keyed by the
+     * `entity_ref` it carries. Null off a page.
+     *
+     * @var array<string, array<string, mixed>>|null
+     */
+    private ?array $entityMap = null;
+
+    /**
      * @param  string|null  $feed  the registered name of the feed this page was
      *                             read through, or null for an ad-hoc builder
      */
@@ -216,6 +224,7 @@ class NodePresenter
         $presenter->snapshotFields = new WeakMap;
         $presenter->decorations = [];
         $presenter->mediaMap = [];
+        $presenter->entityMap = [];
 
         return $presenter;
     }
@@ -974,7 +983,7 @@ class NodePresenter
         $label = $media->label ?? $snapshotLabel;
         $id = $id === null ? null : (string) $id;
 
-        return [
+        $entity = [
             'type' => $type,
             'id' => $id,
             'label' => $label,
@@ -996,6 +1005,10 @@ class NodePresenter
             // page. Identical decorations share one key, so a renderer that
             // reads the map builds each distinct picture once.
             'media_ref' => $this->mediaMap === null ? null : $decoration['ref'],
+            // Additive (2026-11-14, #246): the key of this whole entity in the
+            // page's top-level `entities` map, or null off a page. Filled
+            // below, once everything it hashes over is in place.
+            'entity_ref' => null,
             // Omit only absent body fields: old snapshots keep their shape,
             // while an explicitly empty string remains authored content. The
             // body: what the snapshot stored, then what the resolver resolved.
@@ -1019,6 +1032,18 @@ class NodePresenter
                 'attributedTo' => $this->snapshotPlain($snapshot, 'attributed_to'),
             ], fn ($value) => $value !== null),
         ];
+
+        if ($this->entityMap === null) {
+            return $entity;
+        }
+
+        // A content hash over everything the entity serializes, as
+        // `media_ref` is over its pair: the same entity on one page shares
+        // one entry, and two versions of it can't collide.
+        $entity['entity_ref'] = 'e'.substr(hash('xxh128', (string) json_encode($entity, JSON_PARTIAL_OUTPUT_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE)), 0, 16);
+        $this->entityMap[$entity['entity_ref']] ??= $entity;
+
+        return $entity;
     }
 
     /**
@@ -1120,6 +1145,18 @@ class NodePresenter
     public function mediaMap(): array
     {
         return $this->mediaMap ?? [];
+    }
+
+    /**
+     * The page's entity map (#246), keyed by `entity_ref`: every distinct
+     * entity the presented nodes carry, exactly as they carry it inline.
+     * Empty off a page.
+     *
+     * @return array<string, array<string, mixed>>
+     */
+    public function entityMap(): array
+    {
+        return $this->entityMap ?? [];
     }
 
     /**

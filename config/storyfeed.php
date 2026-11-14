@@ -368,10 +368,19 @@ return [
     | entities then leave both keys out and the page carries the map instead.
     | get() and FeedItem readers outside a paginator always keep them.
     |
+    | Every entity on a page also names an `entity_ref`. Turn inline_entities
+    | off once your renderer reads `entities[entity.entity_ref]`: a paginator
+    | then sends each entity as a `{type, id, entity_ref}` stub and carries
+    | each distinct entity once, whole, in the top-level `entities` map, so a
+    | page grows with distinct entities rather than items. The map's entries
+    | keep their `link` and `media`, so the `media` map is empty in this mode
+    | and inline_media does not apply. get() always keeps entities inline.
+    |
     */
 
     'payload' => [
         'inline_media' => env('STORYFEED_INLINE_MEDIA', true),
+        'inline_entities' => env('STORYFEED_INLINE_ENTITIES', true),
     ],
 
     /*

@@ -55,7 +55,7 @@ it('is Laravel\'s simple paginator JSON plus the two feed keys', function () {
         ->and($page[0])->toBeInstanceOf(FeedItem::class)
         ->and(array_keys($payload))->toBe([
             'current_page', 'current_page_url', 'data', 'first_page_url', 'from', 'next_page_url',
-            'path', 'per_page', 'prev_page_url', 'to', 'payload_version', 'sync_token', 'media',
+            'path', 'per_page', 'prev_page_url', 'to', 'payload_version', 'sync_token', 'media', 'entities',
         ])
         ->and($payload['current_page'])->toBe(2)
         ->and($payload['from'])->toBe(4)

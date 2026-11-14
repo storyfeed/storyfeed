@@ -2,6 +2,8 @@
 
 namespace Storyfeed\Concerns;
 
+use Storyfeed\Payload\FeedPage;
+
 /**
  * The two feed-level values a page of nodes travels with, as extra top-level
  * keys after Laravel's own pagination keys: the place an API resource's
@@ -15,6 +17,20 @@ trait CarriesFeedKeys
 
     /** @var array<string, array{link: array<string, mixed>|null, media: array<string, mixed>}> */
     protected array $mediaMap = [];
+
+    /** @var array<string, array<string, mixed>> */
+    protected array $entityMap = [];
+
+    /**
+     * The page's entity map (#246): each distinct entity, whole, keyed by
+     * the `entity_ref` the page's entities carry.
+     *
+     * @return array<string, array<string, mixed>>
+     */
+    public function entities(): array
+    {
+        return $this->entityMap;
+    }
 
     /**
      * The page's media map (#242): each distinct `{link, media}` pair, keyed
@@ -47,7 +63,12 @@ trait CarriesFeedKeys
             // Additive (2026-11-13, #242). Filled only when inline_media is
             // off: with the inline copies on, the map would duplicate them.
             // Empty otherwise, which JSON writes as `[]`; the key stays.
-            'media' => config('storyfeed.payload.inline_media', true) === false ? $this->mediaMap : [],
+            // With entities off, the entity map carries each entity's link
+            // and media whole, so the media map would only repeat them.
+            'media' => FeedPage::inlineEntities() && ! FeedPage::inlineMedia() ? $this->mediaMap : [],
+            // Additive (2026-11-14, #246). Filled only when inline_entities
+            // is off, for the same reason; `[]` otherwise, the key stays.
+            'entities' => FeedPage::inlineEntities() ? [] : $this->entityMap,
         ];
     }
 }
