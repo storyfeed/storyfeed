@@ -1,10 +1,16 @@
 # Changelog
 
+## v0.26.1 - 2026-11-14
+
+### Fixed
+
+- Paginated pages fill the top-level `media` map only when `storyfeed.payload.inline_media` is `false`. With the default (`true`), the map is empty (`[]`) and entities keep their inline `link` and `media`, so pages no longer carry every picture twice. v0.26.0 pages were larger than v0.25's by default. `media_ref` stays on every entity, each entity's media is still built once per page, and `$paginator->media()` still returns the full map. (#242)
+
 ## v0.26.0 - 2026-11-13
 
 ### Added
 
-- A page builds each distinct entity's link and media once, however many places show it (a group's pinned role, its samples, featured strip and child rows), so a resolver that signs picture URLs signs each one once per page. Paginators (`cursorPaginate()`, `simplePaginate()`) gain an additive top-level `media` key, and every entity on a page gains an additive `media_ref` (null off a page). By default entities keep their inline `link` and `media`, so existing renderers are unaffected, and the `media` map is empty (`[]`) so pages carry nothing twice. Once a renderer reads the map, set `storyfeed.payload.inline_media` to `false`: paginated pages then drop the inline copies and carry the map, `{media_ref: {link, media}}`, instead. `$paginator->media()` returns the full map in both modes. `get()` always keeps them. (#242)
+- A page builds each distinct entity's link and media once, however many places show it (a group's pinned role, its samples, featured strip and child rows), so a resolver that signs picture URLs signs each one once per page. Paginators (`cursorPaginate()`, `simplePaginate()`) gain an additive top-level `media` map, `{media_ref: {link, media}}`, and every entity on a page gains an additive `media_ref` naming its entry (null off a page). Entities keep their inline `link` and `media`, so existing renderers are unaffected. Once a renderer reads the map, set `storyfeed.payload.inline_media` to `false` to drop the inline copies from paginated pages. `get()` always keeps them. (#242)
 
 ## v0.25.1 - 2026-11-13
 
