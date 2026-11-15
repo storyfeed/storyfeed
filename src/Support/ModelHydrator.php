@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
+use Illuminate\Support\Str;
 use Storyfeed\Models\Snapshot;
 use Throwable;
 
@@ -64,6 +65,22 @@ use Throwable;
  * here and handed back as it is (#138). `with:` and `withCount:` still
  * apply, across every instance of the class on the page at once.
  *
+ * A MODEL THE HOST OFFERS IS USED ONLY WHEN IT SUFFICES. A record page that
+ * shows the record's own feed already holds the subject, its relations
+ * loaded, and would otherwise watch hydration read it all again (#243).
+ * `FeedBuilder::remember()` offers such models here, keyed by morph class
+ * and key, and model() returns one instead of querying, but only when it is
+ * exactly what the query would have produced: saved and unchanged, not
+ * trashed unless `withTrashed` asked, every relation in `with:` already
+ * loaded on it (the test loadMissing() uses, nested paths included) and
+ * every count in `withCount:` already on it. Otherwise the offer is passed
+ * over and the query runs as it would have, so a bare offered model costs
+ * nothing extra. An offered model is never written to: no relation or
+ * count is loaded onto it, and it never joins the collection the class's
+ * later relations load across. The host vouches that it is a row the
+ * class's global scopes would return, as it vouches for any model it hands
+ * a view.
+ *
  * THE OFF SWITCH. `storyfeed.hydration.enabled = false` makes every call
  * answer null with no query and no exception, for an application that
  * needs a no-queries guarantee on a hot surface. Links degrade; nothing
@@ -85,6 +102,9 @@ final class ModelHydrator
 
     /** @var array<string, array<string, true>> batch key => aggregate names already counted */
     private array $counts = [];
+
+    /** @var array<string, array<string, Model>> morph class => [key => model], the host's offered models (#243) */
+    private array $offered = [];
 
     /** @var array<int, true> spl_object_id => true, the instances already remembered */
     private array $remembered = [];
@@ -141,6 +161,12 @@ final class ModelHydrator
         $withTrashed = $withTrashed && in_array(SoftDeletes::class, class_uses_recursive($class), true);
         $key = $class.($withTrashed ? '#trashed' : '');
         $id = (string) $id;
+
+        $offered = $this->offeredFor($type, $class, $id);
+
+        if ($offered !== null && self::suffices($offered, $with, $withTrashed, $withCount)) {
+            return $offered;
+        }
 
         if (! array_key_exists($id, $this->loaded[$key] ?? [])) {
             $this->load($key, $class, $type, $id, $with, $withTrashed, $withCount);
@@ -201,6 +227,23 @@ final class ModelHydrator
     }
 
     /**
+     * A saved model the host already loaded, offered in place of a query
+     * for its morph class and key (#243). model() returns it only when it
+     * already carries everything that call asks for, and never loads
+     * anything onto it; otherwise the query runs as it would have. An
+     * unsaved model has no row to stand in for and is not kept. A later
+     * offer of the same key replaces an earlier one.
+     */
+    public function offer(Model $model): void
+    {
+        if (! $model->exists || $model->getKey() === null) {
+            return;
+        }
+
+        $this->offered[$model->getMorphClass()][(string) $model->getKey()] = $model;
+    }
+
+    /**
      * The instance a context was built with, handed back as it is: no query
      * for the model itself, whether or not it was ever saved. Relations and
      * counts load as they do for a hydrated model, batched across the class;
@@ -254,6 +297,123 @@ final class ModelHydrator
     public function requested(): array
     {
         return array_keys($this->requested);
+    }
+
+    /**
+     * The model offered for this entity: under the alias it was stored with
+     * first, then under any alias of the same class, which is the same
+     * matching load() uses for the seeded ids.
+     *
+     * @param  class-string<Model>  $class
+     */
+    private function offeredFor(string $type, string $class, string $id): ?Model
+    {
+        if ($this->offered === []) {
+            return null;
+        }
+
+        $model = $this->offered[$type][$id] ?? null;
+
+        if ($model === null) {
+            foreach ($this->offered as $alias => $models) {
+                if ($alias !== $type && isset($models[$id]) && MorphResolver::classFor($alias) === $class) {
+                    $model = $models[$id];
+
+                    break;
+                }
+            }
+        }
+
+        return $model instanceof $class ? $model : null;
+    }
+
+    /**
+     * Whether an offered model is what the query would have handed back:
+     * saved and unchanged, visible to it, with every relation and count it
+     * would have loaded already on it.
+     *
+     * @param  array<int|string, mixed>  $with
+     * @param  array<int|string, mixed>  $withCount
+     */
+    private static function suffices(Model $model, array $with, bool $withTrashed, array $withCount): bool
+    {
+        if (! $model->exists || $model->isDirty()) {
+            return false;
+        }
+
+        if (! $withTrashed && method_exists($model, 'trashed') && $model->trashed()) {
+            return false;
+        }
+
+        foreach ($with as $name => $constraint) {
+            $path = is_string($name) ? $name : $constraint;
+
+            if (! is_string($path) || ! self::relationPathLoaded($model, explode('.', $path))) {
+                return false;
+            }
+        }
+
+        $attributes = $model->getAttributes();
+
+        foreach ($withCount as $name => $constraint) {
+            $relation = is_string($name) ? $name : $constraint;
+
+            if (! is_string($relation) || ! array_key_exists(self::countAttribute($relation), $attributes)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Whether a `with:` path is loaded all the way down, the test
+     * loadMissing() applies: a column list (`customer:id,name`) names the
+     * same relation, a null relation has nothing further to load, and a
+     * to-many relation is loaded when it is loaded on every member.
+     *
+     * @param  list<string>  $segments
+     */
+    private static function relationPathLoaded(Model $model, array $segments): bool
+    {
+        $relation = explode(':', array_shift($segments) ?? '')[0];
+
+        if ($relation === '' || ! $model->relationLoaded($relation)) {
+            return false;
+        }
+
+        if ($segments === []) {
+            return true;
+        }
+
+        $related = $model->getRelation($relation);
+
+        if ($related instanceof Model) {
+            return self::relationPathLoaded($related, $segments);
+        }
+
+        if (is_iterable($related)) {
+            foreach ($related as $member) {
+                if (! $member instanceof Model || ! self::relationPathLoaded($member, $segments)) {
+                    return false;
+                }
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * The attribute withCount() writes a count to: the alias after `as`, or
+     * the relation name in snake case with `_count`, as Eloquent names it.
+     */
+    private static function countAttribute(string $relation): string
+    {
+        if (preg_match('/^(.+?)\s+as\s+(.+)$/i', trim($relation), $matches) === 1) {
+            return trim($matches[2]);
+        }
+
+        return Str::snake((string) preg_replace('/[^[:alnum:][:space:]_]/u', '', "{$relation} count"));
     }
 
     /**

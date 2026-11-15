@@ -84,6 +84,15 @@ class NodePresenter
     protected ?int $childrenCap = null;
 
     /**
+     * Models the host already loaded, offered to each page's identity map
+     * (#243). Offered, not trusted: the map uses one only when it already
+     * carries what a resolver asks for.
+     *
+     * @var list<Model>
+     */
+    protected array $models = [];
+
+    /**
      * Each activity's resolved headline, so a closure runs once per page
      * though a group reads its members' render-time bindings too.
      *
@@ -174,6 +183,22 @@ class NodePresenter
     }
 
     /**
+     * The same presenter, offering every page it builds the models the host
+     * already loaded (#243), so hydration can use one instead of querying
+     * for it. A copy, for the reason forFeed() is: a list set on a
+     * singleton-bound presenter would offer one read's models to the next.
+     *
+     * @param  list<Model>  $models
+     */
+    public function withModels(array $models): static
+    {
+        $presenter = clone $this;
+        $presenter->models = $models;
+
+        return $presenter;
+    }
+
+    /**
      * The same presenter, told which groups its feed asked for: a Group's
      * own headline is its axis's headline in this feed, ahead of the one
      * the Stories registered. A copy, for the reason forFeed() is.
@@ -236,6 +261,10 @@ class NodePresenter
                     }
                 }
             }
+        }
+
+        foreach ($this->models as $model) {
+            $hydrator->offer($model);
         }
 
         $presenter = clone $this;

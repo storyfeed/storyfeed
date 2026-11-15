@@ -158,6 +158,13 @@ class FeedBuilder
     /** Whether a page's entities carry `link` and `media` (#253), or null for `storyfeed.payload.inline_media`. */
     protected ?bool $inlineMedia = null;
 
+    /**
+     * Models the host already loaded, offered to hydration (#243).
+     *
+     * @var list<Model>
+     */
+    protected array $remembered = [];
+
     /** Where the activities come from; null is the database. */
     protected ?FeedSource $source = null;
 
@@ -751,6 +758,41 @@ class FeedBuilder
     public function inlineMedia(bool $inline = true): static
     {
         $this->inlineMedia = $inline;
+
+        return $this;
+    }
+
+    /**
+     * Hand this read models the app already loaded, so a resolver's
+     * `$context->model()` can use one instead of querying for it: a record
+     * page that shows the record's own feed already holds the record and
+     * its relations. Takes a model, an array or a collection; call it again
+     * to add more. Matched by morph class and key.
+     *
+     * A remembered model is used only when it already carries what the
+     * resolver asks for: every relation in `with:` loaded, every count in
+     * `withCount:` present, no unsaved changes, and not soft-deleted unless
+     * `withTrashed:` asked. Otherwise the query runs as it always does, so
+     * remembering a bare model never costs a query. Hydration never loads
+     * anything onto a remembered model, and the payload is the same with or
+     * without it. Unsaved models are ignored. The models belong to this read:
+     * each page's identity map is built afresh, and a new builder starts
+     * with none.
+     *
+     * @param  Model|iterable<Model>  $models
+     */
+    public function remember(Model|iterable $models): static
+    {
+        foreach ($models instanceof Model ? [$models] : $models as $model) {
+            // Checked here, not trusted from the docblock: the models are
+            // only offered when the page renders, too late to name the call.
+            // @phpstan-ignore instanceof.alwaysTrue (an untyped array can hold anything)
+            if (! $model instanceof Model) {
+                throw new InvalidArgumentException('remember() takes Eloquent models, got '.get_debug_type($model).'.');
+            }
+
+            $this->remembered[] = $model;
+        }
 
         return $this;
     }
@@ -1367,7 +1409,7 @@ class FeedBuilder
      */
     protected function presenter(): NodePresenter
     {
-        return app(NodePresenter::class)->forFeed($this->feed)->withSamples($this->samples)->withChildren($this->children);
+        return app(NodePresenter::class)->forFeed($this->feed)->withSamples($this->samples)->withChildren($this->children)->withModels($this->remembered);
     }
 
     protected function logPage(Carbon $now): FeedPage
