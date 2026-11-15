@@ -174,7 +174,8 @@
           "Storyfeed\\Feed",
           "Storyfeed\\ComposedFeed",
           "Storyfeed\\FeedPaginator",
-          "Storyfeed\\FeedSimplePaginator"
+          "Storyfeed\\FeedSimplePaginator",
+          "Storyfeed\\FeedResult"
         ]
       },
       "handRolled": [

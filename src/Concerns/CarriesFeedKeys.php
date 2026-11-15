@@ -22,6 +22,27 @@ trait CarriesFeedKeys
     protected array $entityMap = [];
 
     /**
+     * The maps as they travel, settled when the page was read: its read's
+     * inlineEntities() and inlineMedia(), else the config (#253).
+     *
+     * @var array<string, array{link: array<string, mixed>|null, media: array<string, mixed>}>
+     */
+    protected array $transportedMedia = [];
+
+    /** @var array<string, array<string, mixed>> */
+    protected array $transportedEntities = [];
+
+    /** Take the sync token and both maps from the page this paginator carries. */
+    protected function carryFeedKeys(FeedPage $page): void
+    {
+        $this->syncToken = $page->syncToken();
+        $this->mediaMap = $page->media();
+        $this->entityMap = $page->entities();
+        $this->transportedMedia = $page->transportedMedia();
+        $this->transportedEntities = $page->transportedEntities();
+    }
+
+    /**
      * The page's entity map (#246): each distinct entity, whole, keyed by
      * the `entity_ref` the page's entities carry.
      *
@@ -60,15 +81,15 @@ trait CarriesFeedKeys
             ...parent::toArray(),
             'payload_version' => 1,
             'sync_token' => $this->syncToken,
-            // Additive (2026-11-13, #242). Filled only when inline_media is
+            // Additive (2026-11-13, #242). Filled only when inline media is
             // off: with the inline copies on, the map would duplicate them.
             // Empty otherwise, which JSON writes as `[]`; the key stays.
             // With entities off, the entity map carries each entity's link
             // and media whole, so the media map would only repeat them.
-            'media' => FeedPage::inlineEntities() && ! FeedPage::inlineMedia() ? $this->mediaMap : [],
-            // Additive (2026-11-14, #246). Filled only when inline_entities
-            // is off, for the same reason; `[]` otherwise, the key stays.
-            'entities' => FeedPage::inlineEntities() ? [] : $this->entityMap,
+            'media' => $this->transportedMedia,
+            // Additive (2026-11-14, #246). Filled only when inline entities
+            // are off, for the same reason; `[]` otherwise, the key stays.
+            'entities' => $this->transportedEntities,
         ];
     }
 }

@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- `inlineEntities(bool)` and `inlineMedia(bool)` on a feed builder override `storyfeed.payload.inline_entities` and `inline_media` for one read, or in a named feed's definition, so an app can stub entities on its web feed and keep them whole for an API reader of the same feed. They apply to `cursorPaginate()`, `simplePaginate()`, `members()` and `page()`, and default to the config. A paginator now settles its `entities` and `media` maps when the page is read, as it already did its stubs, so a config change before serialization no longer splits the two. (#253)
+- `page()` on a feed builder reads the items `get()` reads in the shape of a page: a `Storyfeed\FeedResult` serializing as `data`, `payload_version`, `sync_token`, `media` and `entities`, with no links or cursors. With inline entities off (per read or in config), a widget's groups send each entity once in the `entities` map, however many children show it. `get()` is unchanged: its entities stay inline whatever the config or the read says. (#255)
+
 ## v0.28.0 - 2026-11-14
 
 ### Added

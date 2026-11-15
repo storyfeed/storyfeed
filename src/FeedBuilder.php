@@ -152,6 +152,12 @@ class FeedBuilder
     /** The most members a group presents as `children` (#251), or null for every loaded one. */
     protected ?int $children = null;
 
+    /** Whether a page's entities travel whole (#253), or null for `storyfeed.payload.inline_entities`. */
+    protected ?bool $inlineEntities = null;
+
+    /** Whether a page's entities carry `link` and `media` (#253), or null for `storyfeed.payload.inline_media`. */
+    protected ?bool $inlineMedia = null;
+
     /** Where the activities come from; null is the database. */
     protected ?FeedSource $source = null;
 
@@ -718,6 +724,38 @@ class FeedBuilder
     }
 
     /**
+     * Send this read's entities whole, or, with `inlineEntities(false)`, as
+     * `{type, id, entity_ref}` stubs beside a top-level `entities` map that
+     * holds each distinct entity once. Overrides
+     * `storyfeed.payload.inline_entities` for the paginators and page(); the
+     * map's entries keep their `link` and `media`, so inline media does not
+     * apply while entities are stubbed. Only for a renderer that reads
+     * `entities[entity_ref]`. Call it in a named feed's definition or per
+     * read. get() always keeps entities inline: read page() for the maps.
+     */
+    public function inlineEntities(bool $inline = true): static
+    {
+        $this->inlineEntities = $inline;
+
+        return $this;
+    }
+
+    /**
+     * Keep each entity's `link` and `media` inline, or, with
+     * `inlineMedia(false)`, leave them out and send each distinct pair once
+     * in a top-level `media` map keyed by the entity's `media_ref`.
+     * Overrides `storyfeed.payload.inline_media` for the paginators and
+     * page(). Only for a renderer that reads `media[media_ref]`. Call it in
+     * a named feed's definition or per read. get() always keeps them.
+     */
+    public function inlineMedia(bool $inline = true): static
+    {
+        $this->inlineMedia = $inline;
+
+        return $this;
+    }
+
+    /**
      * LOG — the atomic timeline, no group nodes at all. Audit-style views
      * ("my activity") often read better plain.
      */
@@ -821,7 +859,7 @@ class FeedBuilder
         $cursor = $this->paginationCursor($cursor, $cursorName);
         $page = (clone $this)->limit($perPage)->cursor($cursor?->encode())->read();
 
-        return new FeedPaginator($page, $perPage, $cursor, $cursorName);
+        return new FeedPaginator($this->transport($page), $perPage, $cursor, $cursorName);
     }
 
     /**
@@ -844,7 +882,7 @@ class FeedBuilder
         $builder = (clone $this)->limit($perPage)->cursor(null);
         $builder->offset = ($page - 1) * $perPage;
 
-        return new FeedSimplePaginator($builder->read(), $perPage, $page, $pageName);
+        return new FeedSimplePaginator($this->transport($builder->read()), $perPage, $page, $pageName);
     }
 
     /**
@@ -900,7 +938,7 @@ class FeedBuilder
 
         $page = (clone $this)->limit($perPage)->cursor($cursor?->encode())->memberPage(Carbon::now(), ...$anchor->parameters(['axis', 'hash']));
 
-        return new FeedPaginator($page, $perPage, $cursor, $cursorName);
+        return new FeedPaginator($this->transport($page), $perPage, $cursor, $cursorName);
     }
 
     /**
@@ -921,13 +959,34 @@ class FeedBuilder
     /**
      * The feed's first `limit` items (or the items after `cursor()`), as
      * nodes: a collection of FeedItem readers whose JSON is a plain array.
-     * To page, use cursorPaginate().
+     * Its entities are always inline and whole, whatever inlineEntities(),
+     * inlineMedia() or `storyfeed.payload` say, since a list has nowhere to
+     * carry the maps: read page() for them. To page, use cursorPaginate().
      *
      * @return Collection<int, FeedItem>
      */
     public function get(): Collection
     {
         return $this->read()->collect();
+    }
+
+    /**
+     * The items get() reads, in the shape of a page (#255): `data`, plus
+     * `payload_version`, `sync_token` and the `entities` and `media` maps,
+     * which inlineEntities(), inlineMedia() and `storyfeed.payload` fill as
+     * they fill a paginator's. With entities stubbed, a widget's groups
+     * send each shared entity once, however many children show it. It
+     * takes no cursor from the request and carries no links.
+     */
+    public function page(): FeedResult
+    {
+        return new FeedResult($this->transport($this->read()));
+    }
+
+    /** The page as this read sends it: its own inline choices, else the config. */
+    protected function transport(FeedPage $page): FeedPage
+    {
+        return $page->transport($this->inlineEntities, $this->inlineMedia);
     }
 
     /**
