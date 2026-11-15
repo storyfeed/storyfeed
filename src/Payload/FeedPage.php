@@ -25,6 +25,12 @@ final class FeedPage
     /** @var array<string, array<string, mixed>> */
     protected array $entityMap = [];
 
+    /** Whether entities travel whole (#253), or null for `storyfeed.payload.inline_entities`. */
+    protected ?bool $inlineEntities = null;
+
+    /** Whether entities carry `link` and `media` (#253), or null for `storyfeed.payload.inline_media`. */
+    protected ?bool $inlineMedia = null;
+
     /**
      * @param  Collection<int, GroupSlice>  $slices  page items, already ordered
      */
@@ -87,12 +93,36 @@ final class FeedPage
     }
 
     /**
-     * The page's items as they travel in a paginator. By default every
-     * entity is inline and whole. With `storyfeed.payload.inline_entities`
-     * off, each is a `{type, id, entity_ref}` stub and the page's `entities`
-     * map holds it whole, its `link` and `media` included, so the media map
-     * has nothing left to carry. Otherwise, with `inline_media` off, each
-     * entity leaves out the `link` and `media` its `media_ref` names.
+     * How this page travels (#253): a read's own inlineEntities() and
+     * inlineMedia(), with null leaving each to its config key.
+     */
+    public function transport(?bool $entities, ?bool $media): static
+    {
+        $this->inlineEntities = $entities;
+        $this->inlineMedia = $media;
+
+        return $this;
+    }
+
+    /** Whether this page's entities travel whole: the read's choice, else the config. */
+    public function inlinesEntities(): bool
+    {
+        return $this->inlineEntities ?? self::inlineEntities();
+    }
+
+    /** Whether this page's entities carry `link` and `media`: the read's choice, else the config. */
+    public function inlinesMedia(): bool
+    {
+        return $this->inlineMedia ?? self::inlineMedia();
+    }
+
+    /**
+     * The page's items as they travel in a paginator or page(). By default
+     * every entity is inline and whole. With inline entities off, each is a
+     * `{type, id, entity_ref}` stub and the page's `entities` map holds it
+     * whole, its `link` and `media` included, so the media map has nothing
+     * left to carry. Otherwise, with inline media off, each entity leaves
+     * out the `link` and `media` its `media_ref` names.
      *
      * @return array<int, array<string, mixed>>
      */
@@ -100,22 +130,44 @@ final class FeedPage
     {
         $items = $this->items();
 
-        if (! self::inlineEntities()) {
+        if (! $this->inlinesEntities()) {
             return array_map(self::stub(...), $items);
         }
 
-        return self::inlineMedia()
+        return $this->inlinesMedia()
             ? $items
             : array_map(self::strip(...), $items);
     }
 
-    /** @internal whether a paginator's entities travel whole (#246) */
+    /**
+     * The media map as it travels: filled only when entities travel whole
+     * without their `link` and `media`. With them inline it would repeat
+     * them, and with entities stubbed the entity map carries them.
+     *
+     * @return array<string, array{link: array<string, mixed>|null, media: array<string, mixed>}>
+     */
+    public function transportedMedia(): array
+    {
+        return $this->inlinesEntities() && ! $this->inlinesMedia() ? $this->media() : [];
+    }
+
+    /**
+     * The entity map as it travels: filled only when entities are stubbed.
+     *
+     * @return array<string, array<string, mixed>>
+     */
+    public function transportedEntities(): array
+    {
+        return $this->inlinesEntities() ? [] : $this->entities();
+    }
+
+    /** @internal whether a paginator's entities travel whole by default (#246) */
     public static function inlineEntities(): bool
     {
         return config('storyfeed.payload.inline_entities', true) !== false;
     }
 
-    /** @internal whether a paginator's entities carry `link` and `media` (#242) */
+    /** @internal whether a paginator's entities carry `link` and `media` by default (#242) */
     public static function inlineMedia(): bool
     {
         return config('storyfeed.payload.inline_media', true) !== false;

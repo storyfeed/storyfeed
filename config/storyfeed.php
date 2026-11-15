@@ -376,6 +376,10 @@ return [
     | keep their `link` and `media`, so the `media` map is empty in this mode
     | and inline_media does not apply. get() always keeps entities inline.
     |
+    | Both are defaults. A read or a named feed overrides them with
+    | inlineEntities() and inlineMedia(), and page() reads what get() reads
+    | in the shape of a page, so a widget can send each entity once too.
+    |
     */
 
     'payload' => [

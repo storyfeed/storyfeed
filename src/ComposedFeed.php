@@ -25,8 +25,9 @@ use Storyfeed\Sources\Entry;
  *       ->inOrder()
  *       ->get();
  *
- * The terminals are a feed's: get(), cursorPaginate() and simplePaginate()
- * return what any read returns, ready for a kit's `page` prop. Role filters,
+ * The terminals are a feed's: get(), page(), cursorPaginate() and
+ * simplePaginate() return what any read returns, ready for a kit's `page`
+ * prop. Role filters,
  * only()/except(), limits and cursors work as they do on a source.
  *
  * It needs none of the stored feed: no tables, snapshots, cache or queue.
