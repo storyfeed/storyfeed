@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## v0.29.1 - 2026-11-15
+
 ### Fixed
 
 - A grouped read no longer runs its bucket aggregate and solo window twice when two window depths find the same floor, which happens when the activities between them share one `published_at` (a bulk import or a seeded history). The deeper depth read the same inclusive window with the same bindings, came up short again and widened, so the second read was wasted. It now widens without reading. Payloads are unchanged, and nothing is cached between reads. (#254)
