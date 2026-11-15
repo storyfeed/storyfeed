@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## v0.29.0 - 2026-11-15
+
 ### Added
 
 - `inlineEntities(bool)` and `inlineMedia(bool)` on a feed builder override `storyfeed.payload.inline_entities` and `inline_media` for one read, or in a named feed's definition, so an app can stub entities on its web feed and keep them whole for an API reader of the same feed. They apply to `cursorPaginate()`, `simplePaginate()`, `members()` and `page()`, and default to the config. A paginator now settles its `entities` and `media` maps when the page is read, as it already did its stubs, so a config change before serialization no longer splits the two. (#253)
