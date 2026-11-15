@@ -1623,8 +1623,22 @@ class FeedBuilder
         }
 
         $ceiling = $cursor['latest'] ?? null;
+        $groups = $solos = Collection::make();
+        $tried = null;
+
         foreach ($this->windowDepths() as $depth) {
             $floor = $depth === null ? null : $this->windowFloor($now, $ceiling, $depth);
+
+            // A deeper depth can land on the floor the last one found, when
+            // the activities between them share its instant (a bulk import,
+            // a seeded history). The floor is inclusive, so that window is
+            // the one just read, and it comes up short again: widen without
+            // reading it twice (#254).
+            if ($floor !== null && $floor === $tried) {
+                continue;
+            }
+
+            $tried = $floor;
             $groups = $this->groupAggregate($now, $cursor, $floor, $floor === null ? null : $ceiling, $ceiling === null ? $depth : null)
                 ->map(fn (object $row) => FeedCandidate::group(
                     $this->normalizeTimestamp($row->latest), (string) $row->bucket,
@@ -1758,9 +1772,17 @@ class FeedBuilder
         $ceiling = $cursor['latest'] ?? null;
         $rows = Collection::make();
         $windowed = false;
+        $tried = null;
 
         foreach ($this->windowDepths() as $depth) {
             $floor = $depth === null ? null : $this->windowFloor($now, $ceiling, $depth);
+
+            // The window just read, read again: see selectItems() (#254).
+            if ($floor !== null && $floor === $tried) {
+                continue;
+            }
+
+            $tried = $floor;
 
             // A depth deeper than eligible history IS the unbounded read.
             $windowed = $floor !== null;
