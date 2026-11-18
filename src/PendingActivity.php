@@ -9,6 +9,7 @@ use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Pipeline\Pipeline;
 use Illuminate\Queue\SerializesAndRestoresModelIdentifiers;
 use Illuminate\Support\Carbon;
@@ -111,6 +112,14 @@ class PendingActivity
      * follows the verb's declaration, and then fails the job.
      */
     public ?bool $deleteWhenMissingModels = null;
+
+    /**
+     * Treat a duplicate on a unique index as done: the insert's
+     * UniqueConstraintViolationException is swallowed, publish() hands back
+     * the unsaved activity and a queued publish finishes. Null follows the
+     * verb's declaration, and then lets the exception through.
+     */
+    public ?bool $idempotent = null;
 
     /**
      * @param  Model|string|array<string, mixed>|null  $object
@@ -675,7 +684,9 @@ class PendingActivity
         $this->activity->published_at ??= now();
 
         $type = $this->activity->object_type;
-        $afterCommit = $this->afterCommit ?? $manager->queueing(is_string($type) && $type !== '' ? $type : null, (string) $this->activity->verb)['afterCommit'] ?? false;
+        $declared = $manager->queueing(is_string($type) && $type !== '' ? $type : null, (string) $this->activity->verb);
+        $afterCommit = $this->afterCommit ?? $declared['afterCommit'] ?? false;
+        $this->idempotent ??= $declared['idempotent'] ?? false;
 
         if ($afterCommit && app()->bound('db.transactions')) {
             $ran = false;
@@ -684,7 +695,7 @@ class PendingActivity
             // Runs at once when no transaction is open.
             app('db.transactions')->addCallback(function () use (&$ran, &$published) {
                 $ran = true;
-                $published = $this->throughMiddleware(app(StoryfeedManager::class));
+                $published = $this->publishOnce(app(StoryfeedManager::class));
             });
 
             if ($ran && $published instanceof Activity) {
@@ -697,7 +708,34 @@ class PendingActivity
             return $this->activity;
         }
 
-        return $this->throughMiddleware($manager);
+        return $this->publishOnce($manager);
+    }
+
+    /**
+     * Treat a publish as done when it is idempotent and its insert hits a
+     * unique index: the transaction has rolled back, so the row stays
+     * unsaved and the caller's own transaction is still usable.
+     */
+    public function idempotent(bool $idempotent = true): static
+    {
+        $this->idempotent = $idempotent;
+
+        return $this;
+    }
+
+    private function publishOnce(StoryfeedManager $manager): Activity
+    {
+        try {
+            return $this->throughMiddleware($manager);
+        } catch (UniqueConstraintViolationException $e) {
+            if (! $this->idempotent) {
+                throw $e;
+            }
+
+            $this->activity->exists = false;
+
+            return $this->activity;
+        }
     }
 
     /**
@@ -753,6 +791,7 @@ class PendingActivity
         $this->delay ??= $declared['delay'] ?? null;
         $this->afterCommit ??= $declared['afterCommit'] ?? null;
         $this->deleteWhenMissingModels ??= $declared['deleteWhenMissingModels'] ?? false;
+        $this->idempotent ??= $declared['idempotent'] ?? null;
 
         if ($this->snapshotNow) {
             $this->snapshotEntities();
@@ -802,6 +841,7 @@ class PendingActivity
             'objects' => array_map(fn (Model $model) => $this->getSerializedPropertyValue($model), $this->objects),
             'snapshotted' => $this->snapshotted,
             'meta' => $this->meta,
+            'idempotent' => $this->idempotent,
         ];
     }
 
@@ -817,6 +857,7 @@ class PendingActivity
         $this->activity->withoutDefaultActor($this->anonymous);
         $this->snapshotted = $data['snapshotted'];
         $this->meta = $data['meta'] ?? [];
+        $this->idempotent = $data['idempotent'] ?? null;
 
         foreach ($data['entities'] as $role => $identifier) {
             $this->entities[$role] = $this->getRestoredPropertyValue($identifier);

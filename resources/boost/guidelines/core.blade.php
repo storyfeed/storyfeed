@@ -53,6 +53,8 @@ Storyfeed::record(verb: 'place', object: $order, actor: $customer, target: $shop
 </code-snippet>
 @endverbatim
 
+`->queue()` publishes on a worker instead, carrying the signed-in user and any `Storyfeed::actor()` or `Storyfeed::context()` scope. When the app has its own unique index on activities, call `->idempotent()` (or declare `Story::verb('follow')->idempotent()` in routes/feed.php): a duplicate insert then counts as done, so `publish()` returns the unsaved activity and a retried job finishes. Never guard a publish with an `exists()` pre-check, which races.
+
 ### Headlines in routes/feed.php
 
 Role tokens (`:actor`, `:object`, `:target`, …) become linked labels. Square brackets mark an optional segment that is dropped when its role is empty.

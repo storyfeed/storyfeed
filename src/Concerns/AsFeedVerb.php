@@ -280,6 +280,11 @@ trait AsFeedVerb
         return $this->of()->withoutFeature();
     }
 
+    public function idempotent(bool $idempotent = true): PendingActivity
+    {
+        return $this->of()->idempotent($idempotent);
+    }
+
     /**
      * @param  Model|string|array<string, mixed>|null  $model  a model, a party name, or an entity with no model behind it
      */

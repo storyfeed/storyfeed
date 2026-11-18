@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Added
+
+- `idempotent()` on a pending activity or a FeedVerb enum case, `record(idempotent: true)`, or a declaration on a verb in routes/feed.php treats a `UniqueConstraintViolationException` from the app's own unique index as done. `publish()` returns the unsaved activity and a queued publish, including a queued Story class, finishes instead of failing into `failed_jobs`. The insert's transaction rolls back to its savepoint, so the caller's transaction stays usable. Without it nothing changes, and the payload is unchanged. A new test also proves that the signed-in user and a `Storyfeed::actor()` or `Storyfeed::context()` scope reach the worker when an `afterCommit()` publish is dispatched after the scope has closed. (#261)
+
 ## v0.29.1 - 2026-11-15
 
 ### Fixed

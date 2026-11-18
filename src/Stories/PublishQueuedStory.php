@@ -91,7 +91,7 @@ class PublishQueuedStory implements ShouldQueue
     private Story|string $story;
 
     /**
-     * @param  array{connection?: string, queue?: string, delay?: int, afterCommit?: bool, deleteWhenMissingModels?: bool}  $declared  what routes/feed.php says
+     * @param  array{connection?: string, queue?: string, delay?: int, afterCommit?: bool, deleteWhenMissingModels?: bool, idempotent?: bool}  $declared  what routes/feed.php says
      */
     public function __construct(Story $story, array $declared = [])
     {
@@ -145,7 +145,7 @@ class PublishQueuedStory implements ShouldQueue
      * Queue a message: dropped when it is unique and one is pending, as a
      * queued listener is.
      *
-     * @param  array{connection?: string, queue?: string, delay?: int, afterCommit?: bool, deleteWhenMissingModels?: bool}  $declared
+     * @param  array{connection?: string, queue?: string, delay?: int, afterCommit?: bool, deleteWhenMissingModels?: bool, idempotent?: bool}  $declared
      */
     public static function dispatchFor(Story $story, array $declared = []): void
     {

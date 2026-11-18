@@ -102,7 +102,7 @@ final class Verb
     /** @var array{within: string, ceiling: string}|null */
     protected ?array $bursts = null;
 
-    /** @var array{connection?: string, queue?: string, delay?: int, afterCommit?: bool, deleteWhenMissingModels?: bool} where a queued publish goes, as declared */
+    /** @var array{connection?: string, queue?: string, delay?: int, afterCommit?: bool, deleteWhenMissingModels?: bool, idempotent?: bool} where a queued publish goes, as declared */
     protected array $queueing = [];
 
     /** @var list<string|Closure> story middleware, in the order declared */
@@ -745,6 +745,18 @@ final class Verb
     }
 
     /**
+     * Treat a publish that hits a unique index as done, queued or not: the
+     * insert's UniqueConstraintViolationException is swallowed instead of
+     * failing the publish or its job. See PendingActivity::idempotent().
+     */
+    public function idempotent(bool $idempotent = true): self
+    {
+        $this->queueing['idempotent'] = $idempotent;
+
+        return $this;
+    }
+
+    /**
      * Middleware this verb's activities go through when they are published,
      * after the `default` group, as a route's own middleware runs after its
      * group's. A class, an alias with arguments (`'batch:5 minutes'`), a
@@ -1357,7 +1369,7 @@ final class Verb
      * Where a queued publish goes, as declared; null when the verb said
      * nothing and a broader definition's answer stands.
      *
-     * @return array{connection?: string, queue?: string, delay?: int, afterCommit?: bool, deleteWhenMissingModels?: bool}|null
+     * @return array{connection?: string, queue?: string, delay?: int, afterCommit?: bool, deleteWhenMissingModels?: bool, idempotent?: bool}|null
      *
      * @internal
      */
@@ -1369,7 +1381,7 @@ final class Verb
     /**
      * Take a bound line's queue placement, what it said winning.
      *
-     * @param  array{connection?: string, queue?: string, delay?: int, afterCommit?: bool, deleteWhenMissingModels?: bool}  $queueing
+     * @param  array{connection?: string, queue?: string, delay?: int, afterCommit?: bool, deleteWhenMissingModels?: bool, idempotent?: bool}  $queueing
      *
      * @internal
      */

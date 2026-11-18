@@ -214,7 +214,7 @@ class StoryfeedManager
      * Where a verb's queued publishes go (`->onQueue()`, `->delay()`,
      * `->afterCommit()`, …), on the type → verb ladder. Story-compiled only.
      *
-     * @var array<string, array{connection?: string, queue?: string, delay?: int, afterCommit?: bool, deleteWhenMissingModels?: bool}>
+     * @var array<string, array{connection?: string, queue?: string, delay?: int, afterCommit?: bool, deleteWhenMissingModels?: bool, idempotent?: bool}>
      */
     protected array $storyQueue = [];
 
@@ -534,6 +534,7 @@ class StoryfeedManager
      * @param  Model|string|array<string, mixed>|null  $generator
      * @param  array<string, mixed>  $meta  for the batch the activity joins; see PendingActivity::meta()
      * @param  array<string, string|int|float|\Stringable>  $bind  literal headline values, name => value; see PendingActivity::bind()
+     * @param  bool|null  $idempotent  a duplicate on a unique index counts as done; null follows the verb. See PendingActivity::idempotent()
      */
     public function record(
         string|FeedVerb|BackedEnum $verb,
@@ -554,6 +555,7 @@ class StoryfeedManager
         Model|string|array|null $generator = null,
         array $meta = [],
         array $bind = [],
+        ?bool $idempotent = null,
     ): Activity {
         if ($actor !== null && $anonymous) {
             throw new LogicException('record() was given an actor and anonymous: true; an anonymous activity has no actor.');
@@ -580,6 +582,7 @@ class StoryfeedManager
                     $a->bind((string) $name, $value);
                 }
             })
+            ->when($idempotent !== null, fn (PendingActivity $a) => $a->idempotent((bool) $idempotent))
             ->publish();
     }
 
@@ -1704,7 +1707,7 @@ class StoryfeedManager
      * with the Story facade (2026-09-23): actorless grammar, nouns and object
      * types.
      *
-     * @param  array{grammar: array<string, string|Closure|FeedHeadline>, aggregateGrammar: array<string, string|Closure|FeedHeadline>, actorlessGrammar?: array<string, string|Closure|FeedHeadline>, icons: array<string, string>, glyphIntents?: array<string, string>, nouns?: array<string, string|FeedNoun>, objectTypes?: array<string, ObjectType|string>, verbs: array<string, mixed>, missing?: array<string, list<string>>, missingGrammar?: array<string, string|Closure|FeedHeadline>, forget?: array<string, bool>, retention?: array<string, string>, casts?: array<string, array<string, string|list<string>>>, keepLatest?: array<string, array{per: list<string>, within: string|null}>, periods?: array<string, string>, featured?: array<string, string>, bursts?: array<string, array{within: string, ceiling: string}>, queue?: array<string, array{connection?: string, queue?: string, delay?: int, afterCommit?: bool, deleteWhenMissingModels?: bool}>, middleware?: array<string, array{middleware: list<string|Closure>, excluded: list<string>}>, actors?: array<string, string>, actions?: array<string, array{uses: string, request: bool, parts: array<string, string>|null}>, names?: array<string, string>, wheres?: array<string, array<string, list<string>>>}  $compiled
+     * @param  array{grammar: array<string, string|Closure|FeedHeadline>, aggregateGrammar: array<string, string|Closure|FeedHeadline>, actorlessGrammar?: array<string, string|Closure|FeedHeadline>, icons: array<string, string>, glyphIntents?: array<string, string>, nouns?: array<string, string|FeedNoun>, objectTypes?: array<string, ObjectType|string>, verbs: array<string, mixed>, missing?: array<string, list<string>>, missingGrammar?: array<string, string|Closure|FeedHeadline>, forget?: array<string, bool>, retention?: array<string, string>, casts?: array<string, array<string, string|list<string>>>, keepLatest?: array<string, array{per: list<string>, within: string|null}>, periods?: array<string, string>, featured?: array<string, string>, bursts?: array<string, array{within: string, ceiling: string}>, queue?: array<string, array{connection?: string, queue?: string, delay?: int, afterCommit?: bool, deleteWhenMissingModels?: bool, idempotent?: bool}>, middleware?: array<string, array{middleware: list<string|Closure>, excluded: list<string>}>, actors?: array<string, string>, actions?: array<string, array{uses: string, request: bool, parts: array<string, string>|null}>, names?: array<string, string>, wheres?: array<string, array<string, list<string>>>}  $compiled
      * @param  list<string>  $stories  the Story classes the manifest was compiled from
      */
     public function useCompiledStories(array $compiled, array $stories = []): static
@@ -2852,7 +2855,7 @@ class StoryfeedManager
      * specific declaration on the type → verb ladder says; empty when none
      * reaches it. The call site overrides each part.
      *
-     * @return array{connection?: string, queue?: string, delay?: int, afterCommit?: bool, deleteWhenMissingModels?: bool}
+     * @return array{connection?: string, queue?: string, delay?: int, afterCommit?: bool, deleteWhenMissingModels?: bool, idempotent?: bool}
      *
      * @internal
      */
@@ -2869,7 +2872,7 @@ class StoryfeedManager
      * line's.
      *
      * @param  class-string<Story>  $class
-     * @return array{connection?: string, queue?: string, delay?: int, afterCommit?: bool, deleteWhenMissingModels?: bool}
+     * @return array{connection?: string, queue?: string, delay?: int, afterCommit?: bool, deleteWhenMissingModels?: bool, idempotent?: bool}
      *
      * @internal
      */
