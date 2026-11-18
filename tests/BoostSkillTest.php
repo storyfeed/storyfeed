@@ -132,3 +132,8 @@ it('names every body type an app constructs', function () {
 
     expect($missing)->toBe([], 'Name these body types in resources/boost: '.implode(', ', $missing));
 });
+
+it('names the publish options an app uses against duplicates', function () {
+    expect(boostText())->toContain('->idempotent()')
+        ->and(boostText())->toContain('Storyfeed::context()');
+});

@@ -53,7 +53,7 @@ use Storyfeed\StoryfeedManager;
  *     periods: array<string, string>,
  *     featured: array<string, string>,
  *     bursts: array<string, array{within: string, ceiling: string}>,
- *     queue: array<string, array{connection?: string, queue?: string, delay?: int, afterCommit?: bool, deleteWhenMissingModels?: bool}>,
+ *     queue: array<string, array{connection?: string, queue?: string, delay?: int, afterCommit?: bool, deleteWhenMissingModels?: bool, idempotent?: bool}>,
  *     middleware: array<string, array{middleware: list<string|Closure>, excluded: list<string>}>,
  *     actors: array<string, string>,
  *     actions: array<string, array{uses: string, request: bool, parts: array<string, string>|null}>,

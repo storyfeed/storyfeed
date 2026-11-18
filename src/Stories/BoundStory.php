@@ -281,6 +281,14 @@ final class BoundStory
         return $this;
     }
 
+    /** @see Verb::idempotent() */
+    public function idempotent(bool $idempotent = true): self
+    {
+        $this->placement()->idempotent($idempotent);
+
+        return $this;
+    }
+
     private function placement(): Verb
     {
         return $this->placement ??= Verb::for('*', $this->verb, $this->source);
