@@ -58,6 +58,12 @@ class NodePresenter
     /** @var array<string, true> */
     protected array $roleColumns = [];
 
+    /** @var array<class-string, bool> whether a model class overrides how attributes are read */
+    private array $customReaders = [];
+
+    /** @var array<class-string, array<string, bool>> columns a model class reads with no accessor */
+    private array $plainColumns = [];
+
     /**
      * The groups a feed asked for by groupBy(), keyed by axis.
      *
@@ -102,6 +108,16 @@ class NodePresenter
 
     /** @var WeakMap<Snapshot, array<string, FeedContext>>|null headline closures' role contexts, shared by the members that name one entity (#258) */
     private ?WeakMap $contexts = null;
+
+    /**
+     * Each activity's attributes as presentation read them, read through
+     * Eloquent once per page (#268): a node reads `verb` and `object_type`
+     * many times over and each read pays for the cast bookkeeping again.
+     * Never handed out; the models stay as they are.
+     *
+     * @var WeakMap<Activity, array<string, mixed>>|null
+     */
+    private ?WeakMap $fields = null;
 
     /** @var WeakMap<GroupSlice, array<string, string>>|null a group headline closure's render-time bindings */
     private ?WeakMap $groupBound = null;
@@ -156,6 +172,7 @@ class NodePresenter
         $presenter = clone $this;
         $presenter->feed = $feed;
         $presenter->contexts = null;
+        $presenter->fields = null;
 
         return $presenter;
     }
@@ -277,6 +294,7 @@ class NodePresenter
         $presenter->tombstones = self::loadTombstones(array_keys($tombstoneIds));
         $presenter->snapshotFields = new WeakMap;
         $presenter->contexts = new WeakMap;
+        $presenter->fields = new WeakMap;
         $presenter->decorations = [];
         $presenter->mediaMap = [];
         $presenter->entityMap = [];
@@ -298,21 +316,21 @@ class NodePresenter
         [$template, $headline, $bound] = $this->headline($activity);
         [$tombstoned, $redundant] = $this->tombstoneFact($activity);
         $type = $this->objectType($activity);
-        [$missingTemplate, $missingHeadline, $missingBound] = $redundant && $activity->verb !== null
-            ? $this->render($this->storyfeed->missingTemplate($type, $activity->verb), $activity, $type)
+        [$missingTemplate, $missingHeadline, $missingBound] = $redundant && $this->field($activity, 'verb') !== null
+            ? $this->render($this->storyfeed->missingTemplate($type, $this->field($activity, 'verb')), $activity, $type)
             : [null, null, []];
 
         return [
             'kind' => 'activity',
-            'id' => $activity->uid,
-            'verb' => $activity->verb,
-            'published_at' => Chronology::iso($activity->published_at),
+            'id' => $this->field($activity, 'uid'),
+            'verb' => $this->field($activity, 'verb'),
+            'published_at' => Chronology::iso($this->field($activity, 'published_at')),
             // Additive (2026-10-09): the time range the activity describes,
             // AS2's `startTime` / `endTime`, beside `published_at` and never
             // instead of it. Either may be null on its own: a range open at
             // one end. See docs/payload.md, time ranges.
-            'starts_at' => Chronology::iso($activity->starts_at),
-            'ends_at' => Chronology::iso($activity->ends_at),
+            'starts_at' => Chronology::iso($this->field($activity, 'starts_at')),
+            'ends_at' => Chronology::iso($this->field($activity, 'ends_at')),
             'headline_template' => $template,
             'headline' => $headline,
             // Additive (2026-11-12): literal values for the template's bound
@@ -327,7 +345,7 @@ class NodePresenter
             // `entity.media.icon`. One word must not mean two things in one
             // document. See docs/payload.md, `glyph`.
             // A verbless item (composed with a headline alone) has no glyph.
-            'glyph' => $activity->verb === null ? null : $this->storyfeed->icon($type, $activity->verb),
+            'glyph' => $this->field($activity, 'verb') === null ? null : $this->storyfeed->icon($type, $this->field($activity, 'verb')),
             // Additive (2026-09-09): the glyph's INTENT — an app-owned word
             // (`success`, `danger`, whatever the renderer's palette speaks)
             // resolved on the same ladder as the token but from its own
@@ -337,14 +355,14 @@ class NodePresenter
             // in. Core names no intents and no colours; the AS2 document has
             // no term for it and never carries it. See docs/payload.md,
             // `glyph_intent`.
-            'glyph_intent' => $activity->verb === null ? null : $this->storyfeed->glyphIntent($type, $activity->verb),
+            'glyph_intent' => $this->field($activity, 'verb') === null ? null : $this->storyfeed->glyphIntent($type, $this->field($activity, 'verb')),
             ...$this->activityEntities($activity),
             // Additive (2026-10-09, #76): the role whose entity the row draws
             // as its body. `object` unless the activity or its verb said
             // otherwise; null draws no entity body. A featured role that is
             // empty draws none either; the row is never hidden.
             'featured' => self::featured($activity),
-            'data' => $activity->data,
+            'data' => $this->field($activity, 'data'),
             // Additive (2026-09-23): the roles whose entity was deleted, and
             // whether one of them is constitutive for this verb, so the
             // activity is redundant as news though still true as history.
@@ -397,17 +415,17 @@ class NodePresenter
             return $this->render($own, $activity);
         }
 
-        if ($activity->verb === null) {
+        if ($this->field($activity, 'verb') === null) {
             return [null, null, []];
         }
 
         // Inspect recorded identity, not the relation: an unresolved/deleted
         // participant is not a genuinely absent actor. Party identities stay normal.
         $type = $this->objectType($activity);
-        $entry = $activity->actor_type === null && $activity->actor_id === null
-            ? $this->storyfeed->actorlessTemplate($type, $activity->verb)
+        $entry = $this->field($activity, 'actor_type') === null && $this->field($activity, 'actor_id') === null
+            ? $this->storyfeed->actorlessTemplate($type, $this->field($activity, 'verb'))
             : null;
-        $entry ??= $this->storyfeed->template($type, $activity->verb);
+        $entry ??= $this->storyfeed->template($type, $this->field($activity, 'verb'));
 
         return $this->render($entry, $activity, $type);
     }
@@ -425,7 +443,7 @@ class NodePresenter
 
         if ($entry instanceof Closure) {
             try {
-                $result = $entry(ActivityContextFactory::make($activity, $this->feed, $this->hydrator, $type, $this->contexts ??= new WeakMap));
+                $result = $entry(ActivityContextFactory::make($activity, $this->feed, $this->hydrator, $type, $this->contexts ??= new WeakMap, fn (string $key): mixed => $this->field($activity, $key)));
                 $bound = $result instanceof FeedHeadline ? $result->bindings() : [];
                 $entry = $result instanceof FeedHeadline ? $result->toTemplate() : (string) $result;
             } catch (Throwable $e) {
@@ -444,7 +462,7 @@ class NodePresenter
         }
 
         return [
-            FeedHeadline::resolveSegments(FeedHeadline::forCount($entry, 1), fn (string $role): bool => $activity->{"{$role}_type"} !== null),
+            FeedHeadline::resolveSegments(FeedHeadline::forCount($entry, 1), fn (string $role): bool => $this->field($activity, "{$role}_type") !== null),
             null,
             $bound,
         ];
@@ -485,7 +503,7 @@ class NodePresenter
 
         $entry = ($this->groups[(string) $slice->axis] ?? null)?->template()
             ?? ($slice->axis === 'composite' && is_string($own) ? $own : null)
-            ?? $this->storyfeed->aggregateTemplate((string) $slice->axis, (string) $head?->verb, $objectType);
+            ?? $this->storyfeed->aggregateTemplate((string) $slice->axis, (string) ($head === null ? null : $this->field($head, 'verb')), $objectType);
 
         if ($entry instanceof FeedHeadline) {
             $entry = $entry->toTemplate();
@@ -536,7 +554,7 @@ class NodePresenter
     {
         $first = $slice->members->first();
 
-        $entry = $this->storyfeed->template($this->objectType($first), $first->verb);
+        $entry = $this->storyfeed->template($this->objectType($first), $this->field($first, 'verb'));
 
         if (! is_string($entry)) {
             return [null, null];
@@ -675,7 +693,7 @@ class NodePresenter
             // is every member's alias — the licence for one noun to speak
             // for all of them. The count picks the form; it is never printed.
             $phrase = FeedNoun::form(
-                $this->storyfeed->noun($first->{"{$role}_type"}, (string) $first->verb),
+                $this->storyfeed->noun($this->field($first, "{$role}_type"), (string) $this->field($first, 'verb')),
                 $count,
             );
 
@@ -833,7 +851,7 @@ class NodePresenter
         [$tombstoned, $redundant] = $this->groupTombstoneFact($slice, $distinct, $distinctTombstoned);
 
         // Every inferred Live row names one verb.
-        $verb = $first->verb;
+        $verb = $this->field($first, 'verb');
 
         $node = [
             'kind' => 'group',
@@ -843,7 +861,7 @@ class NodePresenter
             'axis' => $slice->axis,
             'count' => $slice->count,
             'verb' => $verb,
-            'published_at' => Chronology::iso($first->published_at),
+            'published_at' => Chronology::iso($this->field($first, 'published_at')),
             'headline_template' => $template,
             'headline' => $headline,
             // Additive (2026-11-12): the bindings every member holds with
@@ -1256,7 +1274,7 @@ class NodePresenter
         foreach (ActivityRoles::PAYLOAD as $role) {
             $type = $roles["{$role}_type"] ?? null;
             $entities[$role] = $type === null ? null : $this->entity(
-                $type, $roles["{$role}_id"] ?? null, $activity->{'cached'.ucfirst($role)},
+                $type, $roles["{$role}_id"] ?? null, $this->field($activity, 'cached'.ucfirst($role)),
             );
         }
 
@@ -1281,19 +1299,13 @@ class NodePresenter
         }
         $columns = $this->roleColumns;
         if (! isset($this->roleGetters[$class])) {
-            $customRead = (new \ReflectionMethod($class, 'getAttribute'))->getDeclaringClass()->getName() !== Model::class
-                || (new \ReflectionMethod($class, 'getAttributeValue'))->getDeclaringClass()->getName() !== Model::class
-                || (new \ReflectionMethod($class, 'getAttributeFromArray'))->getDeclaringClass()->getName() !== Model::class;
             $this->roleGetters[$class] = array_values(array_filter(array_keys($columns),
-                fn (string $column) => $customRead || $activity->hasAnyGetMutator($column)));
+                fn (string $column) => ! $this->plainColumn($activity, $column)));
         }
         $attributes = $activity->getAttributes();
         $getters = $this->roleGetters[$class];
         foreach (array_intersect_key($activity->getCasts(), $columns) as $column => $cast) {
-            $outbound = $this->outboundRoleCasts[$cast] ??= ! is_subclass_of(
-                explode(':', $cast, 2)[0], CastsInboundAttributes::class,
-            );
-            if ($outbound) {
+            if (! $this->readsRaw($cast)) {
                 $getters[] = $column;
             }
         }
@@ -1302,6 +1314,52 @@ class NodePresenter
         }
 
         return $attributes;
+    }
+
+    /**
+     * One attribute of an activity, read once per page. A column with no
+     * cast, accessor or custom reader is read raw, as roleFields() reads
+     * role identities; everything else goes through the model once.
+     */
+    protected function field(Activity $activity, string $key): mixed
+    {
+        $this->fields ??= new WeakMap;
+        if (isset($this->roleColumns[$key])) {
+            return $this->roleFields($activity)[$key] ?? null;
+        }
+        $row = $this->fields[$activity] ??= ['' => [$activity->getAttributes(), $activity->getCasts()]];
+        if (array_key_exists($key, $row)) {
+            return $row[$key];
+        }
+
+        [$attributes, $casts] = $row[''];
+        $value = match (true) {
+            array_key_exists($key, $attributes) && $this->plainColumn($activity, $key) && ($this->readsRaw($casts[$key] ?? null)
+                // Eloquent hands a null back unchanged through these casts.
+                || ($attributes[$key] === null && in_array($casts[$key], ['array', 'json', 'datetime', 'immutable_datetime'], true))) => $attributes[$key],
+            default => $activity->getAttribute($key),
+        };
+        $row[$key] = $value;
+        $this->fields[$activity] = $row;
+
+        return $value;
+    }
+
+    /** Whether a column with this cast (or none) reads back its stored value: no cast, or one that only shapes writes. */
+    private function readsRaw(?string $cast): bool
+    {
+        return $cast === null || ! ($this->outboundRoleCasts[$cast] ??= ! is_subclass_of(explode(':', $cast, 2)[0], CastsInboundAttributes::class));
+    }
+
+    /** Whether the model's class reads this column with no accessor or custom reader. */
+    private function plainColumn(Activity $activity, string $column): bool
+    {
+        $class = $activity::class;
+        $this->customReaders[$class] ??= (new \ReflectionMethod($class, 'getAttribute'))->getDeclaringClass()->getName() !== Model::class
+            || (new \ReflectionMethod($class, 'getAttributeValue'))->getDeclaringClass()->getName() !== Model::class
+            || (new \ReflectionMethod($class, 'getAttributeFromArray'))->getDeclaringClass()->getName() !== Model::class;
+
+        return $this->plainColumns[$class][$column] ??= ! $this->customReaders[$class] && ! $activity->hasAnyGetMutator($column);
     }
 
     /**
@@ -1314,7 +1372,8 @@ class NodePresenter
         if ($snapshot === null) {
             return null;
         }
-        if ($snapshot::class === Snapshot::class && ! array_key_exists($field, $snapshot->getCasts())) {
+        // An inbound-only cast (`label`'s FitsColumn) changes writes, never reads.
+        if ($snapshot::class === Snapshot::class && $this->readsRaw($snapshot->getCasts()[$field] ?? null)) {
             $attributes = $snapshot->getAttributes();
             if (array_key_exists($field, $attributes)) {
                 return $attributes[$field];
@@ -1360,11 +1419,11 @@ class NodePresenter
      */
     protected function objectType(Activity $activity): ?string
     {
-        if ($activity->object_type === FeedTombstone::MORPH_ALIAS && $activity->object_id !== null) {
-            return $this->tombstone($activity->object_id)?->formerType() ?? $activity->object_type;
+        if ($this->field($activity, 'object_type') === FeedTombstone::MORPH_ALIAS && $this->field($activity, 'object_id') !== null) {
+            return $this->tombstone($this->field($activity, 'object_id'))?->formerType() ?? $this->field($activity, 'object_type');
         }
 
-        return $activity->object_type;
+        return $this->field($activity, 'object_type');
     }
 
     /**
@@ -1384,7 +1443,7 @@ class NodePresenter
             return [[], false];
         }
 
-        $constitutive = app(TombstoneRules::class)->constitutiveRoles($this->objectType($activity), (string) $activity->verb);
+        $constitutive = app(TombstoneRules::class)->constitutiveRoles($this->objectType($activity), (string) $this->field($activity, 'verb'));
 
         return [$tombstoned, array_intersect($tombstoned, $constitutive) !== []];
     }
@@ -1419,7 +1478,7 @@ class NodePresenter
         }
 
         $first = $slice->members->first();
-        $constitutive = app(TombstoneRules::class)->constitutiveRoles($this->objectType($first), (string) $first->verb);
+        $constitutive = app(TombstoneRules::class)->constitutiveRoles($this->objectType($first), (string) $this->field($first, 'verb'));
 
         foreach ($constitutive as $role) {
             $key = self::GROUP_ROLES[$role][0] ?? null;
