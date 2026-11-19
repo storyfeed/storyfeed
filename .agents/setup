@@ -5,8 +5,6 @@
 # Safe to run again. The README's "Running a database cell" shows how to point the suite at either engine.
 set -euo pipefail
 
-set -euo pipefail
-
 # House rule: no AI attribution in commits. Installed first, before anything that can fail (a package mirror, a PPA), so a
 # failed setup never leaves an agent committing without it. A repo-local commit-msg hook strips the trailers agents add (Amp-Thread-ID,
 # Co-authored-by Amp/Claude/Anthropic, Claude-Session, "Generated with <AI tool>") and keeps human co-authors.
