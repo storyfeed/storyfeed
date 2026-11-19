@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.30.2 - 2026-11-19
+
+### Changed
+
+- A feed read costs less per page. Presentation reads each activity attribute once per page, and snapshot loading reads each key once, instead of going back through Eloquent's attribute and cast handling for every repeated read. Reads still see changes made to a model during the page. On a fixture of 26 nodes (a 50-photo group and 25 singles), the median read went from 25.3 ms to 21.2 ms. The payload is byte-identical for inline and stub snapshots across `page()`, `cursorPaginate()` and `get()`. (#268)
+
 ## v0.30.1 - 2026-11-19
 
 ### Changed
