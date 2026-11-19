@@ -191,3 +191,29 @@ it('builds role contexts without queries and shares page hydration between headl
         $connection->flushQueryLog();
     }
 });
+
+it('shares one role context between the members of a page that name one entity (#258)', function () {
+    $contexts = [];
+    Story::for(Delivery::class)->verb('photo')->headline(function (ActivityContext $activity) use (&$contexts) {
+        $contexts[] = $activity;
+
+        return ':actor added a photo to :object';
+    });
+    $delivery = Delivery::create();
+    $actors = collect(['Dana', 'Sam'])->map(fn (string $name) => User::create(['name' => $name, 'email' => strtolower($name).'@example.com']));
+    foreach (range(0, 3) as $i) {
+        Storyfeed::activity('photo', $delivery)->actor($actors[$i % 2])->publishedAt(now()->subMinutes(10 - $i))->publish();
+    }
+
+    Storyfeed::feed()->page();
+
+    expect($contexts)->toHaveCount(4)
+        ->and(collect($contexts)->map(fn (ActivityContext $c) => spl_object_id($c->object()))->unique())->toHaveCount(1)
+        ->and(collect($contexts)->map(fn (ActivityContext $c) => spl_object_id($c->actor()))->unique())->toHaveCount(2)
+        ->and(collect($contexts)->map(fn (ActivityContext $c) => $c->actor()->label())->sort()->values()->all())->toBe(['Dana', 'Dana', 'Sam', 'Sam'])
+        ->and(collect($contexts)->map(fn (ActivityContext $c) => $c->publishedAt()->format('Y-m-d H:i:s.u'))->unique())->toHaveCount(4);
+
+    foreach ($contexts as $context) {
+        expect($context->publishedAt())->toBeInstanceOf(CarbonImmutable::class);
+    }
+});
