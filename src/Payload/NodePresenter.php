@@ -100,6 +100,9 @@ class NodePresenter
      */
     private ?WeakMap $headlines = null;
 
+    /** @var WeakMap<Snapshot, array<string, FeedContext>>|null headline closures' role contexts, shared by the members that name one entity (#258) */
+    private ?WeakMap $contexts = null;
+
     /** @var WeakMap<GroupSlice, array<string, string>>|null a group headline closure's render-time bindings */
     private ?WeakMap $groupBound = null;
 
@@ -152,6 +155,7 @@ class NodePresenter
     {
         $presenter = clone $this;
         $presenter->feed = $feed;
+        $presenter->contexts = null;
 
         return $presenter;
     }
@@ -272,6 +276,7 @@ class NodePresenter
         $presenter->links = new LinkResolver;
         $presenter->tombstones = self::loadTombstones(array_keys($tombstoneIds));
         $presenter->snapshotFields = new WeakMap;
+        $presenter->contexts = new WeakMap;
         $presenter->decorations = [];
         $presenter->mediaMap = [];
         $presenter->entityMap = [];
@@ -420,7 +425,7 @@ class NodePresenter
 
         if ($entry instanceof Closure) {
             try {
-                $result = $entry(ActivityContextFactory::make($activity, $this->feed, $this->hydrator, $type));
+                $result = $entry(ActivityContextFactory::make($activity, $this->feed, $this->hydrator, $type, $this->contexts ??= new WeakMap));
                 $bound = $result instanceof FeedHeadline ? $result->bindings() : [];
                 $entry = $result instanceof FeedHeadline ? $result->toTemplate() : (string) $result;
             } catch (Throwable $e) {

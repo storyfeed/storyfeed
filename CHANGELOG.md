@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- Headline closures cost less per group member. A page builds each role's context once per entity and shares it between the members that name that entity, rather than decoding the same snapshot again for every member. The publication time reaches the closure without a round trip through a string. On a page of two 50-member photo groups, a closure headline went from 0.18 ms to 0.095 ms per member, and closure grammar now costs about 1.3× string grammar per member, down from 1.7×. The payload is unchanged. `tests/Performance/MemberPresentationCostTest.php` (opt in with `STORYFEED_MEMBER_BENCH=1`) counts and times member presentation. (#258)
+
 ## v0.30.0 - 2026-11-18
 
 ### Added
