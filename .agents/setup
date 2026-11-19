@@ -1,0 +1,188 @@
+#!/usr/bin/env bash
+# Prepares a fresh checkout for a cloud agent (an Amp orb is Debian 13): PHP 8.5 (the distribution's 8.4 where the ondrej/sury
+# source is unavailable) with the extensions CI uses, Composer, a PostgreSQL server and a MariaDB server with the
+# storyfeed_test database the real-engine cells use, then `composer update` (a package: there is no lock file). No Node.
+# Safe to run again. The README's "Running a database cell" shows how to point the suite at either engine.
+set -euo pipefail
+
+set -euo pipefail
+
+# House rule: no AI attribution in commits. Installed first, before anything that can fail (a package mirror, a PPA), so a
+# failed setup never leaves an agent committing without it. A repo-local commit-msg hook strips the trailers agents add (Amp-Thread-ID,
+# Co-authored-by Amp/Claude/Anthropic, Claude-Session, "Generated with <AI tool>") and keeps human co-authors.
+# Squash-merging stays the backstop. Repo-local only: never write into a global core.hooksPath (it may be the machine's
+# own hooks). A commit-msg hook the repo already had is kept as commit-msg.local and still runs first.
+# A core.hooksPath the repo already set is used only when it resolves inside this checkout (or its git dir);
+# anything outside (a shared or machine-wide hooks folder) is left alone and $GIT_DIR/hooks is used instead.
+TOP="$(git rev-parse --show-toplevel)"; GIT_DIR_ABS="$(cd "$(git rev-parse --git-common-dir)" && pwd -P)"  # shared by every worktree
+HOOKS_DIR="$(git config --local --get core.hooksPath || true)"
+case "$HOOKS_DIR" in ''|/*) ;; *) HOOKS_DIR="$TOP/$HOOKS_DIR" ;; esac
+# Resolve without creating anything: realpath the nearest existing directory, then re-append the missing parts.
+# A missing `.` or `..` part fails closed (an empty result counts as outside).
+resolve() {
+    local path="$1" rest=""
+    while [ ! -d "$path" ]; do
+        # Anything in the way that is not a directory (a file, a dangling or file symlink) fails closed too.
+        { [ -e "$path" ] || [ -L "$path" ]; } && return 0
+        case "${path##*/}" in . | ..) return 0 ;; esac
+        rest="/${path##*/}$rest"; path="${path%/*}"; [ -n "$path" ] || path="/"
+    done
+    printf '%s%s\n' "$(cd "$path" && pwd -P)" "$rest"
+}
+[ -n "$HOOKS_DIR" ] && HOOKS_DIR="$(resolve "$HOOKS_DIR")"
+case "$HOOKS_DIR" in
+    "$(cd "$TOP" && pwd -P)"|"$(cd "$TOP" && pwd -P)"/*|"$(cd "$GIT_DIR_ABS" && pwd -P)"|"$(cd "$GIT_DIR_ABS" && pwd -P)"/*) ;;
+    *) HOOKS_DIR="$GIT_DIR_ABS/hooks" ;;
+esac
+mkdir -p "$HOOKS_DIR"
+git config --local core.hooksPath "$HOOKS_DIR"
+if [ -f "$HOOKS_DIR/commit-msg" ] && ! grep -q 'Installed by .agents/setup' "$HOOKS_DIR/commit-msg"; then
+    if [ -e "$HOOKS_DIR/commit-msg.local" ]; then
+        echo "setup: $HOOKS_DIR has both commit-msg and commit-msg.local; chain them by hand, then rerun." >&2
+        exit 1
+    fi
+    mv "$HOOKS_DIR/commit-msg" "$HOOKS_DIR/commit-msg.local"
+fi
+cat > "$HOOKS_DIR/commit-msg" <<'HOOK'
+#!/bin/sh
+# Installed by .agents/setup: strip AI attribution trailers, keep human co-authors. Portable (POSIX awk).
+set -e
+local_hook="$(dirname "$0")/commit-msg.local"
+[ -x "$local_hook" ] && "$local_hook" "$@"
+tmp="$(mktemp "$(dirname "$1")/commit-msg.strip.XXXXXX")"
+trap 'rm -f "$tmp"' EXIT
+awk '{
+    l = tolower($0)
+    if (l ~ /^amp-thread(-id)?:/) next
+    if (l ~ /^claude-session:/) next
+    # Co-authors: only known bot identities (by address domain or exact bot name); human co-authors are kept.
+    if (l ~ /^co-authored-by:/ && l ~ /@(ampcode\.com|anthropic\.com|openai\.com)>/) next
+    if (l ~ /^co-authored-by:[ \t]*(amp|claude|claude code|copilot|github copilot|codex)[ \t]*</) next
+    if (l ~ /(generated|created) (with|by) / && l ~ /(claude|ampcode|(^|[^a-z])amp([^a-z]|$)|codex|openai|chatgpt|copilot|gemini|cursor|(^|[^a-z])ai([^a-z]|$))/) next
+    if (l ~ /claude\.ai\/code\/session/) next
+    print
+}' "$1" > "$tmp" && mv "$tmp" "$1"
+HOOK
+chmod +x "$HOOKS_DIR/commit-msg"
+# End of the House rule block.
+
+# What run-tests.yml asks setup-php for, plus the real-engine drivers.
+PHP_EXTENSIONS=(dom mbstring curl zip pcntl pdo_sqlite bcmath soap intl gd exif iconv imagick fileinfo pdo_pgsql pdo_mysql)
+PHP_PACKAGES=(mbstring xml curl zip sqlite3 bcmath soap intl gd imagick pgsql mysql)
+# PHP_EXTENSIONS (as `php -m` names them) and PHP_PACKAGES (Debian package suffixes) are set above, per repo.
+# PHP 8.5 exactly where the source has it: composer.json allows ^8.4, and 8.5 is what the house uses. `php_ready 80400` takes 8.4 too.
+php_ready() {
+    command -v php >/dev/null && php -r 'exit(PHP_VERSION_ID >= '"${1:-80500}"' && PHP_VERSION_ID < 80600 ? 0 : 1);' || return 1
+    local loaded
+    loaded=$(php -m | tr '[:upper:]' '[:lower:]')
+    for extension in "${PHP_EXTENSIONS[@]}"; do
+        grep -qx "$extension" <<<"$loaded" || return 1
+    done
+}
+# PHP 8.5 comes from Ondřej Surý's packages: the ondrej PPA on Ubuntu, packages.sury.org on Debian (an Amp orb is Debian 13,
+# which has no add-apt-repository). Added as a signed-by keyring plus one sources.list.d entry, rewritten whole on every run.
+# APT_ROOT and OS_RELEASE exist for tests against a throwaway root; a real run leaves both unset.
+add_php_source() {
+    . "${OS_RELEASE:-/etc/os-release}"
+    local keyring="${APT_ROOT:-}/usr/share/keyrings/ondrej-php.gpg" list="${APT_ROOT:-}/etc/apt/sources.list.d/ondrej-php.list" key_url repo fingerprint
+    # Each source's signing key is pinned by its primary fingerprint: a download that holds any other key fails closed.
+    case "${ID:-}" in
+        ubuntu) fingerprint=14AA40EC0831756756D7F66C4F4EA0AAE5267A6C
+                key_url="https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x$fingerprint"
+                repo=https://ppa.launchpadcontent.net/ondrej/php/ubuntu ;;
+        debian) fingerprint=15058500A0235D97F5D10063B188E2B695BD4743
+                key_url=https://packages.sury.org/php/apt.gpg; repo=https://packages.sury.org/php/ ;;
+        *) return 1 ;;
+    esac
+    [ -n "${VERSION_CODENAME:-}" ] || return 1
+    command -v curl >/dev/null && command -v gpg >/dev/null || {
+        sudo apt-get update && sudo apt-get install -y ca-certificates curl gnupg || return 1
+    }
+    local tmp; tmp="$(mktemp)"
+    # Armored (keyserver) or binary (sury): --dearmor only the armored one.
+    curl -fsSL "$key_url" -o "$tmp" || { rm -f "$tmp"; return 1; }
+    local found
+    found="$(gpg --show-keys --with-colons "$tmp" 2>/dev/null | awk -F: '/^pub/{p=1; next} /^fpr/&&p{print $10; p=0}')"
+    if [ "$found" != "$fingerprint" ]; then
+        echo "setup: the PHP source's signing key is not $fingerprint (got: ${found:-none}); refusing it" >&2
+        rm -f "$tmp"; return 1
+    fi
+    if grep -q 'BEGIN PGP' "$tmp"; then gpg --dearmor < "$tmp" | sudo tee "$keyring" >/dev/null; else sudo install -m 644 "$tmp" "$keyring"; fi
+    rm -f "$tmp"; sudo chmod 644 "$keyring"
+    echo "deb [signed-by=$keyring] $repo $VERSION_CODENAME main" | sudo tee "$list" >/dev/null
+}
+remove_php_source() { sudo rm -f "${APT_ROOT:-}/etc/apt/sources.list.d/ondrej-php.list" "${APT_ROOT:-}/usr/share/keyrings/ondrej-php.gpg"; }
+# Called as a condition, so a failing step returns nonzero instead of stopping the script. Anywhere add_php_source can't
+# serve, or when the source can't deliver a working 8.5, the distribution's own php packages, accepted at 8.4 or 8.5
+# (composer.json's range); an older one fails here with the version found.
+ppa_php() {
+    add_php_source || { remove_php_source; return 1; }
+    # Another PHP may already own `php`: select 8.5 and check before going on.
+    if sudo apt-get update && sudo apt-get install -y php8.5-cli "${PHP_PACKAGES[@]/#/php8.5-}" unzip \
+        && sudo update-alternatives --set php /usr/bin/php8.5 && php_ready; then
+        return 0
+    fi
+    # A source that can't deliver is removed, so it can't break the fallback's own apt-get update.
+    remove_php_source
+    return 1
+}
+if ! php_ready && ! ppa_php; then
+    echo "setup: no PHP 8.5 from the ondrej/sury source here; installing the distribution's php packages" >&2
+    sudo apt-get update
+    sudo apt-get install -y php-cli "${PHP_PACKAGES[@]/#/php-}" unzip
+    php_ready 80400 || { echo "setup: php is not PHP 8.4 or 8.5 with the required extensions (found: $(php -r 'echo PHP_VERSION;' 2>/dev/null || echo none))" >&2; exit 1; }
+fi
+
+
+composer_ready() {
+    command -v composer >/dev/null || return 1
+    composer --version 2>/dev/null | grep -Eq 'Composer (version )?(2\.([2-9]|[1-9][0-9])|[3-9])\.'
+}
+if ! composer_ready; then
+    curl -sS https://getcomposer.org/installer | php -- --install-dir=/tmp
+    sudo mv /tmp/composer.phar /usr/local/bin/composer
+fi
+
+# Assertions on, as CI's setup-php runs them: Debian's CLI php.ini is the production one (zend.assertions=-1), which compiles out
+# assert() calls, side effects included. Pest writes its generated phpunit.xml inside one, so `pest --no-configuration` breaks without this.
+scan_dir="$(php --ini | sed -n 's/^Scan for additional .ini files in: *//p' | tr -d '"')"
+if [ -n "$scan_dir" ] && [ "$scan_dir" != "(none)" ]; then
+    echo 'zend.assertions=1' | sudo tee "$scan_dir/99-agents-setup.ini" >/dev/null
+fi
+
+# Composer's GitHub token: an Amp orb already has a gh login (and orb-php-setup may have configured Composer from it). Reuse it only
+# when `gh auth token` works and Composer has no token yet; never required, since every dependency is public.
+if command -v gh >/dev/null && ! composer config -g github-oauth.github.com >/dev/null 2>&1; then
+    if gh_token="$(gh auth token 2>/dev/null)" && [ -n "$gh_token" ]; then
+        composer config -g github-oauth.github.com "$gh_token"
+    fi
+    unset gh_token
+fi
+
+# The real-engine cells. CI starts throwaway containers with an empty password; here both servers are local, so each gets a
+# `storyfeed` role (password storyfeed, localhost only, on a disposable single-user VM) that may create databases, which
+# --parallel needs for its per-worker copies. Debian 13 ships MariaDB as its MySQL server, so the mysql cell runs on MariaDB here.
+# Probe for the servers, not the clients: an image can ship psql or mysql without a server.
+if ! compgen -G '/usr/lib/postgresql/*/bin/postgres' >/dev/null || ! command -v mariadbd >/dev/null; then
+    sudo apt-get update
+    sudo apt-get install -y postgresql mariadb-server
+fi
+sudo service postgresql start
+sudo -u postgres psql -tc "select 1 from pg_roles where rolname = 'storyfeed'" | grep -q 1 \
+    || sudo -u postgres psql -c "create role storyfeed"
+sudo -u postgres psql -c "alter role storyfeed login superuser password 'storyfeed'"
+sudo -u postgres psql -tc "select 1 from pg_database where datname = 'storyfeed_test'" | grep -q 1 \
+    || sudo -u postgres createdb -O storyfeed storyfeed_test
+sudo service mariadb start
+sudo mariadb -e "create database if not exists storyfeed_test;
+    create user if not exists 'storyfeed'@'127.0.0.1' identified by 'storyfeed';
+    create user if not exists 'storyfeed'@'localhost' identified by 'storyfeed';
+    grant all on *.* to 'storyfeed'@'127.0.0.1' with grant option;
+    grant all on *.* to 'storyfeed'@'localhost' with grant option;"
+# The environment for each cell, to source (see the README):  set -a; . ~/.storyfeed-pgsql.env; set +a; vendor/bin/pest
+write_env() { (umask 077; printf 'STORYFEED_TEST_DB=%s\nSTORYFEED_TEST_HOST=127.0.0.1\nSTORYFEED_TEST_PORT=%s\nSTORYFEED_TEST_DATABASE=storyfeed_test\nSTORYFEED_TEST_USERNAME=storyfeed\nSTORYFEED_TEST_PASSWORD=storyfeed\n' "$2" "$3" > "$HOME/.storyfeed-$1.env"); }
+write_env pgsql pgsql 5432
+write_env mysql mysql 3306
+write_env mariadb mariadb 3306
+
+composer update --prefer-dist --no-interaction --no-progress

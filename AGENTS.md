@@ -112,3 +112,9 @@ These apply to any agent working from a fresh clone, such as an Amp orb.
 - Open pull requests as **drafts**, titled like a commit subject. The body says what changed, how it was verified, and `Closes #N`.
 - Never merge, push to `main`, tag or release. The maintainer does that.
 - This repository is public: never include secrets, local absolute paths, private app names or internal notes.
+
+## Amp threads
+
+- `.agents/setup` prepares a fresh Amp orb (Debian 13) to run this repo's gates. It needs no secrets, and running it again is safe.
+- The lead's own thread may merge and release on green under the house rules and the standing gos (routine releases ship on green).
+- Helper orbs only branch and open draft pull requests. They never merge, tag or release.

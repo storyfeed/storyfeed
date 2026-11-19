@@ -37,6 +37,23 @@ pattern and rebuilds its architecture from scratch, to close those gaps and edge
 cases and to align with the W3C's
 [Activity Streams 2.0](https://www.w3.org/TR/activitystreams-core/) specification.
 
+## Running a database cell
+
+The suite runs on SQLite by default. CI also runs it on MySQL, PostgreSQL and
+MariaDB. To run one of those locally, set `STORYFEED_TEST_DB` (`mysql`,
+`pgsql` or `mariadb`) and the `STORYFEED_TEST_*` connection variables
+`tests/TestCase.php` reads. On a cloud agent, `.agents/setup` starts local
+servers and writes an environment file for each engine:
+
+```bash
+set -a; . ~/.storyfeed-pgsql.env; set +a
+vendor/bin/pest --parallel --processes=4
+```
+
+Use `~/.storyfeed-mysql.env` or `~/.storyfeed-mariadb.env` for the others.
+Debian ships MariaDB as its MySQL server, so on an orb the mysql cell runs
+against MariaDB. Only CI runs against MySQL 8 itself.
+
 ## Documentation
 
 Installation, recording, reading, grouping and the payload contract are documented
