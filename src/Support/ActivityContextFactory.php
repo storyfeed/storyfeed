@@ -18,23 +18,25 @@ final class ActivityContextFactory
      * @param  string|null  $type  the object type the headline was resolved for (a tombstoned object's former type)
      * @param  WeakMap<Snapshot, array<string, FeedContext>>|null  $contexts  a page's role contexts by snapshot, so
      *                                                                        members sharing an entity decode it once (#258)
+     * @param  (\Closure(string): mixed)|null  $read  how to read one of the activity's attributes; a page reads each once (#268)
      */
-    public static function make(Activity $activity, ?string $feed = null, ?ModelHydrator $hydrator = null, ?string $type = null, ?WeakMap $contexts = null): ActivityContext
+    public static function make(Activity $activity, ?string $feed = null, ?ModelHydrator $hydrator = null, ?string $type = null, ?WeakMap $contexts = null, ?\Closure $read = null): ActivityContext
     {
+        $read ??= fn (string $key): mixed => $activity->getAttribute($key);
         $hydrator ??= new ModelHydrator;
         $roles = [];
 
         foreach (ActivityRoles::PAYLOAD as $role) {
-            $roleType = $activity->{"{$role}_type"};
+            $roleType = $read("{$role}_type");
             /** @var Snapshot|null $snapshot */
-            $snapshot = $roleType === null ? null : $activity->{'cached'.ucfirst($role)};
+            $snapshot = $roleType === null ? null : $read('cached'.ucfirst($role));
             if ($roleType === null) {
                 $roles[$role] = null;
 
                 continue;
             }
 
-            $key = $activity->{"{$role}_id"};
+            $key = $read("{$role}_id");
             $make = fn (): FeedContext => new FeedContext(
                 type: $roleType,
                 key: $key,
@@ -58,10 +60,10 @@ final class ActivityContextFactory
 
         return new ActivityContext(
             ...$roles,
-            data: $activity->data ?? [],
-            verb: $activity->verb,
-            publishedAt: self::immutable($activity->published_at),
-            casts: app(StoryfeedManager::class)->dataCasts($type ?? $activity->object_type, $activity->verb),
+            data: $read('data') ?? [],
+            verb: $read('verb'),
+            publishedAt: self::immutable($read('published_at')),
+            casts: app(StoryfeedManager::class)->dataCasts($type ?? $read('object_type'), $read('verb')),
         );
     }
 

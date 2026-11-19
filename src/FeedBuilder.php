@@ -1494,18 +1494,20 @@ class FeedBuilder
         ));
         $query = reset($relations)->getQuery();
 
-        $ids = $activities->flatMap(fn (Activity $activity) => array_map(
+        // Each activity's snapshot keys, read once: an attribute read through
+        // Eloquent costs more than the rest of this loop (#268).
+        $keys = $activities->map(fn (Activity $activity) => array_map(
             fn (BelongsTo $relation) => $activity->getAttribute($relation->getForeignKeyName()),
-            array_values($relations),
-        ))->filter(fn (mixed $id) => $id !== null)->unique()->values();
+            $relations,
+        ));
+        $ids = $keys->flatten()->filter(fn (mixed $id) => $id !== null)->unique()->values();
 
         $snapshots = $ids->isEmpty()
             ? Collection::make()
             : $query->whereKey($ids->all())->get()->keyBy(fn (Model $snapshot) => (string) $snapshot->getKey());
 
-        foreach ($activities as $activity) {
-            foreach ($relations as $name => $relation) {
-                $id = $activity->getAttribute($relation->getForeignKeyName());
+        foreach ($activities as $n => $activity) {
+            foreach ($keys[$n] as $name => $id) {
                 $activity->setRelation($name, $id === null ? null : $snapshots->get((string) $id));
             }
         }
