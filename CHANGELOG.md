@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- A group headline's noun rung now pluralises a role the axis doesn't pin when every member of the group holds that role with the same type and the app registered a noun for that type, so an object-keyed group can read "Sally uploaded files to :object" or "people uploaded :object" instead of falling to the verb label. Mixed kinds (a user beside a Party) still fall to the label, and a slice that doesn't carry all its members still declines. The payload shape is unchanged. (#236)
+
 ## v0.30.2 - 2026-11-19
 
 ### Changed
