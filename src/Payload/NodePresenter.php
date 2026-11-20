@@ -681,7 +681,13 @@ class NodePresenter
                 continue;
             }
 
-            if (! $this->storyfeed->pinsType($axis, $role)) {
+            // An axis that does not pin the role's type still licenses one
+            // noun when every member shares that type (#236). Only a slice
+            // carrying all its members can vouch for that.
+            // Shared, not pinned, speaks only through a noun the app wrote
+            // for that type: a generic "items" for people is worse than the label.
+            if (! $this->storyfeed->pinsType($axis, $role) && (! $this->sharesType($slice, $role)
+                || ! array_key_exists((string) $this->field($first, "{$role}_type"), $this->storyfeed->registeredNouns()))) {
                 return [null, null];
             }
 
@@ -689,7 +695,7 @@ class NodePresenter
                 return [null, null];
             }
 
-            // The type is pinned by construction, so the head member's alias
+            // The type is pinned or shared, so the head member's alias
             // is every member's alias — the licence for one noun to speak
             // for all of them. The count picks the form; it is never printed.
             $phrase = FeedNoun::form(
@@ -719,6 +725,18 @@ class NodePresenter
         }
 
         return [$entry, null];
+    }
+
+    /** Whether every member of a fully loaded slice holds the role with one type. */
+    protected function sharesType(GroupSlice $slice, string $role): bool
+    {
+        if ($slice->members->count() < $slice->count) {
+            return false;
+        }
+
+        $types = $slice->members->map(fn (Activity $member) => $this->field($member, "{$role}_type"))->unique();
+
+        return $types->count() === 1 && $types->first() !== null;
     }
 
     /**

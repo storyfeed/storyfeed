@@ -284,16 +284,18 @@ it('accepts a translated noun through the wrapper', function () {
         ->toBe(':actor uploaded files');
 });
 
-it('still suppresses a fallback whose role KIND the axis does not pin', function () {
+it('pluralises an unpinned role when every member shares its type, and not when kinds mix (#236)', function (bool $mixed) {
     Story::for('user')->fallback()->noun('person|people');
 
     $project = Customer::create(['name' => 'Concur']);
+    $actors = collect(['Bob', 'Sally', 'Ann'])->map(fn (string $name) => User::firstOrCreate(['email' => strtolower($name).'@example.com'], ['name' => $name]));
+    if ($mixed) {
+        $actors[2] = Storyfeed::party('Importer');
+    }
 
-    foreach (['Bob', 'Sally', 'Ann'] as $name) {
-        $user = User::firstOrCreate(['email' => strtolower($name).'@example.com'], ['name' => $name]);
-
+    foreach ($actors as $actor) {
         Storyfeed::activity()
-            ->actor($user)
+            ->actor($actor)
             ->verb('upload', Delivery::firstOrCreate(['tracking_number' => 'shared.docx']))
             ->for($project)
             ->publish();
@@ -301,14 +303,13 @@ it('still suppresses a fallback whose role KIND the axis does not pin', function
 
     $item = Storyfeed::feed()->get()->toArray()[0];
 
-    // The actors axis pins neither the actor's identity NOR its kind — an
-    // actor can be a user or a Party — so "3 people uploaded 3 files" is a
-    // lie of kind waiting to happen, and it is worse English than the label
-    // it would replace. This group wants an AUTHORED template naming
-    // :actors, and should keep reading as unfinished until it gets one.
+    // The actors axis pins neither the actor's identity nor its kind. When
+    // every member's actor is a user the noun is still true, so it speaks;
+    // a user beside a Party would make "people" a lie of kind, so the
+    // group keeps reading as unfinished until an authored template names it.
     expect($item['axis'])->toBe('actors')
-        ->and($item['headline_template'])->toBeNull();
-});
+        ->and($item['headline_template'])->toBe($mixed ? null : 'people uploaded :object');
+})->with(['one kind' => false, 'mixed kinds' => true]);
 
 it('will not pluralise over a slice that carries no true counts', function () {
     $project = Customer::create(['name' => 'Concur']);
