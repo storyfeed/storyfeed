@@ -68,7 +68,7 @@ final class ReadPathBenchmarkCase extends TestCase
                 return;
             }
             $reports = [];
-            $migration = include __DIR__.'/../database/migrations/add_read_path_indexes_to_feed_groupings_table.php.stub';
+            $migration = include __DIR__.'/../database/migrations/add_winner_index_to_feed_groupings_table.php.stub';
             foreach ($compare ? ['before' => ReadPathOracle::class, 'after' => FeedBuilder::class] : ['after' => FeedBuilder::class] as $label => $builder) {
                 $label === 'before' ? $migration->down() : $migration->up();
                 $report = ReadPathMeasurement::run($builder, function (array $partial) use ($path, &$reports, $label, $seconds): void {

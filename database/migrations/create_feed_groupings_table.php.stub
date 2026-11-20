@@ -30,6 +30,10 @@ return new class extends Migration
             $table->unique(['activity_id', 'bucket']);
             $table->index(['activity_id', 'winner', 'bucket'], 'feed_groupings_activity_winner_index');
             $table->index(['bucket', 'hash', 'activity_id', 'winner'], 'feed_groupings_members_index');
+            // A live read's composite-winner arm (`winner = true AND bucket =
+            // 'composite' AND hash IN ...`). Without it PostgreSQL 18 scans all
+            // of (activity_id, bucket) at 3M rows: 5.9s instead of 4ms (#275).
+            $table->index(['winner', 'bucket', 'hash'], 'feed_groupings_winner_index');
         });
     }
 
