@@ -10,6 +10,7 @@ on:
       - '**.php'
   pull_request:
     paths:
+      - '.github/workflows/fix-php-code-style-issues.yml'
       - 'composer.json'
       - 'README.md'
       - 'CHANGELOG.md'
@@ -33,8 +34,20 @@ jobs:
         with:
           ref: ${{ github.head_ref }}
 
+      # The repo's own pinned Pint, not a prebuilt action image: the action's
+      # image lost mbstring and crashed in Termwind on 2026-11-20.
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.5'
+          extensions: mbstring
+          coverage: none
+
+      - name: Install dependencies
+        run: composer install --no-interaction --no-progress --prefer-dist
+
       - name: Fix PHP code style issues
-        uses: aglipanci/laravel-pint-action@2.6
+        run: vendor/bin/pint
 
       - name: Commit changes
         uses: stefanzweifel/git-auto-commit-action@v7
