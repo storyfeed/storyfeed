@@ -61,6 +61,8 @@ it('builds exactly the audited indexes', function (string $key, array $expected)
         'unique activity_id,bucket',
         'activity_id,winner,bucket',
         'bucket,hash,activity_id,winner',
+        // Restored after the audit: PostgreSQL 18 needs it for live reads at 3M (#275).
+        'winner,bucket,hash',
     ]],
     'meta' => ['meta', ['primary id', 'unique key']],
     'participants' => ['participants', [

@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- Live reads over a whole feed took 2.6–3.2s on PostgreSQL 18 at 3M activities, against a 300ms budget, because v0.23's migration consolidation dropped `feed_groupings (winner, bucket, hash)`. Without it the planner scans all of `(activity_id, bucket)` for the composite-winner arm. The index is back in the create migration, and the new `add_winner_index_to_feed_groupings_table` migration restores it on existing installs (publish and run it). Payloads are unchanged. (#275)
+
 ## v0.30.3 - 2026-11-20
 
 ### Changed

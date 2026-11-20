@@ -54,6 +54,7 @@ class StoryfeedServiceProvider extends PackageServiceProvider
                 'create_feed_batch_locks_table',
                 'create_feed_grouping_bursts_table',
                 'add_bindings_to_feed_activities_table',
+                'add_winner_index_to_feed_groupings_table',
             ])
             ->hasCommands([
                 Console\CacheSnapshotsCommand::class,
