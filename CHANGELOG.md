@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Documentation
+
+- The Boost skill now covers `make:story`, including writing into a module with a fully qualified name (`php artisan make:story 'App\Modules\Billing\Stories\PlanWasChanged'`). A test pins that behaviour. (#285)
+
 ## v0.30.7 - 2026-11-22
 
 ### Changed

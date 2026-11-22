@@ -677,3 +677,19 @@ describe('with a terminal, it asks what the story will describe first', function
         '--invokable' => [['--invokable' => true, '--object' => '*'], "Story::verb('confirm', "],
     ]);
 });
+
+it('writes into a module when given a fully qualified name, and binds that class', function () {
+    Storyfeed::verbs(['comment' => 'Create', 'post' => 'Create']);
+    $path = app()->path('Modules/Billing/Stories/CommentWasPosted.php');
+
+    try {
+        expect(bindingIn(makeStory(['name' => 'App\\Modules\\Billing\\Stories\\CommentWasPosted'])))
+            ->toEndWith('\\App\\Modules\\Billing\\Stories\\CommentWasPosted::class);')
+            ->and(file_get_contents($path))->toContain('namespace App\\Modules\\Billing\\Stories;');
+    } finally {
+        @unlink($path);
+        @rmdir(dirname($path));
+        @rmdir(dirname($path, 2));
+        @rmdir(dirname($path, 3));
+    }
+});
