@@ -60,6 +60,9 @@ class InstallCommand extends Command
             $this->call('migrate');
         }
 
+        $this->components->info('Next: publish from your own domain events. Storyfeed is a side effect, never the source:');
+        $this->line('  php artisan make:feed-event OrderPlaced --verb=place');
+
         return self::SUCCESS;
     }
 

@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Added
+
+- `php artisan make:feed-event` writes a domain event implementing `PublishesToFeed`, and `storyfeed:install` suggests it. A new doctor check, `listeners`, warns about app listeners on `ActivityPublished` or `ActivityDeleted` (`listeners.business`) and notes many inline publishes with no `PublishesToFeed` events (`listeners.inline`). (#279)
+
 ### Changed
 
 - The Boost guideline and skill now lead with publishing from your own domain events through `PublishesToFeed`: Storyfeed is a side effect, never the source. They warn against putting business logic in listeners on `ActivityPublished` or `ActivityDeleted`, which don't fire while recording is off, under `Storyfeed::fake()`, or for an idempotent duplicate. Inline publishing is kept for imports, backfills, commands and one-offs. (#279)

@@ -36,6 +36,8 @@ Payload v1 is stable and evolves additively within payload major 1. The normativ
 
    **Never put business logic in a listener on `Storyfeed\Events\ActivityPublished` or `ActivityDeleted`.** Access rules, billing, subscriptions, emails and notification routing all belong on your own events. Storyfeed's events fire only when a feed row is written: while recording is off (`withoutRecording()`, `stopRecording()` or the config switch), under `Storyfeed::fake()`, or on an idempotent duplicate, they don't fire, so the business logic would silently stop. Use them only for feed presentation, such as cache busting or a live-feed broadcast.
 
+   Scaffold one with `php artisan make:feed-event OrderPlaced --verb=place`; `storyfeed:doctor` warns (`listeners.business`) about app listeners on Storyfeed's events.
+
    Publish inline with the builder only where there is no domain transition: imports, backfills, console commands and one-off records:
 
    ```php
