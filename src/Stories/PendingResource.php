@@ -19,8 +19,8 @@ use Storyfeed\FeedNoun;
  *
  * WITH A CLASS, every public method of it is an action, and its verb is the
  * method name snake-cased (see ResourceClass). A conventional verb the class
- * has no method for keeps its default here; one it has a method for is
- * replaced whole. Adding a method is the whole change: nothing else names
+ * has no method for keeps its default here; a method for one starts from
+ * that default and changes only what it declares. Adding a method is the whole change: nothing else names
  * the verb. `only()` and `except()` name verbs as stored (`confirm_payment`).
  *
  * Each verb gets a headline (`:actor created :object`), an anonymous headline
@@ -214,31 +214,32 @@ final class PendingResource
         $definitions = [];
 
         foreach ($this->verbs($actions) as $verb) {
-            $definition = $this->withMiddleware(Verb::for($this->objectType, $verb, $this->source));
+            $uses = isset($actions[$verb]) ? ResourceClass::uses((string) $this->class, $actions[$verb]['method']) : null;
+            $definition = $this->withMiddleware(Verb::for($this->objectType, $verb, $uses ?? $this->source));
 
-            if (isset($actions[$verb])) {
-                /** @var class-string $class */
-                $class = $this->class;
-                $uses = ResourceClass::uses($class, $actions[$verb]['method']);
+            // A conventional verb starts from its default, and a method for
+            // it changes only what it declares: an update() that sets a
+            // headline keeps the default anonymous headline, icon and, for
+            // removals, the tombstone fallback (#284).
+            if (isset(self::VERBS[$verb])) {
+                [$headline, $anonymous, $icon] = self::VERBS[$verb];
 
-                array_push($definitions, ...$this->named(
-                    ResourceClass::run($class, $actions[$verb]['method'], $this->withMiddleware(Verb::for($this->objectType, $verb, $uses)))
-                        ->fromAction($uses, $actions[$verb]['request']),
-                ));
+                $definition->headline($headline)->anonymousHeadline($anonymous)->icon($icon);
 
-                continue;
+                // Delete and restore are removal verbs: the object they name is
+                // expected to be a tombstone, so it never makes them redundant.
+                // Said explicitly rather than left to their AS2 types, which an
+                // app's own verbs() may map differently.
+                if (in_array($verb, self::REMOVALS, true)) {
+                    $definition->missing();
+                }
             }
 
-            [$headline, $anonymous, $icon] = self::VERBS[$verb];
-
-            $definition->headline($headline)->anonymousHeadline($anonymous)->icon($icon);
-
-            // Delete and restore are removal verbs: the object they name is
-            // expected to be a tombstone, so it never makes them redundant.
-            // Said explicitly rather than left to their AS2 types, which an
-            // app's own verbs() may map differently.
-            if (in_array($verb, self::REMOVALS, true)) {
-                $definition->missing();
+            if ($uses !== null) {
+                /** @var class-string $class */
+                $class = $this->class;
+                $definition = ResourceClass::run($class, $actions[$verb]['method'], $definition)
+                    ->fromAction($uses, $actions[$verb]['request']);
             }
 
             array_push($definitions, ...$this->named($definition));
