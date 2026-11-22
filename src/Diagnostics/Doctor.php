@@ -63,6 +63,7 @@ class Doctor
         Checks\KeepLatest::class,
         Checks\RoleConstraints::class,
         Checks\RequestActions::class,
+        Checks\Listeners::class,
     ];
 
     /**

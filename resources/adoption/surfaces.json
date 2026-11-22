@@ -596,6 +596,10 @@
       "reason": "Package installation, diagnostics, generation or maintenance command; operational tooling rather than an app feed surface."
     },
     {
+      "ref": "Storyfeed\\Console\\FeedEventMakeCommand",
+      "reason": "Package installation, diagnostics, generation or maintenance command; operational tooling rather than an app feed surface."
+    },
+    {
       "ref": "Storyfeed\\Console\\TrickleCommand",
       "reason": "Package installation, diagnostics, generation or maintenance command; operational tooling rather than an app feed surface."
     },
@@ -769,6 +773,10 @@
     },
     {
       "ref": "Storyfeed\\Diagnostics\\Checks\\RequestActions",
+      "reason": "Diagnostic implementation and report types; not an app feed surface."
+    },
+    {
+      "ref": "Storyfeed\\Diagnostics\\Checks\\Listeners",
       "reason": "Diagnostic implementation and report types; not an app feed surface."
     },
     {

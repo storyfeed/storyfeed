@@ -137,3 +137,13 @@ it('names the publish options an app uses against duplicates', function () {
     expect(boostText())->toContain('->idempotent()')
         ->and(boostText())->toContain('Storyfeed::context()');
 });
+
+it('leads agents to publish from domain events and warns against business listeners on ActivityPublished', function () {
+    foreach (['guidelines/core.blade.php', 'skills/storyfeed-development/SKILL.md'] as $file) {
+        $text = file_get_contents(dirname(__DIR__).'/resources/boost/'.$file);
+
+        expect($text)->toContain('Storyfeed is a side effect, never the source')
+            ->and(strpos($text, 'PublishesToFeed'))->toBeLessThan(strpos($text, '->publish()'))
+            ->and($text)->toMatch('/Never put business logic .*ActivityPublished/');
+    }
+});

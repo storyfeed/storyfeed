@@ -1,0 +1,30 @@
+<?php
+
+namespace {{ namespace }};
+
+use Illuminate\Foundation\Events\Dispatchable;
+use Storyfeed\Contracts\PublishesToFeed;
+use Storyfeed\Facades\Storyfeed;
+use Storyfeed\PendingActivity;
+
+/**
+ * A domain event. Dispatch it where the thing happens; business listeners
+ * subscribe to it, and Storyfeed publishes what toFeedActivity() returns.
+ */
+class {{ class }} implements PublishesToFeed
+{
+    use Dispatchable;
+
+    public function __construct()
+    {
+        //
+    }
+
+    /**
+     * The activity to publish, without ->publish(), or null to publish nothing.
+     */
+    public function toFeedActivity(): ?PendingActivity
+    {
+        return Storyfeed::activity()->action('{{ verb }}', null);
+    }
+}

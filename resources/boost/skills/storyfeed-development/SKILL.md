@@ -12,7 +12,33 @@ Storyfeed is pre-1.0. When unsure, read the docs at https://docs.storyfeed.dev, 
 Payload v1 is stable and evolves additively within payload major 1. The normative contract is https://docs.storyfeed.dev/reference/payload-contract. Ignore unknown keys, skip unknown node kinds, and pass cursors unchanged. Cursor pages carry both directions: `prev_cursor` is null on the first page and points towards newer nodes on later pages.
 
 1. **Make every participating model Feedable**: implement `Storyfeed\Contracts\Feedable`, use `Storyfeed\Concerns\InteractsWithFeed`, and return `FeedEntity::make()->label(...)` from `toFeed()`. Without `toFeed()`, a default label comes from attributes such as `name`.
-2. **Publish where the action happens**, in a controller, action or listener:
+2. **Storyfeed is a side effect, never the source.** Your own domain events are the source of truth, and the feed is one subscriber to them. Dispatch an app event where the transition succeeds, and have it implement `Storyfeed\Contracts\PublishesToFeed`. Core's single listener publishes the activity that the event's `toFeedActivity()` returns, or nothing when it returns null:
+
+   ```php
+   use Storyfeed\Contracts\PublishesToFeed;
+   use Storyfeed\Facades\Storyfeed;
+   use Storyfeed\PendingActivity;
+
+   class OrderPlaced implements PublishesToFeed
+   {
+       use \Illuminate\Foundation\Events\Dispatchable;
+
+       public function __construct(public Order $order, public Customer $customer) {}
+
+       public function toFeedActivity(): ?PendingActivity
+       {
+           return Storyfeed::activity()->by($this->customer)->action('place', $this->order)->to($this->order->shop);
+       }
+   }
+
+   OrderPlaced::dispatch($order, $customer); // in the action; business listeners subscribe to OrderPlaced
+   ```
+
+   **Never put business logic in a listener on `Storyfeed\Events\ActivityPublished` or `ActivityDeleted`.** Access rules, billing, subscriptions, emails and notification routing all belong on your own events. Storyfeed's events fire only when a feed row is written: while recording is off (`withoutRecording()`, `stopRecording()` or the config switch), under `Storyfeed::fake()`, or on an idempotent duplicate, they don't fire, so the business logic would silently stop. Use them only for feed presentation, such as cache busting or a live-feed broadcast.
+
+   Scaffold one with `php artisan make:feed-event OrderPlaced --verb=place`; `storyfeed:doctor` warns (`listeners.business`) about app listeners on Storyfeed's events.
+
+   Publish inline with the builder only where there is no domain transition: imports, backfills, console commands and one-off records:
 
    ```php
    use Storyfeed\Facades\Storyfeed;
