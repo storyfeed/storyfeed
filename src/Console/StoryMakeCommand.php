@@ -30,6 +30,7 @@ use function Laravel\Prompts\text;
  *   php artisan make:story DocumentStory --model=Document
  *   php artisan make:story UploadStory --invokable --verb=upload --object=Document
  *   php artisan make:story --from-doctor
+ *   php artisan make:story 'App\Modules\Billing\Stories\PlanWasChanged'   (a module's namespace)
  *
  * THREE SHAPES, chosen by option as make:controller chooses its stub, and
  * in the same order: `--model` first, then `--invokable`, then `--resource`,
