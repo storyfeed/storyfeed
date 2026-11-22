@@ -44,13 +44,13 @@ it('lets a resource class have the verbs a base class would reserve', function (
         ->and(Storyfeed::template('delivery', 'record'))->toBe(':actor recorded :object');
 });
 
-it('replaces a conventional verb whole with its method, and keeps the defaults it has none for', function () {
+it('changes only what a conventional verb\'s method declares, and keeps the rest of its default', function () {
     Story::resource(Delivery::class, DeliveryStory::class);
 
     expect(Storyfeed::template('delivery', 'create'))->toBe(':actor booked :object')
         ->and(Storyfeed::icon('delivery', 'create'))->toBe('truck')
-        // Replaced whole: the default anonymous headline went with it.
-        ->and(Storyfeed::actorlessTemplate('delivery', 'create'))->toBeNull()
+        // Merged, not replaced: the method set no anonymous headline, so the default stays (#284).
+        ->and(Storyfeed::actorlessTemplate('delivery', 'create'))->toBe(':object was created')
         ->and(Storyfeed::template('delivery', 'update'))->toBe(':actor updated :object')
         ->and(Storyfeed::actorlessTemplate('delivery', 'delete'))->toBe(':object was deleted');
 });

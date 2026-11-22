@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- A resource Story class's method for a lifecycle verb (`create`, `update`, `delete`, `restore`) now changes only what it declares and keeps the rest of the default, instead of replacing it whole. An `update()` that sets a headline keeps the default anonymous headline and icon, and an override of `delete` or `restore` keeps its deleted-record fallback. `Story::resource()` still sets up wording for all four verbs, as `Route::resource()` does. (#284)
+
+  **Upgrading:** you can delete any defaults you copied into such a method to keep them. If a method left out a default part on purpose (for example, no anonymous headline), it now gets the default back. Set the part explicitly in that method, or define the verb with `Story::for(...)->verb(...)` and leave it out of the resource with `->except()`.
+
 ## v0.30.6 - 2026-11-22
 
 ### Added
