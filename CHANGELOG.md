@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- Doctor warns (`idempotent.no_index`) when a verb declares `idempotent()` but the activities table has no unique index of the app's own, so the declaration does nothing. (#282)
+- `storyfeed:list` shows each definition's noun and whether it is idempotent, in the table and in `--json`. (#283)
+
 ## v0.30.5 - 2026-11-22
 
 ### Added

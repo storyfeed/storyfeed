@@ -55,7 +55,7 @@ Storyfeed::record(verb: 'place', object: $order, actor: $customer, target: $shop
 </code-snippet>
 @endverbatim
 
-`->queue()` publishes on a worker instead, carrying the signed-in user and any `Storyfeed::actor()` or `Storyfeed::context()` scope. When the app has its own unique index on activities, call `->idempotent()` (or declare `Story::verb('follow')->idempotent()` in routes/feed.php): a duplicate insert then counts as done, so `publish()` returns the unsaved activity and a retried job finishes. Never guard a publish with an `exists()` pre-check, which races.
+`->queue()` publishes on a worker instead, carrying the signed-in user and any `Storyfeed::actor()` or `Storyfeed::context()` scope. When the app has its own unique index on activities, call `->idempotent()` (or declare `Story::verb('follow')->idempotent()` in routes/feed.php): a duplicate insert then counts as done. Without such an index `idempotent()` does nothing, and doctor warns (`idempotent.no_index`), so `publish()` returns the unsaved activity and a retried job finishes. Never guard a publish with an `exists()` pre-check, which races.
 
 ### Headlines in routes/feed.php
 

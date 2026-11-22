@@ -776,6 +776,10 @@
       "reason": "Diagnostic implementation and report types; not an app feed surface."
     },
     {
+      "ref": "Storyfeed\\Diagnostics\\Checks\\Idempotency",
+      "reason": "Diagnostic implementation and report types; not an app feed surface."
+    },
+    {
       "ref": "Storyfeed\\Diagnostics\\Checks\\Listeners",
       "reason": "Diagnostic implementation and report types; not an app feed surface."
     },

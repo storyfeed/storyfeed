@@ -64,6 +64,7 @@ class Doctor
         Checks\RoleConstraints::class,
         Checks\RequestActions::class,
         Checks\Listeners::class,
+        Checks\Idempotency::class,
     ];
 
     /**
