@@ -4,7 +4,7 @@
 
 ### Added
 
-- `php artisan make:feed-event` writes a domain event implementing `PublishesToFeed`, and `storyfeed:install` suggests it. A new doctor check, `listeners`, warns about app listeners on `ActivityPublished` or `ActivityDeleted` (`listeners.business`) and notes many inline publishes with no `PublishesToFeed` events (`listeners.inline`). (#279)
+- `php artisan make:feed-event` writes a domain event implementing `PublishesToFeed`, and `storyfeed:install` suggests it. A new doctor check, `listeners`, warns about app listeners on `ActivityPublished`, `ActivityDeleted` or `BatchClosed` (`listeners.business`) and notes many inline publishes with no `PublishesToFeed` events (`listeners.inline`). (#279)
 
 ### Changed
 

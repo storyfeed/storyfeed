@@ -54,6 +54,10 @@ Use `~/.storyfeed-mysql.env` or `~/.storyfeed-mariadb.env` for the others.
 Debian ships MariaDB as its MySQL server, so on an orb the mysql cell runs
 against MariaDB. Only CI runs against MySQL 8 itself.
 
+## Storyfeed is a side effect
+
+Your own domain events are the source; the feed is one subscriber. Publish from an app event that implements `Storyfeed\Contracts\PublishesToFeed`. Never put business logic in a listener on `ActivityPublished`, `ActivityDeleted` or `BatchClosed`: they fire only when feed rows change, so not while recording is off, under `Storyfeed::fake()`, or for an idempotent duplicate. Use them for feed presentation only. `storyfeed:doctor` warns about app listeners on them.
+
 ## Documentation
 
 Installation, recording, reading, grouping and the payload contract are documented

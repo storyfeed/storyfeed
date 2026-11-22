@@ -8,6 +8,7 @@ use ReflectionFunction;
 use Storyfeed\Diagnostics\Finding;
 use Storyfeed\Events\ActivityDeleted;
 use Storyfeed\Events\ActivityPublished;
+use Storyfeed\Events\BatchClosed;
 use Storyfeed\StoryfeedManager;
 use Storyfeed\Support\SurfaceScanner;
 use Symfony\Component\Finder\Finder;
@@ -16,8 +17,8 @@ use Throwable;
 /**
  * Storyfeed is a side effect, never the source.
  *
- *  - WARNING `listeners.business`: an app listener on ActivityPublished or
- *    ActivityDeleted. Those events fire only when a feed row is written, so
+ *  - WARNING `listeners.business`: an app listener on ActivityPublished, ActivityDeleted or
+ *    BatchClosed. Those events fire only when a feed row is written, so
  *    they do not fire while recording is off, under Storyfeed::fake(), or for
  *    an idempotent duplicate. Logic that must run whenever the thing happens
  *    belongs on the app's own domain event. A listener that only presents the
@@ -44,7 +45,7 @@ class Listeners extends Check
 
     public function run(StoryfeedManager $storyfeed): iterable
     {
-        foreach ([ActivityPublished::class, ActivityDeleted::class] as $event) {
+        foreach ([ActivityPublished::class, ActivityDeleted::class, BatchClosed::class] as $event) {
             foreach ($this->appListeners($event) as $listener) {
                 yield Finding::warning(
                     'listeners.business',

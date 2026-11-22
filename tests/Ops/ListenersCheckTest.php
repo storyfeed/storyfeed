@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Event;
 use Storyfeed\Events\ActivityDeleted;
 use Storyfeed\Events\ActivityPublished;
+use Storyfeed\Events\BatchClosed;
 use Storyfeed\Facades\Storyfeed;
 
 class GrantsAccessOnActivity
@@ -15,10 +16,11 @@ it('warns about app listeners on Storyfeed events and ignores its own', function
 
     Event::listen(ActivityPublished::class, GrantsAccessOnActivity::class);
     Event::listen(ActivityDeleted::class, fn () => null);
+    Event::listen(BatchClosed::class, fn () => null);
 
     $findings = Storyfeed::doctor(['listeners'])->withCode('listeners.business');
 
-    expect($findings)->toHaveCount(2)
+    expect($findings)->toHaveCount(3)
         ->and($findings->first()->message)->toContain('GrantsAccessOnActivity')->toContain('side effect');
 });
 
