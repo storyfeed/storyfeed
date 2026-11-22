@@ -36,6 +36,8 @@ class Order extends Model implements Feedable
 
 ### Publishing activities
 
+Storyfeed is a side effect, never the source. Dispatch your own domain event where the transition succeeds, have it implement `Storyfeed\Contracts\PublishesToFeed`, and return the activity (without `->publish()`) from `toFeedActivity()`; core's listener publishes it. Business listeners subscribe to your event. Never put business logic (access, billing, subscriptions, mail, notification routing) in a listener on `Storyfeed\Events\ActivityPublished` or `ActivityDeleted`: those don't fire while recording is off, under `Storyfeed::fake()`, or for an idempotent duplicate. Use them for feed presentation only. Publish inline with the builder below only for imports, backfills, commands and one-offs.
+
 `by()` sets the actor (defaulting to the signed-in user), `action($verb, $object)` sets the verb and object, and `to()` sets the target. `data()` stores values frozen at publication. Put user-entered text in a headline with `bind()`, never by concatenating it into the template: `->bind('recipient', $name)` fills `:recipient` exactly as entered, with no segments, tokens or markup read from it, and travels in the payload's `bindings`. For a value known only when the feed is read (nothing stored), return `FeedHeadline::make(':actor sent :object to :recipient')->bind('recipient', $name)` from a headline closure; render-time values merge with stored ones and win on a name conflict.
 
 @verbatim

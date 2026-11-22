@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- The Boost guideline and skill now lead with publishing from your own domain events through `PublishesToFeed`: Storyfeed is a side effect, never the source. They warn against putting business logic in listeners on `ActivityPublished` or `ActivityDeleted`, which don't fire while recording is off, under `Storyfeed::fake()`, or for an idempotent duplicate. Inline publishing is kept for imports, backfills, commands and one-offs. (#279)
+
 ## v0.30.4 - 2026-11-20
 
 ### Fixed
