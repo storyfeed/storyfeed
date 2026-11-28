@@ -4,6 +4,7 @@
 
 ### Documentation
 
+- The Boost guideline and skill now warn against adding morph aliases to an existing app for Storyfeed: Laravel's morph map is app-wide, so aliasing `User` breaks polymorphic rows stored under the class name, such as Spatie roles. Storyfeed registers only its own alias. (#293)
 - The Boost skill now covers `make:story`, including writing into a module with a fully qualified name (`php artisan make:story 'App\Modules\Billing\Stories\PlanWasChanged'`). A test pins that behaviour. (#285)
 
 ## v0.30.7 - 2026-11-22
