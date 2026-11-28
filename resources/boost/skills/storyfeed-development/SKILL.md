@@ -159,6 +159,7 @@ FeedEntity::make()
 
 - Do not record a null actor for system work. Use a party for a named non-model participant; a null actor means "unknown".
 - Compare morph types with `getMorphClass()`, never `get_class()`.
+- Do not add morph aliases to an existing app just for Storyfeed. Storyfeed registers only its own alias, and `Storyfeed::requireFeedableMorphMap()` is opt-in. Laravel's morph map is app-wide: aliasing `User` changes its stored type in every polymorphic table, so rows saved under the class name (such as Spatie's `model_has_roles`) stop matching. Migrate those type columns first if you do add one.
 - Keep verbs as stable strings. Renaming a verb leaves old rows under the old name.
 
 ### Optional evidence disclosure

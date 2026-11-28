@@ -11,6 +11,7 @@ Storyfeed records activity feeds for Laravel: an app publishes activities explic
 - Verbs are free-form strings in the base form (`place`, `complete`, `reprice`); the headline turns them into prose.
 - Roles follow Activity Streams 2.0: `actor`, `object`, `target`, `context`, `origin`, `result`, `instrument`.
 - An activity with no actor is anonymous (who did it is unknown). A named non-model participant such as Stripe is a party, not a null actor. Parties are stored in `feed_entities` under the morph alias `storyfeed.entity` (from `storyfeed.morph_alias`), with a `kind` column (`party`; `record` is reserved for non-model objects and nothing writes it yet). Compare with `$party->getMorphClass()`, never a literal alias: an install that kept its tables from before 0.23 pins `storyfeed.party` and `feed_parties`.
+- Do not add morph aliases to an existing app just for Storyfeed: it registers only its own alias, and the morph map is app-wide, so aliasing a model such as `User` re-keys its rows in every polymorphic table (Spatie roles included). Migrate those type columns first if you add one.
 - Run `php artisan storyfeed:doctor` to check definitions against what is recorded.
 
 ### Feedable models
